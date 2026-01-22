@@ -6,6 +6,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { db, initDatabase } from './database.js';
 import { authenticateToken, authorizeRole } from './middleware/auth.js';
+import { processWarcraftLog, isConfigured as isWCLConfigured } from './services/warcraftlogs.js';
 
 const app = express();
 const server = createServer(app);
@@ -642,6 +643,320 @@ app.post('/api/import/roster', authenticateToken, authorizeRole(['admin']), (req
   transaction();
 
   res.json({ message: `Imported ${imported} members` });
+});
+
+// ============================================
+// WARCRAFT LOGS ROUTES
+// ============================================
+
+// Get DKP configuration
+app.get('/api/warcraftlogs/config', authenticateToken, authorizeRole(['admin', 'officer']), (req, res) => {
+  const configs = db.prepare('SELECT * FROM dkp_config').all();
+
+  const configObj = {};
+  for (const config of configs) {
+    configObj[config.config_key] = {
+      value: config.config_value,
+      description: config.description,
+      updatedAt: config.updated_at
+    };
+  }
+
+  res.json({
+    configured: isWCLConfigured(),
+    config: configObj
+  });
+});
+
+// Update DKP configuration
+app.put('/api/warcraftlogs/config', authenticateToken, authorizeRole(['admin']), (req, res) => {
+  const { config_key, config_value } = req.body;
+
+  if (!config_key || config_value === undefined) {
+    return res.status(400).json({ error: 'config_key and config_value required' });
+  }
+
+  db.prepare(`
+    UPDATE dkp_config
+    SET config_value = ?, updated_at = CURRENT_TIMESTAMP, updated_by = ?
+    WHERE config_key = ?
+  `).run(config_value, req.user.userId, config_key);
+
+  res.json({ message: 'Configuration updated', config_key, config_value });
+});
+
+// Preview Warcraft Logs report (before confirming DKP assignment)
+app.post('/api/warcraftlogs/preview', authenticateToken, authorizeRole(['admin', 'officer']), async (req, res) => {
+  try {
+    const { url } = req.body;
+
+    if (!url) {
+      return res.status(400).json({ error: 'URL required' });
+    }
+
+    if (!isWCLConfigured()) {
+      return res.status(503).json({
+        error: 'Warcraft Logs API not configured. Please set credentials in .env'
+      });
+    }
+
+    // Check if report was already processed
+    const reportCode = url.match(/\/reports\/([a-zA-Z0-9]+)/)?.[1] || url;
+    const alreadyProcessed = db.prepare(
+      'SELECT * FROM warcraft_logs_processed WHERE report_code = ?'
+    ).get(reportCode);
+
+    if (alreadyProcessed) {
+      return res.status(409).json({
+        error: 'This report has already been processed',
+        processedAt: alreadyProcessed.processed_at,
+        dkpAssigned: alreadyProcessed.dkp_assigned
+      });
+    }
+
+    // Process the log from Warcraft Logs API
+    const reportData = await processWarcraftLog(url);
+
+    // Get DKP configuration
+    const raidDKP = parseInt(db.prepare(
+      "SELECT config_value FROM dkp_config WHERE config_key = 'raid_attendance_dkp'"
+    ).get()?.config_value || 50);
+
+    const bossBonus = parseInt(db.prepare(
+      "SELECT config_value FROM dkp_config WHERE config_key = 'boss_kill_bonus'"
+    ).get()?.config_value || 10);
+
+    const defaultServer = db.prepare(
+      "SELECT config_value FROM dkp_config WHERE config_key = 'default_server'"
+    ).get()?.config_value || 'Unknown';
+
+    // Match participants with database users
+    const matchResults = [];
+    const anomalies = [];
+
+    for (const participant of reportData.participants) {
+      // Try to find user by character_name (case insensitive)
+      const user = db.prepare(`
+        SELECT u.id, u.username, u.character_name, u.server, md.current_dkp
+        FROM users u
+        LEFT JOIN member_dkp md ON u.id = md.user_id
+        WHERE LOWER(u.character_name) = LOWER(?) AND u.is_active = 1
+      `).get(participant.name);
+
+      if (user) {
+        // Check if server matches (if user has server configured)
+        const serverMatch = !user.server ||
+                           user.server.toLowerCase() === participant.server.toLowerCase() ||
+                           participant.server === 'Unknown';
+
+        matchResults.push({
+          wcl_name: participant.name,
+          wcl_server: participant.server,
+          wcl_class: participant.class,
+          matched: true,
+          user_id: user.id,
+          username: user.username,
+          character_name: user.character_name,
+          current_dkp: user.current_dkp,
+          server_match: serverMatch,
+          dkp_to_assign: raidDKP + (reportData.bossesKilled * bossBonus)
+        });
+
+        if (!serverMatch) {
+          anomalies.push({
+            type: 'server_mismatch',
+            message: `${participant.name}: Servidor en WCL (${participant.server}) no coincide con BD (${user.server})`,
+            participant: participant.name
+          });
+        }
+      } else {
+        // No match found
+        matchResults.push({
+          wcl_name: participant.name,
+          wcl_server: participant.server,
+          wcl_class: participant.class,
+          matched: false,
+          user_id: null,
+          username: null,
+          character_name: null,
+          current_dkp: null,
+          server_match: false,
+          dkp_to_assign: 0
+        });
+
+        anomalies.push({
+          type: 'not_found',
+          message: `${participant.name} (${participant.server}) no encontrado en la base de datos`,
+          participant: participant.name
+        });
+      }
+    }
+
+    const matchedCount = matchResults.filter(r => r.matched).length;
+    const totalDKP = matchResults.reduce((sum, r) => sum + r.dkp_to_assign, 0);
+
+    res.json({
+      report: {
+        code: reportData.code,
+        title: reportData.title,
+        startTime: reportData.startTime,
+        endTime: reportData.endTime,
+        duration: Math.floor(reportData.duration / 60000), // minutes
+        region: reportData.region,
+        guildName: reportData.guildName,
+        participantCount: reportData.participantCount,
+        bossesKilled: reportData.bossesKilled,
+        totalBosses: reportData.totalBosses
+      },
+      dkp_calculation: {
+        base_dkp: raidDKP,
+        boss_bonus: bossBonus,
+        bosses_killed: reportData.bossesKilled,
+        dkp_per_player: raidDKP + (reportData.bossesKilled * bossBonus),
+        total_dkp_to_assign: totalDKP
+      },
+      participants: matchResults,
+      summary: {
+        total_participants: reportData.participantCount,
+        matched: matchedCount,
+        not_matched: reportData.participantCount - matchedCount,
+        anomalies_count: anomalies.length
+      },
+      anomalies,
+      can_proceed: matchedCount > 0
+    });
+
+  } catch (error) {
+    console.error('Error previewing Warcraft Log:', error);
+    res.status(500).json({
+      error: 'Failed to process Warcraft Log',
+      message: error.message
+    });
+  }
+});
+
+// Confirm and assign DKP from Warcraft Logs report
+app.post('/api/warcraftlogs/confirm', authenticateToken, authorizeRole(['admin', 'officer']), async (req, res) => {
+  try {
+    const { reportCode, participants } = req.body;
+
+    if (!reportCode || !participants || !Array.isArray(participants)) {
+      return res.status(400).json({ error: 'reportCode and participants array required' });
+    }
+
+    // Check if already processed
+    const alreadyProcessed = db.prepare(
+      'SELECT * FROM warcraft_logs_processed WHERE report_code = ?'
+    ).get(reportCode);
+
+    if (alreadyProcessed) {
+      return res.status(409).json({
+        error: 'This report has already been processed'
+      });
+    }
+
+    // Filter only matched participants
+    const matchedParticipants = participants.filter(p => p.matched && p.user_id);
+
+    if (matchedParticipants.length === 0) {
+      return res.status(400).json({ error: 'No matched participants to assign DKP' });
+    }
+
+    // Get report title from first preview (or default)
+    const reportTitle = req.body.reportTitle || `Raid ${reportCode}`;
+    const startTime = req.body.startTime || Date.now();
+    const endTime = req.body.endTime || Date.now();
+
+    // Transaction: assign DKP and log everything
+    const transaction = db.transaction(() => {
+      let totalAssigned = 0;
+
+      for (const participant of matchedParticipants) {
+        const dkpAmount = participant.dkp_to_assign;
+
+        // Update DKP
+        db.prepare(`
+          UPDATE member_dkp
+          SET current_dkp = current_dkp + ?,
+              lifetime_gained = lifetime_gained + ?
+          WHERE user_id = ?
+        `).run(dkpAmount, dkpAmount, participant.user_id);
+
+        // Log transaction
+        db.prepare(`
+          INSERT INTO dkp_transactions (user_id, amount, reason, performed_by)
+          VALUES (?, ?, ?, ?)
+        `).run(
+          participant.user_id,
+          dkpAmount,
+          `Warcraft Logs: ${reportTitle}`,
+          req.user.userId
+        );
+
+        totalAssigned += dkpAmount;
+
+        // Emit WebSocket event
+        const newDkp = db.prepare('SELECT current_dkp FROM member_dkp WHERE user_id = ?')
+          .get(participant.user_id)?.current_dkp || 0;
+
+        io.emit('dkp_updated', {
+          userId: participant.user_id,
+          newDkp,
+          amount: dkpAmount
+        });
+      }
+
+      // Mark report as processed
+      db.prepare(`
+        INSERT INTO warcraft_logs_processed
+        (report_code, report_title, start_time, end_time, region, guild_name, participants_count, dkp_assigned, processed_by)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        reportCode,
+        reportTitle,
+        startTime,
+        endTime,
+        req.body.region || 'Unknown',
+        req.body.guildName || null,
+        matchedParticipants.length,
+        totalAssigned,
+        req.user.userId
+      );
+
+      return totalAssigned;
+    });
+
+    const totalDKP = transaction();
+
+    res.json({
+      message: 'DKP assigned successfully from Warcraft Logs',
+      report_code: reportCode,
+      participants_count: matchedParticipants.length,
+      total_dkp_assigned: totalDKP
+    });
+
+  } catch (error) {
+    console.error('Error confirming Warcraft Log:', error);
+    res.status(500).json({
+      error: 'Failed to assign DKP',
+      message: error.message
+    });
+  }
+});
+
+// Get history of processed Warcraft Logs reports
+app.get('/api/warcraftlogs/history', authenticateToken, (req, res) => {
+  const limit = parseInt(req.query.limit) || 50;
+
+  const history = db.prepare(`
+    SELECT wlp.*, u.character_name as processed_by_name
+    FROM warcraft_logs_processed wlp
+    LEFT JOIN users u ON wlp.processed_by = u.id
+    ORDER BY wlp.processed_at DESC
+    LIMIT ?
+  `).all(limit);
+
+  res.json(history);
 });
 
 // ============================================

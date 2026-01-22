@@ -36,6 +36,7 @@ RUN npm ci --only=production && npm cache clean --force
 COPY --from=builder /app/server.js ./
 COPY --from=builder /app/database.js ./
 COPY --from=builder /app/middleware ./middleware
+COPY --from=builder /app/services ./services
 COPY --from=builder /app/utils ./utils
 COPY --from=builder /app/tasks ./tasks
 

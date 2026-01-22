@@ -30,11 +30,20 @@ function initDatabase() {
       character_class TEXT NOT NULL,
       raid_role TEXT DEFAULT 'DPS' CHECK(raid_role IN ('Tank', 'Healer', 'DPS')),
       role TEXT DEFAULT 'raider' CHECK(role IN ('admin', 'officer', 'raider')),
+      server TEXT,
       is_active INTEGER DEFAULT 1,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )
   `);
+
+  // Add server column if it doesn't exist (migration)
+  try {
+    db.exec(`ALTER TABLE users ADD COLUMN server TEXT`);
+    console.log('✅ Added server column to users table');
+  } catch (e) {
+    // Column already exists
+  }
 
   // Member DKP table (separate for easier updates)
   db.exec(`
@@ -123,6 +132,37 @@ function initDatabase() {
     )
   `);
 
+  // Warcraft Logs processed reports (tracking)
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS warcraft_logs_processed (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      report_code TEXT UNIQUE NOT NULL,
+      report_title TEXT,
+      start_time INTEGER,
+      end_time INTEGER,
+      region TEXT,
+      guild_name TEXT,
+      participants_count INTEGER DEFAULT 0,
+      dkp_assigned INTEGER DEFAULT 0,
+      processed_by INTEGER,
+      processed_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (processed_by) REFERENCES users(id) ON DELETE SET NULL
+    )
+  `);
+
+  // DKP Configuration table
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS dkp_config (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      config_key TEXT UNIQUE NOT NULL,
+      config_value TEXT NOT NULL,
+      description TEXT,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_by INTEGER,
+      FOREIGN KEY (updated_by) REFERENCES users(id) ON DELETE SET NULL
+    )
+  `);
+
   // Create indexes for performance
   db.exec(`
     CREATE INDEX IF NOT EXISTS idx_dkp_transactions_user ON dkp_transactions(user_id);
@@ -131,6 +171,7 @@ function initDatabase() {
     CREATE INDEX IF NOT EXISTS idx_auction_bids_auction ON auction_bids(auction_id);
     CREATE INDEX IF NOT EXISTS idx_raid_attendance_raid ON raid_attendance(raid_id);
     CREATE INDEX IF NOT EXISTS idx_raid_attendance_user ON raid_attendance(user_id);
+    CREATE INDEX IF NOT EXISTS idx_warcraftlogs_report_code ON warcraft_logs_processed(report_code);
   `);
 
   // Create default admin user if no users exist
@@ -152,6 +193,30 @@ function initDatabase() {
     `).run(result.lastInsertRowid);
 
     console.log('✅ Default admin created (username: admin, password: admin123)');
+  }
+
+  // Create default DKP configuration if not exists
+  const configCount = db.prepare('SELECT COUNT(*) as count FROM dkp_config').get();
+  if (configCount.count === 0) {
+    console.log('📝 Creating default DKP configuration...');
+
+    const configs = [
+      { key: 'raid_attendance_dkp', value: '50', description: 'DKP base por asistencia a raid' },
+      { key: 'boss_kill_bonus', value: '10', description: 'DKP bonus adicional por cada boss derrotado' },
+      { key: 'default_server', value: 'Ragnaros', description: 'Servidor por defecto de la guild' },
+      { key: 'auto_assign_enabled', value: 'false', description: 'Asignar DKP automáticamente (sin confirmación)' }
+    ];
+
+    const insertConfig = db.prepare(`
+      INSERT INTO dkp_config (config_key, config_value, description)
+      VALUES (?, ?, ?)
+    `);
+
+    for (const config of configs) {
+      insertConfig.run(config.key, config.value, config.description);
+    }
+
+    console.log('✅ Default DKP configuration created');
   }
 
   console.log('✅ Database initialized successfully');
