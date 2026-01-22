@@ -1,3 +1,4 @@
+
 import Database from 'better-sqlite3';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
@@ -14,8 +15,9 @@ try {
 
 const db = new Database(dbPath);
 
-// Enable foreign keys
+// Enable foreign keys and UTF-8
 db.pragma('foreign_keys = ON');
+db.pragma('encoding = "UTF-8"');
 
 function initDatabase() {
   console.log('🗄️  Initializing database...');

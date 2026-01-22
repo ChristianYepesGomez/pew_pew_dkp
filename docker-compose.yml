@@ -29,6 +29,8 @@ services:
       - JWT_SECRET=${JWT_SECRET:-dev-secret-change-in-production}
       - DATABASE_PATH=/app/data/dkp.db
       - FRONTEND_URL=${FRONTEND_URL:-http://localhost:5173}
+      - WARCRAFTLOGS_CLIENT_ID=${WARCRAFTLOGS_CLIENT_ID}
+      - WARCRAFTLOGS_CLIENT_SECRET=${WARCRAFTLOGS_CLIENT_SECRET}
     volumes:
       # Persist SQLite database
       - dkp-data:/app/data
