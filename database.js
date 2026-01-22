@@ -30,21 +30,11 @@ function initDatabase() {
       character_class TEXT NOT NULL,
       raid_role TEXT DEFAULT 'DPS' CHECK(raid_role IN ('Tank', 'Healer', 'DPS')),
       role TEXT DEFAULT 'raider' CHECK(role IN ('admin', 'officer', 'raider')),
-      discord_id TEXT UNIQUE,
-      discord_username TEXT,
       is_active INTEGER DEFAULT 1,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )
   `);
-
-  // Add Discord columns if they don't exist (migration)
-  try {
-    db.exec(`ALTER TABLE users ADD COLUMN discord_id TEXT UNIQUE`);
-    db.exec(`ALTER TABLE users ADD COLUMN discord_username TEXT`);
-  } catch (e) {
-    // Columns already exist, ignore error
-  }
 
   // Member DKP table (separate for easier updates)
   db.exec(`
