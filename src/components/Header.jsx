@@ -1,13 +1,15 @@
 import { useState } from 'react';
-import { t, getCurrentLanguage } from '../i18n';
+import { t, getCurrentLanguage, setLanguage } from '../i18n';
 
 export default function Header({ user, onLogout }) {
   const [lang, setLang] = useState(getCurrentLanguage());
+  const [showLangMenu, setShowLangMenu] = useState(false);
 
-  const toggleLang = () => {
-    const newLang = lang === 'en' ? 'es' : 'en';
+  const changeLang = (newLang) => {
+    setLanguage(newLang);
     setLang(newLang);
-    localStorage.setItem('lang', newLang);
+    setShowLangMenu(false);
+    window.location.reload();
   };
 
   return (
@@ -23,9 +25,21 @@ export default function Header({ user, onLogout }) {
           <span className={`user-role ${user.role}`}>
             {user.role.charAt(0).toUpperCase() + user.role.slice(1)}
           </span>
-          <button onClick={toggleLang} className="btn-icon" title="Language">
-            {lang === 'en' ? '🇪🇸' : '🇬🇧'}
-          </button>
+          <div className="lang-dropdown">
+            <button onClick={() => setShowLangMenu(!showLangMenu)} className="btn-icon" title="Language">
+              {lang === 'en' ? '🇬🇧' : '🇪🇸'}
+            </button>
+            {showLangMenu && (
+              <div className="lang-menu">
+                <button onClick={() => changeLang('en')} className="lang-option">
+                  🇬🇧 English
+                </button>
+                <button onClick={() => changeLang('es')} className="lang-option">
+                  🇪🇸 Español
+                </button>
+              </div>
+            )}
+          </div>
           <button onClick={onLogout} className="btn-icon" title={t('common.logout')}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/>

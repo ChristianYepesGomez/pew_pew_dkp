@@ -3,17 +3,16 @@ import en from './en.json';
 
 const translations = { es, en };
 
-let currentLang = localStorage.getItem('lang') || 'en';
+export const getCurrentLanguage = () => localStorage.getItem('lang') || 'en';
 
 export const setLanguage = (lang) => {
-  currentLang = lang;
   localStorage.setItem('lang', lang);
-  window.location.reload();
 };
 
 export const t = (key) => {
+  const lang = getCurrentLanguage();
   const keys = key.split('.');
-  let value = translations[currentLang];
+  let value = translations[lang];
 
   for (const k of keys) {
     value = value?.[k];
@@ -21,5 +20,3 @@ export const t = (key) => {
 
   return value || key;
 };
-
-export const getCurrentLanguage = () => currentLang;

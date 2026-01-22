@@ -1,3 +1,7 @@
+import { useState } from 'react';
+import AddMemberModal from '../modals/AddMemberModal';
+import AdjustDKPModal from '../modals/AdjustDKPModal';
+
 const CLASS_COLORS = {
   'Warrior': 'warrior',
   'Priest': 'priest',
@@ -10,14 +14,19 @@ const CLASS_COLORS = {
   'Shaman': 'shaman',
 };
 
-export default function RosterTab({ users, user: currentUser }) {
+export default function RosterTab({ users, user: currentUser, onUsersUpdate }) {
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [adjustUser, setAdjustUser] = useState(null);
+
   return (
     <div className="tab-content active">
       <div className="content-header">
         <h2>Raid Roster</h2>
         {(currentUser.role === 'admin' || currentUser.role === 'officer') && (
           <div className="actions">
-            <button className="btn btn-primary">+ Add Member</button>
+            <button className="btn btn-primary" onClick={() => setShowAddModal(true)}>
+              + Add Member
+            </button>
           </div>
         )}
       </div>
@@ -58,7 +67,9 @@ export default function RosterTab({ users, user: currentUser }) {
                 <td className="lifetime-value">{user.lifetimeGained || 0}</td>
                 {(currentUser.role === 'admin' || currentUser.role === 'officer') && (
                   <td>
-                    <button className="btn-icon" title="Adjust DKP">±</button>
+                    <button className="btn-icon" title="Adjust DKP" onClick={() => setAdjustUser(user)}>
+                      ±
+                    </button>
                   </td>
                 )}
               </tr>
@@ -66,6 +77,21 @@ export default function RosterTab({ users, user: currentUser }) {
           </tbody>
         </table>
       </div>
+
+      {showAddModal && (
+        <AddMemberModal
+          onClose={() => setShowAddModal(false)}
+          onSuccess={onUsersUpdate}
+        />
+      )}
+
+      {adjustUser && (
+        <AdjustDKPModal
+          user={adjustUser}
+          onClose={() => setAdjustUser(null)}
+          onSuccess={onUsersUpdate}
+        />
+      )}
     </div>
   );
 }
