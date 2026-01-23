@@ -12,7 +12,10 @@
     
     <!-- Font Awesome: íconos bonitos (escudo, usuario, etc.) -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    
+
+    <!-- Translations -->
+    <script src="translations.js"></script>
+
     <!-- Nuestros estilos personalizados -->
     <style>
         /* CSS básico para personalizar la página */
@@ -78,8 +81,8 @@
             <div class="logo-icon">
                 <i class="fas fa-shield-alt"></i>
             </div>
-            <h2>Pew Pew Kittens with Guns</h2>
-            <p class="text-muted">Inicia sesión para continuar</p>
+            <h2 data-i18n="guild_name">Pew Pew Kittens with Guns</h2>
+            <p class="text-muted" data-i18n="login_title">Inicia sesión para continuar</p>
         </div>
         
         <!-- MENSAJE DE ERROR (oculto al inicio) -->
@@ -93,39 +96,39 @@
             <div class="mb-3">
                 <!-- mb-3 = margin-bottom: 3 (espaciado de Bootstrap) -->
                 <label for="username" class="form-label">
-                    <i class="fas fa-user"></i> Usuario
+                    <i class="fas fa-user"></i> <span data-i18n="username">Usuario</span>
                 </label>
-                <input 
-                    type="text" 
-                    class="form-control" 
-                    id="username" 
-                    placeholder="Ingresa tu usuario"
+                <input
+                    type="text"
+                    class="form-control"
+                    id="username"
+                    data-i18n-placeholder="username"
                     required
                 >
-                <!-- 
+                <!--
                     class="form-control" = estilo de Bootstrap para inputs
                     id="username" = identificador único para usarlo en JavaScript
                     required = HTML5 valida que no esté vacío
                 -->
             </div>
-            
+
             <!-- Campo de CONTRASEÑA -->
             <div class="mb-3">
                 <label for="password" class="form-label">
-                    <i class="fas fa-lock"></i> Contraseña
+                    <i class="fas fa-lock"></i> <span data-i18n="password">Contraseña</span>
                 </label>
-                <input 
-                    type="password" 
-                    class="form-control" 
-                    id="password" 
-                    placeholder="Ingresa tu contraseña"
+                <input
+                    type="password"
+                    class="form-control"
+                    id="password"
+                    data-i18n-placeholder="password"
                     required
                 >
             </div>
-            
+
             <!-- BOTÓN DE SUBMIT -->
             <button type="submit" class="btn btn-primary btn-login">
-                <i class="fas fa-sign-in-alt"></i> Iniciar Sesión
+                <i class="fas fa-sign-in-alt"></i> <span data-i18n="login">Iniciar Sesión</span>
             </button>
             <!-- 
                 type="submit" = al hacer click, ejecuta el evento "submit" del form
@@ -135,8 +138,8 @@
         
         <!-- ENLACE A REGISTRO -->
         <div class="text-center mt-3">
-            <p class="mb-0">¿No tienes cuenta? 
-                <a href="register.html">Regístrate aquí</a>
+            <p class="mb-0"><span data-i18n="no_account">¿No tienes cuenta?</span>
+                <a href="register.html" data-i18n="register_here">Regístrate aquí</a>
             </p>
         </div>
     </div>
@@ -242,40 +245,67 @@
                 
                 if (response.ok) {  // response.ok = true si status 200-299
                     // ¡LOGIN EXITOSO! 🎉
-                    
+
                     // Guardamos el token en localStorage
                     // localStorage = almacenamiento del navegador (persiste al cerrar pestaña)
                     localStorage.setItem('token', data.token);
                     localStorage.setItem('username', data.user.username);
                     localStorage.setItem('role', data.user.role);
-                    
+
                     // Mostramos mensaje de éxito
-                    alert('¡Login exitoso! Bienvenido ' + data.user.characterName);
-                    
+                    const lang = localStorage.getItem('language') || 'es';
+                    const welcomeMsg = lang === 'es' ? '¡Login exitoso! Bienvenido ' : 'Login successful! Welcome ';
+                    alert(welcomeMsg + data.user.characterName);
+
                     // Redirigir al dashboard
                     window.location.href = 'index.html';
                     // window.location.href cambia a otra página
-                    
+
                 } else {
                     // LOGIN FALLÓ
-                    showError(data.error || 'Usuario o contraseña incorrectos');
+                    const lang = localStorage.getItem('language') || 'es';
+                    const errorMsg = lang === 'es' ? 'Usuario o contraseña incorrectos' : 'Invalid username or password';
+                    showError(data.error || errorMsg);
                 }
-                
+
             } catch (error) {
                 // Si hay ERROR de red o el servidor no responde
                 console.error('Error de conexión:', error);
-                showError('No se pudo conectar al servidor. ¿Está corriendo?');
+                const lang = localStorage.getItem('language') || 'es';
+                showError(t('server_connection_error', lang));
             }
         });
         
         // ======================================
+        // MULTI-LANGUAGE SUPPORT
+        // ======================================
+        function initLanguage() {
+            const lang = localStorage.getItem('language') || 'es';
+
+            // Update all elements with data-i18n attribute
+            document.querySelectorAll('[data-i18n]').forEach(element => {
+                const key = element.getAttribute('data-i18n');
+                element.textContent = t(key, lang);
+            });
+
+            // Update all placeholders with data-i18n-placeholder attribute
+            document.querySelectorAll('[data-i18n-placeholder]').forEach(element => {
+                const key = element.getAttribute('data-i18n-placeholder');
+                element.placeholder = t(key, lang);
+            });
+        }
+
+        // ======================================
         // VERIFICAR SI YA ESTÁ LOGUEADO
         // ======================================
-        
+
         // Si ya hay un token guardado, redirigir al dashboard
         if (localStorage.getItem('token')) {
             window.location.href = 'index.html';
         }
+
+        // Initialize language on page load
+        window.addEventListener('load', initLanguage);
     </script>
 </body>
 </html>

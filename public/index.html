@@ -11,6 +11,8 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- Google Fonts - Cinzel -->
     <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&display=swap" rel="stylesheet">
+    <!-- Translations -->
+    <script src="translations.js"></script>
     
     <style>
         /* ================================
@@ -142,7 +144,14 @@
         .connection-status.disconnected {
             background: #f87171;
         }
-        
+
+        /* Language selector */
+        .btn-group .btn.active {
+            background-color: var(--midnight-bright-purple);
+            border-color: var(--midnight-bright-purple);
+            color: white;
+        }
+
         .main-container {
             max-width: 1200px;
             margin: 30px auto;
@@ -459,8 +468,16 @@
                 <span class="me-3">
                     <i class="fas fa-user"></i> <span id="username">Cargando...</span>
                 </span>
-                <button class="btn btn-outline-light btn-sm" onclick="logout()">
-                    <i class="fas fa-sign-out-alt"></i> Salir
+                <div class="btn-group me-2" role="group">
+                    <button type="button" class="btn btn-outline-light btn-sm" onclick="changeLanguage('es')" id="btnLangES">
+                        ES
+                    </button>
+                    <button type="button" class="btn btn-outline-light btn-sm" onclick="changeLanguage('en')" id="btnLangEN">
+                        EN
+                    </button>
+                </div>
+                <button class="btn btn-outline-light btn-sm" onclick="logout()" id="btnLogout">
+                    <i class="fas fa-sign-out-alt"></i> <span data-i18n="logout">Salir</span>
                 </button>
             </div>
         </div>
@@ -473,27 +490,27 @@
         <ul class="nav nav-tabs" id="myTab" role="tablist">
             <li class="nav-item" role="presentation">
                 <button class="nav-link active" id="personaje-tab" data-bs-toggle="tab" data-bs-target="#personaje" type="button">
-                    <i class="fas fa-user-shield"></i> Mi Personaje
+                    <i class="fas fa-user-shield"></i> <span data-i18n="my_character">Mi Personaje</span>
                 </button>
             </li>
             <li class="nav-item" role="presentation">
                 <button class="nav-link" id="miembros-tab" data-bs-toggle="tab" data-bs-target="#miembros" type="button">
-                    <i class="fas fa-users"></i> Miembros
+                    <i class="fas fa-users"></i> <span data-i18n="members">Miembros</span>
                 </button>
             </li>
             <li class="nav-item" role="presentation">
                 <button class="nav-link" id="subasta-tab" data-bs-toggle="tab" data-bs-target="#subasta" type="button">
-                    <i class="fas fa-gavel"></i> Subasta Activa
+                    <i class="fas fa-gavel"></i> <span data-i18n="active_auction">Subasta Activa</span>
                 </button>
             </li>
             <li class="nav-item" role="presentation">
                 <button class="nav-link" id="historial-tab" data-bs-toggle="tab" data-bs-target="#historial" type="button">
-                    <i class="fas fa-history"></i> Historial de Subastas
+                    <i class="fas fa-history"></i> <span data-i18n="auction_history">Historial de Subastas</span>
                 </button>
             </li>
             <li class="nav-item" role="presentation" id="admin-tab-item" style="display: none;">
                 <button class="nav-link" id="admin-tab" data-bs-toggle="tab" data-bs-target="#admin" type="button">
-                    <i class="fas fa-crown"></i> Admin
+                    <i class="fas fa-crown"></i> <span data-i18n="admin">Admin</span>
                 </button>
             </li>
         </ul>
@@ -506,12 +523,12 @@
                 <div class="row fade-in">
                     <div class="col-md-6">
                         <div class="info-card">
-                            <h3><i class="fas fa-user-shield"></i> Información</h3>
+                            <h3><i class="fas fa-user-shield"></i> <span data-i18n="information">Información</span></h3>
                             <div id="characterInfo"></div>
                         </div>
 
                         <div class="info-card">
-                            <h3><i class="fas fa-chart-line"></i> Estadísticas</h3>
+                            <h3><i class="fas fa-chart-line"></i> <span data-i18n="statistics">Estadísticas</span></h3>
                             <div id="statsInfo"></div>
                         </div>
                     </div>
@@ -519,9 +536,9 @@
                     <div class="col-md-6">
                         <div class="info-card">
                             <div class="dkp-badge" onclick="animateDKP()">
-                                <h4>DKP ACTUAL</h4>
+                                <h4 data-i18n="current_dkp">DKP ACTUAL</h4>
                                 <div class="dkp-amount" id="currentDKP">-</div>
-                                <small style="color: #e0e7ff;">Dragon Kill Points</small>
+                                <small style="color: #e0e7ff;" data-i18n="dragon_kill_points">Dragon Kill Points</small>
                             </div>
                         </div>
                     </div>
@@ -531,7 +548,7 @@
                 <div class="row fade-in mt-3">
                     <div class="col-md-12">
                         <div class="info-card">
-                            <h3><i class="fas fa-file-invoice"></i> Mi Historial de DKP</h3>
+                            <h3><i class="fas fa-file-invoice"></i> <span data-i18n="my_dkp_history">Mi Historial de DKP</span></h3>
                             <div id="transactionsList"></div>
                         </div>
                     </div>
@@ -543,8 +560,8 @@
                 <div class="row fade-in">
                     <div class="col-md-12">
                         <div class="info-card">
-                            <h3><i class="fas fa-users"></i> Miembros del Guild</h3>
-                            <div id="membersList">Cargando miembros...</div>
+                            <h3><i class="fas fa-users"></i> <span data-i18n="members_list">Miembros del Guild</span></h3>
+                            <div id="membersList"><span data-i18n="loading">Cargando...</span></div>
                         </div>
                     </div>
                 </div>
@@ -555,20 +572,20 @@
                 <div class="row fade-in">
                     <div class="col-md-12">
                         <div class="info-card">
-                            <h3><i class="fas fa-gavel"></i> Subasta Activa</h3>
+                            <h3><i class="fas fa-gavel"></i> <span data-i18n="active_auction_title">Subasta Activa</span></h3>
                             <div id="auctionContent"></div>
                         </div>
                     </div>
                 </div>
             </div>
-            
+
             <!-- PESTAÑA 4: HISTORIAL DE SUBASTAS -->
             <div class="tab-pane fade" id="historial" role="tabpanel">
                 <div class="row fade-in">
                     <div class="col-md-12">
                         <div class="info-card">
-                            <h3><i class="fas fa-history"></i> Historial de Subastas</h3>
-                            <div id="auctionsHistoryList">Cargando historial...</div>
+                            <h3><i class="fas fa-history"></i> <span data-i18n="auction_history_title">Historial de Subastas</span></h3>
+                            <div id="auctionsHistoryList"><span data-i18n="loading">Cargando...</span></div>
                         </div>
                     </div>
                 </div>
@@ -579,21 +596,21 @@
                 <div class="row fade-in">
                     <div class="col-md-12">
                         <div class="info-card">
-                            <h3><i class="fas fa-crown"></i> Panel de Administración</h3>
+                            <h3><i class="fas fa-crown"></i> <span data-i18n="admin_panel">Panel de Administración</span></h3>
 
                             <!-- Ajuste Masivo -->
                             <div class="mb-4">
-                                <h5><i class="fas fa-users-cog"></i> Ajuste Masivo de DKP (Todos los miembros)</h5>
+                                <h5><i class="fas fa-users-cog"></i> <span data-i18n="bulk_adjustment">Ajuste Masivo de DKP (Todos los miembros)</span></h5>
                                 <div class="row">
                                     <div class="col-md-4">
-                                        <input type="number" id="bulkAmount" class="form-control mb-2" placeholder="Cantidad DKP (+/-)">
+                                        <input type="number" id="bulkAmount" class="form-control mb-2" data-i18n-placeholder="amount">
                                     </div>
                                     <div class="col-md-5">
-                                        <input type="text" id="bulkReason" class="form-control mb-2" placeholder="Motivo (ej: Raid Naxx)">
+                                        <input type="text" id="bulkReason" class="form-control mb-2" data-i18n-placeholder="reason">
                                     </div>
                                     <div class="col-md-3">
                                         <button class="btn btn-success w-100" onclick="bulkAdjustDKP()">
-                                            <i class="fas fa-users"></i> Aplicar a Todos
+                                            <i class="fas fa-users"></i> <span data-i18n="apply_to_all">Aplicar a Todos</span>
                                         </button>
                                     </div>
                                 </div>
@@ -601,14 +618,14 @@
 
                             <!-- Warcraft Logs -->
                             <div class="mb-4">
-                                <h5><i class="fas fa-scroll"></i> Integración Warcraft Logs</h5>
+                                <h5><i class="fas fa-scroll"></i> <span data-i18n="wcl_integration">Integración Warcraft Logs</span></h5>
                                 <div class="row">
                                     <div class="col-md-8">
-                                        <input type="text" id="warcraftLogsURL" class="form-control mb-2" placeholder="URL del log (https://www.warcraftlogs.com/reports/...)">
+                                        <input type="text" id="warcraftLogsURL" class="form-control mb-2" data-i18n-placeholder="wcl_url">
                                     </div>
                                     <div class="col-md-4">
                                         <button class="btn btn-warning w-100" onclick="previewWarcraftLogs()">
-                                            <i class="fas fa-eye"></i> Vista Previa
+                                            <i class="fas fa-eye"></i> <span data-i18n="preview">Vista Previa</span>
                                         </button>
                                     </div>
                                 </div>
@@ -670,7 +687,63 @@
             
             return response;
         }
-        
+
+        // ======================================
+        // MULTI-LANGUAGE SUPPORT
+        // ======================================
+        function changeLanguage(lang) {
+            localStorage.setItem('language', lang);
+            updateLanguage();
+
+            // Update active button
+            document.getElementById('btnLangES').classList.toggle('active', lang === 'es');
+            document.getElementById('btnLangEN').classList.toggle('active', lang === 'en');
+        }
+
+        function updateLanguage() {
+            const lang = localStorage.getItem('language') || 'es';
+
+            // Update all elements with data-i18n attribute
+            document.querySelectorAll('[data-i18n]').forEach(element => {
+                const key = element.getAttribute('data-i18n');
+                element.textContent = t(key, lang);
+            });
+
+            // Update all placeholders with data-i18n-placeholder attribute
+            document.querySelectorAll('[data-i18n-placeholder]').forEach(element => {
+                const key = element.getAttribute('data-i18n-placeholder');
+                element.placeholder = t(key, lang);
+            });
+
+            // Update navbar
+            const navbarBrand = document.querySelector('.navbar-brand');
+            navbarBrand.innerHTML = `<i class="fas fa-moon"></i> ${t('guild_name', lang)}<br><small>${t('midnight_edition', lang)}</small>`;
+
+            // Update connection text
+            const connectionStatus = document.getElementById('connectionStatus');
+            const connectionText = document.getElementById('connectionText');
+            if (connectionStatus.classList.contains('connected')) {
+                connectionText.textContent = lang === 'es' ? 'Conectado' : 'Connected';
+            } else {
+                connectionText.textContent = lang === 'es' ? 'Desconectado' : 'Disconnected';
+            }
+
+            // Reload data to refresh all labels
+            if (currentUser) {
+                loadUserData();
+                loadMembers();
+                loadActiveAuction();
+                loadAuctionsHistory();
+            }
+        }
+
+        function initLanguage() {
+            const lang = localStorage.getItem('language') || 'es';
+            document.getElementById('btnLangES').classList.toggle('active', lang === 'es');
+            document.getElementById('btnLangEN').classList.toggle('active', lang === 'en');
+            updateLanguage();
+        }
+
         // ======================================
         // CARGAR DATOS DEL USUARIO
         // ======================================
@@ -713,24 +786,25 @@
         // MOSTRAR INFO DEL PERSONAJE
         // ======================================
         function mostrarInfoPersonaje(user, dkpData) {
+            const lang = localStorage.getItem('language') || 'es';
             // Info del personaje
             const claseCSS = `class-${(user.characterClass || '').toLowerCase().replace(' ', '-')}`;
 
             document.getElementById('characterInfo').innerHTML = `
-                <p><strong>Nombre:</strong> <span class="${claseCSS}">${user.characterName || '-'}</span></p>
-                <p><strong>Clase:</strong> <span class="${claseCSS}">${user.characterClass || '-'}</span></p>
-                <p><strong>Rol:</strong> <span>${user.raidRole || '-'}</span></p>
-                <p><strong>Rango:</strong> <span class="badge bg-primary">${(user.role || 'raider').toUpperCase()}</span></p>
+                <p><strong>${t('name', lang)}:</strong> <span class="${claseCSS}">${user.characterName || '-'}</span></p>
+                <p><strong>${t('class', lang)}:</strong> <span class="${claseCSS}">${user.characterClass || '-'}</span></p>
+                <p><strong>${t('role', lang)}:</strong> <span>${user.raidRole || '-'}</span></p>
+                <p><strong>${t('rank', lang)}:</strong> <span class="badge bg-primary">${t('role_' + (user.role || 'raider'), lang)}</span></p>
             `;
-            
+
             // DKP actual
             document.getElementById('currentDKP').textContent = dkpData.currentDkp || 0;
-            
+
             // Estadísticas
             document.getElementById('statsInfo').innerHTML = `
-                <p><strong>Total ganado:</strong> <span class="amount-positive">${dkpData.lifetimeGained || 0} DKP</span></p>
-                <p><strong>Total gastado:</strong> <span class="amount-negative">${dkpData.lifetimeSpent || 0} DKP</span></p>
-                <p><strong>Último decay:</strong> <span>${dkpData.lastDecay ? new Date(dkpData.lastDecay).toLocaleDateString() : 'Nunca'}</span></p>
+                <p><strong>${t('total_gained', lang)}:</strong> <span class="amount-positive">${dkpData.lifetimeGained || 0} DKP</span></p>
+                <p><strong>${t('total_spent', lang)}:</strong> <span class="amount-negative">${dkpData.lifetimeSpent || 0} DKP</span></p>
+                <p><strong>${t('last_decay', lang)}:</strong> <span>${dkpData.lastDecay ? new Date(dkpData.lastDecay).toLocaleDateString() : t('never', lang)}</span></p>
             `;
         }
         
@@ -738,10 +812,11 @@
         // MOSTRAR TRANSACCIONES
         // ======================================
         function mostrarTransacciones(transactions) {
+            const lang = localStorage.getItem('language') || 'es';
             const contenedor = document.getElementById('transactionsList');
-            
+
             if (!transactions || transactions.length === 0) {
-                contenedor.innerHTML = '<p class="text-center" style="color: #8888aa;">No hay transacciones aún</p>';
+                contenedor.innerHTML = `<p class="text-center" style="color: #8888aa;">${t('no_transactions', lang)}</p>`;
                 return;
             }
             
@@ -790,45 +865,46 @@
         // CARGAR SUBASTA ACTIVA
         // ======================================
         async function loadActiveAuction() {
+            const lang = localStorage.getItem('language') || 'es';
             try {
                 const response = await fetchWithAuth(`${API_URL}/auctions/active`);
                 if (!response) return;
-                
+
                 const auction = await response.json();
-                
+
                 if (!auction || !auction.id) {
-                    document.getElementById('auctionContent').innerHTML = '<p class="text-center" style="color: #8888aa;">No hay subastas activas en este momento</p>';
+                    document.getElementById('auctionContent').innerHTML = `<p class="text-center" style="color: #8888aa;">${t('no_active_auction', lang)}</p>`;
                     return;
                 }
-                
+
                 // Mostrar subasta
                 document.getElementById('auctionContent').innerHTML = `
                     <div class="alert alert-success">
                         <div class="row align-items-center">
                             <div class="col-md-8">
                                 <h5 class="mb-2">
-                                    <i class="fas fa-gem"></i> 
+                                    <i class="fas fa-gem"></i>
                                     <span style="color: #ff8000; text-shadow: 0 0 15px rgba(255, 128, 0, 1); font-family: 'Cinzel', serif;">
                                         ${auction.item_name}
                                     </span>
                                 </h5>
                                 <p class="mb-1">
-                                    <strong>Puja mínima:</strong> ${auction.min_bid} DKP | 
-                                    <strong>Puja actual:</strong> <span class="amount-negative" style="font-size: 20px;">${auction.current_highest_bid || auction.min_bid} DKP</span>
+                                    <strong>${t('min_bid', lang)}:</strong> ${auction.min_bid} DKP |
+                                    <strong>${t('current_bid', lang)}:</strong> <span class="amount-negative" style="font-size: 20px;">${auction.current_highest_bid || auction.min_bid} DKP</span>
                                 </p>
                             </div>
                             <div class="col-md-4 text-end">
                                 <button class="btn btn-primary btn-lg" onclick="showBidModal(${auction.id}, ${auction.current_highest_bid || auction.min_bid})">
-                                    <i class="fas fa-hand-holding-usd"></i> Pujar Ahora
+                                    <i class="fas fa-hand-holding-usd"></i> ${t('place_bid', lang)}
                                 </button>
                             </div>
                         </div>
                     </div>
                 `;
-                
+
             } catch (error) {
                 console.error('Error cargando subasta:', error);
-                document.getElementById('auctionContent').innerHTML = '<p class="text-center" style="color: #8888aa;">Error al cargar subasta</p>';
+                document.getElementById('auctionContent').innerHTML = `<p class="text-center" style="color: #8888aa;">${t('error', lang)}</p>`;
             }
         }
         
@@ -964,6 +1040,7 @@
         // CARGAR LISTA DE MIEMBROS
         // ======================================
         async function loadMembers() {
+            const lang = localStorage.getItem('language') || 'es';
             try {
                 const response = await fetchWithAuth(`${API_URL}/members`);
                 if (!response) return;
@@ -972,16 +1049,16 @@
                 const contenedor = document.getElementById('membersList');
 
                 if (!members || members.length === 0) {
-                    contenedor.innerHTML = '<p class="text-center" style="color: #8888aa;">No hay miembros registrados</p>';
+                    contenedor.innerHTML = `<p class="text-center" style="color: #8888aa;">${t('no_members', lang)}</p>`;
                     return;
                 }
 
                 const isAdmin = currentUser && (currentUser.role === 'admin' || currentUser.role === 'officer');
 
                 let html = '<div class="table-responsive"><table class="table table-dark table-striped">';
-                html += '<thead><tr><th>Personaje</th><th>Clase</th><th>Rol</th><th>Spec</th><th>DKP</th>';
+                html += `<thead><tr><th>${t('character', lang)}</th><th>${t('class', lang)}</th><th>${t('role', lang)}</th><th>${t('spec', lang)}</th><th>DKP</th>`;
                 if (isAdmin) {
-                    html += '<th>Acciones</th>';
+                    html += `<th>${t('actions', lang)}</th>`;
                 }
                 html += '</tr></thead><tbody>';
 
@@ -1000,13 +1077,13 @@
                         html += `
                             <td>
                                 <div class="btn-group btn-group-sm" role="group">
-                                    <button class="btn btn-success" onclick="quickAdjustDKP(${m.id}, '${m.characterName}', 1)" title="Añadir DKP">
+                                    <button class="btn btn-success" onclick="quickAdjustDKP(${m.id}, '${m.characterName}', 1)" title="${t('add_dkp', lang)}">
                                         <i class="fas fa-plus"></i>
                                     </button>
-                                    <button class="btn btn-danger" onclick="quickAdjustDKP(${m.id}, '${m.characterName}', -1)" title="Restar DKP">
+                                    <button class="btn btn-danger" onclick="quickAdjustDKP(${m.id}, '${m.characterName}', -1)" title="${t('subtract_dkp', lang)}">
                                         <i class="fas fa-minus"></i>
                                     </button>
-                                    <button class="btn btn-primary" onclick="customAdjustDKP(${m.id}, '${m.characterName}')" title="Ajuste personalizado">
+                                    <button class="btn btn-primary" onclick="customAdjustDKP(${m.id}, '${m.characterName}')" title="${t('custom_adjustment', lang)}">
                                         <i class="fas fa-edit"></i>
                                     </button>
                                 </div>
@@ -1044,6 +1121,7 @@
         // CARGAR HISTORIAL DE SUBASTAS
         // ======================================
         async function loadAuctionsHistory() {
+            const lang = localStorage.getItem('language') || 'es';
             try {
                 const response = await fetchWithAuth(`${API_URL}/auctions/history`);
                 if (!response) return;
@@ -1052,14 +1130,14 @@
                 const contenedor = document.getElementById('auctionsHistoryList');
 
                 if (!subastas || subastas.length === 0) {
-                    contenedor.innerHTML = '<p class="text-center" style="color: #8888aa;">No hay subastas en el historial</p>';
+                    contenedor.innerHTML = `<p class="text-center" style="color: #8888aa;">${t('no_auction_history', lang)}</p>`;
                     return;
                 }
 
                 let html = '';
                 subastas.slice(0, 20).forEach(s => {
-                    const winner = s.winner ? `<strong>${s.winner.characterName}</strong> por <strong>${s.winning_bid} DKP</strong>` : 'Sin ganador';
-                    const status = s.status === 'ended' ? 'Finalizada' : 'Cancelada';
+                    const winner = s.winner ? `<strong>${s.winner.characterName}</strong> ${lang === 'es' ? 'por' : 'for'} <strong>${s.winning_bid} DKP</strong>` : t('no_winner', lang);
+                    const status = s.status === 'ended' ? t('completed', lang) : t('cancelled', lang);
                     const statusClass = s.status === 'ended' ? 'text-success' : 'text-warning';
 
                     html += `
@@ -1115,50 +1193,56 @@
         }
 
         async function customAdjustDKP(userId, characterName) {
-            const amount = prompt(`Ajustar DKP para ${characterName}\nIngresa cantidad (+/-):`, '0');
+            const lang = localStorage.getItem('language') || 'es';
+            const promptMsg = lang === 'es' ? `Ajustar DKP para ${characterName}\nIngresa cantidad (+/-):` : `Adjust DKP for ${characterName}\nEnter amount (+/-):`;
+            const amount = prompt(promptMsg, '0');
             if (amount === null) return; // Cancelled
 
             const amountNum = parseInt(amount);
             if (isNaN(amountNum) || amountNum === 0) {
-                alert('Cantidad inválida');
+                alert(lang === 'es' ? 'Cantidad inválida' : 'Invalid amount');
                 return;
             }
 
-            const reason = prompt('Motivo del ajuste:', 'Ajuste manual');
+            const reasonPrompt = lang === 'es' ? 'Motivo del ajuste:' : 'Adjustment reason:';
+            const defaultReason = lang === 'es' ? 'Ajuste manual' : 'Manual adjustment';
+            const reason = prompt(reasonPrompt, defaultReason);
             if (reason === null) return; // Cancelled
 
             try {
                 const response = await fetchWithAuth(`${API_URL}/dkp/adjust`, {
                     method: 'POST',
-                    body: { userId: parseInt(userId), amount: amountNum, reason: reason || 'Ajuste manual' }
+                    body: { userId: parseInt(userId), amount: amountNum, reason: reason || defaultReason }
                 });
 
                 if (response.ok) {
-                    alert(`DKP ajustado: ${amountNum > 0 ? '+' : ''}${amountNum} para ${characterName}`);
+                    alert(t('dkp_adjusted_successfully', lang));
                     loadMembers();
                     // Si el ajuste es al usuario actual, recargar su info
                     if (currentUser && parseInt(userId) === currentUser.id) {
                         loadUserData();
                     }
                 } else {
-                    alert('Error al ajustar DKP');
+                    alert(t('error_adjusting_dkp', lang));
                 }
             } catch (error) {
                 console.error('Error:', error);
-                alert('Error al ajustar DKP');
+                alert(t('error_adjusting_dkp', lang));
             }
         }
 
         async function bulkAdjustDKP() {
+            const lang = localStorage.getItem('language') || 'es';
             const amount = parseInt(document.getElementById('bulkAmount').value);
             const reason = document.getElementById('bulkReason').value;
 
             if (!amount || !reason) {
-                alert('Por favor completa todos los campos');
+                alert(t('please_complete_fields', lang));
                 return;
             }
 
-            if (!confirm(`¿Estás seguro de aplicar ${amount} DKP a TODOS los miembros?`)) {
+            const confirmMsg = lang === 'es' ? `¿Estás seguro de aplicar ${amount} DKP a TODOS los miembros?` : `Are you sure you want to apply ${amount} DKP to ALL members?`;
+            if (!confirm(confirmMsg)) {
                 return;
             }
 
@@ -1174,13 +1258,13 @@
                 });
 
                 if (response.ok) {
-                    alert('DKP ajustado para todos los miembros');
+                    alert(t('dkp_adjusted_for_all', lang));
                     loadMembers();
                     loadUserData(); // Recargar datos del usuario actual
                     document.getElementById('bulkAmount').value = '';
                     document.getElementById('bulkReason').value = '';
                 } else {
-                    alert('Error al ajustar DKP');
+                    alert(t('error_adjusting_dkp', lang));
                 }
             } catch (error) {
                 console.error('Error:', error);
@@ -1189,15 +1273,16 @@
         }
 
         async function previewWarcraftLogs() {
+            const lang = localStorage.getItem('language') || 'es';
             const url = document.getElementById('warcraftLogsURL').value;
 
             if (!url) {
-                alert('Por favor ingresa una URL de Warcraft Logs');
+                alert(t('please_complete_fields', lang));
                 return;
             }
 
             const preview = document.getElementById('warcraftLogsPreview');
-            preview.innerHTML = '<p class="text-info">Procesando...</p>';
+            preview.innerHTML = `<p class="text-info">${t('processing', lang)}</p>`;
 
             try {
                 const response = await fetchWithAuth(`${API_URL}/warcraftlogs/preview`, {
@@ -1207,7 +1292,7 @@
 
                 if (!response.ok) {
                     const error = await response.json();
-                    preview.innerHTML = `<p class="text-danger">Error: ${error.error || 'No se pudo procesar'}</p>`;
+                    preview.innerHTML = `<p class="text-danger">${t('error', lang)}: ${error.error || t('error_processing_wcl', lang)}</p>`;
                     return;
                 }
 
@@ -1218,9 +1303,9 @@
                     <div class="alert alert-info">
                         <h6><i class="fas fa-scroll"></i> ${data.report.title}</h6>
                         <p class="mb-0">
-                            <strong>Bosses:</strong> ${data.report.bossesKilled}/${data.report.totalBosses} |
-                            <strong>Participantes:</strong> ${data.report.participantCount} |
-                            <strong>DKP por jugador:</strong> ${data.dkp_calculation.dkp_per_player}
+                            <strong>${t('bosses', lang)}:</strong> ${data.report.bossesKilled}/${data.report.totalBosses} |
+                            <strong>${t('participants', lang)}:</strong> ${data.report.participantCount} |
+                            <strong>${t('dkp_per_player', lang)}:</strong> ${data.dkp_calculation.dkp_per_player}
                         </p>
                     </div>
                 `;
@@ -1230,8 +1315,8 @@
                 const notMatched = data.participants.filter(p => !p.matched);
 
                 if (matched.length > 0) {
-                    html += '<h6>Jugadores que recibirán DKP:</h6>';
-                    html += '<table class="table table-sm table-dark table-striped"><thead><tr><th>Personaje</th><th>DKP Actual</th><th>DKP a Otorgar</th></tr></thead><tbody>';
+                    html += `<h6>${t('players_to_receive', lang)}:</h6>`;
+                    html += `<table class="table table-sm table-dark table-striped"><thead><tr><th>${t('character', lang)}</th><th>${t('current_dkp_label', lang)}</th><th>${t('dkp_to_grant', lang)}</th></tr></thead><tbody>`;
 
                     matched.forEach(p => {
                         html += `<tr>
@@ -1247,7 +1332,7 @@
                 // Mostrar no encontrados si hay
                 if (notMatched.length > 0) {
                     html += `<div class="alert alert-warning mt-3">
-                        <strong>⚠️ ${notMatched.length} jugadores no encontrados en la BD:</strong>
+                        <strong>⚠️ ${notMatched.length} ${t('not_found_in_db', lang)}:</strong>
                         <ul class="mb-0 mt-2">`;
                     notMatched.forEach(p => {
                         html += `<li>${p.wcl_name} (${p.wcl_server}) - ${p.wcl_class}</li>`;
@@ -1258,21 +1343,22 @@
                 // Botón de confirmar
                 if (data.can_proceed && matched.length > 0) {
                     html += `<button class="btn btn-success mt-3" onclick="confirmWarcraftLogs('${data.report.code}')">
-                        <i class="fas fa-check"></i> Confirmar y Aplicar DKP a ${matched.length} jugadores
+                        <i class="fas fa-check"></i> ${t('confirm_apply_to', lang)} ${matched.length} ${t('players', lang)}
                     </button>`;
                 } else {
-                    html += '<div class="alert alert-danger mt-3">No se puede proceder: no hay jugadores coincidentes</div>';
+                    html += `<div class="alert alert-danger mt-3">${t('cannot_proceed', lang)}</div>`;
                 }
 
                 preview.innerHTML = html;
             } catch (error) {
                 console.error('Error:', error);
-                preview.innerHTML = `<p class="text-danger">Error al procesar Warcraft Logs: ${error.message || 'Error desconocido'}</p>`;
+                preview.innerHTML = `<p class="text-danger">${t('error_processing_wcl', lang)}: ${error.message || t('error', lang)}</p>`;
             }
         }
 
         async function confirmWarcraftLogs(reportId) {
-            if (!confirm('¿Confirmar y aplicar DKP desde Warcraft Logs?')) {
+            const lang = localStorage.getItem('language') || 'es';
+            if (!confirm(t('confirm', lang))) {
                 return;
             }
 
@@ -1283,13 +1369,13 @@
                 });
 
                 if (response.ok) {
-                    alert('DKP aplicado desde Warcraft Logs');
+                    alert(t('dkp_applied_from_wcl', lang));
                     document.getElementById('warcraftLogsURL').value = '';
                     document.getElementById('warcraftLogsPreview').innerHTML = '';
                     loadMembers();
                     loadUserData(); // Recargar datos del usuario actual
                 } else {
-                    alert('Error al aplicar DKP');
+                    alert(t('error_adjusting_dkp', lang));
                 }
             } catch (error) {
                 console.error('Error:', error);
@@ -1311,6 +1397,7 @@
         // ======================================
         window.addEventListener('load', function() {
             console.log('%c🌙 MIDNIGHT EDITION', 'color: #a78bfa; font-size: 24px; font-weight: bold; font-family: Cinzel, serif');
+            initLanguage();
             loadUserData();
             connectSocket();
             loadMembers();
