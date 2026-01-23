@@ -446,7 +446,7 @@
     <nav class="navbar navbar-dark">
         <div class="container-fluid">
             <a class="navbar-brand" href="#">
-                <i class="fas fa-moon"></i> GUILD DKP
+                <i class="fas fa-moon"></i> Pew Pew Kittens with Guns
                 <br>
                 <small>Midnight Edition</small>
             </a>
@@ -477,13 +477,23 @@
                 </button>
             </li>
             <li class="nav-item" role="presentation">
+                <button class="nav-link" id="miembros-tab" data-bs-toggle="tab" data-bs-target="#miembros" type="button">
+                    <i class="fas fa-users"></i> Miembros
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
                 <button class="nav-link" id="subasta-tab" data-bs-toggle="tab" data-bs-target="#subasta" type="button">
                     <i class="fas fa-gavel"></i> Subasta Activa
                 </button>
             </li>
             <li class="nav-item" role="presentation">
                 <button class="nav-link" id="historial-tab" data-bs-toggle="tab" data-bs-target="#historial" type="button">
-                    <i class="fas fa-history"></i> Historial
+                    <i class="fas fa-history"></i> Historial de Subastas
+                </button>
+            </li>
+            <li class="nav-item" role="presentation" id="admin-tab-item" style="display: none;">
+                <button class="nav-link" id="admin-tab" data-bs-toggle="tab" data-bs-target="#admin" type="button">
+                    <i class="fas fa-crown"></i> Admin
                 </button>
             </li>
         </ul>
@@ -499,13 +509,13 @@
                             <h3><i class="fas fa-user-shield"></i> Información</h3>
                             <div id="characterInfo"></div>
                         </div>
-                        
+
                         <div class="info-card">
                             <h3><i class="fas fa-chart-line"></i> Estadísticas</h3>
                             <div id="statsInfo"></div>
                         </div>
                     </div>
-                    
+
                     <div class="col-md-6">
                         <div class="info-card">
                             <div class="dkp-badge" onclick="animateDKP()">
@@ -516,9 +526,31 @@
                         </div>
                     </div>
                 </div>
+
+                <!-- Historial personal de DKP -->
+                <div class="row fade-in mt-3">
+                    <div class="col-md-12">
+                        <div class="info-card">
+                            <h3><i class="fas fa-file-invoice"></i> Mi Historial de DKP</h3>
+                            <div id="transactionsList"></div>
+                        </div>
+                    </div>
+                </div>
             </div>
             
-            <!-- PESTAÑA 2: SUBASTA ACTIVA -->
+            <!-- PESTAÑA 2: MIEMBROS -->
+            <div class="tab-pane fade" id="miembros" role="tabpanel">
+                <div class="row fade-in">
+                    <div class="col-md-12">
+                        <div class="info-card">
+                            <h3><i class="fas fa-users"></i> Miembros del Guild</h3>
+                            <div id="membersList">Cargando miembros...</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PESTAÑA 3: SUBASTA ACTIVA -->
             <div class="tab-pane fade" id="subasta" role="tabpanel">
                 <div class="row fade-in">
                     <div class="col-md-12">
@@ -530,32 +562,102 @@
                 </div>
             </div>
             
-            <!-- PESTAÑA 3: HISTORIAL -->
+            <!-- PESTAÑA 4: HISTORIAL DE SUBASTAS -->
             <div class="tab-pane fade" id="historial" role="tabpanel">
                 <div class="row fade-in">
                     <div class="col-md-12">
                         <div class="info-card">
-                            <h3><i class="fas fa-history"></i> Historial de Transacciones DKP</h3>
-                            <div id="transactionsList"></div>
+                            <h3><i class="fas fa-history"></i> Historial de Subastas</h3>
+                            <div id="auctionsHistoryList">Cargando historial...</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PESTAÑA 5: ADMIN (Solo para admin/officer) -->
+            <div class="tab-pane fade" id="admin" role="tabpanel">
+                <div class="row fade-in">
+                    <div class="col-md-12">
+                        <div class="info-card">
+                            <h3><i class="fas fa-crown"></i> Panel de Administración</h3>
+
+                            <!-- Ajuste Manual de DKP -->
+                            <div class="mb-4">
+                                <h5><i class="fas fa-coins"></i> Ajuste Manual de DKP</h5>
+                                <div class="row">
+                                    <div class="col-md-4">
+                                        <select id="adjustMember" class="form-select mb-2">
+                                            <option value="">Selecciona un miembro...</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <input type="number" id="adjustAmount" class="form-control mb-2" placeholder="Cantidad DKP (+/-)">
+                                    </div>
+                                    <div class="col-md-3">
+                                        <input type="text" id="adjustReason" class="form-control mb-2" placeholder="Motivo">
+                                    </div>
+                                    <div class="col-md-2">
+                                        <button class="btn btn-primary w-100" onclick="adjustDKP()">
+                                            <i class="fas fa-plus"></i> Ajustar
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Ajuste Masivo -->
+                            <div class="mb-4">
+                                <h5><i class="fas fa-users-cog"></i> Ajuste Masivo (Todos)</h5>
+                                <div class="row">
+                                    <div class="col-md-4">
+                                        <input type="number" id="bulkAmount" class="form-control mb-2" placeholder="Cantidad DKP (+/-)">
+                                    </div>
+                                    <div class="col-md-5">
+                                        <input type="text" id="bulkReason" class="form-control mb-2" placeholder="Motivo (ej: Raid Naxx)">
+                                    </div>
+                                    <div class="col-md-3">
+                                        <button class="btn btn-success w-100" onclick="bulkAdjustDKP()">
+                                            <i class="fas fa-users"></i> Aplicar a Todos
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Warcraft Logs -->
+                            <div class="mb-4">
+                                <h5><i class="fas fa-scroll"></i> Integración Warcraft Logs</h5>
+                                <div class="row">
+                                    <div class="col-md-8">
+                                        <input type="text" id="warcraftLogsURL" class="form-control mb-2" placeholder="URL del log (https://www.warcraftlogs.com/reports/...)">
+                                    </div>
+                                    <div class="col-md-4">
+                                        <button class="btn btn-warning w-100" onclick="previewWarcraftLogs()">
+                                            <i class="fas fa-eye"></i> Vista Previa
+                                        </button>
+                                    </div>
+                                </div>
+                                <div id="warcraftLogsPreview" class="mt-3"></div>
+                            </div>
+
+                            <!-- Decay DKP -->
+                            <div class="mb-4">
+                                <h5><i class="fas fa-percentage"></i> Aplicar Decay de DKP</h5>
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <input type="number" id="decayPercentage" class="form-control mb-2" placeholder="Porcentaje (ej: 10)" min="1" max="100">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <button class="btn btn-danger w-100" onclick="applyDecay()">
+                                            <i class="fas fa-exclamation-triangle"></i> Aplicar Decay
+                                        </button>
+                                    </div>
+                                </div>
+                                <small class="text-muted">Reducir DKP de todos los miembros por un porcentaje</small>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
             
-        </div>
-        
-        <!-- Botones navegación -->
-        <div class="row mt-4">
-            <div class="col-md-12">
-                <div class="d-grid gap-3 d-md-flex justify-content-md-center">
-                    <a href="members.html" class="btn btn-primary btn-lg">
-                        <i class="fas fa-users"></i> Ver Miembros del Guild
-                    </a>
-                    <a href="auctions.html" class="btn btn-success btn-lg">
-                        <i class="fas fa-gavel"></i> Historial de Subastas
-                    </a>
-                </div>
-            </div>
         </div>
     </div>
     
@@ -636,6 +738,9 @@
 
                 // Cargar subasta activa
                 await loadActiveAuction();
+
+                // Verificar acceso admin
+                checkAdminAccess();
 
             } catch (error) {
                 console.error('Error cargando datos del usuario:', error);
@@ -895,12 +1000,300 @@
         }
         
         // ======================================
+        // CARGAR LISTA DE MIEMBROS
+        // ======================================
+        async function loadMembers() {
+            try {
+                const response = await fetchWithAuth(`${API_URL}/members`);
+                if (!response) return;
+
+                const members = await response.json();
+                const contenedor = document.getElementById('membersList');
+
+                if (!members || members.length === 0) {
+                    contenedor.innerHTML = '<p class="text-center" style="color: #8888aa;">No hay miembros registrados</p>';
+                    return;
+                }
+
+                let html = '<div class="table-responsive"><table class="table table-dark table-striped">';
+                html += '<thead><tr><th>Personaje</th><th>Clase</th><th>Rol</th><th>Spec</th><th>DKP</th></tr></thead><tbody>';
+
+                members.forEach(m => {
+                    const classColor = getClassColor(m.characterClass);
+                    html += `
+                        <tr>
+                            <td><strong style="color: ${classColor};">${m.characterName}</strong></td>
+                            <td style="color: ${classColor};">${m.characterClass}</td>
+                            <td>${m.raidRole || 'DPS'}</td>
+                            <td>${m.spec || '-'}</td>
+                            <td><strong>${m.currentDkp || 0}</strong> DKP</td>
+                        </tr>
+                    `;
+                });
+
+                html += '</tbody></table></div>';
+                contenedor.innerHTML = html;
+
+                // Llenar select de admin
+                if (currentUser && (currentUser.role === 'admin' || currentUser.role === 'officer')) {
+                    const select = document.getElementById('adjustMember');
+                    select.innerHTML = '<option value="">Selecciona un miembro...</option>';
+                    members.forEach(m => {
+                        select.innerHTML += `<option value="${m.id}">${m.characterName} (${m.currentDkp} DKP)</option>`;
+                    });
+                }
+            } catch (error) {
+                console.error('Error cargando miembros:', error);
+            }
+        }
+
+        function getClassColor(className) {
+            const colors = {
+                'Warrior': '#C79C6E',
+                'Paladin': '#F58CBA',
+                'Hunter': '#ABD473',
+                'Rogue': '#FFF569',
+                'Priest': '#FFFFFF',
+                'Shaman': '#0070DE',
+                'Mage': '#40C7EB',
+                'Warlock': '#8788EE',
+                'Druid': '#FF7D0A',
+                'Death Knight': '#C41F3B'
+            };
+            return colors[className] || '#FFFFFF';
+        }
+
+        // ======================================
+        // CARGAR HISTORIAL DE SUBASTAS
+        // ======================================
+        async function loadAuctionsHistory() {
+            try {
+                const response = await fetchWithAuth(`${API_URL}/auctions/history`);
+                if (!response) return;
+
+                const subastas = await response.json();
+                const contenedor = document.getElementById('auctionsHistoryList');
+
+                if (!subastas || subastas.length === 0) {
+                    contenedor.innerHTML = '<p class="text-center" style="color: #8888aa;">No hay subastas en el historial</p>';
+                    return;
+                }
+
+                let html = '';
+                subastas.slice(0, 20).forEach(s => {
+                    const winner = s.winner ? `<strong>${s.winner.characterName}</strong> por <strong>${s.winning_bid} DKP</strong>` : 'Sin ganador';
+                    const status = s.status === 'ended' ? 'Finalizada' : 'Cancelada';
+                    const statusClass = s.status === 'ended' ? 'text-success' : 'text-warning';
+
+                    html += `
+                        <div class="transaction-row">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <i class="fas fa-gavel" style="color: var(--midnight-glow); margin-right: 10px;"></i>
+                                    <strong>${s.item_name}</strong>
+                                    <br>
+                                    <small style="color: #a5b4fc; margin-left: 28px;">
+                                        ${winner} | <span class="${statusClass}">${status}</span>
+                                    </small>
+                                </div>
+                                <div style="text-align: right;">
+                                    <small style="color: #8888aa;">${new Date(s.created_at).toLocaleDateString()}</small>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+
+                contenedor.innerHTML = html;
+            } catch (error) {
+                console.error('Error cargando historial:', error);
+            }
+        }
+
+        // ======================================
+        // FUNCIONES DE ADMIN
+        // ======================================
+        async function adjustDKP() {
+            const userId = document.getElementById('adjustMember').value;
+            const amount = parseInt(document.getElementById('adjustAmount').value);
+            const reason = document.getElementById('adjustReason').value;
+
+            if (!userId || !amount) {
+                alert('Por favor completa todos los campos');
+                return;
+            }
+
+            try {
+                const response = await fetchWithAuth(`${API_URL}/dkp/adjust`, {
+                    method: 'POST',
+                    body: { userId: parseInt(userId), amount, reason: reason || 'Ajuste manual' }
+                });
+
+                if (response.ok) {
+                    alert('DKP ajustado correctamente');
+                    loadMembers();
+                    document.getElementById('adjustAmount').value = '';
+                    document.getElementById('adjustReason').value = '';
+                } else {
+                    alert('Error al ajustar DKP');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Error al ajustar DKP');
+            }
+        }
+
+        async function bulkAdjustDKP() {
+            const amount = parseInt(document.getElementById('bulkAmount').value);
+            const reason = document.getElementById('bulkReason').value;
+
+            if (!amount || !reason) {
+                alert('Por favor completa todos los campos');
+                return;
+            }
+
+            if (!confirm(`¿Estás seguro de aplicar ${amount} DKP a TODOS los miembros?`)) {
+                return;
+            }
+
+            try {
+                // Obtener todos los IDs
+                const membersResp = await fetchWithAuth(`${API_URL}/members`);
+                const members = await membersResp.json();
+                const userIds = members.map(m => m.id);
+
+                const response = await fetchWithAuth(`${API_URL}/dkp/bulk-adjust`, {
+                    method: 'POST',
+                    body: { userIds, amount, reason }
+                });
+
+                if (response.ok) {
+                    alert('DKP ajustado para todos los miembros');
+                    loadMembers();
+                    document.getElementById('bulkAmount').value = '';
+                    document.getElementById('bulkReason').value = '';
+                } else {
+                    alert('Error al ajustar DKP');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Error al ajustar DKP');
+            }
+        }
+
+        async function previewWarcraftLogs() {
+            const url = document.getElementById('warcraftLogsURL').value;
+
+            if (!url) {
+                alert('Por favor ingresa una URL de Warcraft Logs');
+                return;
+            }
+
+            const preview = document.getElementById('warcraftLogsPreview');
+            preview.innerHTML = '<p class="text-info">Procesando...</p>';
+
+            try {
+                const response = await fetchWithAuth(`${API_URL}/warcraftlogs/preview`, {
+                    method: 'POST',
+                    body: { url }
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    preview.innerHTML = `<p class="text-danger">Error: ${error.error || 'No se pudo procesar'}</p>`;
+                    return;
+                }
+
+                const data = await response.json();
+                let html = '<h6>Vista Previa:</h6><table class="table table-sm table-dark"><thead><tr><th>Personaje</th><th>DKP a Otorgar</th></tr></thead><tbody>';
+
+                data.preview.forEach(p => {
+                    html += `<tr><td>${p.characterName}</td><td>+${p.dkpToGrant} DKP</td></tr>`;
+                });
+
+                html += '</tbody></table>';
+                html += `<button class="btn btn-success" onclick="confirmWarcraftLogs('${data.reportId}')">Confirmar y Aplicar DKP</button>`;
+
+                preview.innerHTML = html;
+            } catch (error) {
+                console.error('Error:', error);
+                preview.innerHTML = '<p class="text-danger">Error al procesar Warcraft Logs</p>';
+            }
+        }
+
+        async function confirmWarcraftLogs(reportId) {
+            if (!confirm('¿Confirmar y aplicar DKP desde Warcraft Logs?')) {
+                return;
+            }
+
+            try {
+                const response = await fetchWithAuth(`${API_URL}/warcraftlogs/confirm`, {
+                    method: 'POST',
+                    body: { reportId }
+                });
+
+                if (response.ok) {
+                    alert('DKP aplicado desde Warcraft Logs');
+                    document.getElementById('warcraftLogsURL').value = '';
+                    document.getElementById('warcraftLogsPreview').innerHTML = '';
+                    loadMembers();
+                } else {
+                    alert('Error al aplicar DKP');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Error al aplicar DKP');
+            }
+        }
+
+        async function applyDecay() {
+            const percentage = parseInt(document.getElementById('decayPercentage').value);
+
+            if (!percentage || percentage <= 0 || percentage > 100) {
+                alert('Por favor ingresa un porcentaje válido (1-100)');
+                return;
+            }
+
+            if (!confirm(`¿Estás SEGURO de aplicar un decay del ${percentage}% a TODOS los miembros? Esta acción NO se puede deshacer.`)) {
+                return;
+            }
+
+            try {
+                const response = await fetchWithAuth(`${API_URL}/dkp/decay`, {
+                    method: 'POST',
+                    body: { percentage }
+                });
+
+                if (response.ok) {
+                    alert(`Decay del ${percentage}% aplicado a todos los miembros`);
+                    loadMembers();
+                    document.getElementById('decayPercentage').value = '';
+                } else {
+                    alert('Error al aplicar decay');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Error al aplicar decay');
+            }
+        }
+
+        // Mostrar pestaña de admin si es admin/officer
+        function checkAdminAccess() {
+            if (currentUser && (currentUser.role === 'admin' || currentUser.role === 'officer')) {
+                document.getElementById('admin-tab-item').style.display = 'block';
+                loadMembers(); // Cargar miembros para el dropdown
+            }
+        }
+
+        // ======================================
         // INICIALIZACIÓN
         // ======================================
         window.addEventListener('load', function() {
             console.log('%c🌙 MIDNIGHT EDITION', 'color: #a78bfa; font-size: 24px; font-weight: bold; font-family: Cinzel, serif');
             loadUserData();
             connectSocket();
+            loadMembers();
+            loadAuctionsHistory();
         });
         
         window.addEventListener('beforeunload', function() {
