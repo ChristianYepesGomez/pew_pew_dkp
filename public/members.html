@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DKP System - Miembros Midnight</title>
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        /* ================================
+           TEMA MIDNIGHT
+           ================================ */
+        :root {
+            --midnight-purple: #6b2d8f;
+            --midnight-blue: #1a1a3e;
+            --midnight-dark: #0d0d1e;
+            --midnight-accent: #9d4edd;
+            --midnight-light: #c77dff;
+            --glow-purple: rgba(157, 78, 221, 0.5);
+        }
+        
+        body {
+            background: linear-gradient(135deg, var(--midnight-dark) 0%, var(--midnight-blue) 50%, var(--midnight-purple) 100%);
+            background-attachment: fixed;
+            min-height: 100vh;
+            font-family: 'Arial', sans-serif;
+            color: #e0e0e0;
+        }
+        
+        /* Efecto de estrellas */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: 
+                radial-gradient(2px 2px at 20% 30%, white, transparent),
+                radial-gradient(2px 2px at 60% 70%, white, transparent),
+                radial-gradient(1px 1px at 50% 50%, white, transparent),
+                radial-gradient(1px 1px at 80% 10%, white, transparent),
+                radial-gradient(2px 2px at 90% 60%, white, transparent);
+            background-size: 200% 200%;
+            animation: twinkle 8s ease-in-out infinite;
+            pointer-events: none;
+            opacity: 0.6;
+            z-index: 0;
+        }
+        
+        @keyframes twinkle {
+            0%, 100% { opacity: 0.6; }
+            50% { opacity: 0.3; }
+        }
+        
+        * {
+            position: relative;
+            z-index: 1;
+        }
+        
+        /* ================================
+           NAVBAR
+           ================================ */
+        .navbar {
+            background: linear-gradient(135deg, var(--midnight-dark) 0%, var(--midnight-purple) 100%);
+            box-shadow: 0 4px 20px rgba(157, 78, 221, 0.3);
+            border-bottom: 2px solid var(--midnight-accent);
+        }
+        
+        .navbar-brand {
+            color: var(--midnight-light) !important;
+            font-weight: bold;
+            font-size: 24px;
+            text-shadow: 0 0 10px var(--glow-purple);
+        }
+        
+        /* ================================
+           CONTENEDOR
+           ================================ */
+        .main-container {
+            max-width: 1400px;
+            margin: 30px auto;
+            padding: 0 15px;
+        }
+        
+        .info-card {
+            background: rgba(26, 26, 62, 0.85);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            box-shadow: 0 8px 32px rgba(157, 78, 221, 0.2);
+            border: 1px solid rgba(157, 78, 221, 0.3);
+            padding: 25px;
+            margin-bottom: 20px;
+        }
+        
+        .info-card h3 {
+            color: var(--midnight-light);
+            margin-bottom: 20px;
+            text-shadow: 0 0 10px var(--glow-purple);
+        }
+        
+        /* ================================
+           TABLA
+           ================================ */
+        .member-table {
+            width: 100%;
+        }
+        
+        .member-table th {
+            background: linear-gradient(135deg, var(--midnight-purple) 0%, var(--midnight-accent) 100%);
+            color: white;
+            padding: 12px;
+            text-align: left;
+            cursor: pointer;
+            user-select: none;
+            border: none;
+            text-shadow: 0 0 5px rgba(0, 0, 0, 0.5);
+        }
+        
+        .member-table th:hover {
+            background: linear-gradient(135deg, var(--midnight-accent) 0%, var(--midnight-light) 100%);
+        }
+        
+        .member-table th:first-child {
+            border-top-left-radius: 10px;
+        }
+        
+        .member-table th:last-child {
+            border-top-right-radius: 10px;
+        }
+        
+        .member-table td {
+            padding: 12px;
+            border-bottom: 1px solid rgba(157, 78, 221, 0.2);
+            color: #b8b8d1;
+        }
+        
+        .member-table tr:hover {
+            background: rgba(157, 78, 221, 0.1);
+        }
+        
+        /* ================================
+           COLORES DE CLASES WOW
+           ================================ */
+        .class-warrior { color: #C79C6E; font-weight: bold; text-shadow: 0 0 8px rgba(199, 156, 110, 0.5); }
+        .class-paladin { color: #F58CBA; font-weight: bold; text-shadow: 0 0 8px rgba(245, 140, 186, 0.5); }
+        .class-hunter { color: #ABD473; font-weight: bold; text-shadow: 0 0 8px rgba(171, 212, 115, 0.5); }
+        .class-rogue { color: #FFF569; font-weight: bold; text-shadow: 0 0 8px rgba(255, 245, 105, 0.5); }
+        .class-priest { color: #FFFFFF; font-weight: bold; text-shadow: 0 0 10px rgba(255, 255, 255, 0.7); }
+        .class-shaman { color: #0070DE; font-weight: bold; text-shadow: 0 0 8px rgba(0, 112, 222, 0.5); }
+        .class-mage { color: #69CCF0; font-weight: bold; text-shadow: 0 0 8px rgba(105, 204, 240, 0.5); }
+        .class-warlock { color: #9482C9; font-weight: bold; text-shadow: 0 0 8px rgba(148, 130, 201, 0.5); }
+        .class-druid { color: #FF7D0A; font-weight: bold; text-shadow: 0 0 8px rgba(255, 125, 10, 0.5); }
+        .class-death-knight { color: #C41F3B; font-weight: bold; text-shadow: 0 0 8px rgba(196, 31, 59, 0.5); }
+        .class-demon-hunter { color: #A330C9; font-weight: bold; text-shadow: 0 0 8px rgba(163, 48, 201, 0.5); }
+        .class-monk { color: #00FF96; font-weight: bold; text-shadow: 0 0 8px rgba(0, 255, 150, 0.5); }
+        
+        /* ================================
+           BADGES
+           ================================ */
+        .role-badge {
+            padding: 5px 10px;
+            border-radius: 5px;
+            font-size: 12px;
+            font-weight: bold;
+            text-shadow: 0 0 5px rgba(0, 0, 0, 0.5);
+        }
+        
+        .role-tank { 
+            background: linear-gradient(135deg, #0d6efd 0%, #0a58ca 100%);
+            color: white;
+            box-shadow: 0 0 10px rgba(13, 110, 253, 0.5);
+        }
+        
+        .role-healer { 
+            background: linear-gradient(135deg, #198754 0%, #146c43 100%);
+            color: white;
+            box-shadow: 0 0 10px rgba(25, 135, 84, 0.5);
+        }
+        
+        .role-dps { 
+            background: linear-gradient(135deg, #dc3545 0%, #b02a37 100%);
+            color: white;
+            box-shadow: 0 0 10px rgba(220, 53, 69, 0.5);
+        }
+        
+        .badge {
+            text-shadow: 0 0 5px rgba(0, 0, 0, 0.5);
+        }
+        
+        .bg-success {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important;
+            box-shadow: 0 0 10px rgba(16, 185, 129, 0.5);
+        }
+        
+        .bg-secondary {
+            background: linear-gradient(135deg, #6c757d 0%, #495057 100%) !important;
+        }
+        
+        /* ================================
+           INPUTS Y SELECTS
+           ================================ */
+        .form-control, .form-select {
+            background: rgba(26, 26, 62, 0.6);
+            border: 1px solid var(--midnight-accent);
+            color: #e0e0e0;
+        }
+        
+        .form-control:focus, .form-select:focus {
+            background: rgba(26, 26, 62, 0.8);
+            border-color: var(--midnight-light);
+            color: white;
+            box-shadow: 0 0 10px var(--glow-purple);
+        }
+        
+        .form-control::placeholder {
+            color: #8888aa;
+        }
+        
+        .input-group-text {
+            background: var(--midnight-purple);
+            border: 1px solid var(--midnight-accent);
+            color: white;
+        }
+        
+        /* ================================
+           BOTONES
+           ================================ */
+        .btn-secondary {
+            background: linear-gradient(135deg, #495057 0%, #6c757d 100%);
+            border: none;
+            box-shadow: 0 4px 15px rgba(108, 117, 125, 0.4);
+        }
+        
+        .btn-secondary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(108, 117, 125, 0.6);
+        }
+        
+        .btn-outline-secondary {
+            border-color: var(--midnight-accent);
+            color: var(--midnight-light);
+        }
+        
+        .btn-outline-secondary:hover {
+            background: var(--midnight-accent);
+            border-color: var(--midnight-accent);
+            color: white;
+        }
+        
+        /* ================================
+           SCROLLBAR
+           ================================ */
+        ::-webkit-scrollbar {
+            width: 10px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: var(--midnight-dark);
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: var(--midnight-accent);
+            border-radius: 5px;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--midnight-light);
+        }
+    </style>
+</head>
+<body>
+    <!-- NAVBAR -->
+    <nav class="navbar navbar-dark">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="midnight-dashboard.html">
+                <i class="fas fa-moon"></i> Guild DKP System
+                <small style="font-size: 12px; opacity: 0.7;">Midnight Edition</small>
+            </a>
+            
+            <div class="d-flex align-items-center text-white">
+                <span class="me-3" style="color: var(--midnight-light);">
+                    <i class="fas fa-users"></i> <span id="memberCount">0</span> miembros
+                </span>
+            </div>
+        </div>
+    </nav>
+    
+    <!-- CONTENEDOR PRINCIPAL -->
+    <div class="main-container">
+        
+        <!-- Botón de volver -->
+        <div class="mb-3">
+            <a href="midnight-dashboard.html" class="btn btn-secondary">
+                <i class="fas fa-arrow-left"></i> Volver al Dashboard
+            </a>
+        </div>
+        
+        <!-- Tarjeta principal -->
+        <div class="info-card">
+            <h3><i class="fas fa-users"></i> Miembros del Guild</h3>
+            
+            <!-- FILTROS -->
+            <div class="filter-section">
+                <div class="row mb-3">
+                    <!-- Búsqueda -->
+                    <div class="col-md-4">
+                        <div class="input-group">
+                            <span class="input-group-text">
+                                <i class="fas fa-search"></i>
+                            </span>
+                            <input 
+                                type="text" 
+                                class="form-control" 
+                                id="searchInput" 
+                                placeholder="Buscar por nombre..."
+                                onkeyup="filtrarMiembros()"
+                            >
+                        </div>
+                    </div>
+                    
+                    <!-- Filtro por Clase -->
+                    <div class="col-md-3">
+                        <select class="form-select" id="classFilter" onchange="filtrarMiembros()">
+                            <option value="">Todas las clases</option>
+                            <option value="Warrior">⚔️ Warrior</option>
+                            <option value="Paladin">🛡️ Paladin</option>
+                            <option value="Hunter">🏹 Hunter</option>
+                            <option value="Rogue">🗡️ Rogue</option>
+                            <option value="Priest">✨ Priest</option>
+                            <option value="Shaman">⚡ Shaman</option>
+                            <option value="Mage">🔮 Mage</option>
+                            <option value="Warlock">🔥 Warlock</option>
+                            <option value="Druid">🌿 Druid</option>
+                            <option value="Death Knight">💀 Death Knight</option>
+                            <option value="Demon Hunter">😈 Demon Hunter</option>
+                            <option value="Monk">🥋 Monk</option>
+                        </select>
+                    </div>
+                    
+                    <!-- Filtro por Rol -->
+                    <div class="col-md-3">
+                        <select class="form-select" id="roleFilter" onchange="filtrarMiembros()">
+                            <option value="">Todos los roles</option>
+                            <option value="Tank">🛡️ Tank</option>
+                            <option value="Healer">💚 Healer</option>
+                            <option value="DPS">⚔️ DPS</option>
+                        </select>
+                    </div>
+                    
+                    <!-- Botón de reset -->
+                    <div class="col-md-2">
+                        <button class="btn btn-outline-secondary w-100" onclick="resetFiltros()">
+                            <i class="fas fa-redo"></i> Limpiar
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- TABLA -->
+            <div class="table-responsive">
+                <table class="member-table">
+                    <thead>
+                        <tr>
+                            <th onclick="ordenarPor('nombre')">
+                                Nombre <i class="fas fa-sort"></i>
+                            </th>
+                            <th onclick="ordenarPor('clase')">
+                                Clase <i class="fas fa-sort"></i>
+                            </th>
+                            <th onclick="ordenarPor('rol')">
+                                Rol <i class="fas fa-sort"></i>
+                            </th>
+                            <th onclick="ordenarPor('dkp')">
+                                DKP <i class="fas fa-sort"></i>
+                            </th>
+                            <th>Ganado</th>
+                            <th>Gastado</th>
+                            <th>Estado</th>
+                        </tr>
+                    </thead>
+                    <tbody id="membersTableBody">
+                        <!-- Miembros aquí -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+        <!-- Estadísticas -->
+        <div class="row">
+            <div class="col-md-3">
+                <div class="info-card text-center">
+                    <h4 id="totalMembers" style="color: var(--midnight-light);">0</h4>
+                    <p class="text-muted mb-0">Total Miembros</p>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="info-card text-center">
+                    <h4 id="avgDKP" style="color: var(--midnight-light);">0</h4>
+                    <p class="text-muted mb-0">DKP Promedio</p>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="info-card text-center">
+                    <h4 id="totalDKP" style="color: var(--midnight-light);">0</h4>
+                    <p class="text-muted mb-0">DKP Total del Guild</p>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="info-card text-center">
+                    <h4 id="activeMembers" style="color: var(--midnight-light);">0</h4>
+                    <p class="text-muted mb-0">Miembros Activos</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // CONFIGURACIÓN DEL BACKEND
+        const API_URL = 'http://localhost:3000/api';
+        const token = localStorage.getItem('token');
+        
+        if (!token) {
+            window.location.href = 'login.html';
+        }
+        
+        let ordenActual = { columna: 'dkp', direccion: 'desc' };
+        let miembrosFiltrados = [];
+        let miembrosTodos = []; // Almacena TODOS los miembros sin filtrar
+        
+        // CARGAR MIEMBROS DESDE EL BACKEND
+        async function cargarMiembros() {
+            try {
+                const response = await fetch(`${API_URL}/members`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                if (response.status === 401) {
+                    alert('Sesión expirada. Inicia sesión nuevamente.');
+                    localStorage.removeItem('token');
+                    window.location.href = 'login.html';
+                    return;
+                }
+                
+                const miembros = await response.json();
+                
+                // Transformar al formato del frontend
+                miembrosTodos = miembros.map(m => ({
+                    nombre: m.character_name,
+                    clase: m.character_class,
+                    rol: m.raid_role,
+                    dkp: m.current_dkp || 0,
+                    ganado: m.lifetime_gained || 0,
+                    gastado: m.lifetime_spent || 0,
+                    activo: m.is_active
+                }));
+                
+                miembrosFiltrados = [...miembrosTodos];
+                ordenarPor('dkp');
+                calcularEstadisticas();
+                document.getElementById('memberCount').textContent = miembrosFiltrados.length;
+                
+            } catch (error) {
+                console.error('Error cargando miembros:', error);
+                const tbody = document.getElementById('membersTableBody');
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="7" class="text-center text-danger">
+                            <i class="fas fa-exclamation-triangle"></i> 
+                            Error: No se pudo conectar con el servidor.<br>
+                            Verifica que el backend esté corriendo en ${API_URL}
+                        </td>
+                    </tr>
+                `;
+            }
+        }
+        
+        function renderizarTabla(miembros) {
+            const tbody = document.getElementById('membersTableBody');
+            
+            if (miembros.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="7" class="text-center" style="color: #8888aa;">
+                            No se encontraron miembros con esos filtros
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+            
+            let html = '';
+            
+            miembros.forEach(miembro => {
+                const claseCSS = `class-${miembro.clase.toLowerCase().replace(' ', '-')}`;
+                const rolBadge = `role-${miembro.rol.toLowerCase()}`;
+                const estado = miembro.activo 
+                    ? '<span class="badge bg-success">Activo</span>' 
+                    : '<span class="badge bg-secondary">Inactivo</span>';
+                
+                html += `
+                    <tr>
+                        <td><strong style="color: white;">${miembro.nombre}</strong></td>
+                        <td class="${claseCSS}">${miembro.clase}</td>
+                        <td><span class="role-badge ${rolBadge}">${miembro.rol}</span></td>
+                        <td><strong style="color: var(--midnight-light);">${miembro.dkp}</strong></td>
+                        <td style="color: #4ade80;">${miembro.ganado}</td>
+                        <td style="color: #f87171;">${miembro.gastado}</td>
+                        <td>${estado}</td>
+                    </tr>
+                `;
+            });
+            
+            tbody.innerHTML = html;
+        }
+        
+        function ordenarPor(columna) {
+            if (ordenActual.columna === columna) {
+                ordenActual.direccion = ordenActual.direccion === 'asc' ? 'desc' : 'asc';
+            } else {
+                ordenActual.columna = columna;
+                ordenActual.direccion = 'desc';
+            }
+            
+            miembrosFiltrados.sort((a, b) => {
+                let valorA, valorB;
+                
+                switch(columna) {
+                    case 'nombre': valorA = a.nombre.toLowerCase(); valorB = b.nombre.toLowerCase(); break;
+                    case 'clase': valorA = a.clase; valorB = b.clase; break;
+                    case 'rol': valorA = a.rol; valorB = b.rol; break;
+                    case 'dkp': valorA = a.dkp; valorB = b.dkp; break;
+                }
+                
+                if (valorA < valorB) return ordenActual.direccion === 'asc' ? -1 : 1;
+                if (valorA > valorB) return ordenActual.direccion === 'asc' ? 1 : -1;
+                return 0;
+            });
+            
+            renderizarTabla(miembrosFiltrados);
+            console.log(`📊 Ordenado por ${columna} (${ordenActual.direccion})`);
+        }
+        
+        function filtrarMiembros() {
+            const busqueda = document.getElementById('searchInput').value.toLowerCase();
+            const claseSeleccionada = document.getElementById('classFilter').value;
+            const rolSeleccionado = document.getElementById('roleFilter').value;
+            
+            miembrosFiltrados = miembrosTodos.filter(miembro => {
+                const coincideNombre = miembro.nombre.toLowerCase().includes(busqueda);
+                const coincideClase = !claseSeleccionada || miembro.clase === claseSeleccionada;
+                const coincideRol = !rolSeleccionado || miembro.rol === rolSeleccionado;
+                
+                return coincideNombre && coincideClase && coincideRol;
+            });
+            
+            ordenarPor(ordenActual.columna);
+            document.getElementById('memberCount').textContent = miembrosFiltrados.length;
+            console.log(`🔍 Filtrado: ${miembrosFiltrados.length} miembros`);
+        }
+        
+        function resetFiltros() {
+            document.getElementById('searchInput').value = '';
+            document.getElementById('classFilter').value = '';
+            document.getElementById('roleFilter').value = '';
+            filtrarMiembros();
+        }
+        
+        function calcularEstadisticas() {
+            const total = miembrosTodos.length;
+            const activos = miembrosTodos.filter(m => m.activo).length;
+            const totalDKP = miembrosTodos.reduce((sum, m) => sum + m.dkp, 0);
+            const promedio = Math.round(totalDKP / total);
+            
+            document.getElementById('totalMembers').textContent = total;
+            document.getElementById('activeMembers').textContent = activos;
+            document.getElementById('totalDKP').textContent = totalDKP.toLocaleString();
+            document.getElementById('avgDKP').textContent = promedio;
+        }
+        
+        window.addEventListener('load', function() {
+            console.log('%c🌙 MIDNIGHT THEME - MEMBERS', 'color: #c77dff; font-size: 18px; font-weight: bold');
+            console.log('📡 Cargando miembros desde el backend...');
+            cargarMiembros();
+        });
+    </script>
+</body>
+</html>

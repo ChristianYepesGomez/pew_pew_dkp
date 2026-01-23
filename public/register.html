@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DKP System - Registro</title>
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        body {
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .register-card {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+            padding: 40px;
+            width: 100%;
+            max-width: 500px;
+        }
+        
+        .logo-section {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .logo-icon {
+            font-size: 60px;
+            color: #2a5298;
+            margin-bottom: 10px;
+        }
+        
+        .btn-register {
+            width: 100%;
+            padding: 12px;
+            font-size: 16px;
+            font-weight: bold;
+            margin-top: 10px;
+        }
+        
+        .success-message, .error-message {
+            display: none;
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 15px;
+        }
+        
+        .success-message {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .error-message {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        /* Estilo para los iconos de clase de WoW */
+        .class-icon {
+            width: 30px;
+            height: 30px;
+            margin-right: 8px;
+            vertical-align: middle;
+        }
+    </style>
+</head>
+<body>
+    <div class="register-card">
+        <!-- LOGO -->
+        <div class="logo-section">
+            <div class="logo-icon">
+                <i class="fas fa-user-plus"></i>
+            </div>
+            <h2>Crear Cuenta</h2>
+            <p class="text-muted">Únete al sistema DKP</p>
+        </div>
+        
+        <!-- MENSAJES -->
+        <div id="successMessage" class="success-message"></div>
+        <div id="errorMessage" class="error-message"></div>
+        
+        <!-- FORMULARIO DE REGISTRO -->
+        <form id="registerForm">
+            
+            <!-- USUARIO -->
+            <div class="mb-3">
+                <label for="username" class="form-label">
+                    <i class="fas fa-user"></i> Usuario *
+                </label>
+                <input 
+                    type="text" 
+                    class="form-control" 
+                    id="username" 
+                    placeholder="Elige un nombre de usuario"
+                    required
+                    minlength="3"
+                >
+                <small class="text-muted">Mínimo 3 caracteres</small>
+            </div>
+            
+            <!-- CONTRASEÑA -->
+            <div class="mb-3">
+                <label for="password" class="form-label">
+                    <i class="fas fa-lock"></i> Contraseña *
+                </label>
+                <input 
+                    type="password" 
+                    class="form-control" 
+                    id="password" 
+                    placeholder="Crea una contraseña segura"
+                    required
+                    minlength="6"
+                >
+                <small class="text-muted">Mínimo 6 caracteres</small>
+            </div>
+            
+            <!-- NOMBRE DEL PERSONAJE -->
+            <div class="mb-3">
+                <label for="characterName" class="form-label">
+                    <i class="fas fa-chess-knight"></i> Nombre del Personaje *
+                </label>
+                <input 
+                    type="text" 
+                    class="form-control" 
+                    id="characterName" 
+                    placeholder="Nombre de tu personaje en WoW"
+                    required
+                >
+            </div>
+            
+            <!-- CLASE DEL PERSONAJE -->
+            <div class="mb-3">
+                <label for="characterClass" class="form-label">
+                    <i class="fas fa-scroll"></i> Clase *
+                </label>
+                <select class="form-select" id="characterClass" required>
+                    <!-- 
+                        <select> = desplegable (dropdown)
+                        <option> = cada opción del desplegable
+                        value = el valor que se enviará al servidor
+                    -->
+                    <option value="">-- Selecciona tu clase --</option>
+                    <option value="Warrior">⚔️ Warrior (Guerrero)</option>
+                    <option value="Paladin">🛡️ Paladin (Paladín)</option>
+                    <option value="Hunter">🏹 Hunter (Cazador)</option>
+                    <option value="Rogue">🗡️ Rogue (Pícaro)</option>
+                    <option value="Priest">✨ Priest (Sacerdote)</option>
+                    <option value="Shaman">⚡ Shaman (Chamán)</option>
+                    <option value="Mage">🔮 Mage (Mago)</option>
+                    <option value="Warlock">🔥 Warlock (Brujo)</option>
+                    <option value="Druid">🌿 Druid (Druida)</option>
+                    <option value="Death Knight">💀 Death Knight (Caballero de la Muerte)</option>
+                </select>
+            </div>
+            
+            <!-- ROL EN RAIDS -->
+            <div class="mb-3">
+                <label for="raidRole" class="form-label">
+                    <i class="fas fa-users"></i> Rol en Raids *
+                </label>
+                <select class="form-select" id="raidRole" required>
+                    <option value="">-- Selecciona tu rol --</option>
+                    <option value="Tank">🛡️ Tank (Tanque)</option>
+                    <option value="Healer">💚 Healer (Sanador)</option>
+                    <option value="DPS">⚔️ DPS (Daño)</option>
+                </select>
+            </div>
+            
+            <!-- BOTÓN DE REGISTRO -->
+            <button type="submit" class="btn btn-success btn-register">
+                <i class="fas fa-user-plus"></i> Crear Cuenta
+            </button>
+        </form>
+        
+        <!-- ENLACE A LOGIN -->
+        <div class="text-center mt-3">
+            <p class="mb-0">¿Ya tienes cuenta? 
+                <a href="login.html">Inicia sesión aquí</a>
+            </p>
+        </div>
+    </div>
+    
+    <script>
+        // ======================================
+        // CONFIGURACIÓN
+        // ======================================
+        const API_URL = 'http://localhost:3000/api';
+        
+        // ======================================
+        // OBTENER ELEMENTOS DEL DOM
+        // ======================================
+        const registerForm = document.getElementById('registerForm');
+        const successMessage = document.getElementById('successMessage');
+        const errorMessage = document.getElementById('errorMessage');
+        
+        // ======================================
+        // FUNCIONES PARA MOSTRAR MENSAJES
+        // ======================================
+        function showSuccess(message) {
+            successMessage.textContent = message;
+            successMessage.style.display = 'block';
+            errorMessage.style.display = 'none';
+        }
+        
+        function showError(message) {
+            errorMessage.textContent = message;
+            errorMessage.style.display = 'block';
+            successMessage.style.display = 'none';
+        }
+        
+        function hideMessages() {
+            successMessage.style.display = 'none';
+            errorMessage.style.display = 'none';
+        }
+        
+        // ======================================
+        // EVENTO: ENVÍO DEL FORMULARIO
+        // ======================================
+        registerForm.addEventListener('submit', async function(event) {
+            event.preventDefault(); // Evitar recarga de página
+            hideMessages();
+            
+            // ======================================
+            // OBTENER VALORES DEL FORMULARIO
+            // ======================================
+            
+            // .value obtiene el texto escrito en cada campo
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value;
+            const characterName = document.getElementById('characterName').value.trim();
+            const characterClass = document.getElementById('characterClass').value;
+            const raidRole = document.getElementById('raidRole').value;
+            
+            // .trim() elimina espacios al inicio y final
+            
+            // ======================================
+            // VALIDACIÓN BÁSICA EN EL FRONTEND
+            // ======================================
+            
+            // Aunque HTML5 valida con "required", es buena práctica validar con JS también
+            
+            if (username.length < 3) {
+                showError('El usuario debe tener al menos 3 caracteres');
+                return; // return detiene la función aquí
+            }
+            
+            if (password.length < 6) {
+                showError('La contraseña debe tener al menos 6 caracteres');
+                return;
+            }
+            
+            if (!characterClass || !raidRole) {
+                showError('Debes seleccionar clase y rol');
+                return;
+            }
+            
+            // ======================================
+            // CREAR OBJETO CON LOS DATOS
+            // ======================================
+            
+            const userData = {
+                username: username,
+                password: password,
+                characterName: characterName,
+                characterClass: characterClass,
+                raidRole: raidRole
+            };
+            
+            console.log('Enviando datos de registro:', userData);
+            
+            // ======================================
+            // ENVIAR PETICIÓN AL SERVIDOR
+            // ======================================
+            
+            try {
+                const response = await fetch(`${API_URL}/auth/register`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(userData)
+                });
+                
+                const data = await response.json();
+                
+                console.log('Respuesta del servidor:', data);
+                
+                // ======================================
+                // VERIFICAR RESPUESTA
+                // ======================================
+                
+                if (response.ok) {
+                    // REGISTRO EXITOSO ✅
+                    
+                    showSuccess('¡Cuenta creada exitosamente! Redirigiendo al login...');
+                    
+                    // Esperar 2 segundos y redirigir a login
+                    setTimeout(function() {
+                        window.location.href = 'login.html';
+                    }, 2000);
+                    // setTimeout ejecuta una función después de X milisegundos
+                    // 2000 ms = 2 segundos
+                    
+                } else {
+                    // REGISTRO FALLÓ ❌
+                    
+                    // El servidor devuelve el error en data.error
+                    showError(data.error || 'Error al crear la cuenta');
+                }
+                
+            } catch (error) {
+                // ERROR DE RED
+                console.error('Error de conexión:', error);
+                showError('No se pudo conectar al servidor. Verifica que esté corriendo.');
+            }
+        });
+        
+        // ======================================
+        // VERIFICAR SI YA ESTÁ LOGUEADO
+        // ======================================
+        
+        // Si ya hay sesión activa, redirigir al dashboard
+        if (localStorage.getItem('token')) {
+            window.location.href = 'index.html';
+        }
+    </script>
+</body>
+</html>

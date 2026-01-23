@@ -24,6 +24,9 @@ const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-producti
 app.use(cors());
 app.use(express.json());
 
+// Serve static files (Frontend HTML)
+app.use(express.static('public'));
+
 // Make io accessible to routes
 app.set('io', io);
 
@@ -314,6 +317,14 @@ app.get('/api/dkp/history/:userId', authenticateToken, (req, res) => {
   const { userId } = req.params;
   const limit = parseInt(req.query.limit) || 50;
 
+  // Get DKP stats
+  const dkpStats = db.prepare(`
+    SELECT current_dkp, lifetime_gained, lifetime_spent, last_decay_at
+    FROM member_dkp
+    WHERE user_id = ?
+  `).get(userId);
+
+  // Get transaction history
   const history = db.prepare(`
     SELECT dt.*, u.character_name, u.username
     FROM dkp_transactions dt
@@ -323,16 +334,22 @@ app.get('/api/dkp/history/:userId', authenticateToken, (req, res) => {
     LIMIT ?
   `).all(userId, limit);
 
-  res.json(history.map(h => ({
-    id: h.id,
-    userId: h.user_id,
-    amount: h.amount,
-    reason: h.reason,
-    performedBy: h.performed_by,
-    characterName: h.character_name,
-    username: h.username,
-    createdAt: h.created_at
-  })));
+  res.json({
+    currentDkp: dkpStats?.current_dkp || 0,
+    lifetimeGained: dkpStats?.lifetime_gained || 0,
+    lifetimeSpent: dkpStats?.lifetime_spent || 0,
+    lastDecay: dkpStats?.last_decay_at,
+    transactions: history.map(h => ({
+      id: h.id,
+      userId: h.user_id,
+      amount: h.amount,
+      reason: h.reason,
+      performedBy: h.performed_by,
+      characterName: h.character_name,
+      username: h.username,
+      createdAt: h.created_at
+    }))
+  });
 });
 
 // ============================================
