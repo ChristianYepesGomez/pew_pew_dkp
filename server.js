@@ -740,20 +740,6 @@ app.post('/api/warcraftlogs/preview', authenticateToken, authorizeRole(['admin',
       });
     }
 
-    // Check if report was already processed
-    const reportCode = url.match(/\/reports\/([a-zA-Z0-9]+)/)?.[1] || url;
-    const alreadyProcessed = db.prepare(
-      'SELECT * FROM warcraft_logs_processed WHERE report_code = ?'
-    ).get(reportCode);
-
-    if (alreadyProcessed) {
-      return res.status(409).json({
-        error: 'This report has already been processed',
-        processedAt: alreadyProcessed.processed_at,
-        dkpAssigned: alreadyProcessed.dkp_assigned
-      });
-    }
-
     // Process the log from Warcraft Logs API
     const reportData = await processWarcraftLog(url);
 
@@ -846,7 +832,9 @@ app.post('/api/warcraftlogs/preview', authenticateToken, authorizeRole(['admin',
         guildName: reportData.guildName,
         participantCount: reportData.participantCount,
         bossesKilled: reportData.bossesKilled,
-        totalBosses: reportData.totalBosses
+        totalBosses: reportData.totalBosses,
+        totalAttempts: reportData.totalAttempts,
+        bosses: reportData.bosses
       },
       dkp_calculation: {
         base_dkp: raidDKP,
@@ -863,7 +851,7 @@ app.post('/api/warcraftlogs/preview', authenticateToken, authorizeRole(['admin',
         anomalies_count: anomalies.length
       },
       anomalies,
-      can_proceed: matchedCount > 0
+      can_proceed: true // Always allow processing, even without matched players
     });
 
   } catch (error) {

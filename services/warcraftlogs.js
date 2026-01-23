@@ -179,8 +179,27 @@ function parseReportData(report) {
     duration: fight.endTime - fight.startTime
   }));
 
-  const bossesKilled = fights.filter(f => f.kill).length;
-  const totalBosses = fights.length;
+  // Group fights by encounterID to get unique bosses
+  const uniqueBosses = {};
+  fights.forEach(fight => {
+    if (!uniqueBosses[fight.encounterID]) {
+      uniqueBosses[fight.encounterID] = {
+        encounterID: fight.encounterID,
+        name: fight.name,
+        killed: false,
+        attempts: 0
+      };
+    }
+    uniqueBosses[fight.encounterID].attempts++;
+    if (fight.kill) {
+      uniqueBosses[fight.encounterID].killed = true;
+    }
+  });
+
+  const bossArray = Object.values(uniqueBosses);
+  const bossesKilled = bossArray.filter(b => b.killed).length;
+  const totalBosses = bossArray.length;
+  const totalAttempts = fights.length;
 
   return {
     code: report.code,
@@ -193,8 +212,10 @@ function parseReportData(report) {
     participants,
     participantCount: participants.length,
     fights,
+    bosses: bossArray,
     bossesKilled,
-    totalBosses
+    totalBosses,
+    totalAttempts
   };
 }
 
@@ -212,7 +233,7 @@ export async function processWarcraftLog(urlOrCode) {
 
     // Parse and return structured data
     const parsedData = parseReportData(reportData);
-    console.log(`✅ Report processed: ${parsedData.participantCount} participants, ${parsedData.bossesKilled}/${parsedData.totalBosses} bosses killed`);
+    console.log(`✅ Report processed: ${parsedData.participantCount} participants, ${parsedData.bossesKilled}/${parsedData.totalBosses} bosses killed (${parsedData.totalAttempts} total attempts)`);
 
     return parsedData;
 

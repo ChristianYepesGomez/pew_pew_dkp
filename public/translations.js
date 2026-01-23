@@ -115,7 +115,11 @@ const translations = {
     'no_account': '¿No tienes cuenta?',
     'have_account': '¿Ya tienes cuenta?',
     'register_here': 'Regístrate aquí',
-    'login_here': 'Inicia sesión aquí'
+    'login_here': 'Inicia sesión aquí',
+
+    // Admin Actions
+    'add_member': 'Añadir Miembro',
+    'create_auction': 'Crear Subasta'
   },
 
   en: {
@@ -231,7 +235,11 @@ const translations = {
     'no_account': "Don't have an account?",
     'have_account': 'Already have an account?',
     'register_here': 'Register here',
-    'login_here': 'Login here'
+    'login_here': 'Login here',
+
+    // Admin Actions
+    'add_member': 'Add Member',
+    'create_auction': 'Create Auction'
   }
 };
 

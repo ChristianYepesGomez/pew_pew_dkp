@@ -468,13 +468,14 @@
                 <span class="me-3">
                     <i class="fas fa-user"></i> <span id="username">Cargando...</span>
                 </span>
-                <div class="btn-group me-2" role="group">
-                    <button type="button" class="btn btn-outline-light btn-sm" onclick="changeLanguage('es')" id="btnLangES">
-                        ES
+                <div class="dropdown me-2">
+                    <button class="btn btn-outline-light btn-sm dropdown-toggle" type="button" id="languageDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                        <span id="currentFlag">🇪🇸</span> <span id="currentLangName">Español</span>
                     </button>
-                    <button type="button" class="btn btn-outline-light btn-sm" onclick="changeLanguage('en')" id="btnLangEN">
-                        EN
-                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="languageDropdown">
+                        <li><a class="dropdown-item" href="#" onclick="changeLanguage('es'); return false;">🇪🇸 Español</a></li>
+                        <li><a class="dropdown-item" href="#" onclick="changeLanguage('en'); return false;">🇬🇧 English</a></li>
+                    </ul>
                 </div>
                 <button class="btn btn-outline-light btn-sm" onclick="logout()" id="btnLogout">
                     <i class="fas fa-sign-out-alt"></i> <span data-i18n="logout">Salir</span>
@@ -560,7 +561,12 @@
                 <div class="row fade-in">
                     <div class="col-md-12">
                         <div class="info-card">
-                            <h3><i class="fas fa-users"></i> <span data-i18n="members_list">Miembros del Guild</span></h3>
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <h3 class="mb-0"><i class="fas fa-users"></i> <span data-i18n="members_list">Miembros del Guild</span></h3>
+                                <button class="btn btn-success" onclick="showAddMemberModal()" id="btnAddMember" style="display: none;">
+                                    <i class="fas fa-user-plus"></i> <span data-i18n="add_member">Añadir Miembro</span>
+                                </button>
+                            </div>
                             <div id="membersList"><span data-i18n="loading">Cargando...</span></div>
                         </div>
                     </div>
@@ -572,7 +578,12 @@
                 <div class="row fade-in">
                     <div class="col-md-12">
                         <div class="info-card">
-                            <h3><i class="fas fa-gavel"></i> <span data-i18n="active_auction_title">Subasta Activa</span></h3>
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <h3 class="mb-0"><i class="fas fa-gavel"></i> <span data-i18n="active_auction_title">Subasta Activa</span></h3>
+                                <button class="btn btn-primary" onclick="showCreateAuctionModal()" id="btnCreateAuction" style="display: none;">
+                                    <i class="fas fa-plus-circle"></i> <span data-i18n="create_auction">Crear Subasta</span>
+                                </button>
+                            </div>
                             <div id="auctionContent"></div>
                         </div>
                     </div>
@@ -693,11 +704,19 @@
         // ======================================
         function changeLanguage(lang) {
             localStorage.setItem('language', lang);
-            updateLanguage();
 
-            // Update active button
-            document.getElementById('btnLangES').classList.toggle('active', lang === 'es');
-            document.getElementById('btnLangEN').classList.toggle('active', lang === 'en');
+            // Update dropdown display
+            const flagEl = document.getElementById('currentFlag');
+            const langNameEl = document.getElementById('currentLangName');
+            if (lang === 'es') {
+                flagEl.textContent = '🇪🇸';
+                langNameEl.textContent = 'Español';
+            } else {
+                flagEl.textContent = '🇬🇧';
+                langNameEl.textContent = 'English';
+            }
+
+            updateLanguage();
         }
 
         function updateLanguage() {
@@ -739,8 +758,18 @@
 
         function initLanguage() {
             const lang = localStorage.getItem('language') || 'es';
-            document.getElementById('btnLangES').classList.toggle('active', lang === 'es');
-            document.getElementById('btnLangEN').classList.toggle('active', lang === 'en');
+
+            // Update dropdown display
+            const flagEl = document.getElementById('currentFlag');
+            const langNameEl = document.getElementById('currentLangName');
+            if (lang === 'es') {
+                flagEl.textContent = '🇪🇸';
+                langNameEl.textContent = 'Español';
+            } else {
+                flagEl.textContent = '🇬🇧';
+                langNameEl.textContent = 'English';
+            }
+
             updateLanguage();
         }
 
@@ -1056,7 +1085,7 @@
                 const isAdmin = currentUser && (currentUser.role === 'admin' || currentUser.role === 'officer');
 
                 let html = '<div class="table-responsive"><table class="table table-dark table-striped">';
-                html += `<thead><tr><th>${t('character', lang)}</th><th>${t('class', lang)}</th><th>${t('role', lang)}</th><th>${t('spec', lang)}</th><th>DKP</th>`;
+                html += `<thead><tr><th>${t('character', lang)}</th><th>${t('spec', lang)}</th><th>${t('role', lang)}</th><th>DKP</th>`;
                 if (isAdmin) {
                     html += `<th>${t('actions', lang)}</th>`;
                 }
@@ -1064,12 +1093,19 @@
 
                 members.forEach(m => {
                     const classColor = getClassColor(m.characterClass);
+                    const classIcon = getClassIcon(m.characterClass);
+                    const roleIcon = getRoleIcon(m.raidRole || 'DPS');
                     html += `
                         <tr>
-                            <td><strong style="color: ${classColor};">${m.characterName}</strong></td>
-                            <td style="color: ${classColor};">${m.characterClass}</td>
-                            <td>${m.raidRole || 'DPS'}</td>
+                            <td>
+                                <img src="${classIcon}" alt="${m.characterClass}" style="width: 18px; height: 18px; margin-right: 5px; vertical-align: middle; border-radius: 3px;">
+                                <strong style="color: ${classColor};">${m.characterName}</strong>
+                            </td>
                             <td>${m.spec || '-'}</td>
+                            <td>
+                                <img src="${roleIcon}" alt="${m.raidRole}" style="width: 16px; height: 16px; margin-right: 3px; vertical-align: middle;">
+                                ${m.raidRole || 'DPS'}
+                            </td>
                             <td><strong>${m.currentDkp || 0}</strong> DKP</td>
                     `;
 
@@ -1115,6 +1151,32 @@
                 'Death Knight': '#C41F3B'
             };
             return colors[className] || '#FFFFFF';
+        }
+
+        function getClassIcon(className) {
+            const classNames = {
+                'Warrior': 'warrior',
+                'Paladin': 'paladin',
+                'Hunter': 'hunter',
+                'Rogue': 'rogue',
+                'Priest': 'priest',
+                'Shaman': 'shaman',
+                'Mage': 'mage',
+                'Warlock': 'warlock',
+                'Druid': 'druid',
+                'Death Knight': 'deathknight'
+            };
+            const iconName = classNames[className] || 'warrior';
+            return `https://wow.zamimg.com/images/wow/icons/small/classicon_${iconName}.jpg`;
+        }
+
+        function getRoleIcon(role) {
+            const roleIcons = {
+                'Tank': 'https://wow.zamimg.com/images/wow/icons/small/inv_shield_06.jpg',
+                'Healer': 'https://wow.zamimg.com/images/wow/icons/small/spell_holy_flashheal.jpg',
+                'DPS': 'https://wow.zamimg.com/images/wow/icons/small/inv_sword_27.jpg'
+            };
+            return roleIcons[role] || roleIcons['DPS'];
         }
 
         // ======================================
@@ -1303,7 +1365,7 @@
                     <div class="alert alert-info">
                         <h6><i class="fas fa-scroll"></i> ${data.report.title}</h6>
                         <p class="mb-0">
-                            <strong>${t('bosses', lang)}:</strong> ${data.report.bossesKilled}/${data.report.totalBosses} |
+                            <strong>${t('bosses', lang)}:</strong> ${data.report.bossesKilled}/${data.report.totalBosses} (${data.report.totalAttempts} ${lang === 'es' ? 'intentos' : 'attempts'}) |
                             <strong>${t('participants', lang)}:</strong> ${data.report.participantCount} |
                             <strong>${t('dkp_per_player', lang)}:</strong> ${data.dkp_calculation.dkp_per_player}
                         </p>
@@ -1388,7 +1450,107 @@
         function checkAdminAccess() {
             if (currentUser && (currentUser.role === 'admin' || currentUser.role === 'officer')) {
                 document.getElementById('admin-tab-item').style.display = 'block';
+                document.getElementById('btnAddMember').style.display = 'inline-block';
+                document.getElementById('btnCreateAuction').style.display = 'inline-block';
                 loadMembers(); // Cargar miembros para el dropdown
+            }
+        }
+
+        // Mostrar modal para añadir miembro
+        function showAddMemberModal() {
+            const lang = localStorage.getItem('language') || 'es';
+            const username = prompt(lang === 'es' ? 'Usuario:' : 'Username:');
+            if (!username) return;
+
+            const password = prompt(lang === 'es' ? 'Contraseña:' : 'Password:');
+            if (!password) return;
+
+            const characterName = prompt(lang === 'es' ? 'Nombre del personaje:' : 'Character name:');
+            if (!characterName) return;
+
+            const characterClass = prompt(lang === 'es' ? 'Clase (Warrior, Mage, etc.):' : 'Class (Warrior, Mage, etc.):');
+            if (!characterClass) return;
+
+            const raidRole = prompt(lang === 'es' ? 'Rol (Tank, Healer, DPS):' : 'Role (Tank, Healer, DPS):', 'DPS');
+            if (!raidRole) return;
+
+            const spec = prompt(lang === 'es' ? 'Especialización:' : 'Specialization:');
+            if (!spec) return;
+
+            // Call API to create user
+            createNewMember(username, password, characterName, characterClass, raidRole, spec);
+        }
+
+        async function createNewMember(username, password, characterName, characterClass, raidRole, spec) {
+            const lang = localStorage.getItem('language') || 'es';
+            try {
+                const response = await fetchWithAuth(`${API_URL}/auth/register`, {
+                    method: 'POST',
+                    body: {
+                        username,
+                        password,
+                        characterName,
+                        characterClass,
+                        raidRole,
+                        spec
+                    }
+                });
+
+                if (response && response.ok) {
+                    alert(lang === 'es' ? '¡Miembro creado exitosamente!' : 'Member created successfully!');
+                    loadMembers();
+                } else {
+                    const error = await response.json();
+                    alert(lang === 'es' ? `Error: ${error.error}` : `Error: ${error.error}`);
+                }
+            } catch (error) {
+                console.error('Error creating member:', error);
+                alert(lang === 'es' ? 'Error al crear miembro' : 'Error creating member');
+            }
+        }
+
+        // Mostrar modal para crear subasta
+        function showCreateAuctionModal() {
+            const lang = localStorage.getItem('language') || 'es';
+            const itemName = prompt(lang === 'es' ? 'Nombre del item:' : 'Item name:');
+            if (!itemName) return;
+
+            const minBid = prompt(lang === 'es' ? 'Puja mínima (DKP):' : 'Minimum bid (DKP):', '50');
+            if (!minBid) return;
+
+            const minBidNum = parseInt(minBid);
+            if (isNaN(minBidNum) || minBidNum < 0) {
+                alert(lang === 'es' ? 'Puja mínima inválida' : 'Invalid minimum bid');
+                return;
+            }
+
+            // Call API to create auction
+            createNewAuction(itemName, minBidNum);
+        }
+
+        async function createNewAuction(itemName, minBid) {
+            const lang = localStorage.getItem('language') || 'es';
+            try {
+                const response = await fetchWithAuth(`${API_URL}/auctions`, {
+                    method: 'POST',
+                    body: {
+                        item_name: itemName,
+                        min_bid: minBid,
+                        item_rarity: 'epic',
+                        item_image: '⚔️'
+                    }
+                });
+
+                if (response && response.ok) {
+                    alert(lang === 'es' ? '¡Subasta creada exitosamente!' : 'Auction created successfully!');
+                    loadActiveAuction();
+                } else {
+                    const error = await response.json();
+                    alert(lang === 'es' ? `Error: ${error.error}` : `Error: ${error.error}`);
+                }
+            } catch (error) {
+                console.error('Error creating auction:', error);
+                alert(lang === 'es' ? 'Error al crear subasta' : 'Error creating auction');
             }
         }
 
