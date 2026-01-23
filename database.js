@@ -193,13 +193,13 @@ function initDatabase() {
     const hashedPassword = bcrypt.hashSync('admin123', 10);
     
     const result = db.prepare(`
-      INSERT INTO users (username, password, character_name, character_class, role)
-      VALUES ('admin', ?, 'GuildMaster', 'Warrior', 'admin')
+      INSERT INTO users (username, password, character_name, character_class, raid_role, spec, role)
+      VALUES ('admin', ?, 'GuildMaster', 'Warrior', 'DPS', 'Arms', 'admin')
     `).run(hashedPassword);
 
     db.prepare(`
       INSERT INTO member_dkp (user_id, current_dkp, lifetime_gained)
-      VALUES (?, 0, 0)
+      VALUES (?, 50, 50)
     `).run(result.lastInsertRowid);
 
     console.log('✅ Default admin created (username: admin, password: admin123)');

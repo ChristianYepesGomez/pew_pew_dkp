@@ -581,32 +581,9 @@
                         <div class="info-card">
                             <h3><i class="fas fa-crown"></i> Panel de Administración</h3>
 
-                            <!-- Ajuste Manual de DKP -->
-                            <div class="mb-4">
-                                <h5><i class="fas fa-coins"></i> Ajuste Manual de DKP</h5>
-                                <div class="row">
-                                    <div class="col-md-4">
-                                        <select id="adjustMember" class="form-select mb-2">
-                                            <option value="">Selecciona un miembro...</option>
-                                        </select>
-                                    </div>
-                                    <div class="col-md-3">
-                                        <input type="number" id="adjustAmount" class="form-control mb-2" placeholder="Cantidad DKP (+/-)">
-                                    </div>
-                                    <div class="col-md-3">
-                                        <input type="text" id="adjustReason" class="form-control mb-2" placeholder="Motivo">
-                                    </div>
-                                    <div class="col-md-2">
-                                        <button class="btn btn-primary w-100" onclick="adjustDKP()">
-                                            <i class="fas fa-plus"></i> Ajustar
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-
                             <!-- Ajuste Masivo -->
                             <div class="mb-4">
-                                <h5><i class="fas fa-users-cog"></i> Ajuste Masivo (Todos)</h5>
+                                <h5><i class="fas fa-users-cog"></i> Ajuste Masivo de DKP (Todos los miembros)</h5>
                                 <div class="row">
                                     <div class="col-md-4">
                                         <input type="number" id="bulkAmount" class="form-control mb-2" placeholder="Cantidad DKP (+/-)">
@@ -636,22 +613,6 @@
                                     </div>
                                 </div>
                                 <div id="warcraftLogsPreview" class="mt-3"></div>
-                            </div>
-
-                            <!-- Decay DKP -->
-                            <div class="mb-4">
-                                <h5><i class="fas fa-percentage"></i> Aplicar Decay de DKP</h5>
-                                <div class="row">
-                                    <div class="col-md-6">
-                                        <input type="number" id="decayPercentage" class="form-control mb-2" placeholder="Porcentaje (ej: 10)" min="1" max="100">
-                                    </div>
-                                    <div class="col-md-6">
-                                        <button class="btn btn-danger w-100" onclick="applyDecay()">
-                                            <i class="fas fa-exclamation-triangle"></i> Aplicar Decay
-                                        </button>
-                                    </div>
-                                </div>
-                                <small class="text-muted">Reducir DKP de todos los miembros por un porcentaje</small>
                             </div>
                         </div>
                     </div>
@@ -1015,8 +976,14 @@
                     return;
                 }
 
+                const isAdmin = currentUser && (currentUser.role === 'admin' || currentUser.role === 'officer');
+
                 let html = '<div class="table-responsive"><table class="table table-dark table-striped">';
-                html += '<thead><tr><th>Personaje</th><th>Clase</th><th>Rol</th><th>Spec</th><th>DKP</th></tr></thead><tbody>';
+                html += '<thead><tr><th>Personaje</th><th>Clase</th><th>Rol</th><th>Spec</th><th>DKP</th>';
+                if (isAdmin) {
+                    html += '<th>Acciones</th>';
+                }
+                html += '</tr></thead><tbody>';
 
                 members.forEach(m => {
                     const classColor = getClassColor(m.characterClass);
@@ -1027,21 +994,31 @@
                             <td>${m.raidRole || 'DPS'}</td>
                             <td>${m.spec || '-'}</td>
                             <td><strong>${m.currentDkp || 0}</strong> DKP</td>
-                        </tr>
                     `;
+
+                    if (isAdmin) {
+                        html += `
+                            <td>
+                                <div class="btn-group btn-group-sm" role="group">
+                                    <button class="btn btn-success" onclick="quickAdjustDKP(${m.id}, '${m.characterName}', 1)" title="Añadir DKP">
+                                        <i class="fas fa-plus"></i>
+                                    </button>
+                                    <button class="btn btn-danger" onclick="quickAdjustDKP(${m.id}, '${m.characterName}', -1)" title="Restar DKP">
+                                        <i class="fas fa-minus"></i>
+                                    </button>
+                                    <button class="btn btn-primary" onclick="customAdjustDKP(${m.id}, '${m.characterName}')" title="Ajuste personalizado">
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        `;
+                    }
+
+                    html += '</tr>';
                 });
 
                 html += '</tbody></table></div>';
                 contenedor.innerHTML = html;
-
-                // Llenar select de admin
-                if (currentUser && (currentUser.role === 'admin' || currentUser.role === 'officer')) {
-                    const select = document.getElementById('adjustMember');
-                    select.innerHTML = '<option value="">Selecciona un miembro...</option>';
-                    members.forEach(m => {
-                        select.innerHTML += `<option value="${m.id}">${m.characterName} (${m.currentDkp} DKP)</option>`;
-                    });
-                }
             } catch (error) {
                 console.error('Error cargando miembros:', error);
             }
@@ -1113,27 +1090,49 @@
         // ======================================
         // FUNCIONES DE ADMIN
         // ======================================
-        async function adjustDKP() {
-            const userId = document.getElementById('adjustMember').value;
-            const amount = parseInt(document.getElementById('adjustAmount').value);
-            const reason = document.getElementById('adjustReason').value;
-
-            if (!userId || !amount) {
-                alert('Por favor completa todos los campos');
-                return;
-            }
+        async function quickAdjustDKP(userId, characterName, amount) {
+            const reason = amount > 0 ? 'Ajuste rápido (+1)' : 'Ajuste rápido (-1)';
 
             try {
                 const response = await fetchWithAuth(`${API_URL}/dkp/adjust`, {
                     method: 'POST',
-                    body: { userId: parseInt(userId), amount, reason: reason || 'Ajuste manual' }
+                    body: { userId: parseInt(userId), amount, reason }
                 });
 
                 if (response.ok) {
-                    alert('DKP ajustado correctamente');
                     loadMembers();
-                    document.getElementById('adjustAmount').value = '';
-                    document.getElementById('adjustReason').value = '';
+                    // Optional: show a brief toast notification instead of alert
+                } else {
+                    alert('Error al ajustar DKP');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Error al ajustar DKP');
+            }
+        }
+
+        async function customAdjustDKP(userId, characterName) {
+            const amount = prompt(`Ajustar DKP para ${characterName}\nIngresa cantidad (+/-):`, '0');
+            if (amount === null) return; // Cancelled
+
+            const amountNum = parseInt(amount);
+            if (isNaN(amountNum) || amountNum === 0) {
+                alert('Cantidad inválida');
+                return;
+            }
+
+            const reason = prompt('Motivo del ajuste:', 'Ajuste manual');
+            if (reason === null) return; // Cancelled
+
+            try {
+                const response = await fetchWithAuth(`${API_URL}/dkp/adjust`, {
+                    method: 'POST',
+                    body: { userId: parseInt(userId), amount: amountNum, reason: reason || 'Ajuste manual' }
+                });
+
+                if (response.ok) {
+                    alert(`DKP ajustado: ${amountNum > 0 ? '+' : ''}${amountNum} para ${characterName}`);
+                    loadMembers();
                 } else {
                     alert('Error al ajustar DKP');
                 }
@@ -1246,36 +1245,6 @@
             }
         }
 
-        async function applyDecay() {
-            const percentage = parseInt(document.getElementById('decayPercentage').value);
-
-            if (!percentage || percentage <= 0 || percentage > 100) {
-                alert('Por favor ingresa un porcentaje válido (1-100)');
-                return;
-            }
-
-            if (!confirm(`¿Estás SEGURO de aplicar un decay del ${percentage}% a TODOS los miembros? Esta acción NO se puede deshacer.`)) {
-                return;
-            }
-
-            try {
-                const response = await fetchWithAuth(`${API_URL}/dkp/decay`, {
-                    method: 'POST',
-                    body: { percentage }
-                });
-
-                if (response.ok) {
-                    alert(`Decay del ${percentage}% aplicado a todos los miembros`);
-                    loadMembers();
-                    document.getElementById('decayPercentage').value = '';
-                } else {
-                    alert('Error al aplicar decay');
-                }
-            } catch (error) {
-                console.error('Error:', error);
-                alert('Error al aplicar decay');
-            }
-        }
 
         // Mostrar pestaña de admin si es admin/officer
         function checkAdminAccess() {
