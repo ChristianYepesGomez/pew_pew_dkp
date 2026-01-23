@@ -47,6 +47,14 @@ function initDatabase() {
     // Column already exists
   }
 
+  // Add spec column if it doesn't exist (migration)
+  try {
+    db.exec(`ALTER TABLE users ADD COLUMN spec TEXT`);
+    console.log('✅ Added spec column to users table');
+  } catch (e) {
+    // Column already exists
+  }
+
   // Member DKP table (separate for easier updates)
   db.exec(`
     CREATE TABLE IF NOT EXISTS member_dkp (

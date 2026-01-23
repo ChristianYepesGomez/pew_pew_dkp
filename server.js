@@ -45,7 +45,7 @@ app.get('/health', (req, res) => {
 // Register new user
 app.post('/api/auth/register', async (req, res) => {
   try {
-    const { username, password, characterName, characterClass, role } = req.body;
+    const { username, password, characterName, characterClass, role, raidRole, spec, server } = req.body;
 
     if (!username || !password || !characterName || !characterClass) {
       return res.status(400).json({ error: 'Missing required fields' });
@@ -62,9 +62,9 @@ app.post('/api/auth/register', async (req, res) => {
 
     // Insert user (default role is 'raider')
     const result = db.prepare(`
-      INSERT INTO users (username, password, character_name, character_class, role)
-      VALUES (?, ?, ?, ?, ?)
-    `).run(username, hashedPassword, characterName, characterClass, role || 'raider');
+      INSERT INTO users (username, password, character_name, character_class, role, raid_role, spec, server)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(username, hashedPassword, characterName, characterClass, role || 'raider', raidRole || 'DPS', spec, server);
 
     // Create initial DKP record
     db.prepare(`
@@ -161,7 +161,7 @@ app.get('/api/auth/me', authenticateToken, (req, res) => {
 // Get all members with DKP (sorted by DKP descending)
 app.get('/api/members', authenticateToken, (req, res) => {
   const members = db.prepare(`
-    SELECT u.id, u.username, u.character_name, u.character_class, u.role, u.raid_role,
+    SELECT u.id, u.username, u.character_name, u.character_class, u.role, u.raid_role, u.spec,
            md.current_dkp, md.lifetime_gained, md.lifetime_spent
     FROM users u
     LEFT JOIN member_dkp md ON u.id = md.user_id
@@ -176,6 +176,7 @@ app.get('/api/members', authenticateToken, (req, res) => {
     characterClass: m.character_class,
     role: m.role,
     raidRole: m.raid_role,
+    spec: m.spec,
     currentDkp: m.current_dkp || 0,
     lifetimeGained: m.lifetime_gained || 0,
     lifetimeSpent: m.lifetime_spent || 0
@@ -314,7 +315,7 @@ app.get('/api/dkp/history/:userId', authenticateToken, (req, res) => {
   const limit = parseInt(req.query.limit) || 50;
 
   const history = db.prepare(`
-    SELECT dt.*, u.character_name as performed_by_name
+    SELECT dt.*, u.character_name, u.username
     FROM dkp_transactions dt
     LEFT JOIN users u ON dt.performed_by = u.id
     WHERE dt.user_id = ?
@@ -322,7 +323,16 @@ app.get('/api/dkp/history/:userId', authenticateToken, (req, res) => {
     LIMIT ?
   `).all(userId, limit);
 
-  res.json(history);
+  res.json(history.map(h => ({
+    id: h.id,
+    userId: h.user_id,
+    amount: h.amount,
+    reason: h.reason,
+    performedBy: h.performed_by,
+    characterName: h.character_name,
+    username: h.username,
+    createdAt: h.created_at
+  })));
 });
 
 // ============================================
@@ -341,7 +351,7 @@ app.get('/api/auctions/active', authenticateToken, (req, res) => {
   `).get();
 
   if (!auction) {
-    return res.json(null);
+    return res.json({ auction: null });
   }
 
   const bids = db.prepare(`
@@ -353,15 +363,28 @@ app.get('/api/auctions/active', authenticateToken, (req, res) => {
   `).all(auction.id);
 
   res.json({
-    ...auction,
-    bids: bids.map(b => ({
-      id: b.id,
-      userId: b.user_id,
-      characterName: b.character_name,
-      characterClass: b.character_class,
-      amount: b.amount,
-      createdAt: b.created_at
-    }))
+    auction: {
+      id: auction.id,
+      itemName: auction.item_name,
+      itemImage: auction.item_image,
+      itemRarity: auction.item_rarity,
+      minimumBid: auction.min_bid,
+      status: auction.status,
+      winnerId: auction.winner_id,
+      winningBid: auction.winning_bid,
+      createdBy: auction.created_by,
+      createdByName: auction.created_by_name,
+      createdAt: auction.created_at,
+      endedAt: auction.ended_at,
+      bids: bids.map(b => ({
+        id: b.id,
+        userId: b.user_id,
+        characterName: b.character_name,
+        characterClass: b.character_class,
+        amount: b.amount,
+        createdAt: b.created_at
+      }))
+    }
   });
 });
 
