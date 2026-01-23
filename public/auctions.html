@@ -391,26 +391,33 @@
     
     <script>
         // CONFIGURACIÓN DEL BACKEND
+        const API_URL = 'http://localhost:3000/api';
+        const token = localStorage.getItem('token');
+
+        // Verificar autenticación
+        if (!token) {
+            window.location.href = 'login.html';
+        }
 
         let subastasFiltradas = [];
         let subastasTodas = [];
-        
+
         // CARGAR SUBASTAS DESDE EL BACKEND
         async function cargarSubastas() {
             try {
                 const response = await fetch(`${API_URL}/auctions/history`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
-                
+
                 if (response.status === 401) {
                     alert('Sesión expirada');
                     localStorage.removeItem('token');
                     window.location.href = 'login.html';
                     return;
                 }
-                
+
                 const subastas = await response.json();
-                
+
                 subastasTodas = subastas.map(s => ({
                     id: s.id,
                     objeto: s.item_name,
@@ -423,30 +430,23 @@
                     fecha: s.created_at,
                     totalPujas: s.bid_count || 0
                 }));
-                
+
                 subastasFiltradas = [...subastasTodas];
                 renderizarSubastas(subastasFiltradas);
                 calcularEstadisticas();
                 actualizarContador();
-                
+
             } catch (error) {
                 console.error('Error cargando subastas:', error);
                 document.getElementById('auctionsList').innerHTML = `
                     <div class="info-card text-center text-danger">
-                        <i class="fas fa-exclamation-triangle"></i> 
+                        <i class="fas fa-exclamation-triangle"></i>
                         Error: No se pudo conectar con el servidor.<br>
                         Verifica que el backend esté corriendo en ${API_URL}
                     </div>
                 `;
             }
         }
-                ganadorClase: 'Priest',
-                fecha: '2025-01-11 22:15:00',
-                totalPujas: 4
-            }
-        ];
-        
-        let subastasFiltradas = [...subastasTodas];
         
         function renderizarSubastas(subastas) {
             const contenedor = document.getElementById('auctionsList');
