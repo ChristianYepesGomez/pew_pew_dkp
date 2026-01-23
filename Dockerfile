@@ -39,6 +39,7 @@ COPY --from=builder /app/middleware ./middleware
 COPY --from=builder /app/services ./services
 COPY --from=builder /app/utils ./utils
 COPY --from=builder /app/tasks ./tasks
+COPY --from=builder /app/public ./public
 
 # Create data directory for SQLite with correct permissions
 RUN mkdir -p /app/data && chown -R nodejs:nodejs /app
