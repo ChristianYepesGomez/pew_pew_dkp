@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { usersAPI } from '../services/api';
+import { getCurrentLanguage } from '../i18n';
 import Header from '../components/Header';
 import TabNavigation from '../components/TabNavigation';
 import RosterTab from '../components/tabs/RosterTab';
@@ -11,6 +12,7 @@ export default function DashboardPage({ user, onLogout }) {
   const [activeTab, setActiveTab] = useState('roster');
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [currentLang, setCurrentLang] = useState(getCurrentLanguage());
 
   useEffect(() => {
     loadUsers();
@@ -41,9 +43,13 @@ export default function DashboardPage({ user, onLogout }) {
 
   const ActiveComponent = tabs.find(tab => tab.id === activeTab)?.component;
 
+  const handleLanguageChange = (newLang) => {
+    setCurrentLang(newLang);
+  };
+
   return (
-    <div className="dashboard">
-      <Header user={user} onLogout={onLogout} />
+    <div className="dashboard" key={currentLang}>
+      <Header user={user} onLogout={onLogout} onLanguageChange={handleLanguageChange} />
       <TabNavigation tabs={tabs} activeTab={activeTab} onTabChange={setActiveTab} />
 
       <main className="container">

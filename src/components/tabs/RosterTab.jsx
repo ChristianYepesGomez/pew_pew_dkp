@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import AddMemberModal from '../modals/AddMemberModal';
 import AdjustDKPModal from '../modals/AdjustDKPModal';
+import ClassIcon from '../ClassIcon';
 
 const CLASS_COLORS = {
   'Warrior': 'warrior',
@@ -37,12 +38,9 @@ export default function RosterTab({ users, user: currentUser, onUsersUpdate }) {
             <tr>
               <th>Character</th>
               <th>Class</th>
+              <th>Spec</th>
               <th>Role</th>
-              <th>Current DKP</th>
-              <th>Lifetime</th>
-              {(currentUser.role === 'admin' || currentUser.role === 'officer') && (
-                <th>Actions</th>
-              )}
+              <th>DKPs</th>
             </tr>
           </thead>
           <tbody>
@@ -56,22 +54,27 @@ export default function RosterTab({ users, user: currentUser, onUsersUpdate }) {
                   </div>
                 </td>
                 <td>
-                  <span className="class-badge">{user.characterClass}</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <ClassIcon className={user.characterClass} size={24} />
+                    <span className="class-badge">{user.characterClass}</span>
+                  </div>
+                </td>
+                <td>
+                  <span className="spec-badge">{user.spec || 'N/A'}</span>
                 </td>
                 <td>
                   <span className={`role-badge ${user.raidRole?.toLowerCase() || 'dps'}`}>
                     {user.raidRole || 'DPS'}
                   </span>
                 </td>
-                <td className="dkp-value">{user.currentDkp || 0}</td>
-                <td className="lifetime-value">{user.lifetimeGained || 0}</td>
-                {(currentUser.role === 'admin' || currentUser.role === 'officer') && (
-                  <td>
-                    <button className="btn-icon" title="Adjust DKP" onClick={() => setAdjustUser(user)}>
+                <td className="dkp-value">
+                  {user.currentDkp || 0}
+                  {(currentUser.role === 'admin' || currentUser.role === 'officer') && (
+                    <button className="btn-icon" title="Adjust DKP" onClick={() => setAdjustUser(user)} style={{marginLeft: '8px'}}>
                       ±
                     </button>
-                  </td>
-                )}
+                  )}
+                </td>
               </tr>
             ))}
           </tbody>

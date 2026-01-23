@@ -8,7 +8,7 @@ export default function AddMemberModal({ onClose, onSuccess }) {
     characterName: '',
     characterClass: 'Warrior',
     raidRole: 'DPS',
-    server: 'Sanguino'
+    spec: 'Arms'
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -93,6 +93,40 @@ export default function AddMemberModal({ onClose, onSuccess }) {
           </div>
 
           <div className="form-group">
+            <label>Spec</label>
+            <select
+              className="input"
+              value={formData.spec}
+              onChange={(e) => setFormData({...formData, spec: e.target.value})}
+            >
+              <option>Arms</option>
+              <option>Fury</option>
+              <option>Protection</option>
+              <option>Holy</option>
+              <option>Retribution</option>
+              <option>Beast Mastery</option>
+              <option>Marksmanship</option>
+              <option>Survival</option>
+              <option>Assassination</option>
+              <option>Combat</option>
+              <option>Subtlety</option>
+              <option>Discipline</option>
+              <option>Shadow</option>
+              <option>Elemental</option>
+              <option>Enhancement</option>
+              <option>Restoration</option>
+              <option>Arcane</option>
+              <option>Fire</option>
+              <option>Frost</option>
+              <option>Affliction</option>
+              <option>Demonology</option>
+              <option>Destruction</option>
+              <option>Balance</option>
+              <option>Feral</option>
+            </select>
+          </div>
+
+          <div className="form-group">
             <label>Raid Role</label>
             <select
               className="input"
@@ -105,15 +139,6 @@ export default function AddMemberModal({ onClose, onSuccess }) {
             </select>
           </div>
 
-          <div className="form-group">
-            <label>Server</label>
-            <input
-              type="text"
-              className="input"
-              value={formData.server}
-              onChange={(e) => setFormData({...formData, server: e.target.value})}
-            />
-          </div>
 
           <div className="modal-actions">
             <button type="button" onClick={onClose} className="btn btn-secondary">

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { t, getCurrentLanguage, setLanguage } from '../i18n';
 
-export default function Header({ user, onLogout }) {
+export default function Header({ user, onLogout, onLanguageChange }) {
   const [lang, setLang] = useState(getCurrentLanguage());
   const [showLangMenu, setShowLangMenu] = useState(false);
 
@@ -9,7 +9,11 @@ export default function Header({ user, onLogout }) {
     setLanguage(newLang);
     setLang(newLang);
     setShowLangMenu(false);
-    window.location.reload();
+
+    // Notify parent to re-render if callback provided
+    if (onLanguageChange) {
+      onLanguageChange(newLang);
+    }
   };
 
   return (
