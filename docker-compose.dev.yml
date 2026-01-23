@@ -1,0 +1,26 @@
+version: '3.8'
+
+services:
+  frontend-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: dkp-frontend-dev
+    ports:
+      - "5173:5173"
+    volumes:
+      # Mount source for hot reload
+      - ./src:/app/src:ro
+      - ./public:/app/public:ro
+      - ./index.html:/app/index.html:ro
+      - ./vite.config.js:/app/vite.config.js:ro
+    environment:
+      - VITE_API_URL=http://localhost:3000
+    networks:
+      - dkp-network
+    restart: unless-stopped
+
+networks:
+  dkp-network:
+    external: true
+    name: dkp-backend_dkp-network
