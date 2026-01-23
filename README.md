@@ -2,6 +2,13 @@
 
 Sistema de gestión de Dragon Kill Points (DKP) para guilds de World of Warcraft.
 
+> **📝 Nota sobre Frontend**: Este repositorio contiene el backend del sistema DKP.
+> Existe un **frontend provisional** disponible en la rama `frontend-provisional` que incluye
+> una interfaz funcional con React + Vite. El equipo de frontend está desarrollando
+> una versión definitiva de manera independiente.
+>
+> Para ver el frontend provisional: `git checkout frontend-provisional`
+
 ## ✨ Características
 
 - **Autenticación JWT** - Login seguro con roles (admin, officer, raider)
