@@ -1101,7 +1101,10 @@
 
                 if (response.ok) {
                     loadMembers();
-                    // Optional: show a brief toast notification instead of alert
+                    // Si el ajuste es al usuario actual, recargar su info
+                    if (currentUser && parseInt(userId) === currentUser.id) {
+                        loadUserData();
+                    }
                 } else {
                     alert('Error al ajustar DKP');
                 }
@@ -1133,6 +1136,10 @@
                 if (response.ok) {
                     alert(`DKP ajustado: ${amountNum > 0 ? '+' : ''}${amountNum} para ${characterName}`);
                     loadMembers();
+                    // Si el ajuste es al usuario actual, recargar su info
+                    if (currentUser && parseInt(userId) === currentUser.id) {
+                        loadUserData();
+                    }
                 } else {
                     alert('Error al ajustar DKP');
                 }
@@ -1169,6 +1176,7 @@
                 if (response.ok) {
                     alert('DKP ajustado para todos los miembros');
                     loadMembers();
+                    loadUserData(); // Recargar datos del usuario actual
                     document.getElementById('bulkAmount').value = '';
                     document.getElementById('bulkReason').value = '';
                 } else {
@@ -1204,19 +1212,62 @@
                 }
 
                 const data = await response.json();
-                let html = '<h6>Vista Previa:</h6><table class="table table-sm table-dark"><thead><tr><th>Personaje</th><th>DKP a Otorgar</th></tr></thead><tbody>';
 
-                data.preview.forEach(p => {
-                    html += `<tr><td>${p.characterName}</td><td>+${p.dkpToGrant} DKP</td></tr>`;
-                });
+                // Mostrar info del reporte
+                let html = `
+                    <div class="alert alert-info">
+                        <h6><i class="fas fa-scroll"></i> ${data.report.title}</h6>
+                        <p class="mb-0">
+                            <strong>Bosses:</strong> ${data.report.bossesKilled}/${data.report.totalBosses} |
+                            <strong>Participantes:</strong> ${data.report.participantCount} |
+                            <strong>DKP por jugador:</strong> ${data.dkp_calculation.dkp_per_player}
+                        </p>
+                    </div>
+                `;
 
-                html += '</tbody></table>';
-                html += `<button class="btn btn-success" onclick="confirmWarcraftLogs('${data.reportId}')">Confirmar y Aplicar DKP</button>`;
+                // Mostrar participantes matched
+                const matched = data.participants.filter(p => p.matched);
+                const notMatched = data.participants.filter(p => !p.matched);
+
+                if (matched.length > 0) {
+                    html += '<h6>Jugadores que recibirán DKP:</h6>';
+                    html += '<table class="table table-sm table-dark table-striped"><thead><tr><th>Personaje</th><th>DKP Actual</th><th>DKP a Otorgar</th></tr></thead><tbody>';
+
+                    matched.forEach(p => {
+                        html += `<tr>
+                            <td>${p.character_name}</td>
+                            <td>${p.current_dkp || 0}</td>
+                            <td class="text-success">+${p.dkp_to_assign} DKP</td>
+                        </tr>`;
+                    });
+
+                    html += '</tbody></table>';
+                }
+
+                // Mostrar no encontrados si hay
+                if (notMatched.length > 0) {
+                    html += `<div class="alert alert-warning mt-3">
+                        <strong>⚠️ ${notMatched.length} jugadores no encontrados en la BD:</strong>
+                        <ul class="mb-0 mt-2">`;
+                    notMatched.forEach(p => {
+                        html += `<li>${p.wcl_name} (${p.wcl_server}) - ${p.wcl_class}</li>`;
+                    });
+                    html += '</ul></div>';
+                }
+
+                // Botón de confirmar
+                if (data.can_proceed && matched.length > 0) {
+                    html += `<button class="btn btn-success mt-3" onclick="confirmWarcraftLogs('${data.report.code}')">
+                        <i class="fas fa-check"></i> Confirmar y Aplicar DKP a ${matched.length} jugadores
+                    </button>`;
+                } else {
+                    html += '<div class="alert alert-danger mt-3">No se puede proceder: no hay jugadores coincidentes</div>';
+                }
 
                 preview.innerHTML = html;
             } catch (error) {
                 console.error('Error:', error);
-                preview.innerHTML = '<p class="text-danger">Error al procesar Warcraft Logs</p>';
+                preview.innerHTML = `<p class="text-danger">Error al procesar Warcraft Logs: ${error.message || 'Error desconocido'}</p>`;
             }
         }
 
@@ -1236,6 +1287,7 @@
                     document.getElementById('warcraftLogsURL').value = '';
                     document.getElementById('warcraftLogsPreview').innerHTML = '';
                     loadMembers();
+                    loadUserData(); // Recargar datos del usuario actual
                 } else {
                     alert('Error al aplicar DKP');
                 }
