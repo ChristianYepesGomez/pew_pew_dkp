@@ -1,0 +1,187 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Custom Midnight Theme Styles */
+@layer base {
+  body {
+    @apply bg-gradient-to-br from-midnight-deepblue via-midnight-spaceblue to-midnight-purple;
+    @apply min-h-screen text-midnight-silver;
+    @apply overflow-x-hidden relative;
+    background-attachment: fixed;
+  }
+
+  /* Nebula effect */
+  body::before {
+    content: '';
+    @apply fixed top-0 left-0 w-full h-full pointer-events-none z-0;
+    background:
+      radial-gradient(circle at 20% 50%, rgba(139, 92, 246, 0.15) 0%, transparent 50%),
+      radial-gradient(circle at 80% 80%, rgba(109, 40, 217, 0.15) 0%, transparent 50%),
+      radial-gradient(circle at 40% 20%, rgba(74, 26, 143, 0.1) 0%, transparent 50%);
+    animation: nebula 20s ease-in-out infinite;
+  }
+
+  /* Stars effect */
+  body::after {
+    content: '';
+    @apply fixed top-0 left-0 w-full h-full pointer-events-none z-0;
+    background-image:
+      radial-gradient(2px 2px at 20% 30%, white, transparent),
+      radial-gradient(2px 2px at 60% 70%, white, transparent),
+      radial-gradient(1px 1px at 50% 50%, white, transparent),
+      radial-gradient(1px 1px at 80% 10%, white, transparent),
+      radial-gradient(2px 2px at 90% 60%, white, transparent),
+      radial-gradient(1px 1px at 33% 75%, white, transparent),
+      radial-gradient(2px 2px at 15% 85%, white, transparent),
+      radial-gradient(1px 1px at 70% 25%, white, transparent);
+    background-size: 200% 200%;
+    animation: starsTwinkle 10s ease-in-out infinite;
+    opacity: 0.8;
+  }
+
+  /* Ensure all elements are above backgrounds */
+  * {
+    @apply relative z-10;
+  }
+}
+
+@layer components {
+  /* WoW Class Colors */
+  .class-warrior { @apply text-wow-warrior font-bold; text-shadow: 0 0 10px rgba(199, 156, 110, 0.7); }
+  .class-paladin { @apply text-wow-paladin font-bold; text-shadow: 0 0 10px rgba(245, 140, 186, 0.7); }
+  .class-hunter { @apply text-wow-hunter font-bold; text-shadow: 0 0 10px rgba(171, 212, 115, 0.7); }
+  .class-rogue { @apply text-wow-rogue font-bold; text-shadow: 0 0 10px rgba(255, 245, 105, 0.7); }
+  .class-priest { @apply text-wow-priest font-bold; text-shadow: 0 0 15px rgba(255, 255, 255, 0.9); }
+  .class-shaman { @apply text-wow-shaman font-bold; text-shadow: 0 0 10px rgba(0, 112, 222, 0.7); }
+  .class-mage { @apply text-wow-mage font-bold; text-shadow: 0 0 10px rgba(105, 204, 240, 0.7); }
+  .class-warlock { @apply text-wow-warlock font-bold; text-shadow: 0 0 10px rgba(148, 130, 201, 0.7); }
+  .class-druid { @apply text-wow-druid font-bold; text-shadow: 0 0 10px rgba(255, 125, 10, 0.7); }
+  .class-death-knight { @apply text-wow-death-knight font-bold; text-shadow: 0 0 10px rgba(196, 31, 59, 0.7); }
+  .class-demon-hunter { @apply text-wow-demon-hunter font-bold; text-shadow: 0 0 10px rgba(163, 48, 201, 0.7); }
+  .class-monk { @apply text-wow-monk font-bold; text-shadow: 0 0 10px rgba(0, 255, 150, 0.7); }
+
+  /* Rarity Colors */
+  .rarity-common { @apply text-rarity-common font-bold; text-shadow: 0 0 10px rgba(157, 157, 157, 0.7); }
+  .rarity-uncommon { @apply text-rarity-uncommon font-bold; text-shadow: 0 0 10px rgba(30, 255, 0, 0.7); }
+  .rarity-rare { @apply text-rarity-rare font-bold; text-shadow: 0 0 10px rgba(0, 112, 221, 0.7); }
+  .rarity-epic { @apply text-rarity-epic font-bold; text-shadow: 0 0 15px rgba(163, 53, 238, 0.8); }
+  .rarity-legendary { @apply text-rarity-legendary font-bold; text-shadow: 0 0 15px rgba(255, 128, 0, 0.8); }
+
+  /* Info Card */
+  .info-card {
+    @apply bg-midnight-spaceblue bg-opacity-70 backdrop-blur-xl rounded-2xl;
+    @apply shadow-lg border border-midnight-bright-purple border-opacity-30;
+    @apply p-8 mb-6 transition-all duration-400;
+    box-shadow:
+      0 8px 32px rgba(0, 0, 0, 0.5),
+      0 0 40px rgba(139, 92, 246, 0.15),
+      inset 0 0 60px rgba(139, 92, 246, 0.05);
+  }
+
+  .info-card:hover {
+    @apply transform -translate-y-1 border-midnight-bright-purple;
+    box-shadow:
+      0 12px 48px rgba(0, 0, 0, 0.6),
+      0 0 60px rgba(139, 92, 246, 0.3),
+      inset 0 0 80px rgba(139, 92, 246, 0.1);
+  }
+
+  .info-card h3 {
+    @apply font-cinzel text-midnight-glow text-2xl mb-6;
+    text-shadow: 0 0 15px rgba(167, 139, 250, 0.6);
+    letter-spacing: 1px;
+  }
+
+  /* DKP Badge */
+  .dkp-badge {
+    @apply bg-gradient-to-br from-midnight-accent via-midnight-bright-purple to-midnight-glow;
+    @apply backdrop-blur-lg p-10 rounded-2xl text-center;
+    @apply border-2 border-midnight-bright-purple cursor-pointer transition-all duration-400;
+    @apply relative overflow-hidden;
+    box-shadow:
+      0 8px 32px rgba(139, 92, 246, 0.5),
+      0 0 60px rgba(167, 139, 250, 0.4),
+      inset 0 0 80px rgba(255, 255, 255, 0.1);
+  }
+
+  .dkp-badge::before {
+    content: '';
+    @apply absolute top-0 left-0 w-full h-full;
+    background: linear-gradient(
+      45deg,
+      transparent 30%,
+      rgba(255, 255, 255, 0.2) 50%,
+      transparent 70%
+    );
+    animation: shimmer 3s infinite;
+  }
+
+  .dkp-badge:hover {
+    @apply transform scale-105 -translate-y-1;
+    box-shadow:
+      0 12px 48px rgba(139, 92, 246, 0.7),
+      0 0 80px rgba(167, 139, 250, 0.6),
+      inset 0 0 100px rgba(255, 255, 255, 0.15);
+  }
+
+  .dkp-amount {
+    @apply font-cinzel text-6xl font-bold text-white my-4;
+    text-shadow:
+      0 0 20px rgba(255, 255, 255, 0.8),
+      0 0 40px rgba(167, 139, 250, 0.6),
+      0 0 60px rgba(139, 92, 246, 0.4);
+    letter-spacing: 2px;
+  }
+
+  /* Transaction Row */
+  .transaction-row {
+    @apply border-b border-midnight-bright-purple border-opacity-20 py-4 transition-all duration-300;
+  }
+
+  .transaction-row:hover {
+    @apply bg-midnight-bright-purple bg-opacity-10 rounded-lg px-4 border-midnight-bright-purple;
+  }
+
+  .transaction-row:last-child {
+    @apply border-b-0;
+  }
+
+  .amount-positive {
+    @apply text-green-400 font-bold;
+    text-shadow: 0 0 10px rgba(52, 211, 153, 0.6);
+  }
+
+  .amount-negative {
+    @apply text-red-400 font-bold;
+    text-shadow: 0 0 10px rgba(248, 113, 113, 0.6);
+  }
+
+  /* Custom scrollbar */
+  ::-webkit-scrollbar {
+    @apply w-3;
+  }
+
+  ::-webkit-scrollbar-track {
+    @apply bg-midnight-deepblue;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-gradient-to-b from-midnight-purple to-midnight-bright-purple rounded-md;
+    @apply border-2 border-midnight-deepblue;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-gradient-to-b from-midnight-bright-purple to-midnight-glow;
+  }
+}
+
+@layer utilities {
+  .text-glow {
+    text-shadow: 0 0 10px currentColor;
+  }
+
+  .text-glow-strong {
+    text-shadow: 0 0 20px currentColor, 0 0 40px currentColor;
+  }
+}
