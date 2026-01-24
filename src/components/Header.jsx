@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import { t, getCurrentLanguage, setLanguage } from '../i18n';
+import ChangePasswordModal from './modals/ChangePasswordModal';
 
 export default function Header({ user, onLogout, onLanguageChange }) {
   const [lang, setLang] = useState(getCurrentLanguage());
   const [showLangMenu, setShowLangMenu] = useState(false);
+  const [showChangePassword, setShowChangePassword] = useState(false);
 
   const changeLang = (newLang) => {
     setLanguage(newLang);
@@ -29,6 +31,13 @@ export default function Header({ user, onLogout, onLanguageChange }) {
           <span className={`user-role ${user.role}`}>
             {user.role.charAt(0).toUpperCase() + user.role.slice(1)}
           </span>
+          <button
+            onClick={() => setShowChangePassword(true)}
+            className="btn-icon"
+            title={lang === 'es' ? 'Cambiar Contraseña' : 'Change Password'}
+          >
+            <i className="fas fa-key"></i>
+          </button>
           <div className="lang-dropdown">
             <button onClick={() => setShowLangMenu(!showLangMenu)} className="btn-icon" title="Language">
               {lang === 'en' ? '🇬🇧' : '🇪🇸'}
@@ -51,6 +60,17 @@ export default function Header({ user, onLogout, onLanguageChange }) {
           </button>
         </div>
       </div>
+
+      {showChangePassword && (
+        <ChangePasswordModal
+          onClose={() => setShowChangePassword(false)}
+          onSuccess={() => {
+            alert(lang === 'es' ? '¡Contraseña actualizada exitosamente!' : 'Password updated successfully!');
+            setShowChangePassword(false);
+          }}
+          lang={lang}
+        />
+      )}
     </header>
   );
 }

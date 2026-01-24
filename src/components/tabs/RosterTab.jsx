@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import AddMemberModal from '../modals/AddMemberModal';
 import AdjustDKPModal from '../modals/AdjustDKPModal';
+import ResetPasswordModal from '../modals/ResetPasswordModal';
 import ClassIcon from '../ClassIcon';
 
 const CLASS_COLORS = {
@@ -15,9 +16,10 @@ const CLASS_COLORS = {
   'Shaman': 'shaman',
 };
 
-export default function RosterTab({ users, user: currentUser, onUsersUpdate }) {
+export default function RosterTab({ users, user: currentUser, onUsersUpdate, lang = 'es' }) {
   const [showAddModal, setShowAddModal] = useState(false);
   const [adjustUser, setAdjustUser] = useState(null);
+  const [resetPasswordUser, setResetPasswordUser] = useState(null);
 
   return (
     <div className="tab-content active">
@@ -41,6 +43,9 @@ export default function RosterTab({ users, user: currentUser, onUsersUpdate }) {
               <th>Spec</th>
               <th>Role</th>
               <th>DKPs</th>
+              {(currentUser.role === 'admin' || currentUser.role === 'officer') && (
+                <th>Actions</th>
+              )}
             </tr>
           </thead>
           <tbody>
@@ -69,12 +74,27 @@ export default function RosterTab({ users, user: currentUser, onUsersUpdate }) {
                 </td>
                 <td className="dkp-value">
                   {user.currentDkp || 0}
-                  {(currentUser.role === 'admin' || currentUser.role === 'officer') && (
-                    <button className="btn-icon" title="Adjust DKP" onClick={() => setAdjustUser(user)} style={{marginLeft: '8px'}}>
-                      ±
-                    </button>
-                  )}
                 </td>
+                {(currentUser.role === 'admin' || currentUser.role === 'officer') && (
+                  <td>
+                    <div style={{ display: 'flex', gap: '5px' }}>
+                      <button
+                        className="btn-icon"
+                        title={lang === 'es' ? 'Ajustar DKP' : 'Adjust DKP'}
+                        onClick={() => setAdjustUser(user)}
+                      >
+                        <i className="fas fa-edit"></i>
+                      </button>
+                      <button
+                        className="btn-icon btn-warning"
+                        title={lang === 'es' ? 'Resetear Contraseña' : 'Reset Password'}
+                        onClick={() => setResetPasswordUser(user)}
+                      >
+                        <i className="fas fa-key"></i>
+                      </button>
+                    </div>
+                  </td>
+                )}
               </tr>
             ))}
           </tbody>
@@ -93,6 +113,19 @@ export default function RosterTab({ users, user: currentUser, onUsersUpdate }) {
           user={adjustUser}
           onClose={() => setAdjustUser(null)}
           onSuccess={onUsersUpdate}
+        />
+      )}
+
+      {resetPasswordUser && (
+        <ResetPasswordModal
+          userId={resetPasswordUser.id}
+          characterName={resetPasswordUser.characterName || resetPasswordUser.username}
+          onClose={() => setResetPasswordUser(null)}
+          onSuccess={() => {
+            alert(lang === 'es' ? '¡Contraseña reseteada exitosamente!' : 'Password reset successfully!');
+            setResetPasswordUser(null);
+          }}
+          lang={lang}
         />
       )}
     </div>

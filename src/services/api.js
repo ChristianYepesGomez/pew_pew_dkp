@@ -36,6 +36,8 @@ export const authAPI = {
   login: (username, password) => api.post('/api/auth/login', { username, password }),
   register: (data) => api.post('/api/auth/register', data),
   getCurrentUser: () => api.get('/api/auth/me'),
+  changePassword: (currentPassword, newPassword) => api.post('/api/auth/change-password', { currentPassword, newPassword }),
+  resetPassword: (userId, newPassword) => api.post('/api/auth/reset-password', { userId, newPassword }),
 };
 
 // Members API
@@ -69,6 +71,19 @@ export const warcraftLogsAPI = {
   preview: (url) => api.post('/api/warcraftlogs/preview', { url }),
   confirm: (data) => api.post('/api/warcraftlogs/confirm', data),
   getHistory: (limit = 50) => api.get(`/api/warcraftlogs/history?limit=${limit}`),
+};
+
+// Calendar API
+export const calendarAPI = {
+  getRaidDays: () => api.get('/api/calendar/raid-days'),
+  getMyAvailability: (weekStart) => api.get(`/api/calendar/my-availability/${weekStart}`),
+  updateAvailability: (weekStart, dayOfWeek, status, notes = '') => api.put('/api/calendar/availability', { week_start: weekStart, day_of_week: dayOfWeek, status, notes }),
+  getWeekOverview: (weekStart) => api.get(`/api/calendar/week-overview/${weekStart}`),
+};
+
+// Raid Items API
+export const raidItemsAPI = {
+  getAll: () => api.get('/api/raid-items'),
 };
 
 export default api;

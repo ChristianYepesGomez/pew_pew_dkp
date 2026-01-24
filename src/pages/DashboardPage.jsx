@@ -7,6 +7,7 @@ import RosterTab from '../components/tabs/RosterTab';
 import AuctionsTab from '../components/tabs/AuctionsTab';
 import HistoryTab from '../components/tabs/HistoryTab';
 import AdminTab from '../components/tabs/AdminTab';
+import CalendarTab from '../components/tabs/CalendarTab';
 
 export default function DashboardPage({ user, onLogout }) {
   const [activeTab, setActiveTab] = useState('roster');
@@ -31,9 +32,10 @@ export default function DashboardPage({ user, onLogout }) {
   };
 
   const tabs = [
-    { id: 'roster', label: 'Roster', component: RosterTab },
-    { id: 'auctions', label: 'Auctions', component: AuctionsTab },
-    { id: 'history', label: 'History', component: HistoryTab },
+    { id: 'roster', label: currentLang === 'es' ? 'Roster' : 'Roster', component: RosterTab },
+    { id: 'calendar', label: currentLang === 'es' ? 'Calendario' : 'Calendar', component: CalendarTab },
+    { id: 'auctions', label: currentLang === 'es' ? 'Subastas' : 'Auctions', component: AuctionsTab },
+    { id: 'history', label: currentLang === 'es' ? 'Historial' : 'History', component: HistoryTab },
   ];
 
   // Add admin tab if user is admin or officer
@@ -59,7 +61,7 @@ export default function DashboardPage({ user, onLogout }) {
             <p>Loading...</p>
           </div>
         ) : (
-          <ActiveComponent user={user} users={users} onUsersUpdate={loadUsers} />
+          <ActiveComponent user={user} users={users} onUsersUpdate={loadUsers} lang={currentLang} />
         )}
       </main>
     </div>
