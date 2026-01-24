@@ -468,6 +468,315 @@
             box-shadow: 0 5px 15px rgba(138, 92, 246, 0.3);
         }
 
+        /* DKP Progress Container */
+        .dkp-progress-container {
+            background: rgba(138, 92, 246, 0.15);
+            padding: 20px;
+            border-radius: 12px;
+            border: 1px solid rgba(138, 92, 246, 0.3);
+        }
+
+        /* OPCIÓN 1: Vista Semanal (Week View) */
+        .week-view-container {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .week-days-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+        }
+
+        .week-day-card {
+            background: linear-gradient(135deg, rgba(138, 92, 246, 0.1), rgba(139, 92, 246, 0.05));
+            border: 2px solid rgba(138, 92, 246, 0.3);
+            border-radius: 15px;
+            padding: 25px;
+            text-align: center;
+            transition: all 0.4s;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .week-day-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(135deg, transparent, rgba(255,255,255,0.05));
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .week-day-card:hover::before {
+            opacity: 1;
+        }
+
+        .week-day-card.confirmed {
+            background: linear-gradient(135deg, rgba(34, 197, 94, 0.25), rgba(34, 197, 94, 0.1));
+            border-color: rgba(34, 197, 94, 0.6);
+        }
+
+        .week-day-card.declined {
+            background: linear-gradient(135deg, rgba(239, 68, 68, 0.25), rgba(239, 68, 68, 0.1));
+            border-color: rgba(239, 68, 68, 0.6);
+        }
+
+        .week-day-card.tentative {
+            background: linear-gradient(135deg, rgba(251, 191, 36, 0.25), rgba(251, 191, 36, 0.1));
+            border-color: rgba(251, 191, 36, 0.6);
+        }
+
+        .week-day-badge {
+            display: inline-block;
+            background: var(--midnight-bright-purple);
+            color: white;
+            padding: 8px 20px;
+            border-radius: 25px;
+            font-weight: bold;
+            font-size: 1.1rem;
+            margin-bottom: 15px;
+        }
+
+        .week-day-icon {
+            font-size: 4rem;
+            margin: 20px 0;
+            opacity: 0.3;
+            transition: all 0.3s;
+        }
+
+        .week-day-card.confirmed .week-day-icon {
+            opacity: 1;
+            color: #22c55e;
+            animation: pulse-glow 2s ease-in-out infinite;
+        }
+
+        .week-day-card.declined .week-day-icon {
+            opacity: 1;
+            color: #ef4444;
+        }
+
+        .week-day-card.tentative .week-day-icon {
+            opacity: 1;
+            color: #fbbf24;
+        }
+
+        @keyframes pulse-glow {
+            0%, 100% { transform: scale(1); filter: drop-shadow(0 0 5px currentColor); }
+            50% { transform: scale(1.05); filter: drop-shadow(0 0 15px currentColor); }
+        }
+
+        .week-day-status {
+            font-size: 1.3rem;
+            font-weight: bold;
+            margin-top: 15px;
+            color: var(--midnight-glow);
+        }
+
+        .week-day-dkp-badge {
+            display: inline-block;
+            background: linear-gradient(90deg, var(--midnight-bright-purple), var(--midnight-glow));
+            color: white;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            margin-top: 10px;
+            font-weight: bold;
+        }
+
+        /* OPCIÓN 2: Vista Tarjetas (Card View) */
+        .card-view-container {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .raid-cards-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+        }
+
+        .raid-day-card {
+            background: rgba(138, 92, 246, 0.1);
+            border: 2px solid rgba(138, 92, 246, 0.3);
+            border-radius: 15px;
+            padding: 25px;
+            transition: all 0.3s;
+        }
+
+        .raid-day-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 25px rgba(138, 92, 246, 0.4);
+        }
+
+        .raid-card-header {
+            text-align: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid rgba(138, 92, 246, 0.3);
+        }
+
+        .raid-day-badge-large {
+            display: inline-block;
+            background: linear-gradient(135deg, var(--midnight-bright-purple), var(--midnight-glow));
+            color: white;
+            padding: 12px 30px;
+            border-radius: 30px;
+            font-weight: bold;
+            font-size: 1.3rem;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+        }
+
+        .raid-time-display {
+            font-size: 1.1rem;
+            color: var(--midnight-silver);
+            margin-top: 10px;
+        }
+
+        .raid-action-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin-top: 20px;
+        }
+
+        .raid-action-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            padding: 15px 20px;
+            border: 2px solid transparent;
+            border-radius: 10px;
+            font-weight: bold;
+            font-size: 1.1rem;
+            transition: all 0.3s;
+            cursor: pointer;
+            background: rgba(138, 92, 246, 0.2);
+            color: white;
+        }
+
+        .raid-action-btn:hover {
+            transform: scale(1.05);
+        }
+
+        .raid-action-btn.btn-confirm {
+            background: linear-gradient(135deg, rgba(34, 197, 94, 0.3), rgba(34, 197, 94, 0.1));
+            border-color: rgba(34, 197, 94, 0.6);
+        }
+
+        .raid-action-btn.btn-confirm:hover,
+        .raid-action-btn.btn-confirm.active {
+            background: linear-gradient(135deg, rgba(34, 197, 94, 0.6), rgba(34, 197, 94, 0.3));
+            border-color: #22c55e;
+            box-shadow: 0 0 20px rgba(34, 197, 94, 0.5);
+        }
+
+        .raid-action-btn.btn-decline {
+            background: linear-gradient(135deg, rgba(239, 68, 68, 0.3), rgba(239, 68, 68, 0.1));
+            border-color: rgba(239, 68, 68, 0.6);
+        }
+
+        .raid-action-btn.btn-decline:hover,
+        .raid-action-btn.btn-decline.active {
+            background: linear-gradient(135deg, rgba(239, 68, 68, 0.6), rgba(239, 68, 68, 0.3));
+            border-color: #ef4444;
+            box-shadow: 0 0 20px rgba(239, 68, 68, 0.5);
+        }
+
+        .raid-action-btn.btn-tentative {
+            background: linear-gradient(135deg, rgba(251, 191, 36, 0.3), rgba(251, 191, 36, 0.1));
+            border-color: rgba(251, 191, 36, 0.6);
+        }
+
+        .raid-action-btn.btn-tentative:hover,
+        .raid-action-btn.btn-tentative.active {
+            background: linear-gradient(135deg, rgba(251, 191, 36, 0.6), rgba(251, 191, 36, 0.3));
+            border-color: #fbbf24;
+            box-shadow: 0 0 20px rgba(251, 191, 36, 0.5);
+        }
+
+        .dkp-indicator {
+            display: inline-block;
+            background: linear-gradient(90deg, #fbbf24, #f59e0b);
+            color: white;
+            padding: 5px 12px;
+            border-radius: 15px;
+            font-size: 0.9rem;
+            font-weight: bold;
+            margin-left: 10px;
+        }
+
+        /* Admin Attendance Table */
+        .attendance-table {
+            width: 100%;
+            margin-top: 20px;
+            border-collapse: separate;
+            border-spacing: 0 10px;
+        }
+
+        .attendance-table th {
+            background: rgba(138, 92, 246, 0.3);
+            padding: 15px;
+            text-align: left;
+            font-weight: bold;
+            border-bottom: 2px solid var(--midnight-bright-purple);
+        }
+
+        .attendance-table td {
+            background: rgba(138, 92, 246, 0.1);
+            padding: 12px 15px;
+            border-bottom: 1px solid rgba(138, 92, 246, 0.2);
+        }
+
+        .attendance-table tr:hover td {
+            background: rgba(138, 92, 246, 0.2);
+        }
+
+        .attendance-icon {
+            font-size: 1.5rem;
+            text-align: center;
+        }
+
+        .attendance-icon.confirmed {
+            color: #22c55e;
+        }
+
+        .attendance-icon.declined {
+            color: #ef4444;
+        }
+
+        .attendance-icon.tentative {
+            color: #fbbf24;
+        }
+
+        .attendance-icon.no-response {
+            color: #6b7280;
+            opacity: 0.5;
+        }
+
+        .notes-input {
+            background: rgba(138, 92, 246, 0.15);
+            border: 1px solid rgba(138, 92, 246, 0.3);
+            border-radius: 6px;
+            padding: 8px;
+            color: white;
+            width: 100%;
+        }
+
+        .notes-input:focus {
+            outline: none;
+            border-color: var(--midnight-bright-purple);
+            box-shadow: 0 0 10px rgba(138, 92, 246, 0.4);
+        }
+
         .calendar-day-header {
             display: flex;
             justify-content: space-between;
@@ -1040,7 +1349,11 @@
                         <div class="info-card">
                             <div class="d-flex justify-content-between align-items-center mb-4">
                                 <h3><i class="fas fa-calendar-alt"></i> <span data-i18n="raid_calendar">Calendario de Raids</span></h3>
-                                <div>
+                                <div class="d-flex gap-2 align-items-center">
+                                    <select class="form-select form-select-sm" id="calendarViewSelector" onchange="changeCalendarView()" style="width: 200px;">
+                                        <option value="option1"><span data-i18n="week_view">Vista Semanal</span></option>
+                                        <option value="option2"><span data-i18n="card_view">Vista Tarjetas</span></option>
+                                    </select>
                                     <button class="btn btn-sm btn-outline-light" onclick="loadPreviousWeek()">
                                         <i class="fas fa-chevron-left"></i>
                                     </button>
@@ -1051,17 +1364,38 @@
                                 </div>
                             </div>
 
-                            <!-- Availability Grid -->
-                            <div id="calendarGrid" class="calendar-grid mb-4">
-                                <!-- Will be populated by JavaScript -->
+                            <!-- DKP Progress Bar -->
+                            <div class="dkp-progress-container mb-4">
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <span style="font-size: 1.1rem; color: var(--midnight-glow);">
+                                        <i class="fas fa-trophy"></i> <span data-i18n="this_week">Esta semana</span>
+                                    </span>
+                                    <span style="font-size: 1.3rem; font-weight: bold; color: var(--midnight-bright-purple);" id="weeklyDKPEarned">
+                                        0 DKP <span data-i18n="earned">ganados</span>
+                                    </span>
+                                </div>
+                                <div class="progress" style="height: 25px; background: rgba(138, 92, 246, 0.2);">
+                                    <div class="progress-bar" id="dkpProgressBar" role="progressbar" style="background: linear-gradient(90deg, var(--midnight-bright-purple), var(--midnight-glow)); font-weight: bold;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="3">
+                                        <span id="progressText">0/3</span>
+                                    </div>
+                                </div>
                             </div>
 
-                            <!-- Weekly Summary (Admin/Officer only) -->
-                            <div id="weekOverviewSection" style="display: none;">
-                                <hr>
-                                <h5><i class="fas fa-users"></i> <span data-i18n="week_overview">Vista Semanal</span></h5>
-                                <div id="weekOverview">
-                                    <!-- Will be populated by JavaScript -->
+                            <!-- OPCIÓN 1: Vista Semanal (Week View) -->
+                            <div id="calendarOption1" class="calendar-view">
+                                <div class="week-view-container">
+                                    <div class="week-days-grid" id="weekDaysGrid1">
+                                        <!-- Will be populated by JavaScript -->
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- OPCIÓN 2: Vista Tarjetas (Card View) -->
+                            <div id="calendarOption2" class="calendar-view" style="display: none;">
+                                <div class="card-view-container">
+                                    <div class="raid-cards-grid" id="raidCardsGrid2">
+                                        <!-- Will be populated by JavaScript -->
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -1108,6 +1442,49 @@
                                     </div>
                                 </div>
                                 <div id="warcraftLogsPreview" class="mt-3"></div>
+                            </div>
+
+                            <!-- Raid Attendance Management -->
+                            <div class="mb-4">
+                                <h5><i class="fas fa-clipboard-check"></i> <span data-i18n="raid_attendance">Asistencia de Raids</span></h5>
+                                <div class="d-flex justify-content-between align-items-center mb-3">
+                                    <div>
+                                        <button class="btn btn-sm btn-outline-light" onclick="loadAdminPreviousWeek()">
+                                            <i class="fas fa-chevron-left"></i>
+                                        </button>
+                                        <span id="adminWeekDisplay" class="mx-3"></span>
+                                        <button class="btn btn-sm btn-outline-light" onclick="loadAdminNextWeek()">
+                                            <i class="fas fa-chevron-right"></i>
+                                        </button>
+                                    </div>
+                                    <div>
+                                        <select class="form-select form-select-sm" id="attendanceFilter" onchange="filterAttendance()">
+                                            <option value="all"><span data-i18n="all_members">Todos</span></option>
+                                            <option value="confirmed"><span data-i18n="only_confirmed">Solo Confirmados</span></option>
+                                            <option value="declined"><span data-i18n="only_declined">Solo Rechazados</span></option>
+                                            <option value="no_response"><span data-i18n="no_response">Sin Respuesta</span></option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div style="overflow-x: auto;">
+                                    <table class="attendance-table" id="attendanceTable">
+                                        <thead>
+                                            <tr>
+                                                <th><span data-i18n="member">Miembro</span></th>
+                                                <th><span data-i18n="class">Clase</span></th>
+                                                <th><span data-i18n="role">Rol</span></th>
+                                                <th style="text-align: center;">Lun</th>
+                                                <th style="text-align: center;">Mar</th>
+                                                <th style="text-align: center;">Mié</th>
+                                                <th><span data-i18n="notes">Notas</span></th>
+                                                <th style="text-align: center;"><span data-i18n="dkp_earned">DKP</span></th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="attendanceTableBody">
+                                            <!-- Will be populated by JavaScript -->
+                                        </tbody>
+                                    </table>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -2545,42 +2922,122 @@
             }
         }
 
-        function renderCalendarGrid(availability) {
+        let currentCalendarView = 'option1';
+        let calendarAvailabilityData = [];
+
+        function changeCalendarView() {
+            currentCalendarView = document.getElementById('calendarViewSelector').value;
+            renderCurrentCalendarView();
+        }
+
+        function renderCurrentCalendarView() {
+            if (currentCalendarView === 'option1') {
+                document.getElementById('calendarOption1').style.display = 'block';
+                document.getElementById('calendarOption2').style.display = 'none';
+                renderWeekView(calendarAvailabilityData);
+            } else {
+                document.getElementById('calendarOption1').style.display = 'none';
+                document.getElementById('calendarOption2').style.display = 'block';
+                renderCardView(calendarAvailabilityData);
+            }
+        }
+
+        // OPCIÓN 1: Week View
+        function renderWeekView(availability) {
             const lang = localStorage.getItem('language') || 'es';
-            const grid = document.getElementById('calendarGrid');
+            const grid = document.getElementById('weekDaysGrid1');
 
             let html = '';
             availability.forEach(day => {
+                const statusClass = day.status || '';
+                const icon = day.status === 'confirmed' ? 'fa-check-circle' :
+                            day.status === 'declined' ? 'fa-times-circle' :
+                            day.status === 'tentative' ? 'fa-question-circle' : 'fa-calendar';
+
+                const statusText = day.status === 'confirmed' ? t('confirmed', lang) :
+                                  day.status === 'declined' ? t('declined', lang) :
+                                  day.status === 'tentative' ? t('tentative', lang) :
+                                  lang === 'es' ? 'Click para confirmar' : 'Click to confirm';
+
                 html += `
-                    <div class="calendar-day-card">
-                        <div class="calendar-day-header">
-                            <span class="calendar-day-title">${day.dayName}</span>
-                            <span class="calendar-raid-time"><i class="fas fa-clock"></i> ${day.raidTime}</span>
+                    <div class="week-day-card ${statusClass}" onclick="quickConfirmDay(${day.dayOfWeek})">
+                        <div class="week-day-badge">${day.dayName}</div>
+                        <div class="week-day-icon">
+                            <i class="fas ${icon}"></i>
                         </div>
-                        <div class="availability-buttons">
-                            <button class="availability-btn ${day.status === 'confirmed' ? 'confirmed active' : ''}"
-                                    onclick="updateAvailability(${day.dayOfWeek}, 'confirmed')">
-                                <i class="fas fa-check"></i> ${t('confirmed', lang)}
-                            </button>
-                            <button class="availability-btn ${day.status === 'tentative' ? 'tentative active' : ''}"
-                                    onclick="updateAvailability(${day.dayOfWeek}, 'tentative')">
-                                <i class="fas fa-question"></i> ${t('tentative', lang)}
-                            </button>
-                            <button class="availability-btn ${day.status === 'declined' ? 'declined active' : ''}"
-                                    onclick="updateAvailability(${day.dayOfWeek}, 'declined')">
-                                <i class="fas fa-times"></i> ${t('declined', lang)}
-                            </button>
+                        <div class="week-day-status">${statusText}</div>
+                        ${day.status === 'confirmed' ? `<div class="week-day-dkp-badge">+1 DKP</div>` : ''}
+                        <div style="font-size: 0.9rem; color: var(--midnight-silver); margin-top: 10px;">
+                            <i class="fas fa-clock"></i> ${day.raidTime}
                         </div>
-                        <textarea
-                            class="calendar-notes"
-                            placeholder="${t('notes_optional', lang)}"
-                            id="notes_${day.dayOfWeek}"
-                            rows="2">${day.notes || ''}</textarea>
                     </div>
                 `;
             });
 
             grid.innerHTML = html;
+            updateDKPProgress(availability);
+        }
+
+        // OPCIÓN 2: Card View
+        function renderCardView(availability) {
+            const lang = localStorage.getItem('language') || 'es';
+            const grid = document.getElementById('raidCardsGrid2');
+
+            let html = '';
+            availability.forEach(day => {
+                html += `
+                    <div class="raid-day-card">
+                        <div class="raid-card-header">
+                            <div class="raid-day-badge-large">${day.dayName.substring(0, 3).toUpperCase()}</div>
+                            <div class="raid-time-display">
+                                <i class="fas fa-clock"></i> ${day.raidTime}
+                            </div>
+                        </div>
+                        <div class="raid-action-buttons">
+                            <button class="raid-action-btn btn-confirm ${day.status === 'confirmed' ? 'active' : ''}"
+                                    onclick="updateAvailability(${day.dayOfWeek}, 'confirmed')">
+                                <i class="fas fa-check-circle"></i>
+                                <span>${t('confirmed', lang)}</span>
+                                <span class="dkp-indicator">+1 DKP</span>
+                            </button>
+                            <button class="raid-action-btn btn-tentative ${day.status === 'tentative' ? 'active' : ''}"
+                                    onclick="updateAvailability(${day.dayOfWeek}, 'tentative')">
+                                <i class="fas fa-question-circle"></i>
+                                <span>${t('tentative', lang)}</span>
+                            </button>
+                            <button class="raid-action-btn btn-decline ${day.status === 'declined' ? 'active' : ''}"
+                                    onclick="updateAvailability(${day.dayOfWeek}, 'declined')">
+                                <i class="fas fa-times-circle"></i>
+                                <span>${t('declined', lang)}</span>
+                            </button>
+                        </div>
+                    </div>
+                `;
+            });
+
+            grid.innerHTML = html;
+            updateDKPProgress(availability);
+        }
+
+        function quickConfirmDay(dayOfWeek) {
+            updateAvailability(dayOfWeek, 'confirmed');
+        }
+
+        function updateDKPProgress(availability) {
+            const confirmedDays = availability.filter(d => d.status === 'confirmed').length;
+            const totalDays = availability.length;
+            const dkpEarned = confirmedDays;
+
+            const progressBar = document.getElementById('dkpProgressBar');
+            const progressText = document.getElementById('progressText');
+            const weeklyDKPEarned = document.getElementById('weeklyDKPEarned');
+            const lang = localStorage.getItem('language') || 'es';
+
+            const percentage = (confirmedDays / totalDays) * 100;
+            progressBar.style.width = `${percentage}%`;
+            progressBar.setAttribute('aria-valuenow', confirmedDays);
+            progressText.textContent = `${confirmedDays}/${totalDays}`;
+            weeklyDKPEarned.innerHTML = `${dkpEarned} DKP <span data-i18n="earned">${lang === 'es' ? 'ganados' : 'earned'}</span>`;
         }
 
         async function updateAvailability(dayOfWeek, status) {
