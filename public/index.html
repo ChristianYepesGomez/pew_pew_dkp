@@ -618,6 +618,258 @@
             color: var(--midnight-silver);
             opacity: 0.8;
         }
+
+        /* Custom Modal System */
+        .custom-modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.85);
+            backdrop-filter: blur(5px);
+            z-index: 9999;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .custom-modal-overlay.active {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .custom-modal {
+            background: linear-gradient(135deg, #1a1d3a 0%, #0a0e27 100%);
+            border: 2px solid var(--midnight-bright-purple);
+            border-radius: 15px;
+            padding: 0;
+            max-width: 90%;
+            max-height: 90vh;
+            overflow: hidden;
+            box-shadow: 0 20px 60px rgba(138, 92, 246, 0.4);
+            animation: slideUp 0.3s ease;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .custom-modal-header {
+            background: linear-gradient(90deg, var(--midnight-purple), var(--midnight-bright-purple));
+            padding: 20px 25px;
+            border-bottom: 1px solid var(--midnight-glow);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .custom-modal-title {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: white;
+            margin: 0;
+        }
+
+        .custom-modal-close {
+            background: transparent;
+            border: none;
+            color: white;
+            font-size: 1.5rem;
+            cursor: pointer;
+            opacity: 0.7;
+            transition: opacity 0.3s;
+        }
+
+        .custom-modal-close:hover {
+            opacity: 1;
+        }
+
+        .custom-modal-body {
+            padding: 25px;
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        .custom-modal-footer {
+            padding: 20px 25px;
+            border-top: 1px solid rgba(138, 92, 246, 0.3);
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+
+        .form-group-modal {
+            margin-bottom: 20px;
+        }
+
+        .form-group-modal label {
+            display: block;
+            margin-bottom: 8px;
+            color: var(--midnight-glow);
+            font-weight: 500;
+        }
+
+        .form-group-modal input,
+        .form-group-modal select,
+        .form-group-modal textarea {
+            width: 100%;
+            padding: 12px;
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(138, 92, 246, 0.5);
+            border-radius: 8px;
+            color: white;
+            font-size: 1rem;
+        }
+
+        .form-group-modal input:focus,
+        .form-group-modal select:focus,
+        .form-group-modal textarea:focus {
+            outline: none;
+            border-color: var(--midnight-bright-purple);
+            box-shadow: 0 0 10px rgba(138, 92, 246, 0.3);
+        }
+
+        .search-box {
+            position: relative;
+            margin-bottom: 15px;
+        }
+
+        .search-box input {
+            padding-left: 40px;
+        }
+
+        .search-box i {
+            position: absolute;
+            left: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--midnight-glow);
+        }
+
+        .item-list {
+            max-height: 400px;
+            overflow-y: auto;
+            border: 1px solid rgba(138, 92, 246, 0.3);
+            border-radius: 8px;
+            background: rgba(0, 0, 0, 0.2);
+        }
+
+        .item-category {
+            background: rgba(138, 92, 246, 0.2);
+            padding: 10px 15px;
+            font-weight: bold;
+            color: var(--midnight-glow);
+            border-bottom: 1px solid rgba(138, 92, 246, 0.3);
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .item-category:hover {
+            background: rgba(138, 92, 246, 0.3);
+        }
+
+        .item-entry {
+            padding: 12px 20px;
+            border-bottom: 1px solid rgba(138, 92, 246, 0.1);
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .item-entry:hover {
+            background: rgba(138, 92, 246, 0.2);
+        }
+
+        .item-entry.selected {
+            background: rgba(138, 92, 246, 0.4);
+            border-left: 3px solid var(--midnight-bright-purple);
+        }
+
+        .item-icon {
+            width: 32px;
+            height: 32px;
+            border-radius: 4px;
+            border: 1px solid rgba(138, 92, 246, 0.5);
+        }
+
+        .item-name {
+            flex: 1;
+        }
+
+        .item-rarity-legendary {
+            color: #ff8000;
+        }
+
+        .item-rarity-epic {
+            color: #a335ee;
+        }
+
+        .item-rarity-rare {
+            color: #0070dd;
+        }
+
+        .item-rarity-uncommon {
+            color: #1eff00;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(50px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .auction-accordion {
+            margin-bottom: 15px;
+        }
+
+        .auction-header {
+            background: rgba(138, 92, 246, 0.2);
+            padding: 15px 20px;
+            border: 1px solid rgba(138, 92, 246, 0.3);
+            border-radius: 8px;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.3s;
+        }
+
+        .auction-header:hover {
+            background: rgba(138, 92, 246, 0.3);
+        }
+
+        .auction-header.active {
+            border-bottom-left-radius: 0;
+            border-bottom-right-radius: 0;
+            border-bottom: none;
+        }
+
+        .auction-body {
+            display: none;
+            padding: 20px;
+            border: 1px solid rgba(138, 92, 246, 0.3);
+            border-top: none;
+            border-bottom-left-radius: 8px;
+            border-bottom-right-radius: 8px;
+            background: rgba(0, 0, 0, 0.2);
+        }
+
+        .auction-body.active {
+            display: block;
+        }
     </style>
 </head>
 <body>
@@ -902,12 +1154,132 @@
             const response = await fetch(url, options);
             
             if (response.status === 401) {
-                alert('Sesión expirada. Por favor, inicia sesión nuevamente.');
+                showAlert(t('session_expired', localStorage.getItem('language') || 'es'), null, 'warning');
                 logout();
                 return null;
             }
             
             return response;
+        }
+
+        // ======================================
+        // CUSTOM MODAL SYSTEM
+        // ======================================
+        function showModal(config) {
+            const lang = localStorage.getItem('language') || 'es';
+            const {
+                title,
+                body,
+                buttons = [],
+                size = 'md', // sm, md, lg
+                onClose = null
+            } = config;
+
+            const modalId = 'modal_' + Date.now();
+            const sizeClass = size === 'lg' ? 'width: 800px;' : size === 'sm' ? 'width: 400px;' : 'width: 600px;';
+
+            const buttonHtml = buttons.map((btn, index) => {
+                const variant = btn.variant || 'primary';
+                const classList = variant === 'danger' ? 'btn-danger' :
+                                 variant === 'success' ? 'btn-success' :
+                                 variant === 'secondary' ? 'btn-secondary' :
+                                 'btn-primary';
+                return `<button class="btn ${classList}" onclick="window.modalButtons['${modalId}_${index}']()" ${btn.disabled ? 'disabled' : ''}>
+                    ${btn.icon ? `<i class="${btn.icon}"></i>` : ''} ${btn.text}
+                </button>`;
+            }).join('');
+
+            const html = `
+                <div class="custom-modal-overlay active" id="${modalId}">
+                    <div class="custom-modal" style="${sizeClass}">
+                        <div class="custom-modal-header">
+                            <h3 class="custom-modal-title">${title}</h3>
+                            <button class="custom-modal-close" onclick="closeModal('${modalId}')">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                        <div class="custom-modal-body">
+                            ${body}
+                        </div>
+                        ${buttons.length > 0 ? `
+                        <div class="custom-modal-footer">
+                            ${buttonHtml}
+                        </div>
+                        ` : ''}
+                    </div>
+                </div>
+            `;
+
+            document.getElementById('modalContainer').insertAdjacentHTML('beforeend', html);
+
+            // Store button callbacks
+            if (!window.modalButtons) window.modalButtons = {};
+            buttons.forEach((btn, index) => {
+                window.modalButtons[`${modalId}_${index}`] = () => {
+                    if (btn.onClick) btn.onClick();
+                    if (!btn.keepOpen) closeModal(modalId);
+                };
+            });
+
+            // Handle close callback
+            if (onClose) {
+                window[`${modalId}_onClose`] = onClose;
+            }
+
+            return modalId;
+        }
+
+        function closeModal(modalId) {
+            const modal = document.getElementById(modalId);
+            if (modal) {
+                if (window[`${modalId}_onClose`]) {
+                    window[`${modalId}_onClose`]();
+                    delete window[`${modalId}_onClose`];
+                }
+                modal.remove();
+            }
+        }
+
+        function showAlert(message, title = null, variant = 'info') {
+            const lang = localStorage.getItem('language') || 'es';
+            const icon = variant === 'error' ? 'fa-exclamation-circle' :
+                        variant === 'success' ? 'fa-check-circle' :
+                        variant === 'warning' ? 'fa-exclamation-triangle' :
+                        'fa-info-circle';
+
+            const color = variant === 'error' ? '#ef4444' :
+                         variant === 'success' ? '#22c55e' :
+                         variant === 'warning' ? '#fbbf24' :
+                         '#3b82f6';
+
+            showModal({
+                title: title || t('error', lang),
+                body: `
+                    <div style="text-align: center; padding: 20px;">
+                        <i class="fas ${icon}" style="font-size: 3rem; color: ${color}; margin-bottom: 15px;"></i>
+                        <p style="font-size: 1.1rem;">${message}</p>
+                    </div>
+                `,
+                buttons: [
+                    { text: 'OK', variant: 'primary', onClick: () => {} }
+                ]
+            });
+        }
+
+        function showConfirm(message, onConfirm, title = null) {
+            const lang = localStorage.getItem('language') || 'es';
+            showModal({
+                title: title || t('confirm', lang),
+                body: `
+                    <div style="padding: 20px;">
+                        <p style="font-size: 1.1rem;">${message}</p>
+                    </div>
+                `,
+                buttons: [
+                    { text: lang === 'es' ? 'Cancelar' : 'Cancel', variant: 'secondary', onClick: () => {} },
+                    { text: lang === 'es' ? 'Confirmar' : 'Confirm', variant: 'primary', onClick: onConfirm }
+                ]
+            });
         }
 
         // ======================================
@@ -1102,85 +1474,169 @@
         }
         
         // ======================================
-        // CARGAR SUBASTA ACTIVA
+        // CARGAR SUBASTAS ACTIVAS
         // ======================================
-        async function loadActiveAuction() {
+        async function loadActiveAuctions() {
             const lang = localStorage.getItem('language') || 'es';
             try {
                 const response = await fetchWithAuth(`${API_URL}/auctions/active`);
                 if (!response) return;
 
-                const auction = await response.json();
+                const data = await response.json();
+                const auctions = data.auctions || [];
 
-                if (!auction || !auction.id) {
+                if (auctions.length === 0) {
                     document.getElementById('auctionContent').innerHTML = `<p class="text-center" style="color: #8888aa;">${t('no_active_auction', lang)}</p>`;
                     return;
                 }
 
-                // Mostrar subasta
-                document.getElementById('auctionContent').innerHTML = `
-                    <div class="alert alert-success">
-                        <div class="row align-items-center">
-                            <div class="col-md-8">
-                                <h5 class="mb-2">
-                                    <i class="fas fa-gem"></i>
-                                    <span style="color: #ff8000; text-shadow: 0 0 15px rgba(255, 128, 0, 1); font-family: 'Cinzel', serif;">
-                                        ${auction.item_name}
-                                    </span>
-                                </h5>
-                                <p class="mb-1">
-                                    <strong>${t('min_bid', lang)}:</strong> ${auction.min_bid} DKP |
-                                    <strong>${t('current_bid', lang)}:</strong> <span class="amount-negative" style="font-size: 20px;">${auction.current_highest_bid || auction.min_bid} DKP</span>
-                                </p>
-                            </div>
-                            <div class="col-md-4 text-end">
-                                <button class="btn btn-primary btn-lg" onclick="showBidModal(${auction.id}, ${auction.current_highest_bid || auction.min_bid})">
+                // Render multiple auctions in accordion
+                let html = '';
+                auctions.forEach((auction, index) => {
+                    const highestBid = auction.currentBid || 0;
+                    const minBid = Math.max(highestBid + 1, 1);
+
+                    html += `
+                        <div class="auction-accordion">
+                            <div class="auction-header ${index === 0 ? 'active' : ''}" onclick="toggleAuction(${auction.id})">
+                                <div style="display: flex; align-items: center; gap: 15px; flex: 1;">
+                                    <img src="${auction.itemImage}" style="width: 40px; height: 40px; border-radius: 8px; border: 2px solid var(--midnight-bright-purple);" alt="${auction.itemName}">
+                                    <div style="flex: 1;">
+                                        <div class="item-rarity-${auction.itemRarity}" style="font-size: 1.2rem; font-weight: bold;">${auction.itemName}</div>
+                                        <div style="font-size: 0.9rem; color: var(--midnight-silver); opacity: 0.8;">
+                                            ${t('current_bid', lang)}: <strong>${highestBid} DKP</strong> | ${t('total_bids', lang)}: <strong>${auction.bidsCount || 0}</strong>
+                                        </div>
+                                    </div>
+                                </div>
+                                <button class="btn btn-primary" onclick="event.stopPropagation(); showBidModal(${auction.id}, ${highestBid}, '${auction.itemName.replace(/'/g, "\\'")}')">
                                     <i class="fas fa-hand-holding-usd"></i> ${t('place_bid', lang)}
                                 </button>
                             </div>
+                            <div class="auction-body ${index === 0 ? 'active' : ''}" id="auction_body_${auction.id}">
+                                <h5 style="color: var(--midnight-glow); margin-bottom: 15px;">
+                                    <i class="fas fa-list"></i> ${t('total_bids', lang)} (${auction.bidsCount || 0})
+                                </h5>
+                                ${renderAuctionBids(auction.bids || [])}
+                            </div>
                         </div>
-                    </div>
-                `;
+                    `;
+                });
+
+                document.getElementById('auctionContent').innerHTML = html;
 
             } catch (error) {
-                console.error('Error cargando subasta:', error);
+                console.error('Error loading auctions:', error);
                 document.getElementById('auctionContent').innerHTML = `<p class="text-center" style="color: #8888aa;">${t('error', lang)}</p>`;
             }
         }
-        
+
+        function renderAuctionBids(bids) {
+            const lang = localStorage.getItem('language') || 'es';
+
+            if (bids.length === 0) {
+                return `<p style="text-align: center; color: var(--midnight-silver); opacity: 0.7;">${lang === 'es' ? 'No hay pujas aún' : 'No bids yet'}</p>`;
+            }
+
+            let html = '<div style="max-height: 300px; overflow-y: auto;">';
+            bids.forEach((bid, index) => {
+                const classColor = getClassColor(bid.characterClass);
+                html += `
+                    <div style="padding: 10px; margin-bottom: 8px; background: rgba(0, 0, 0, 0.3); border-radius: 8px; display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <span style="color: ${classColor}; font-weight: bold;">${bid.characterName}</span>
+                            ${index === 0 ? '<i class="fas fa-crown" style="color: #fbbf24; margin-left: 5px;"></i>' : ''}
+                        </div>
+                        <div style="font-size: 1.1rem; font-weight: bold; color: var(--midnight-glow);">${bid.amount} DKP</div>
+                    </div>
+                `;
+            });
+            html += '</div>';
+
+            return html;
+        }
+
+        function toggleAuction(auctionId) {
+            const header = event.currentTarget;
+            const body = document.getElementById(`auction_body_${auctionId}`);
+
+            // Toggle this auction
+            header.classList.toggle('active');
+            body.classList.toggle('active');
+        }
+
         // ======================================
         // PUJAR EN SUBASTA
         // ======================================
-        async function showBidModal(auctionId, currentBid) {
-            const minBid = currentBid + 1;
-            const puja = prompt(`¿Cuánto DKP quieres pujar? (Mínimo: ${minBid})`, minBid);
-            
-            if (puja && !isNaN(puja)) {
-                const cantidad = parseInt(puja);
-                
-                if (cantidad >= minBid) {
-                    try {
-                        const response = await fetchWithAuth(`${API_URL}/auctions/${auctionId}/bid`, {
-                            method: 'POST',
-                            body: { amount: cantidad }
-                        });
-                        
-                        if (response && response.ok) {
-                            alert(`✅ ¡Puja realizada! Has pujado ${cantidad} DKP`);
-                            await loadActiveAuction();
-                        } else {
-                            const error = await response.json();
-                            alert(`❌ Error: ${error.error || 'No se pudo realizar la puja'}`);
+        async function showBidModal(auctionId, currentBid, itemName) {
+            const lang = localStorage.getItem('language') || 'es';
+            const minBid = Math.max(currentBid + 1, 1);
+
+            const modalBody = `
+                <div style="padding: 20px; text-align: center;">
+                    <p style="font-size: 1.1rem; margin-bottom: 20px;">
+                        ${lang === 'es' ? 'Pujando por:' : 'Bidding on:'} <strong class="item-rarity-epic">${itemName}</strong>
+                    </p>
+                    <div class="form-group-modal">
+                        <label>${lang === 'es' ? 'Cantidad de DKP' : 'DKP Amount'}</label>
+                        <input type="number" id="bidAmount" class="form-control" min="${minBid}" value="${minBid}" placeholder="${minBid}">
+                        <small style="color: var(--midnight-silver); opacity: 0.8;">
+                            ${lang === 'es' ? 'Puja actual:' : 'Current bid:'} <strong>${currentBid} DKP</strong> |
+                            ${lang === 'es' ? 'Mínimo:' : 'Minimum:'} <strong>${minBid} DKP</strong>
+                        </small>
+                    </div>
+                </div>
+            `;
+
+            showModal({
+                title: lang === 'es' ? 'Realizar Puja' : 'Place Bid',
+                body: modalBody,
+                buttons: [
+                    { text: lang === 'es' ? 'Cancelar' : 'Cancel', variant: 'secondary' },
+                    {
+                        text: lang === 'es' ? 'Pujar' : 'Bid',
+                        variant: 'primary',
+                        icon: 'fas fa-gavel',
+                        onClick: async () => {
+                            const amount = parseInt(document.getElementById('bidAmount').value);
+
+                            if (isNaN(amount) || amount < minBid) {
+                                showAlert(
+                                    lang === 'es' ? `La puja debe ser al menos ${minBid} DKP` : `Bid must be at least ${minBid} DKP`,
+                                    null,
+                                    'warning'
+                                );
+                                return;
+                            }
+
+                            try {
+                                const response = await fetchWithAuth(`${API_URL}/auctions/${auctionId}/bid`, {
+                                    method: 'POST',
+                                    body: { amount }
+                                });
+
+                                if (response && response.ok) {
+                                    showAlert(
+                                        lang === 'es' ? `¡Puja realizada! Has pujado ${amount} DKP` : `Bid placed! You bid ${amount} DKP`,
+                                        lang === 'es' ? 'Éxito' : 'Success',
+                                        'success'
+                                    );
+                                    await loadActiveAuctions();
+                                } else {
+                                    const error = await response.json();
+                                    showAlert(error.error || (lang === 'es' ? 'No se pudo realizar la puja' : 'Could not place bid'), null, 'error');
+                                }
+                            } catch (error) {
+                                console.error('Error placing bid:', error);
+                                showAlert(lang === 'es' ? 'Error de conexión' : 'Connection error', null, 'error');
+                            }
                         }
-                    } catch (error) {
-                        console.error('Error al pujar:', error);
-                        alert('❌ Error de conexión');
                     }
-                } else {
-                    alert(`❌ La puja debe ser al menos ${minBid} DKP`);
-                }
-            }
+                ]
+            });
         }
+
+        // Alias for backwards compatibility
+        const loadActiveAuction = loadActiveAuctions;
         
         // ======================================
         // ANIMAR DKP
@@ -1721,47 +2177,210 @@
         }
 
         // Mostrar modal para crear subasta
-        function showCreateAuctionModal() {
+        let selectedAuctionItem = null;
+        let raidItemsCache = [];
+
+        async function showCreateAuctionModal() {
             const lang = localStorage.getItem('language') || 'es';
-            const itemName = prompt(lang === 'es' ? 'Nombre del item:' : 'Item name:');
-            if (!itemName) return;
+            selectedAuctionItem = null;
 
-            const minBid = prompt(lang === 'es' ? 'Puja mínima (DKP):' : 'Minimum bid (DKP):', '50');
-            if (!minBid) return;
+            // Load raid items if not cached
+            if (raidItemsCache.length === 0) {
+                try {
+                    const response = await fetchWithAuth(`${API_URL}/raid-items`);
+                    const data = await response.json();
+                    raidItemsCache = data.items;
+                } catch (error) {
+                    console.error('Error loading raid items:', error);
+                    showAlert(lang === 'es' ? 'Error al cargar items de raid' : 'Error loading raid items', null, 'error');
+                    return;
+                }
+            }
 
-            const minBidNum = parseInt(minBid);
-            if (isNaN(minBidNum) || minBidNum < 0) {
-                alert(lang === 'es' ? 'Puja mínima inválida' : 'Invalid minimum bid');
+            const modalBody = `
+                <div class="search-box">
+                    <i class="fas fa-search"></i>
+                    <input type="text" id="itemSearch" class="form-control" placeholder="${lang === 'es' ? 'Buscar item, boss o raid...' : 'Search item, boss or raid...'}" oninput="filterAuctionItems()">
+                </div>
+                <div id="itemList" class="item-list">
+                    ${renderItemList(raidItemsCache)}
+                </div>
+                <div id="selectedItemPreview" style="margin-top: 15px; padding: 15px; background: rgba(138, 92, 246, 0.1); border-radius: 8px; display: none;">
+                    <h5 style="color: var(--midnight-glow); margin-bottom: 10px;">${lang === 'es' ? 'Item seleccionado:' : 'Selected item:'}</h5>
+                    <div id="selectedItemInfo"></div>
+                </div>
+            `;
+
+            showModal({
+                title: lang === 'es' ? 'Crear Nueva Subasta' : 'Create New Auction',
+                body: modalBody,
+                size: 'lg',
+                buttons: [
+                    { text: lang === 'es' ? 'Cancelar' : 'Cancel', variant: 'secondary' },
+                    {
+                        text: lang === 'es' ? 'Crear Subasta' : 'Create Auction',
+                        variant: 'primary',
+                        onClick: () => createNewAuction(),
+                        disabled: true,
+                        icon: 'fas fa-gavel'
+                    }
+                ]
+            });
+        }
+
+        function renderItemList(items) {
+            const lang = localStorage.getItem('language') || 'es';
+            const groupedByRaid = {};
+
+            items.forEach(item => {
+                if (!groupedByRaid[item.raid]) {
+                    groupedByRaid[item.raid] = {};
+                }
+                if (!groupedByRaid[item.raid][item.boss]) {
+                    groupedByRaid[item.raid][item.boss] = [];
+                }
+                groupedByRaid[item.raid][item.boss].push(item);
+            });
+
+            let html = '';
+            Object.entries(groupedByRaid).forEach(([raidName, bosses]) => {
+                html += `
+                    <div class="item-category" onclick="toggleCategory(this)">
+                        <span><i class="fas fa-dungeon"></i> ${raidName}</span>
+                        <i class="fas fa-chevron-down"></i>
+                    </div>
+                    <div class="category-content" style="display: none;">
+                `;
+
+                Object.entries(bosses).forEach(([bossName, bossItems]) => {
+                    html += `<div style="padding-left: 20px;">`;
+                    html += `
+                        <div class="item-category" style="background: rgba(138, 92, 246, 0.15); font-size: 0.9rem;" onclick="toggleCategory(this)">
+                            <span><i class="fas fa-skull-crossbones"></i> ${bossName}</span>
+                            <i class="fas fa-chevron-down"></i>
+                        </div>
+                        <div class="category-content" style="display: none;">
+                    `;
+
+                    bossItems.forEach(item => {
+                        const iconUrl = `https://wow.zamimg.com/images/wow/icons/medium/${item.icon}.jpg`;
+                        html += `
+                            <div class="item-entry" onclick="selectAuctionItem(${JSON.stringify(item).replace(/"/g, '&quot;')})">
+                                <img src="${iconUrl}" class="item-icon" alt="${item.name}">
+                                <span class="item-name item-rarity-${item.rarity}">${item.name}</span>
+                            </div>
+                        `;
+                    });
+
+                    html += `</div></div>`;
+                });
+
+                html += `</div>`;
+            });
+
+            return html || `<p style="text-align: center; padding: 20px; color: var(--midnight-silver);">${lang === 'es' ? 'No se encontraron items' : 'No items found'}</p>`;
+        }
+
+        function toggleCategory(element) {
+            const content = element.nextElementSibling;
+            const icon = element.querySelector('.fa-chevron-down, .fa-chevron-up');
+
+            if (content.style.display === 'none') {
+                content.style.display = 'block';
+                if (icon) icon.classList.replace('fa-chevron-down', 'fa-chevron-up');
+            } else {
+                content.style.display = 'none';
+                if (icon) icon.classList.replace('fa-chevron-up', 'fa-chevron-down');
+            }
+        }
+
+        function selectAuctionItem(item) {
+            const lang = localStorage.getItem('language') || 'es';
+            selectedAuctionItem = item;
+
+            // Remove previous selection
+            document.querySelectorAll('.item-entry.selected').forEach(el => el.classList.remove('selected'));
+
+            // Add selection to clicked item
+            event.currentTarget.classList.add('selected');
+
+            // Show preview
+            const preview = document.getElementById('selectedItemPreview');
+            const iconUrl = `https://wow.zamimg.com/images/wow/icons/medium/${item.icon}.jpg`;
+            document.getElementById('selectedItemInfo').innerHTML = `
+                <div style="display: flex; align-items: center; gap: 15px;">
+                    <img src="${iconUrl}" style="width: 48px; height: 48px; border-radius: 8px; border: 2px solid var(--midnight-bright-purple);" alt="${item.name}">
+                    <div>
+                        <div class="item-rarity-${item.rarity}" style="font-size: 1.2rem; font-weight: bold;">${item.name}</div>
+                        <div style="font-size: 0.9rem; color: var(--midnight-silver); opacity: 0.8;">
+                            ${item.boss} - ${item.raid}
+                        </div>
+                    </div>
+                </div>
+            `;
+            preview.style.display = 'block';
+
+            // Enable create button
+            const buttons = document.querySelectorAll('.custom-modal-footer .btn-primary');
+            buttons.forEach(btn => btn.disabled = false);
+        }
+
+        function filterAuctionItems() {
+            const searchInput = document.getElementById('itemSearch');
+            const query = searchInput.value.toLowerCase();
+
+            if (query === '') {
+                document.getElementById('itemList').innerHTML = renderItemList(raidItemsCache);
                 return;
             }
 
-            // Call API to create auction
-            createNewAuction(itemName, minBidNum);
+            const filtered = raidItemsCache.filter(item =>
+                item.name.toLowerCase().includes(query) ||
+                item.boss.toLowerCase().includes(query) ||
+                item.raid.toLowerCase().includes(query)
+            );
+
+            document.getElementById('itemList').innerHTML = renderItemList(filtered);
         }
 
-        async function createNewAuction(itemName, minBid) {
+        async function createNewAuction() {
             const lang = localStorage.getItem('language') || 'es';
+
+            if (!selectedAuctionItem) {
+                showAlert(lang === 'es' ? 'Por favor selecciona un item' : 'Please select an item', null, 'warning');
+                return;
+            }
+
             try {
+                const iconUrl = `https://wow.zamimg.com/images/wow/icons/medium/${selectedAuctionItem.icon}.jpg`;
                 const response = await fetchWithAuth(`${API_URL}/auctions`, {
                     method: 'POST',
                     body: {
-                        item_name: itemName,
-                        min_bid: minBid,
-                        item_rarity: 'epic',
-                        item_image: '⚔️'
+                        itemName: selectedAuctionItem.name,
+                        minBid: 0,
+                        itemRarity: selectedAuctionItem.rarity,
+                        itemImage: iconUrl
                     }
                 });
 
                 if (response && response.ok) {
-                    alert(lang === 'es' ? '¡Subasta creada exitosamente!' : 'Auction created successfully!');
-                    loadActiveAuction();
+                    showAlert(
+                        lang === 'es' ? '¡Subasta creada exitosamente!' : 'Auction created successfully!',
+                        lang === 'es' ? 'Éxito' : 'Success',
+                        'success'
+                    );
+                    loadActiveAuctions();
                 } else {
                     const error = await response.json();
-                    alert(lang === 'es' ? `Error: ${error.error}` : `Error: ${error.error}`);
+                    showAlert(error.error, lang === 'es' ? 'Error' : 'Error', 'error');
                 }
             } catch (error) {
                 console.error('Error creating auction:', error);
-                alert(lang === 'es' ? 'Error al crear subasta' : 'Error creating auction');
+                showAlert(
+                    lang === 'es' ? 'Error al crear subasta' : 'Error creating auction',
+                    lang === 'es' ? 'Error' : 'Error',
+                    'error'
+                );
             }
         }
 
@@ -1995,5 +2614,8 @@
             }
         });
     </script>
+
+    <!-- Modal Container -->
+    <div id="modalContainer"></div>
 </body>
 </html>

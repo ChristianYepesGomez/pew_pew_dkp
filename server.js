@@ -7,6 +7,7 @@ import jwt from 'jsonwebtoken';
 import { db, initDatabase } from './database.js';
 import { authenticateToken, authorizeRole } from './middleware/auth.js';
 import { processWarcraftLog, isConfigured as isWCLConfigured } from './services/warcraftlogs.js';
+import { getAllRaidItems, searchItems, getItemsByRaid, CATACLYSM_RAIDS } from './services/raidItems.js';
 
 const app = express();
 const server = createServer(app);
@@ -560,36 +561,39 @@ app.get('/api/calendar/week-overview/:week_start', authenticateToken, authorizeR
 // AUCTION ROUTES
 // ============================================
 
-// Get active auction
+// Get all active auctions
 app.get('/api/auctions/active', authenticateToken, (req, res) => {
-  const auction = db.prepare(`
+  const auctions = db.prepare(`
     SELECT a.*, u.character_name as created_by_name
     FROM auctions a
     LEFT JOIN users u ON a.created_by = u.id
     WHERE a.status = 'active'
     ORDER BY a.created_at DESC
-    LIMIT 1
-  `).get();
+  `).all();
 
-  if (!auction) {
-    return res.json({ auction: null });
+  if (auctions.length === 0) {
+    return res.json({ auctions: [] });
   }
 
-  const bids = db.prepare(`
-    SELECT ab.*, u.character_name, u.character_class
-    FROM auction_bids ab
-    JOIN users u ON ab.user_id = u.id
-    WHERE ab.auction_id = ?
-    ORDER BY ab.amount DESC
-  `).all(auction.id);
+  // Get bids for all active auctions
+  const auctionsWithBids = auctions.map(auction => {
+    const bids = db.prepare(`
+      SELECT ab.*, u.character_name, u.character_class
+      FROM auction_bids ab
+      JOIN users u ON ab.user_id = u.id
+      WHERE ab.auction_id = ?
+      ORDER BY ab.amount DESC
+    `).all(auction.id);
 
-  res.json({
-    auction: {
+    const highestBid = bids.length > 0 ? bids[0].amount : 0;
+
+    return {
       id: auction.id,
       itemName: auction.item_name,
       itemImage: auction.item_image,
       itemRarity: auction.item_rarity,
       minimumBid: auction.min_bid,
+      currentBid: highestBid,
       status: auction.status,
       winnerId: auction.winner_id,
       winningBid: auction.winning_bid,
@@ -597,6 +601,7 @@ app.get('/api/auctions/active', authenticateToken, (req, res) => {
       createdByName: auction.created_by_name,
       createdAt: auction.created_at,
       endedAt: auction.ended_at,
+      bidsCount: bids.length,
       bids: bids.map(b => ({
         id: b.id,
         userId: b.user_id,
@@ -605,28 +610,25 @@ app.get('/api/auctions/active', authenticateToken, (req, res) => {
         amount: b.amount,
         createdAt: b.created_at
       }))
-    }
+    };
   });
+
+  res.json({ auctions: auctionsWithBids });
 });
 
 // Create new auction (officer+)
 app.post('/api/auctions', authenticateToken, authorizeRole(['admin', 'officer']), (req, res) => {
-  const { itemName, itemImage, minBid, itemRarity } = req.body;
+  const { itemName, itemImage, minBid, itemRarity, itemId } = req.body;
 
   if (!itemName) {
     return res.status(400).json({ error: 'Item name is required' });
   }
 
-  // Check for existing active auction
-  const activeAuction = db.prepare('SELECT id FROM auctions WHERE status = ?').get('active');
-  if (activeAuction) {
-    return res.status(409).json({ error: 'An auction is already active' });
-  }
-
+  // Multiple active auctions are now allowed
   const result = db.prepare(`
     INSERT INTO auctions (item_name, item_image, item_rarity, min_bid, created_by, status)
     VALUES (?, ?, ?, ?, ?, 'active')
-  `).run(itemName, itemImage || '🎁', itemRarity || 'epic', minBid || 10, req.user.userId);
+  `).run(itemName, itemImage || '🎁', itemRarity || 'epic', minBid || 0, req.user.userId);
 
   const auction = db.prepare('SELECT * FROM auctions WHERE id = ?').get(result.lastInsertRowid);
 
@@ -764,6 +766,35 @@ app.post('/api/auctions/:auctionId/cancel', authenticateToken, authorizeRole(['a
 
   io.emit('auction_cancelled', { auctionId });
   res.json({ message: 'Auction cancelled' });
+});
+
+// Get all raid items
+app.get('/api/raid-items', authenticateToken, (req, res) => {
+  const items = getAllRaidItems();
+  res.json({ items });
+});
+
+// Search raid items
+app.get('/api/raid-items/search', authenticateToken, (req, res) => {
+  const query = req.query.q || '';
+  const items = query ? searchItems(query) : getAllRaidItems();
+  res.json({ items });
+});
+
+// Get items by raid
+app.get('/api/raid-items/:raidName', authenticateToken, (req, res) => {
+  const { raidName } = req.params;
+  const items = getItemsByRaid(raidName);
+  res.json({ items });
+});
+
+// Get all raids
+app.get('/api/raids-list', authenticateToken, (req, res) => {
+  const raids = Object.keys(CATACLYSM_RAIDS).map(name => ({
+    name,
+    bosses: Object.keys(CATACLYSM_RAIDS[name].bosses)
+  }));
+  res.json({ raids });
 });
 
 // Get auction history
