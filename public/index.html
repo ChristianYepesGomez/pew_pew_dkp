@@ -448,6 +448,176 @@
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
+
+        /* Calendar Styles */
+        .calendar-grid {
+            display: grid;
+            gap: 15px;
+        }
+
+        .calendar-day-card {
+            background: rgba(138, 92, 246, 0.1);
+            border: 1px solid rgba(138, 92, 246, 0.3);
+            border-radius: 10px;
+            padding: 20px;
+            transition: all 0.3s;
+        }
+
+        .calendar-day-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(138, 92, 246, 0.3);
+        }
+
+        .calendar-day-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid rgba(138, 92, 246, 0.2);
+        }
+
+        .calendar-day-title {
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: var(--midnight-glow);
+        }
+
+        .calendar-raid-time {
+            font-size: 0.9rem;
+            color: var(--midnight-silver);
+            opacity: 0.8;
+        }
+
+        .availability-buttons {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .availability-btn {
+            flex: 1;
+            padding: 10px;
+            border: 2px solid transparent;
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.05);
+            color: white;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 0.9rem;
+        }
+
+        .availability-btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .availability-btn.confirmed {
+            background: rgba(34, 197, 94, 0.2);
+            border-color: #22c55e;
+            color: #22c55e;
+        }
+
+        .availability-btn.declined {
+            background: rgba(239, 68, 68, 0.2);
+            border-color: #ef4444;
+            color: #ef4444;
+        }
+
+        .availability-btn.tentative {
+            background: rgba(251, 191, 36, 0.2);
+            border-color: #fbbf24;
+            color: #fbbf24;
+        }
+
+        .availability-btn.active {
+            font-weight: bold;
+            box-shadow: 0 0 15px currentColor;
+        }
+
+        .calendar-notes {
+            width: 100%;
+            padding: 10px;
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(138, 92, 246, 0.3);
+            border-radius: 5px;
+            color: white;
+            font-size: 0.9rem;
+        }
+
+        .calendar-notes::placeholder {
+            color: rgba(255, 255, 255, 0.5);
+        }
+
+        .week-overview-grid {
+            overflow-x: auto;
+        }
+
+        .week-overview-table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0 5px;
+        }
+
+        .week-overview-table th {
+            background: rgba(138, 92, 246, 0.3);
+            padding: 10px;
+            text-align: left;
+            font-size: 0.9rem;
+        }
+
+        .week-overview-table td {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 10px;
+            font-size: 0.85rem;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: bold;
+        }
+
+        .status-badge.confirmed {
+            background: rgba(34, 197, 94, 0.3);
+            color: #22c55e;
+        }
+
+        .status-badge.declined {
+            background: rgba(239, 68, 68, 0.3);
+            color: #ef4444;
+        }
+
+        .status-badge.tentative {
+            background: rgba(251, 191, 36, 0.3);
+            color: #fbbf24;
+        }
+
+        .status-badge.no-response {
+            background: rgba(156, 163, 175, 0.3);
+            color: #9ca3af;
+        }
+
+        .day-summary {
+            text-align: center;
+            padding: 15px;
+            background: rgba(138, 92, 246, 0.1);
+            border-radius: 8px;
+            margin-bottom: 10px;
+        }
+
+        .summary-count {
+            font-size: 2rem;
+            font-weight: bold;
+            color: var(--midnight-glow);
+        }
+
+        .summary-label {
+            font-size: 0.9rem;
+            color: var(--midnight-silver);
+            opacity: 0.8;
+        }
     </style>
 </head>
 <body>
@@ -507,6 +677,11 @@
             <li class="nav-item" role="presentation">
                 <button class="nav-link" id="historial-tab" data-bs-toggle="tab" data-bs-target="#historial" type="button">
                     <i class="fas fa-history"></i> <span data-i18n="auction_history">Historial de Subastas</span>
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="calendario-tab" data-bs-toggle="tab" data-bs-target="#calendario" type="button">
+                    <i class="fas fa-calendar-alt"></i> <span data-i18n="calendar">Calendario</span>
                 </button>
             </li>
             <li class="nav-item" role="presentation" id="admin-tab-item" style="display: none;">
@@ -602,7 +777,43 @@
                 </div>
             </div>
 
-            <!-- PESTAÑA 5: ADMIN (Solo para admin/officer) -->
+            <!-- PESTAÑA 5: CALENDARIO -->
+            <div class="tab-pane fade" id="calendario" role="tabpanel">
+                <div class="row fade-in">
+                    <div class="col-md-12">
+                        <div class="info-card">
+                            <div class="d-flex justify-content-between align-items-center mb-4">
+                                <h3><i class="fas fa-calendar-alt"></i> <span data-i18n="raid_calendar">Calendario de Raids</span></h3>
+                                <div>
+                                    <button class="btn btn-sm btn-outline-light" onclick="loadPreviousWeek()">
+                                        <i class="fas fa-chevron-left"></i>
+                                    </button>
+                                    <span id="currentWeekDisplay" class="mx-3"></span>
+                                    <button class="btn btn-sm btn-outline-light" onclick="loadNextWeek()">
+                                        <i class="fas fa-chevron-right"></i>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Availability Grid -->
+                            <div id="calendarGrid" class="calendar-grid mb-4">
+                                <!-- Will be populated by JavaScript -->
+                            </div>
+
+                            <!-- Weekly Summary (Admin/Officer only) -->
+                            <div id="weekOverviewSection" style="display: none;">
+                                <hr>
+                                <h5><i class="fas fa-users"></i> <span data-i18n="week_overview">Vista Semanal</span></h5>
+                                <div id="weekOverview">
+                                    <!-- Will be populated by JavaScript -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PESTAÑA 6: ADMIN (Solo para admin/officer) -->
             <div class="tab-pane fade" id="admin" role="tabpanel">
                 <div class="row fade-in">
                     <div class="col-md-12">
@@ -1555,6 +1766,217 @@
         }
 
         // ======================================
+        // CALENDAR FUNCTIONS
+        // ======================================
+        let currentWeekStart = null;
+
+        function getMonday(date) {
+            const d = new Date(date);
+            const day = d.getDay();
+            const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+            return new Date(d.setDate(diff));
+        }
+
+        function formatDate(date) {
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        }
+
+        function initCalendar() {
+            const today = new Date();
+            currentWeekStart = formatDate(getMonday(today));
+            loadCalendarAvailability();
+        }
+
+        async function loadCalendarAvailability() {
+            const lang = localStorage.getItem('language') || 'es';
+            try {
+                const response = await fetchWithAuth(`${API_URL}/calendar/my-availability/${currentWeekStart}`);
+                const availability = await response.json();
+
+                // Update week display
+                const weekDate = new Date(currentWeekStart);
+                document.getElementById('currentWeekDisplay').textContent =
+                    `${t('current_week', lang)}: ${weekDate.toLocaleDateString(lang === 'es' ? 'es-ES' : 'en-US')}`;
+
+                // Render calendar grid
+                renderCalendarGrid(availability);
+
+                // Load overview for admin/officer
+                const user = JSON.parse(localStorage.getItem('user'));
+                if (user && ['admin', 'officer'].includes(user.role)) {
+                    document.getElementById('weekOverviewSection').style.display = 'block';
+                    loadWeekOverview();
+                }
+            } catch (error) {
+                console.error('Error loading calendar:', error);
+            }
+        }
+
+        function renderCalendarGrid(availability) {
+            const lang = localStorage.getItem('language') || 'es';
+            const grid = document.getElementById('calendarGrid');
+
+            let html = '';
+            availability.forEach(day => {
+                html += `
+                    <div class="calendar-day-card">
+                        <div class="calendar-day-header">
+                            <span class="calendar-day-title">${day.dayName}</span>
+                            <span class="calendar-raid-time"><i class="fas fa-clock"></i> ${day.raidTime}</span>
+                        </div>
+                        <div class="availability-buttons">
+                            <button class="availability-btn ${day.status === 'confirmed' ? 'confirmed active' : ''}"
+                                    onclick="updateAvailability(${day.dayOfWeek}, 'confirmed')">
+                                <i class="fas fa-check"></i> ${t('confirmed', lang)}
+                            </button>
+                            <button class="availability-btn ${day.status === 'tentative' ? 'tentative active' : ''}"
+                                    onclick="updateAvailability(${day.dayOfWeek}, 'tentative')">
+                                <i class="fas fa-question"></i> ${t('tentative', lang)}
+                            </button>
+                            <button class="availability-btn ${day.status === 'declined' ? 'declined active' : ''}"
+                                    onclick="updateAvailability(${day.dayOfWeek}, 'declined')">
+                                <i class="fas fa-times"></i> ${t('declined', lang)}
+                            </button>
+                        </div>
+                        <textarea
+                            class="calendar-notes"
+                            placeholder="${t('notes_optional', lang)}"
+                            id="notes_${day.dayOfWeek}"
+                            rows="2">${day.notes || ''}</textarea>
+                    </div>
+                `;
+            });
+
+            grid.innerHTML = html;
+        }
+
+        async function updateAvailability(dayOfWeek, status) {
+            const lang = localStorage.getItem('language') || 'es';
+            const notes = document.getElementById(`notes_${dayOfWeek}`)?.value || '';
+
+            try {
+                const response = await fetchWithAuth(`${API_URL}/calendar/availability`, {
+                    method: 'PUT',
+                    body: {
+                        week_start: currentWeekStart,
+                        day_of_week: dayOfWeek,
+                        status,
+                        notes
+                    }
+                });
+
+                const result = await response.json();
+
+                if (result.completed && result.dkpAwarded > 0) {
+                    const message = t('dkp_bonus_earned', lang).replace('{amount}', result.dkpAwarded);
+                    alert(`${t('calendar_completed', lang)}\n${message}`);
+                    loadUserData(); // Refresh DKP
+                } else {
+                    // Just show success message
+                    console.log(t('availability_updated', lang));
+                }
+
+                // Reload calendar
+                loadCalendarAvailability();
+            } catch (error) {
+                console.error('Error updating availability:', error);
+                alert(t('error', lang));
+            }
+        }
+
+        async function loadWeekOverview() {
+            const lang = localStorage.getItem('language') || 'es';
+            try {
+                const response = await fetchWithAuth(`${API_URL}/calendar/week-overview/${currentWeekStart}`);
+                const overview = await response.json();
+
+                renderWeekOverview(overview);
+            } catch (error) {
+                console.error('Error loading week overview:', error);
+            }
+        }
+
+        function renderWeekOverview(overview) {
+            const lang = localStorage.getItem('language') || 'es';
+            const container = document.getElementById('weekOverview');
+
+            // Summary cards
+            let summaryHtml = '<div class="row mb-3">';
+            overview.raidDays.forEach(day => {
+                summaryHtml += `
+                    <div class="col-md-4 mb-2">
+                        <div class="day-summary">
+                            <div class="summary-count">${day.confirmed}</div>
+                            <div class="summary-label">${day.dayName} - ${t('players_confirmed', lang)}</div>
+                        </div>
+                    </div>
+                `;
+            });
+            summaryHtml += '</div>';
+
+            // Members table
+            let tableHtml = `
+                <div class="week-overview-grid">
+                    <table class="week-overview-table">
+                        <thead>
+                            <tr>
+                                <th>${t('character', lang)}</th>
+                                <th>${t('role', lang)}</th>
+            `;
+
+            overview.raidDays.forEach(day => {
+                tableHtml += `<th>${day.dayName}</th>`;
+            });
+
+            tableHtml += `
+                            </tr>
+                        </thead>
+                        <tbody>
+            `;
+
+            overview.members.forEach(member => {
+                tableHtml += `
+                    <tr>
+                        <td><strong style="color: ${getClassColor(member.characterClass)};">${member.characterName}</strong></td>
+                        <td>${member.raidRole || 'DPS'}</td>
+                `;
+
+                overview.raidDays.forEach(day => {
+                    const status = member.availability[day.dayOfWeek] || 'no_response';
+                    const statusText = t(status.replace('_', ''), lang);
+                    tableHtml += `<td><span class="status-badge ${status.replace('_', '-')}">${statusText}</span></td>`;
+                });
+
+                tableHtml += '</tr>';
+            });
+
+            tableHtml += `
+                        </tbody>
+                    </table>
+                </div>
+            `;
+
+            container.innerHTML = summaryHtml + tableHtml;
+        }
+
+        function loadPreviousWeek() {
+            const date = new Date(currentWeekStart);
+            date.setDate(date.getDate() - 7);
+            currentWeekStart = formatDate(date);
+            loadCalendarAvailability();
+        }
+
+        function loadNextWeek() {
+            const date = new Date(currentWeekStart);
+            date.setDate(date.getDate() + 7);
+            currentWeekStart = formatDate(date);
+            loadCalendarAvailability();
+        }
+
+        // ======================================
         // INICIALIZACIÓN
         // ======================================
         window.addEventListener('load', function() {
@@ -1564,6 +1986,7 @@
             connectSocket();
             loadMembers();
             loadAuctionsHistory();
+            initCalendar();
         });
         
         window.addEventListener('beforeunload', function() {

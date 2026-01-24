@@ -353,6 +353,210 @@ app.get('/api/dkp/history/:userId', authenticateToken, (req, res) => {
 });
 
 // ============================================
+// CALENDAR ROUTES
+// ============================================
+
+// Get configured raid days
+app.get('/api/calendar/raid-days', authenticateToken, (req, res) => {
+  const raidDays = db.prepare(`
+    SELECT day_of_week, day_name, is_active, raid_time
+    FROM raid_days
+    WHERE is_active = 1
+    ORDER BY day_of_week
+  `).all();
+
+  res.json(raidDays);
+});
+
+// Get user's availability for a specific week
+app.get('/api/calendar/my-availability/:week_start', authenticateToken, (req, res) => {
+  const { week_start } = req.params;
+  const userId = req.user.userId;
+
+  const availability = db.prepare(`
+    SELECT ma.day_of_week, ma.status, ma.notes, ma.updated_at, rd.day_name, rd.raid_time
+    FROM member_availability ma
+    JOIN raid_days rd ON ma.day_of_week = rd.day_of_week
+    WHERE ma.user_id = ? AND ma.week_start = ? AND rd.is_active = 1
+    ORDER BY ma.day_of_week
+  `).all(userId, week_start);
+
+  // Get all raid days and merge with user's availability
+  const raidDays = db.prepare(`
+    SELECT day_of_week, day_name, raid_time
+    FROM raid_days
+    WHERE is_active = 1
+    ORDER BY day_of_week
+  `).all();
+
+  const result = raidDays.map(day => {
+    const userAvail = availability.find(a => a.day_of_week === day.day_of_week);
+    return {
+      dayOfWeek: day.day_of_week,
+      dayName: day.day_name,
+      raidTime: day.raid_time,
+      status: userAvail?.status || 'tentative',
+      notes: userAvail?.notes || null,
+      updatedAt: userAvail?.updated_at || null
+    };
+  });
+
+  res.json(result);
+});
+
+// Update user's availability for a specific day
+app.put('/api/calendar/availability', authenticateToken, (req, res) => {
+  const { week_start, day_of_week, status, notes } = req.body;
+  const userId = req.user.userId;
+
+  if (!week_start || !day_of_week || !status) {
+    return res.status(400).json({ error: 'week_start, day_of_week, and status are required' });
+  }
+
+  if (!['confirmed', 'declined', 'tentative'].includes(status)) {
+    return res.status(400).json({ error: 'Invalid status. Must be: confirmed, declined, or tentative' });
+  }
+
+  // Verify that the day is a valid raid day
+  const raidDay = db.prepare('SELECT * FROM raid_days WHERE day_of_week = ? AND is_active = 1').get(day_of_week);
+  if (!raidDay) {
+    return res.status(400).json({ error: 'Invalid raid day' });
+  }
+
+  // Upsert availability
+  db.prepare(`
+    INSERT INTO member_availability (user_id, week_start, day_of_week, status, notes, updated_at)
+    VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+    ON CONFLICT(user_id, week_start, day_of_week)
+    DO UPDATE SET status = ?, notes = ?, updated_at = CURRENT_TIMESTAMP
+  `).run(userId, week_start, day_of_week, status, notes || null, status, notes || null);
+
+  // Check if user completed all days for the week
+  const completedDays = db.prepare(`
+    SELECT COUNT(*) as count
+    FROM member_availability ma
+    JOIN raid_days rd ON ma.day_of_week = rd.day_of_week
+    WHERE ma.user_id = ? AND ma.week_start = ? AND rd.is_active = 1
+  `).get(userId, week_start);
+
+  const totalRaidDays = db.prepare('SELECT COUNT(*) as count FROM raid_days WHERE is_active = 1').get();
+
+  let dkpAwarded = 0;
+  if (completedDays.count === totalRaidDays.count) {
+    // User completed all days - award DKP if not already awarded
+    const existingReward = db.prepare(`
+      SELECT * FROM calendar_dkp_rewards WHERE user_id = ? AND week_start = ?
+    `).get(userId, week_start);
+
+    if (!existingReward) {
+      const dkpPerDay = parseInt(db.prepare(
+        "SELECT config_value FROM dkp_config WHERE config_key = 'calendar_dkp_per_day'"
+      ).get()?.config_value || 1);
+
+      dkpAwarded = completedDays.count * dkpPerDay;
+
+      // Award DKP
+      db.prepare(`
+        UPDATE member_dkp
+        SET current_dkp = current_dkp + ?,
+            lifetime_gained = lifetime_gained + ?
+        WHERE user_id = ?
+      `).run(dkpAwarded, dkpAwarded, userId);
+
+      // Log transaction
+      db.prepare(`
+        INSERT INTO dkp_transactions (user_id, amount, reason, performed_by)
+        VALUES (?, ?, ?, ?)
+      `).run(userId, dkpAwarded, `Calendario completado: semana del ${week_start}`, userId);
+
+      // Record reward
+      db.prepare(`
+        INSERT INTO calendar_dkp_rewards (user_id, week_start, days_completed, dkp_awarded)
+        VALUES (?, ?, ?, ?)
+      `).run(userId, week_start, completedDays.count, dkpAwarded);
+
+      io.emit('dkp_updated', { userId, amount: dkpAwarded, reason: 'calendar_completed' });
+    }
+  }
+
+  res.json({
+    message: 'Availability updated',
+    completed: completedDays.count === totalRaidDays.count,
+    dkpAwarded
+  });
+});
+
+// Get week overview (admin/officer only)
+app.get('/api/calendar/week-overview/:week_start', authenticateToken, authorizeRole(['admin', 'officer']), (req, res) => {
+  const { week_start } = req.params;
+
+  // Get all raid days
+  const raidDays = db.prepare(`
+    SELECT day_of_week, day_name, raid_time
+    FROM raid_days
+    WHERE is_active = 1
+    ORDER BY day_of_week
+  `).all();
+
+  // Get all active users
+  const users = db.prepare(`
+    SELECT id, character_name, character_class, raid_role
+    FROM users
+    WHERE is_active = 1
+    ORDER BY character_name
+  `).all();
+
+  // Get all availability for this week
+  const availability = db.prepare(`
+    SELECT user_id, day_of_week, status
+    FROM member_availability
+    WHERE week_start = ?
+  `).all(week_start);
+
+  // Build overview
+  const overview = {
+    weekStart: week_start,
+    raidDays: raidDays.map(day => ({
+      dayOfWeek: day.day_of_week,
+      dayName: day.day_name,
+      raidTime: day.raid_time,
+      confirmed: 0,
+      declined: 0,
+      tentative: 0,
+      noResponse: 0
+    })),
+    members: users.map(user => {
+      const userAvailability = {};
+      raidDays.forEach(day => {
+        const avail = availability.find(a => a.user_id === user.id && a.day_of_week === day.day_of_week);
+        userAvailability[day.day_of_week] = avail?.status || 'no_response';
+      });
+
+      return {
+        id: user.id,
+        characterName: user.character_name,
+        characterClass: user.character_class,
+        raidRole: user.raid_role,
+        availability: userAvailability
+      };
+    })
+  };
+
+  // Calculate counts per day
+  raidDays.forEach((day, index) => {
+    overview.members.forEach(member => {
+      const status = member.availability[day.day_of_week];
+      if (status === 'confirmed') overview.raidDays[index].confirmed++;
+      else if (status === 'declined') overview.raidDays[index].declined++;
+      else if (status === 'tentative') overview.raidDays[index].tentative++;
+      else overview.raidDays[index].noResponse++;
+    });
+  });
+
+  res.json(overview);
+});
+
+// ============================================
 // AUCTION ROUTES
 // ============================================
 
