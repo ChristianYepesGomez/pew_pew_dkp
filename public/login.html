@@ -130,10 +130,17 @@
             <button type="submit" class="btn btn-primary btn-login">
                 <i class="fas fa-sign-in-alt"></i> <span data-i18n="login">Iniciar Sesión</span>
             </button>
-            <!-- 
+            <!--
                 type="submit" = al hacer click, ejecuta el evento "submit" del form
                 btn btn-primary = clases de Bootstrap para botón azul
             -->
+
+            <!-- Forgot Password Link -->
+            <div class="text-center mt-2">
+                <a href="#" onclick="showForgotPasswordInfo(event)" style="font-size: 0.9rem; color: #6c757d;">
+                    <i class="fas fa-question-circle"></i> <span data-i18n="forgot_password">¿Olvidaste tu contraseña?</span>
+                </a>
+            </div>
         </form>
         
         <!-- ENLACE A REGISTRO -->
@@ -276,6 +283,20 @@
             }
         });
         
+        // ======================================
+        // FORGOT PASSWORD
+        // ======================================
+        function showForgotPasswordInfo(event) {
+            event.preventDefault();
+            const lang = localStorage.getItem('language') || 'es';
+
+            const message = lang === 'es'
+                ? 'Para recuperar tu contraseña, contacta con un administrador del guild.\n\nLos administradores pueden resetear tu contraseña desde el panel de administración.'
+                : 'To recover your password, contact a guild administrator.\n\nAdministrators can reset your password from the admin panel.';
+
+            alert(message);
+        }
+
         // ======================================
         // MULTI-LANGUAGE SUPPORT
         // ======================================
