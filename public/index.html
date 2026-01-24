@@ -1266,7 +1266,7 @@
             });
         }
 
-        function showConfirm(message, onConfirm, title = null) {
+        function showConfirm(message, title, onConfirm) {
             const lang = localStorage.getItem('language') || 'es';
             showModal({
                 title: title || t('confirm', lang),
@@ -1280,6 +1280,39 @@
                     { text: lang === 'es' ? 'Confirmar' : 'Confirm', variant: 'primary', onClick: onConfirm }
                 ]
             });
+        }
+
+        function showPrompt(message, defaultValue = '', onConfirm, title = null, inputType = 'text') {
+            const lang = localStorage.getItem('language') || 'es';
+            const inputId = 'prompt_input_' + Date.now();
+
+            showModal({
+                title: title || (lang === 'es' ? 'Entrada' : 'Input'),
+                body: `
+                    <div style="padding: 20px;">
+                        <p style="font-size: 1rem; margin-bottom: 15px;">${message}</p>
+                        <input type="${inputType}" id="${inputId}" class="form-control" value="${defaultValue}"
+                               style="width: 100%;" onkeypress="if(event.key === 'Enter') document.getElementById('${inputId}_confirm').click()">
+                    </div>
+                `,
+                buttons: [
+                    { text: lang === 'es' ? 'Cancelar' : 'Cancel', variant: 'secondary', onClick: () => {} },
+                    {
+                        text: 'OK',
+                        variant: 'primary',
+                        onClick: () => {
+                            const value = document.getElementById(inputId).value;
+                            if (onConfirm) onConfirm(value);
+                        }
+                    }
+                ]
+            });
+
+            // Focus the input after modal appears
+            setTimeout(() => {
+                const input = document.getElementById(inputId);
+                if (input) input.focus();
+            }, 100);
         }
 
         // ======================================
@@ -1697,7 +1730,12 @@
             
             socket.on('auction_started', (auction) => {
                 console.log('🎉 Nueva subasta:', auction);
-                alert(`¡Nueva subasta! ${auction.item_name}`);
+                const lang = localStorage.getItem('language') || 'es';
+                showAlert(
+                    `${lang === 'es' ? '¡Nueva subasta!' : 'New auction!'} ${auction.item_name}`,
+                    lang === 'es' ? '🎉 Nueva Subasta' : '🎉 New Auction',
+                    'success'
+                );
                 loadActiveAuction();
             });
             
@@ -1913,51 +1951,56 @@
                         loadUserData();
                     }
                 } else {
-                    alert('Error al ajustar DKP');
+                    showAlert('Error al ajustar DKP', 'Error', 'error');
                 }
             } catch (error) {
                 console.error('Error:', error);
-                alert('Error al ajustar DKP');
+                showAlert('Error al ajustar DKP', 'Error', 'error');
             }
         }
 
         async function customAdjustDKP(userId, characterName) {
             const lang = localStorage.getItem('language') || 'es';
-            const promptMsg = lang === 'es' ? `Ajustar DKP para ${characterName}\nIngresa cantidad (+/-):` : `Adjust DKP for ${characterName}\nEnter amount (+/-):`;
-            const amount = prompt(promptMsg, '0');
-            if (amount === null) return; // Cancelled
-
-            const amountNum = parseInt(amount);
-            if (isNaN(amountNum) || amountNum === 0) {
-                alert(lang === 'es' ? 'Cantidad inválida' : 'Invalid amount');
-                return;
-            }
-
-            const reasonPrompt = lang === 'es' ? 'Motivo del ajuste:' : 'Adjustment reason:';
+            const promptMsg = lang === 'es' ? `Ajustar DKP para ${characterName}<br>Ingresa cantidad (+/-):` : `Adjust DKP for ${characterName}<br>Enter amount (+/-):`;
             const defaultReason = lang === 'es' ? 'Ajuste manual' : 'Manual adjustment';
-            const reason = prompt(reasonPrompt, defaultReason);
-            if (reason === null) return; // Cancelled
 
-            try {
+            // First prompt for amount
+            showPrompt(promptMsg, '0', async (amount) => {
+                if (!amount) return; // Cancelled
+
+                const amountNum = parseInt(amount);
+                if (isNaN(amountNum) || amountNum === 0) {
+                    showAlert(lang === 'es' ? 'Cantidad inválida' : 'Invalid amount', lang === 'es' ? 'Error' : 'Error', 'error');
+                    return;
+                }
+
+                // Second prompt for reason
+                const reasonPrompt = lang === 'es' ? 'Motivo del ajuste:' : 'Adjustment reason:';
+                showPrompt(reasonPrompt, defaultReason, async (reason) => {
+                    if (!reason) return; // Cancelled
+
+                    try {
                 const response = await fetchWithAuth(`${API_URL}/dkp/adjust`, {
                     method: 'POST',
                     body: { userId: parseInt(userId), amount: amountNum, reason: reason || defaultReason }
                 });
 
                 if (response.ok) {
-                    alert(t('dkp_adjusted_successfully', lang));
+                    showAlert(t('dkp_adjusted_successfully', lang), t('success', lang), 'success');
                     loadMembers();
                     // Si el ajuste es al usuario actual, recargar su info
                     if (currentUser && parseInt(userId) === currentUser.id) {
                         loadUserData();
                     }
-                } else {
-                    alert(t('error_adjusting_dkp', lang));
-                }
-            } catch (error) {
-                console.error('Error:', error);
-                alert(t('error_adjusting_dkp', lang));
-            }
+                    } else {
+                        showAlert(t('error_adjusting_dkp', lang), t('error', lang), 'error');
+                    }
+                    } catch (error) {
+                        console.error('Error:', error);
+                        showAlert(t('error_adjusting_dkp', lang), t('error', lang), 'error');
+                    }
+                }, lang === 'es' ? 'Motivo del Ajuste' : 'Adjustment Reason');
+            }, lang === 'es' ? 'Ajustar DKP' : 'Adjust DKP');
         }
 
         async function bulkAdjustDKP() {
@@ -1966,17 +2009,15 @@
             const reason = document.getElementById('bulkReason').value;
 
             if (!amount || !reason) {
-                alert(t('please_complete_fields', lang));
+                showAlert(t('please_complete_fields', lang), t('error', lang), 'warning');
                 return;
             }
 
             const confirmMsg = lang === 'es' ? `¿Estás seguro de aplicar ${amount} DKP a TODOS los miembros?` : `Are you sure you want to apply ${amount} DKP to ALL members?`;
-            if (!confirm(confirmMsg)) {
-                return;
-            }
 
-            try {
-                // Obtener todos los IDs
+            showConfirm(confirmMsg, t('confirm', lang), async () => {
+                try {
+                    // Obtener todos los IDs
                 const membersResp = await fetchWithAuth(`${API_URL}/members`);
                 const members = await membersResp.json();
                 const userIds = members.map(m => m.id);
@@ -1987,18 +2028,19 @@
                 });
 
                 if (response.ok) {
-                    alert(t('dkp_adjusted_for_all', lang));
+                    showAlert(t('dkp_adjusted_for_all', lang), t('success', lang), 'success');
                     loadMembers();
                     loadUserData(); // Recargar datos del usuario actual
                     document.getElementById('bulkAmount').value = '';
                     document.getElementById('bulkReason').value = '';
                 } else {
-                    alert(t('error_adjusting_dkp', lang));
+                    showAlert(t('error_adjusting_dkp', lang), t('error', lang), 'error');
                 }
-            } catch (error) {
-                console.error('Error:', error);
-                alert('Error al ajustar DKP');
-            }
+                } catch (error) {
+                    console.error('Error:', error);
+                    showAlert('Error al ajustar DKP', 'Error', 'error');
+                }
+            });
         }
 
         async function previewWarcraftLogs() {
@@ -2006,7 +2048,7 @@
             const url = document.getElementById('warcraftLogsURL').value;
 
             if (!url) {
-                alert(t('please_complete_fields', lang));
+                showAlert(t('please_complete_fields', lang), t('error', lang), 'warning');
                 return;
             }
 
@@ -2087,29 +2129,33 @@
 
         async function confirmWarcraftLogs(reportId) {
             const lang = localStorage.getItem('language') || 'es';
-            if (!confirm(t('confirm', lang))) {
-                return;
-            }
 
-            try {
+            showConfirm(
+                lang === 'es' ? '¿Confirmar aplicación de DKP desde Warcraft Logs?' : 'Confirm DKP application from Warcraft Logs?',
+                t('confirm', lang),
+                async () => {
+                    try {
                 const response = await fetchWithAuth(`${API_URL}/warcraftlogs/confirm`, {
                     method: 'POST',
                     body: { reportId }
                 });
 
                 if (response.ok) {
-                    alert(t('dkp_applied_from_wcl', lang));
+                    showAlert(t('dkp_applied_from_wcl', lang), t('success', lang), 'success');
                     document.getElementById('warcraftLogsURL').value = '';
                     document.getElementById('warcraftLogsPreview').innerHTML = '';
                     loadMembers();
                     loadUserData(); // Recargar datos del usuario actual
                 } else {
-                    alert(t('error_adjusting_dkp', lang));
+                    showAlert(t('error_adjusting_dkp', lang), t('error', lang), 'error');
                 }
-            } catch (error) {
-                console.error('Error:', error);
-                alert('Error al aplicar DKP');
-            }
+                    } catch (error) {
+                        console.error('Error:', error);
+                        const lang = localStorage.getItem('language') || 'es';
+                        showAlert('Error al aplicar DKP', t('error', lang), 'error');
+                    }
+                }
+            );
         }
 
 
@@ -2126,26 +2172,33 @@
         // Mostrar modal para añadir miembro
         function showAddMemberModal() {
             const lang = localStorage.getItem('language') || 'es';
-            const username = prompt(lang === 'es' ? 'Usuario:' : 'Username:');
-            if (!username) return;
 
-            const password = prompt(lang === 'es' ? 'Contraseña:' : 'Password:');
-            if (!password) return;
+            showPrompt(lang === 'es' ? 'Usuario:' : 'Username:', '', (username) => {
+                if (!username) return;
 
-            const characterName = prompt(lang === 'es' ? 'Nombre del personaje:' : 'Character name:');
-            if (!characterName) return;
+                showPrompt(lang === 'es' ? 'Contraseña:' : 'Password:', '', (password) => {
+                    if (!password) return;
 
-            const characterClass = prompt(lang === 'es' ? 'Clase (Warrior, Mage, etc.):' : 'Class (Warrior, Mage, etc.):');
-            if (!characterClass) return;
+                    showPrompt(lang === 'es' ? 'Nombre del personaje:' : 'Character name:', '', (characterName) => {
+                        if (!characterName) return;
 
-            const raidRole = prompt(lang === 'es' ? 'Rol (Tank, Healer, DPS):' : 'Role (Tank, Healer, DPS):', 'DPS');
-            if (!raidRole) return;
+                        showPrompt(lang === 'es' ? 'Clase (Warrior, Mage, etc.):' : 'Class (Warrior, Mage, etc.):', '', (characterClass) => {
+                            if (!characterClass) return;
 
-            const spec = prompt(lang === 'es' ? 'Especialización:' : 'Specialization:');
-            if (!spec) return;
+                            showPrompt(lang === 'es' ? 'Rol (Tank, Healer, DPS):' : 'Role (Tank, Healer, DPS):', 'DPS', (raidRole) => {
+                                if (!raidRole) return;
 
-            // Call API to create user
-            createNewMember(username, password, characterName, characterClass, raidRole, spec);
+                                showPrompt(lang === 'es' ? 'Especialización:' : 'Specialization:', '', (spec) => {
+                                    if (!spec) return;
+
+                                    // Call API to create user
+                                    createNewMember(username, password, characterName, characterClass, raidRole, spec);
+                                }, lang === 'es' ? 'Especialización' : 'Specialization');
+                            }, lang === 'es' ? 'Rol de Raid' : 'Raid Role');
+                        }, lang === 'es' ? 'Clase' : 'Class');
+                    }, lang === 'es' ? 'Personaje' : 'Character');
+                }, lang === 'es' ? 'Contraseña' : 'Password', 'password');
+            }, lang === 'es' ? 'Añadir Miembro' : 'Add Member');
         }
 
         async function createNewMember(username, password, characterName, characterClass, raidRole, spec) {
@@ -2164,15 +2217,27 @@
                 });
 
                 if (response && response.ok) {
-                    alert(lang === 'es' ? '¡Miembro creado exitosamente!' : 'Member created successfully!');
+                    showAlert(
+                        lang === 'es' ? '¡Miembro creado exitosamente!' : 'Member created successfully!',
+                        t('success', lang),
+                        'success'
+                    );
                     loadMembers();
                 } else {
                     const error = await response.json();
-                    alert(lang === 'es' ? `Error: ${error.error}` : `Error: ${error.error}`);
+                    showAlert(
+                        lang === 'es' ? `Error: ${error.error}` : `Error: ${error.error}`,
+                        t('error', lang),
+                        'error'
+                    );
                 }
             } catch (error) {
                 console.error('Error creating member:', error);
-                alert(lang === 'es' ? 'Error al crear miembro' : 'Error creating member');
+                showAlert(
+                    lang === 'es' ? 'Error al crear miembro' : 'Error creating member',
+                    t('error', lang),
+                    'error'
+                );
             }
         }
 
@@ -2491,7 +2556,11 @@
 
                 if (result.completed && result.dkpAwarded > 0) {
                     const message = t('dkp_bonus_earned', lang).replace('{amount}', result.dkpAwarded);
-                    alert(`${t('calendar_completed', lang)}\n${message}`);
+                    showAlert(
+                        `${t('calendar_completed', lang)}\n\n${message}`,
+                        '🎉 ' + t('success', lang),
+                        'success'
+                    );
                     loadUserData(); // Refresh DKP
                 } else {
                     // Just show success message
@@ -2502,7 +2571,7 @@
                 loadCalendarAvailability();
             } catch (error) {
                 console.error('Error updating availability:', error);
-                alert(t('error', lang));
+                showAlert(t('error', lang), t('error', lang), 'error');
             }
         }
 
