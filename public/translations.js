@@ -119,7 +119,33 @@ const translations = {
 
     // Admin Actions
     'add_member': 'Añadir Miembro',
-    'create_auction': 'Crear Subasta'
+    'create_auction': 'Crear Subasta',
+
+    // Calendar
+    'calendar': 'Calendario',
+    'raid_calendar': 'Calendario de Raids',
+    'my_availability': 'Mi Disponibilidad',
+    'week_overview': 'Vista Semanal',
+    'current_week': 'Semana Actual',
+    'confirmed': 'Confirmado',
+    'declined': 'Rechazado',
+    'tentative': 'En Duda',
+    'no_response': 'Sin Respuesta',
+    'update_availability': 'Actualizar Disponibilidad',
+    'monday': 'Lunes',
+    'tuesday': 'Martes',
+    'wednesday': 'Miércoles',
+    'thursday': 'Jueves',
+    'friday': 'Viernes',
+    'saturday': 'Sábado',
+    'sunday': 'Domingo',
+    'raid_time': 'Hora de Raid',
+    'notes_optional': 'Notas (opcional)',
+    'calendar_completed': '¡Calendario completado!',
+    'dkp_bonus_earned': 'Has ganado {amount} DKP por completar el calendario',
+    'availability_updated': 'Disponibilidad actualizada',
+    'players_confirmed': 'jugadores confirmados',
+    'attendance_summary': 'Resumen de Asistencia'
   },
 
   en: {
@@ -239,7 +265,33 @@ const translations = {
 
     // Admin Actions
     'add_member': 'Add Member',
-    'create_auction': 'Create Auction'
+    'create_auction': 'Create Auction',
+
+    // Calendar
+    'calendar': 'Calendar',
+    'raid_calendar': 'Raid Calendar',
+    'my_availability': 'My Availability',
+    'week_overview': 'Week Overview',
+    'current_week': 'Current Week',
+    'confirmed': 'Confirmed',
+    'declined': 'Declined',
+    'tentative': 'Tentative',
+    'no_response': 'No Response',
+    'update_availability': 'Update Availability',
+    'monday': 'Monday',
+    'tuesday': 'Tuesday',
+    'wednesday': 'Wednesday',
+    'thursday': 'Thursday',
+    'friday': 'Friday',
+    'saturday': 'Saturday',
+    'sunday': 'Sunday',
+    'raid_time': 'Raid Time',
+    'notes_optional': 'Notes (optional)',
+    'calendar_completed': 'Calendar completed!',
+    'dkp_bonus_earned': 'You earned {amount} DKP for completing the calendar',
+    'availability_updated': 'Availability updated',
+    'players_confirmed': 'players confirmed',
+    'attendance_summary': 'Attendance Summary'
   }
 };
 

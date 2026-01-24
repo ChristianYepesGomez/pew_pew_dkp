@@ -55,6 +55,14 @@ function initDatabase() {
     // Column already exists
   }
 
+  // Add item_name_en column to auctions if it doesn't exist (migration)
+  try {
+    db.exec(`ALTER TABLE auctions ADD COLUMN item_name_en TEXT`);
+    console.log('✅ Added item_name_en column to auctions table');
+  } catch (e) {
+    // Column already exists
+  }
+
   // Member DKP table (separate for easier updates)
   db.exec(`
     CREATE TABLE IF NOT EXISTS member_dkp (
@@ -173,6 +181,49 @@ function initDatabase() {
     )
   `);
 
+  // Raid Calendar - Define raid days for the week
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS raid_days (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      day_of_week INTEGER NOT NULL CHECK(day_of_week BETWEEN 1 AND 7),
+      day_name TEXT NOT NULL,
+      is_active INTEGER DEFAULT 1,
+      raid_time TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(day_of_week)
+    )
+  `);
+
+  // Member availability for raid days
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS member_availability (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      week_start DATE NOT NULL,
+      day_of_week INTEGER NOT NULL CHECK(day_of_week BETWEEN 1 AND 7),
+      status TEXT DEFAULT 'tentative' CHECK(status IN ('confirmed', 'declined', 'tentative')),
+      notes TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+      UNIQUE(user_id, week_start, day_of_week)
+    )
+  `);
+
+  // Weekly DKP rewards tracking for calendar completion
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS calendar_dkp_rewards (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      week_start DATE NOT NULL,
+      days_completed INTEGER DEFAULT 0,
+      dkp_awarded INTEGER DEFAULT 0,
+      awarded_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+      UNIQUE(user_id, week_start)
+    )
+  `);
+
   // Create indexes for performance
   db.exec(`
     CREATE INDEX IF NOT EXISTS idx_dkp_transactions_user ON dkp_transactions(user_id);
@@ -182,6 +233,10 @@ function initDatabase() {
     CREATE INDEX IF NOT EXISTS idx_raid_attendance_raid ON raid_attendance(raid_id);
     CREATE INDEX IF NOT EXISTS idx_raid_attendance_user ON raid_attendance(user_id);
     CREATE INDEX IF NOT EXISTS idx_warcraftlogs_report_code ON warcraft_logs_processed(report_code);
+    CREATE INDEX IF NOT EXISTS idx_member_availability_user ON member_availability(user_id);
+    CREATE INDEX IF NOT EXISTS idx_member_availability_week ON member_availability(week_start);
+    CREATE INDEX IF NOT EXISTS idx_calendar_rewards_user ON calendar_dkp_rewards(user_id);
+    CREATE INDEX IF NOT EXISTS idx_calendar_rewards_week ON calendar_dkp_rewards(week_start);
   `);
 
   // Create default admin user if no users exist
@@ -214,7 +269,8 @@ function initDatabase() {
       { key: 'raid_attendance_dkp', value: '50', description: 'DKP base por asistencia a raid' },
       { key: 'boss_kill_bonus', value: '10', description: 'DKP bonus adicional por cada boss derrotado' },
       { key: 'default_server', value: 'Ragnaros', description: 'Servidor por defecto de la guild' },
-      { key: 'auto_assign_enabled', value: 'false', description: 'Asignar DKP automáticamente (sin confirmación)' }
+      { key: 'auto_assign_enabled', value: 'false', description: 'Asignar DKP automáticamente (sin confirmación)' },
+      { key: 'calendar_dkp_per_day', value: '1', description: 'DKP otorgado por cada día de calendario completado' }
     ];
 
     const insertConfig = db.prepare(`
@@ -227,6 +283,29 @@ function initDatabase() {
     }
 
     console.log('✅ Default DKP configuration created');
+  }
+
+  // Create default raid days if not exists (Monday, Tuesday, Wednesday)
+  const raidDaysCount = db.prepare('SELECT COUNT(*) as count FROM raid_days').get();
+  if (raidDaysCount.count === 0) {
+    console.log('📝 Creating default raid days...');
+
+    const raidDays = [
+      { day_of_week: 1, day_name: 'Lunes', is_active: 1, raid_time: '20:00' },
+      { day_of_week: 2, day_name: 'Martes', is_active: 1, raid_time: '20:00' },
+      { day_of_week: 3, day_name: 'Miércoles', is_active: 1, raid_time: '20:00' }
+    ];
+
+    const insertRaidDay = db.prepare(`
+      INSERT INTO raid_days (day_of_week, day_name, is_active, raid_time)
+      VALUES (?, ?, ?, ?)
+    `);
+
+    for (const day of raidDays) {
+      insertRaidDay.run(day.day_of_week, day.day_name, day.is_active, day.raid_time);
+    }
+
+    console.log('✅ Default raid days created (Lunes, Martes, Miércoles)');
   }
 
   console.log('✅ Database initialized successfully');
