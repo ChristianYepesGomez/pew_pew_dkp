@@ -883,13 +883,20 @@
             </a>
             
             <div class="d-flex align-items-center text-white">
-                <span class="me-3">
-                    <span class="connection-status disconnected" id="connectionStatus"></span>
-                    <small id="connectionText">Desconectado</small>
-                </span>
-                <span class="me-3">
-                    <i class="fas fa-user"></i> <span id="username">Cargando...</span>
-                </span>
+                <div class="dropdown me-2">
+                    <button class="btn btn-outline-light btn-sm dropdown-toggle" type="button" id="userDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                        <i class="fas fa-user"></i> <span id="username">Cargando...</span>
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userDropdown">
+                        <li><a class="dropdown-item" href="#" onclick="showMyCharacterTab(); return false;">
+                            <i class="fas fa-user-shield"></i> <span data-i18n="my_character">Mi Personaje</span>
+                        </a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item" href="#" onclick="logout(); return false;">
+                            <i class="fas fa-sign-out-alt"></i> <span data-i18n="logout">Salir</span>
+                        </a></li>
+                    </ul>
+                </div>
                 <div class="dropdown me-2">
                     <button class="btn btn-outline-light btn-sm dropdown-toggle" type="button" id="languageDropdown" data-bs-toggle="dropdown" aria-expanded="false">
                         <span id="currentFlag">🇪🇸</span> <span id="currentLangName">Español</span>
@@ -899,9 +906,6 @@
                         <li><a class="dropdown-item" href="#" onclick="changeLanguage('en'); return false;">🇬🇧 English</a></li>
                     </ul>
                 </div>
-                <button class="btn btn-outline-light btn-sm" onclick="logout()" id="btnLogout">
-                    <i class="fas fa-sign-out-alt"></i> <span data-i18n="logout">Salir</span>
-                </button>
             </div>
         </div>
     </nav>
@@ -911,13 +915,13 @@
         
         <!-- PESTAÑAS -->
         <ul class="nav nav-tabs" id="myTab" role="tablist">
-            <li class="nav-item" role="presentation">
-                <button class="nav-link active" id="personaje-tab" data-bs-toggle="tab" data-bs-target="#personaje" type="button">
+            <li class="nav-item" role="presentation" style="display: none;">
+                <button class="nav-link" id="personaje-tab" data-bs-toggle="tab" data-bs-target="#personaje" type="button">
                     <i class="fas fa-user-shield"></i> <span data-i18n="my_character">Mi Personaje</span>
                 </button>
             </li>
             <li class="nav-item" role="presentation">
-                <button class="nav-link" id="miembros-tab" data-bs-toggle="tab" data-bs-target="#miembros" type="button">
+                <button class="nav-link active" id="miembros-tab" data-bs-toggle="tab" data-bs-target="#miembros" type="button">
                     <i class="fas fa-users"></i> <span data-i18n="members">Miembros</span>
                 </button>
             </li>
@@ -1354,14 +1358,7 @@
             const navbarBrand = document.querySelector('.navbar-brand');
             navbarBrand.innerHTML = `<i class="fas fa-moon"></i> ${t('guild_name', lang)}<br><small>${t('midnight_edition', lang)}</small>`;
 
-            // Update connection text
-            const connectionStatus = document.getElementById('connectionStatus');
-            const connectionText = document.getElementById('connectionText');
-            if (connectionStatus.classList.contains('connected')) {
-                connectionText.textContent = lang === 'es' ? 'Conectado' : 'Connected';
-            } else {
-                connectionText.textContent = lang === 'es' ? 'Desconectado' : 'Disconnected';
-            }
+            // Connection status removed - no longer needed
 
             // Reload data to refresh all labels
             if (currentUser) {
@@ -1529,19 +1526,23 @@
                     const highestBid = auction.currentBid || 0;
                     const minBid = Math.max(highestBid + 1, 1);
 
+                    // Get translated item name
+                    const itemName = lang === 'en' && auction.item_name_en ? auction.item_name_en : auction.item_name;
+                    const itemNameEscaped = itemName.replace(/'/g, "\\'");
+
                     html += `
                         <div class="auction-accordion">
                             <div class="auction-header ${index === 0 ? 'active' : ''}" onclick="toggleAuction(${auction.id})">
                                 <div style="display: flex; align-items: center; gap: 15px; flex: 1;">
-                                    <img src="${auction.itemImage}" style="width: 40px; height: 40px; border-radius: 8px; border: 2px solid var(--midnight-bright-purple);" alt="${auction.itemName}">
+                                    <img src="${auction.itemImage}" style="width: 40px; height: 40px; border-radius: 8px; border: 2px solid var(--midnight-bright-purple);" alt="${itemName}">
                                     <div style="flex: 1;">
-                                        <div class="item-rarity-${auction.itemRarity}" style="font-size: 1.2rem; font-weight: bold;">${auction.itemName}</div>
+                                        <div class="item-rarity-${auction.itemRarity}" style="font-size: 1.2rem; font-weight: bold;">${itemName}</div>
                                         <div style="font-size: 0.9rem; color: var(--midnight-silver); opacity: 0.8;">
                                             ${t('current_bid', lang)}: <strong>${highestBid} DKP</strong> | ${t('total_bids', lang)}: <strong>${auction.bidsCount || 0}</strong>
                                         </div>
                                     </div>
                                 </div>
-                                <button class="btn btn-primary" onclick="event.stopPropagation(); showBidModal(${auction.id}, ${highestBid}, '${auction.itemName.replace(/'/g, "\\'")}')">
+                                <button class="btn btn-primary" onclick="event.stopPropagation(); showBidModal(${auction.id}, ${highestBid}, '${itemNameEscaped}')">
                                     <i class="fas fa-hand-holding-usd"></i> ${t('place_bid', lang)}
                                 </button>
                             </div>
@@ -1704,16 +1705,10 @@
             
             socket.on('connect', () => {
                 console.log('✅ Conectado a Socket.IO');
-                document.getElementById('connectionStatus').classList.remove('disconnected');
-                document.getElementById('connectionStatus').classList.add('connected');
-                document.getElementById('connectionText').textContent = 'Conectado';
             });
-            
+
             socket.on('disconnect', () => {
                 console.log('❌ Desconectado de Socket.IO');
-                document.getElementById('connectionStatus').classList.remove('connected');
-                document.getElementById('connectionStatus').classList.add('disconnected');
-                document.getElementById('connectionText').textContent = 'Desconectado';
             });
             
             socket.on('dkp_updated', (data) => {
@@ -1748,11 +1743,16 @@
         // ======================================
         // LOGOUT
         // ======================================
+        function showMyCharacterTab() {
+            const personajeTab = new bootstrap.Tab(document.getElementById('personaje-tab'));
+            personajeTab.show();
+        }
+
         function logout() {
             localStorage.removeItem('token');
             localStorage.removeItem('username');
             localStorage.removeItem('role');
-            
+
             if (socket) {
                 socket.disconnect();
             }
@@ -2293,10 +2293,37 @@
             });
         }
 
-        function renderItemList(items) {
+        function renderItemList(items, isFiltered = false) {
             const lang = localStorage.getItem('language') || 'es';
-            const groupedByRaid = {};
 
+            // If filtered, show flat list without categories
+            if (isFiltered) {
+                if (items.length === 0) {
+                    return `<p style="text-align: center; padding: 20px; color: var(--midnight-silver);">${lang === 'es' ? 'No se encontraron items' : 'No items found'}</p>`;
+                }
+
+                let html = '<div style="padding: 10px;">';
+                items.forEach(item => {
+                    const iconUrl = `https://wow.zamimg.com/images/wow/icons/medium/${item.icon}.jpg`;
+                    const itemName = typeof item.name === 'object' ? item.name[lang] : item.name;
+                    html += `
+                        <div class="item-entry" onclick='selectAuctionItem(${JSON.stringify(item).replace(/'/g, "\\'")})'>
+                            <img src="${iconUrl}" class="item-icon" alt="${itemName}">
+                            <div style="flex: 1;">
+                                <span class="item-name item-rarity-${item.rarity}">${itemName}</span>
+                                <div style="font-size: 0.75rem; color: var(--midnight-silver); margin-top: 2px;">
+                                    <i class="fas fa-skull-crossbones"></i> ${item.boss} <span style="margin-left: 10px;"><i class="fas fa-dungeon"></i> ${item.raid}</span>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+                html += '</div>';
+                return html;
+            }
+
+            // Otherwise, show hierarchical view
+            const groupedByRaid = {};
             items.forEach(item => {
                 if (!groupedByRaid[item.raid]) {
                     groupedByRaid[item.raid] = {};
@@ -2329,10 +2356,11 @@
 
                     bossItems.forEach(item => {
                         const iconUrl = `https://wow.zamimg.com/images/wow/icons/medium/${item.icon}.jpg`;
+                        const itemName = typeof item.name === 'object' ? item.name[lang] : item.name;
                         html += `
-                            <div class="item-entry" onclick="selectAuctionItem(${JSON.stringify(item).replace(/"/g, '&quot;')})">
-                                <img src="${iconUrl}" class="item-icon" alt="${item.name}">
-                                <span class="item-name item-rarity-${item.rarity}">${item.name}</span>
+                            <div class="item-entry" onclick='selectAuctionItem(${JSON.stringify(item).replace(/'/g, "\\'")})'>
+                                <img src="${iconUrl}" class="item-icon" alt="${itemName}">
+                                <span class="item-name item-rarity-${item.rarity}">${itemName}</span>
                             </div>
                         `;
                     });
@@ -2367,16 +2395,19 @@
             document.querySelectorAll('.item-entry.selected').forEach(el => el.classList.remove('selected'));
 
             // Add selection to clicked item
-            event.currentTarget.classList.add('selected');
+            if (event && event.currentTarget) {
+                event.currentTarget.classList.add('selected');
+            }
 
             // Show preview
             const preview = document.getElementById('selectedItemPreview');
             const iconUrl = `https://wow.zamimg.com/images/wow/icons/medium/${item.icon}.jpg`;
+            const itemName = typeof item.name === 'object' ? item.name[lang] : item.name;
             document.getElementById('selectedItemInfo').innerHTML = `
                 <div style="display: flex; align-items: center; gap: 15px;">
-                    <img src="${iconUrl}" style="width: 48px; height: 48px; border-radius: 8px; border: 2px solid var(--midnight-bright-purple);" alt="${item.name}">
+                    <img src="${iconUrl}" style="width: 48px; height: 48px; border-radius: 8px; border: 2px solid var(--midnight-bright-purple);" alt="${itemName}">
                     <div>
-                        <div class="item-rarity-${item.rarity}" style="font-size: 1.2rem; font-weight: bold;">${item.name}</div>
+                        <div class="item-rarity-${item.rarity}" style="font-size: 1.2rem; font-weight: bold;">${itemName}</div>
                         <div style="font-size: 0.9rem; color: var(--midnight-silver); opacity: 0.8;">
                             ${item.boss} - ${item.raid}
                         </div>
@@ -2393,19 +2424,21 @@
         function filterAuctionItems() {
             const searchInput = document.getElementById('itemSearch');
             const query = searchInput.value.toLowerCase();
+            const lang = localStorage.getItem('language') || 'es';
 
             if (query === '') {
-                document.getElementById('itemList').innerHTML = renderItemList(raidItemsCache);
+                document.getElementById('itemList').innerHTML = renderItemList(raidItemsCache, false);
                 return;
             }
 
-            const filtered = raidItemsCache.filter(item =>
-                item.name.toLowerCase().includes(query) ||
-                item.boss.toLowerCase().includes(query) ||
-                item.raid.toLowerCase().includes(query)
-            );
+            const filtered = raidItemsCache.filter(item => {
+                const itemName = typeof item.name === 'object' ? (item.name[lang] || item.name.en) : item.name;
+                return itemName.toLowerCase().includes(query) ||
+                       item.boss.toLowerCase().includes(query) ||
+                       item.raid.toLowerCase().includes(query);
+            });
 
-            document.getElementById('itemList').innerHTML = renderItemList(filtered);
+            document.getElementById('itemList').innerHTML = renderItemList(filtered, true);
         }
 
         async function createNewAuction() {
@@ -2418,10 +2451,23 @@
 
             try {
                 const iconUrl = `https://wow.zamimg.com/images/wow/icons/medium/${selectedAuctionItem.icon}.jpg`;
+
+                // Get item name - handle both old format (string) and new format (object with translations)
+                let itemNameES, itemNameEN;
+                if (typeof selectedAuctionItem.name === 'object') {
+                    itemNameES = selectedAuctionItem.name.es;
+                    itemNameEN = selectedAuctionItem.name.en;
+                } else {
+                    // Old format - use same name for both
+                    itemNameES = selectedAuctionItem.name;
+                    itemNameEN = selectedAuctionItem.name;
+                }
+
                 const response = await fetchWithAuth(`${API_URL}/auctions`, {
                     method: 'POST',
                     body: {
-                        itemName: selectedAuctionItem.name,
+                        itemName: itemNameES, // Primary name in Spanish
+                        itemNameEN: itemNameEN, // English name for translation
                         minBid: 0,
                         itemRarity: selectedAuctionItem.rarity,
                         itemImage: iconUrl

@@ -55,6 +55,14 @@ function initDatabase() {
     // Column already exists
   }
 
+  // Add item_name_en column to auctions if it doesn't exist (migration)
+  try {
+    db.exec(`ALTER TABLE auctions ADD COLUMN item_name_en TEXT`);
+    console.log('✅ Added item_name_en column to auctions table');
+  } catch (e) {
+    // Column already exists
+  }
+
   // Member DKP table (separate for easier updates)
   db.exec(`
     CREATE TABLE IF NOT EXISTS member_dkp (

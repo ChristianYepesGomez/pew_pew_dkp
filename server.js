@@ -618,7 +618,7 @@ app.get('/api/auctions/active', authenticateToken, (req, res) => {
 
 // Create new auction (officer+)
 app.post('/api/auctions', authenticateToken, authorizeRole(['admin', 'officer']), (req, res) => {
-  const { itemName, itemImage, minBid, itemRarity, itemId } = req.body;
+  const { itemName, itemNameEN, itemImage, minBid, itemRarity, itemId } = req.body;
 
   if (!itemName) {
     return res.status(400).json({ error: 'Item name is required' });
@@ -626,9 +626,9 @@ app.post('/api/auctions', authenticateToken, authorizeRole(['admin', 'officer'])
 
   // Multiple active auctions are now allowed
   const result = db.prepare(`
-    INSERT INTO auctions (item_name, item_image, item_rarity, min_bid, created_by, status)
-    VALUES (?, ?, ?, ?, ?, 'active')
-  `).run(itemName, itemImage || '🎁', itemRarity || 'epic', minBid || 0, req.user.userId);
+    INSERT INTO auctions (item_name, item_name_en, item_image, item_rarity, min_bid, created_by, status)
+    VALUES (?, ?, ?, ?, ?, ?, 'active')
+  `).run(itemName, itemNameEN || itemName, itemImage || '🎁', itemRarity || 'epic', minBid || 0, req.user.userId);
 
   const auction = db.prepare('SELECT * FROM auctions WHERE id = ?').get(result.lastInsertRowid);
 
