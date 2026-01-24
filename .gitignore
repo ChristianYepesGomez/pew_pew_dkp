@@ -1,35 +1,5 @@
-# Dependencies
-node_modules/
-
-# Environment
+node_modules
+dist
 .env
 .env.local
-.env.*.local
-
-# Database
-data/*.db
-data/*.db-journal
-*.sqlite
-*.sqlite3
-
-# Logs
-logs/
-*.log
-npm-debug.log*
-
-# OS
-.DS_Store
-Thumbs.db
-
-# IDE
-.idea/
-.vscode/
-*.swp
-*.swo
-
-# Build
-dist/
-build/
-
-# Test coverage
-coverage/
+*.local
