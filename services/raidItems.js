@@ -7,7 +7,7 @@ export const CATACLYSM_RAIDS = {
       'Argaloth': [
         { id: 60243, name: 'Bracers of Impossible Strength', rarity: 'epic', icon: 'inv_bracer_plate_raidwarrior_i_01' },
         { id: 60202, name: 'Legguards of the Unseeing', rarity: 'epic', icon: 'inv_pants_plate_raidwarrior_i_01' },
-        { id: 60228, name: 'Bracers of the Mat, rarity: 'epic', icon: 'inv_bracer_cloth_raidwarlock_i_01' }
+        { id: 60228, name: 'Bracers of the Matriarch', rarity: 'epic', icon: 'inv_bracer_cloth_raidwarlock_i_01' }
       ]
     }
   },
