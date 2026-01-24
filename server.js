@@ -7,7 +7,7 @@ import jwt from 'jsonwebtoken';
 import { db, initDatabase } from './database.js';
 import { authenticateToken, authorizeRole } from './middleware/auth.js';
 import { processWarcraftLog, isConfigured as isWCLConfigured } from './services/warcraftlogs.js';
-import { getAllRaidItems, searchItems, getItemsByRaid, CATACLYSM_RAIDS } from './services/raidItems.js';
+import { getAllRaidItems, searchItems, getItemsByRaid, CURRENT_RAIDS } from './services/raidItems.js';
 
 const app = express();
 const server = createServer(app);
@@ -790,9 +790,9 @@ app.get('/api/raid-items/:raidName', authenticateToken, (req, res) => {
 
 // Get all raids
 app.get('/api/raids-list', authenticateToken, (req, res) => {
-  const raids = Object.keys(CATACLYSM_RAIDS).map(name => ({
+  const raids = Object.keys(CURRENT_RAIDS).map(name => ({
     name,
-    bosses: Object.keys(CATACLYSM_RAIDS[name].bosses)
+    bosses: Object.keys(CURRENT_RAIDS[name].bosses)
   }));
   res.json({ raids });
 });
