@@ -1,11 +1,11 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
-import App from './App.jsx'
+import App from './App'
+import { AuthProvider } from './context/AuthContext'
+import { SocketProvider } from './context/SocketContext'
+import { LanguageProvider } from './context/LanguageContext'
 import './index.css'
-import { AuthProvider } from './context/AuthContext.jsx'
-import { SocketProvider } from './context/SocketContext.jsx'
-import { LanguageProvider } from './context/LanguageContext.jsx'
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
@@ -18,5 +18,5 @@ ReactDOM.createRoot(document.getElementById('root')).render(
         </AuthProvider>
       </LanguageProvider>
     </BrowserRouter>
-  </React.StrictMode>,
+  </React.StrictMode>
 )

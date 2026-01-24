@@ -1,34 +1,23 @@
 import { createContext, useState, useEffect } from 'react'
-import { t } from '../utils/translations'
+import { translations } from '../utils/translations'
 
 export const LanguageContext = createContext()
 
 export const LanguageProvider = ({ children }) => {
-  const [language, setLanguage] = useState(() => {
-    return localStorage.getItem('language') || 'es'
-  })
+  const [language, setLanguage] = useState(() => localStorage.getItem('language') || 'es')
 
   useEffect(() => {
     localStorage.setItem('language', language)
-    document.documentElement.lang = language
   }, [language])
 
-  const changeLanguage = (newLang) => {
-    if (newLang === 'es' || newLang === 'en') {
-      setLanguage(newLang)
-    }
+  const changeLanguage = (lang) => {
+    if (lang === 'es' || lang === 'en') setLanguage(lang)
   }
 
-  const translate = (key) => t(key, language)
-
-  const value = {
-    language,
-    changeLanguage,
-    t: translate,
-  }
+  const t = (key) => translations[language]?.[key] || key
 
   return (
-    <LanguageContext.Provider value={value}>
+    <LanguageContext.Provider value={{ language, changeLanguage, t }}>
       {children}
     </LanguageContext.Provider>
   )

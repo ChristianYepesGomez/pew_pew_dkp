@@ -5,100 +5,70 @@ export const AuthContext = createContext()
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null)
+  const [token, setToken] = useState(localStorage.getItem('token'))
   const [loading, setLoading] = useState(true)
-  const [isAuthenticated, setIsAuthenticated] = useState(false)
 
   useEffect(() => {
-    // Check if user is already logged in
-    const token = localStorage.getItem('token')
-    const savedUser = localStorage.getItem('user')
-
-    if (token && savedUser) {
-      setUser(JSON.parse(savedUser))
-      setIsAuthenticated(true)
-      // Verify token validity
-      verifyToken()
+    if (token) {
+      loadUser()
     } else {
       setLoading(false)
     }
-  }, [])
+  }, [token])
 
-  const verifyToken = async () => {
+  const loadUser = async () => {
     try {
-      const response = await authAPI.getMe()
+      const response = await authAPI.me()
       setUser(response.data)
-      setIsAuthenticated(true)
     } catch (error) {
-      console.error('Token verification failed:', error)
+      console.error('Error loading user:', error)
       logout()
     } finally {
       setLoading(false)
     }
   }
 
-  const login = async (credentials) => {
+  const login = async (username, password) => {
     try {
-      const response = await authAPI.login(credentials)
-      const { token, user: userData } = response.data
-
-      localStorage.setItem('token', token)
-      localStorage.setItem('user', JSON.stringify(userData))
-
+      const response = await authAPI.login(username, password)
+      const { token: newToken, user: userData } = response.data
+      localStorage.setItem('token', newToken)
+      setToken(newToken)
       setUser(userData)
-      setIsAuthenticated(true)
-
-      return { success: true, user: userData }
+      return { success: true }
     } catch (error) {
-      console.error('Login failed:', error)
-      return {
-        success: false,
-        error: error.response?.data?.error || 'Login failed',
-      }
+      return { success: false, error: error.response?.data?.error || 'Error al iniciar sesión' }
     }
   }
 
   const register = async (userData) => {
     try {
       const response = await authAPI.register(userData)
-      const { token, user: newUser } = response.data
-
-      localStorage.setItem('token', token)
-      localStorage.setItem('user', JSON.stringify(newUser))
-
+      const { token: newToken, user: newUser } = response.data
+      localStorage.setItem('token', newToken)
+      setToken(newToken)
       setUser(newUser)
-      setIsAuthenticated(true)
-
-      return { success: true, user: newUser }
+      return { success: true }
     } catch (error) {
-      console.error('Registration failed:', error)
-      return {
-        success: false,
-        error: error.response?.data?.error || 'Registration failed',
-      }
+      return { success: false, error: error.response?.data?.error || 'Error al registrarse' }
     }
   }
 
   const logout = () => {
     localStorage.removeItem('token')
-    localStorage.removeItem('user')
+    setToken(null)
     setUser(null)
-    setIsAuthenticated(false)
-  }
-
-  const updateUser = (updatedData) => {
-    const updatedUser = { ...user, ...updatedData }
-    setUser(updatedUser)
-    localStorage.setItem('user', JSON.stringify(updatedUser))
   }
 
   const value = {
     user,
+    token,
     loading,
-    isAuthenticated,
+    isAuthenticated: !!token && !!user,
     login,
     register,
     logout,
-    updateUser,
+    refreshUser: loadUser,
   }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

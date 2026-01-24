@@ -1,28 +1,22 @@
 import { useContext, useEffect } from 'react'
 import { SocketContext } from '../context/SocketContext'
 
-export const useSocket = (eventHandlers = {}) => {
+export const useSocket = (events = {}) => {
   const context = useContext(SocketContext)
 
-  if (!context) {
-    throw new Error('useSocket must be used within a SocketProvider')
-  }
-
-  const { on, off } = context
-
   useEffect(() => {
-    // Register event handlers
-    Object.entries(eventHandlers).forEach(([event, handler]) => {
-      on(event, handler)
+    if (!context?.socket) return
+
+    Object.entries(events).forEach(([event, handler]) => {
+      context.socket.on(event, handler)
     })
 
-    // Cleanup on unmount
     return () => {
-      Object.entries(eventHandlers).forEach(([event, handler]) => {
-        off(event, handler)
+      Object.entries(events).forEach(([event, handler]) => {
+        context.socket.off(event, handler)
       })
     }
-  }, [eventHandlers, on, off])
+  }, [context?.socket, events])
 
-  return context
+  return context || { socket: null, isConnected: false }
 }
