@@ -1501,11 +1501,127 @@
     
     <script>
         // ======================================
+        // WOW CLASSES DATA
+        // ======================================
+        const WOW_CLASSES = {
+            'Death Knight': {
+                icon: 'classicon_deathknight',
+                specs: {
+                    'Blood': { role: 'Tank', icon: 'spell_deathknight_bloodpresence' },
+                    'Frost': { role: 'DPS', icon: 'spell_deathknight_frostpresence' },
+                    'Unholy': { role: 'DPS', icon: 'spell_deathknight_unholypresence' }
+                }
+            },
+            'Demon Hunter': {
+                icon: 'classicon_demonhunter',
+                specs: {
+                    'Havoc': { role: 'DPS', icon: 'ability_demonhunter_specdps' },
+                    'Vengeance': { role: 'Tank', icon: 'ability_demonhunter_spectank' }
+                }
+            },
+            'Druid': {
+                icon: 'classicon_druid',
+                specs: {
+                    'Balance': { role: 'DPS', icon: 'spell_nature_starfall' },
+                    'Feral': { role: 'DPS', icon: 'ability_druid_catform' },
+                    'Guardian': { role: 'Tank', icon: 'ability_racial_bearform' },
+                    'Restoration': { role: 'Healer', icon: 'spell_nature_healingtouch' }
+                }
+            },
+            'Evoker': {
+                icon: 'classicon_evoker',
+                specs: {
+                    'Devastation': { role: 'DPS', icon: 'classicon_evoker' },
+                    'Preservation': { role: 'Healer', icon: 'classicon_evoker' },
+                    'Augmentation': { role: 'DPS', icon: 'classicon_evoker' }
+                }
+            },
+            'Hunter': {
+                icon: 'classicon_hunter',
+                specs: {
+                    'Beast Mastery': { role: 'DPS', icon: 'ability_hunter_bestialdiscipline' },
+                    'Marksmanship': { role: 'DPS', icon: 'ability_hunter_focusedaim' },
+                    'Survival': { role: 'DPS', icon: 'ability_hunter_camouflage' }
+                }
+            },
+            'Mage': {
+                icon: 'classicon_mage',
+                specs: {
+                    'Arcane': { role: 'DPS', icon: 'spell_holy_magicalsentry' },
+                    'Fire': { role: 'DPS', icon: 'spell_fire_firebolt02' },
+                    'Frost': { role: 'DPS', icon: 'spell_frost_frostbolt02' }
+                }
+            },
+            'Monk': {
+                icon: 'classicon_monk',
+                specs: {
+                    'Brewmaster': { role: 'Tank', icon: 'spell_monk_brewmaster_spec' },
+                    'Mistweaver': { role: 'Healer', icon: 'spell_monk_mistweaver_spec' },
+                    'Windwalker': { role: 'DPS', icon: 'spell_monk_windwalker_spec' }
+                }
+            },
+            'Paladin': {
+                icon: 'classicon_paladin',
+                specs: {
+                    'Holy': { role: 'Healer', icon: 'spell_holy_holybolt' },
+                    'Protection': { role: 'Tank', icon: 'ability_paladin_shieldofthetemplar' },
+                    'Retribution': { role: 'DPS', icon: 'spell_holy_auraoflight' }
+                }
+            },
+            'Priest': {
+                icon: 'classicon_priest',
+                specs: {
+                    'Discipline': { role: 'Healer', icon: 'spell_holy_powerwordshield' },
+                    'Holy': { role: 'Healer', icon: 'spell_holy_guardianspirit' },
+                    'Shadow': { role: 'DPS', icon: 'spell_shadow_shadowwordpain' }
+                }
+            },
+            'Rogue': {
+                icon: 'classicon_rogue',
+                specs: {
+                    'Assassination': { role: 'DPS', icon: 'ability_rogue_deadlybrew' },
+                    'Outlaw': { role: 'DPS', icon: 'ability_rogue_waylay' },
+                    'Subtlety': { role: 'DPS', icon: 'ability_stealth' }
+                }
+            },
+            'Shaman': {
+                icon: 'classicon_shaman',
+                specs: {
+                    'Elemental': { role: 'DPS', icon: 'spell_nature_lightning' },
+                    'Enhancement': { role: 'DPS', icon: 'spell_shaman_improvedstormstrike' },
+                    'Restoration': { role: 'Healer', icon: 'spell_nature_magicimmunity' }
+                }
+            },
+            'Warlock': {
+                icon: 'classicon_warlock',
+                specs: {
+                    'Affliction': { role: 'DPS', icon: 'spell_shadow_deathcoil' },
+                    'Demonology': { role: 'DPS', icon: 'spell_shadow_metamorphosis' },
+                    'Destruction': { role: 'DPS', icon: 'spell_shadow_rainoffire' }
+                }
+            },
+            'Warrior': {
+                icon: 'classicon_warrior',
+                specs: {
+                    'Arms': { role: 'DPS', icon: 'ability_warrior_savageblow' },
+                    'Fury': { role: 'DPS', icon: 'ability_warrior_innerrage' },
+                    'Protection': { role: 'Tank', icon: 'ability_warrior_defensivestance' }
+                }
+            }
+        };
+
+        const ROLE_ICONS = {
+            'Tank': 'inv_shield_06',
+            'Healer': 'spell_holy_flashheal',
+            'DPS': 'inv_sword_27'
+        };
+
+        // ======================================
         // CONFIGURACIÓN
         // ======================================
         const API_URL = 'http://localhost:3000/api';
         const SOCKET_URL = 'http://localhost:3000';
-        
+
         let token = localStorage.getItem('token');
         let socket = null;
         let currentUser = null;
@@ -2547,35 +2663,171 @@
         }
 
         // Mostrar modal para añadir miembro
+        function onClassChange() {
+            const classSelect = document.getElementById('memberClass');
+            const specSelect = document.getElementById('memberSpec');
+            const selectedClass = classSelect.value;
+
+            // Clear current specs
+            specSelect.innerHTML = '<option value="">-- Selecciona especialización --</option>';
+
+            if (selectedClass && WOW_CLASSES[selectedClass]) {
+                const specs = WOW_CLASSES[selectedClass].specs;
+                Object.entries(specs).forEach(([specName, specData]) => {
+                    const option = document.createElement('option');
+                    option.value = specName;
+                    option.setAttribute('data-role', specData.role);
+                    option.textContent = specName;
+                    specSelect.appendChild(option);
+                });
+                specSelect.disabled = false;
+            } else {
+                specSelect.disabled = true;
+            }
+
+            // Reset role
+            document.getElementById('memberRole').value = '';
+        }
+
+        function onSpecChange() {
+            const specSelect = document.getElementById('memberSpec');
+            const roleSelect = document.getElementById('memberRole');
+            const selectedOption = specSelect.options[specSelect.selectedIndex];
+
+            if (selectedOption && selectedOption.hasAttribute('data-role')) {
+                const role = selectedOption.getAttribute('data-role');
+                roleSelect.value = role;
+            }
+        }
+
+        function generatePassword() {
+            const characterName = document.getElementById('memberCharacterName').value;
+            const passwordField = document.getElementById('memberPassword');
+
+            if (characterName) {
+                passwordField.value = `${characterName}_pewpew`;
+            }
+        }
+
         function showAddMemberModal() {
             const lang = localStorage.getItem('language') || 'es';
 
-            showPrompt(lang === 'es' ? 'Usuario:' : 'Username:', '', (username) => {
-                if (!username) return;
+            // Build class options with icons
+            let classOptions = '<option value="">-- Selecciona clase --</option>';
+            Object.entries(WOW_CLASSES).forEach(([className, classData]) => {
+                classOptions += `<option value="${className}">${className}</option>`;
+            });
 
-                showPrompt(lang === 'es' ? 'Contraseña:' : 'Password:', '', (password) => {
-                    if (!password) return;
+            // Build role options with icons
+            const roleOptions = `
+                <option value="">-- Auto (según spec) --</option>
+                <option value="Tank">🛡️ Tank</option>
+                <option value="Healer">✚ Healer</option>
+                <option value="DPS">⚔️ DPS</option>
+            `;
 
-                    showPrompt(lang === 'es' ? 'Nombre del personaje:' : 'Character name:', '', (characterName) => {
-                        if (!characterName) return;
+            const modalBody = `
+                <div style="padding: 20px;">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label" style="color: var(--midnight-glow); font-weight: bold;">
+                                <i class="fas fa-user"></i> ${lang === 'es' ? 'Nombre de Usuario' : 'Username'}
+                            </label>
+                            <input type="text" id="memberUsername" class="form-control" placeholder="${lang === 'es' ? 'Nombre de usuario' : 'Username'}" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label" style="color: var(--midnight-glow); font-weight: bold;">
+                                <i class="fas fa-user-shield"></i> ${lang === 'es' ? 'Nombre del Personaje' : 'Character Name'}
+                            </label>
+                            <input type="text" id="memberCharacterName" class="form-control" placeholder="${lang === 'es' ? 'Nombre del personaje' : 'Character name'}" required onchange="generatePassword()">
+                        </div>
+                    </div>
 
-                        showPrompt(lang === 'es' ? 'Clase (Warrior, Mage, etc.):' : 'Class (Warrior, Mage, etc.):', '', (characterClass) => {
-                            if (!characterClass) return;
+                    <div class="row">
+                        <div class="col-md-12 mb-3">
+                            <label class="form-label" style="color: var(--midnight-glow); font-weight: bold;">
+                                <i class="fas fa-key"></i> ${lang === 'es' ? 'Contraseña' : 'Password'}
+                            </label>
+                            <div class="input-group">
+                                <input type="text" id="memberPassword" class="form-control" placeholder="${lang === 'es' ? 'Auto: nombre_pewpew' : 'Auto: name_pewpew'}" readonly style="background: rgba(138, 92, 246, 0.1);">
+                                <button class="btn btn-outline-light" type="button" onclick="generatePassword()">
+                                    <i class="fas fa-sync-alt"></i>
+                                </button>
+                            </div>
+                            <small style="color: var(--midnight-silver);">
+                                ${lang === 'es' ? 'La contraseña se genera automáticamente. El usuario podrá cambiarla después.' : 'Password auto-generated. User can change it later.'}
+                            </small>
+                        </div>
+                    </div>
 
-                            showPrompt(lang === 'es' ? 'Rol (Tank, Healer, DPS):' : 'Role (Tank, Healer, DPS):', 'DPS', (raidRole) => {
-                                if (!raidRole) return;
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label" style="color: var(--midnight-glow); font-weight: bold;">
+                                <i class="fas fa-book"></i> ${lang === 'es' ? 'Clase' : 'Class'}
+                            </label>
+                            <select id="memberClass" class="form-select" required onchange="onClassChange()">
+                                ${classOptions}
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label" style="color: var(--midnight-glow); font-weight: bold;">
+                                <i class="fas fa-star"></i> ${lang === 'es' ? 'Especialización' : 'Specialization'}
+                            </label>
+                            <select id="memberSpec" class="form-select" required onchange="onSpecChange()" disabled>
+                                <option value="">-- ${lang === 'es' ? 'Selecciona clase primero' : 'Select class first'} --</option>
+                            </select>
+                        </div>
+                    </div>
 
-                                showPrompt(lang === 'es' ? 'Especialización:' : 'Specialization:', '', (spec) => {
-                                    if (!spec) return;
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label" style="color: var(--midnight-glow); font-weight: bold;">
+                                <i class="fas fa-shield-alt"></i> ${lang === 'es' ? 'Rol de Raid' : 'Raid Role'}
+                            </label>
+                            <select id="memberRole" class="form-select" required>
+                                ${roleOptions}
+                            </select>
+                            <small style="color: var(--midnight-silver);">
+                                ${lang === 'es' ? 'Se selecciona automáticamente según la especialización' : 'Auto-selected based on specialization'}
+                            </small>
+                        </div>
+                    </div>
+                </div>
+            `;
 
-                                    // Call API to create user
-                                    createNewMember(username, password, characterName, characterClass, raidRole, spec);
-                                }, lang === 'es' ? 'Especialización' : 'Specialization');
-                            }, lang === 'es' ? 'Rol de Raid' : 'Raid Role');
-                        }, lang === 'es' ? 'Clase' : 'Class');
-                    }, lang === 'es' ? 'Personaje' : 'Character');
-                }, lang === 'es' ? 'Contraseña' : 'Password', 'password');
-            }, lang === 'es' ? 'Añadir Miembro' : 'Add Member');
+            showModal({
+                title: `<i class="fas fa-user-plus"></i> ${lang === 'es' ? 'Añadir Nuevo Miembro' : 'Add New Member'}`,
+                body: modalBody,
+                size: 'lg',
+                buttons: [
+                    { text: lang === 'es' ? 'Cancelar' : 'Cancel', variant: 'secondary', onClick: () => {} },
+                    { text: lang === 'es' ? 'Crear Miembro' : 'Create Member', variant: 'primary', onClick: () => submitNewMember() }
+                ]
+            });
+        }
+
+        function submitNewMember() {
+            const lang = localStorage.getItem('language') || 'es';
+
+            const username = document.getElementById('memberUsername').value.trim();
+            const characterName = document.getElementById('memberCharacterName').value.trim();
+            const password = document.getElementById('memberPassword').value.trim();
+            const characterClass = document.getElementById('memberClass').value;
+            const spec = document.getElementById('memberSpec').value;
+            const raidRole = document.getElementById('memberRole').value;
+
+            // Validation
+            if (!username || !characterName || !password || !characterClass || !spec || !raidRole) {
+                showAlert(
+                    lang === 'es' ? 'Por favor completa todos los campos' : 'Please fill all fields',
+                    lang === 'es' ? 'Error' : 'Error',
+                    'warning'
+                );
+                return;
+            }
+
+            // Call API to create user
+            createNewMember(username, password, characterName, characterClass, raidRole, spec);
         }
 
         async function createNewMember(username, password, characterName, characterClass, raidRole, spec) {
