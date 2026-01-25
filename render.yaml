@@ -1,0 +1,75 @@
+# =============================================
+# Render.com Blueprint Configuration
+# =============================================
+#
+# Este archivo configura el despliegue automático en Render.com
+# 
+# Pasos para desplegar:
+# 1. Sube tu código a GitHub
+# 2. Ve a https://render.com y crea una cuenta
+# 3. Click en "New" -> "Blueprint"
+# 4. Conecta tu repositorio de GitHub
+# 5. Render detectará este archivo y configurará todo automáticamente
+#
+
+services:
+  # =============================================
+  # Backend Web Service
+  # =============================================
+  - type: web
+    name: dkp-backend
+    runtime: node
+    region: frankfurt  # Cambia a la región más cercana a tus usuarios
+    plan: free         # Opciones: free, starter, standard, pro
+    
+    # Build configuration
+    buildCommand: npm install
+    startCommand: node server.js
+    
+    # Health check
+    healthCheckPath: /health
+    
+    # Environment variables
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3000
+      - key: JWT_SECRET
+        generateValue: true  # Render genera un secreto automáticamente
+      - key: DATABASE_PATH
+        value: /app/data/dkp.db
+      - key: FRONTEND_URL
+        sync: false  # Lo configuras manualmente después
+    
+    # Persistent disk for SQLite
+    disk:
+      name: dkp-data
+      mountPath: /app/data
+      sizeGB: 1  # 1GB es suficiente para SQLite
+
+# =============================================
+# Notas importantes para el Free Tier de Render:
+# =============================================
+#
+# 1. SPIN DOWN: Los servicios gratuitos se "duermen" después de 
+#    15 minutos de inactividad. El primer request después de esto
+#    tarda ~30 segundos en responder (cold start).
+#
+# 2. SOLUCIÓN AL SPIN DOWN: Puedes usar un servicio gratuito como
+#    https://cron-job.org para hacer ping a tu API cada 14 minutos.
+#    Configura un job que haga GET a: https://tu-app.onrender.com/health
+#
+# 3. LÍMITES:
+#    - 750 horas de ejecución gratis al mes
+#    - 100 GB de bandwidth
+#    - Builds pueden ser más lentos que en planes de pago
+#
+# 4. BASE DE DATOS:
+#    - Usamos SQLite con un disco persistente
+#    - PostgreSQL gratuito de Render expira a los 90 días
+#    - SQLite es perfecto para proyectos pequeños/medianos
+#
+# 5. CUSTOM DOMAIN:
+#    - Puedes añadir tu propio dominio gratis
+#    - Render proporciona SSL automático
