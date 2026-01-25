@@ -1,0 +1,191 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --midnight-deepblue: #0a0e27;
+  --midnight-spaceblue: #1a1d3a;
+  --midnight-purple: #4a1a8f;
+  --midnight-bright-purple: #8b5cf6;
+  --midnight-glow: #a78bfa;
+  --midnight-silver: #e0e7ff;
+  --midnight-accent: #6d28d9;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  background: radial-gradient(ellipse at top, #1e1b4b 0%, #0f0a1e 50%, #000000 100%);
+  background-attachment: fixed;
+  min-height: 100vh;
+  font-family: 'Arial', sans-serif;
+  color: var(--midnight-silver);
+  overflow-x: hidden;
+}
+
+/* Nebula effect */
+body::before {
+  content: '';
+  position: fixed;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background:
+    radial-gradient(circle at 20% 50%, rgba(139, 92, 246, 0.15) 0%, transparent 50%),
+    radial-gradient(circle at 80% 80%, rgba(109, 40, 217, 0.15) 0%, transparent 50%),
+    radial-gradient(circle at 40% 20%, rgba(74, 26, 143, 0.1) 0%, transparent 50%);
+  animation: nebula 20s ease-in-out infinite;
+  pointer-events: none;
+  z-index: 0;
+}
+
+@keyframes nebula {
+  0%, 100% { transform: translate(0, 0) scale(1); opacity: 0.5; }
+  50% { transform: translate(-5%, 5%) scale(1.1); opacity: 0.7; }
+}
+
+/* Stars */
+body::after {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-image:
+    radial-gradient(2px 2px at 20% 30%, white, transparent),
+    radial-gradient(2px 2px at 60% 70%, white, transparent),
+    radial-gradient(1px 1px at 50% 50%, white, transparent),
+    radial-gradient(1px 1px at 80% 10%, white, transparent);
+  background-size: 200% 200%;
+  animation: starsTwinkle 10s ease-in-out infinite;
+  pointer-events: none;
+  opacity: 0.8;
+  z-index: 0;
+}
+
+@keyframes starsTwinkle {
+  0%, 100% { opacity: 0.8; }
+  50% { opacity: 0.4; }
+}
+
+#root {
+  position: relative;
+  z-index: 1;
+}
+
+/* Info Card */
+.info-card {
+  background: rgba(10, 14, 39, 0.7);
+  backdrop-filter: blur(20px);
+  border-radius: 20px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), 0 0 40px rgba(139, 92, 246, 0.15);
+  border: 1px solid rgba(139, 92, 246, 0.3);
+  padding: 30px;
+  margin-bottom: 25px;
+  transition: all 0.4s ease;
+}
+
+.info-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.6), 0 0 60px rgba(139, 92, 246, 0.3);
+  border-color: var(--midnight-bright-purple);
+}
+
+.info-card h3 {
+  font-family: 'Cinzel', serif;
+  color: var(--midnight-glow);
+  margin-bottom: 25px;
+  font-size: 22px;
+  text-shadow: 0 0 15px rgba(167, 139, 250, 0.6);
+  letter-spacing: 1px;
+}
+
+/* DKP Badge */
+.dkp-badge {
+  background: linear-gradient(135deg, rgba(109, 40, 217, 0.9) 0%, rgba(139, 92, 246, 0.9) 50%, rgba(167, 139, 250, 0.9) 100%);
+  backdrop-filter: blur(10px);
+  padding: 40px;
+  border-radius: 20px;
+  text-align: center;
+  box-shadow: 0 8px 32px rgba(139, 92, 246, 0.5), 0 0 60px rgba(167, 139, 250, 0.4);
+  border: 2px solid var(--midnight-bright-purple);
+  cursor: pointer;
+  transition: all 0.4s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.dkp-badge:hover {
+  transform: scale(1.05) translateY(-5px);
+}
+
+.dkp-badge .dkp-amount {
+  font-family: 'Cinzel', serif;
+  font-size: 56px;
+  font-weight: 700;
+  color: white;
+  margin: 15px 0;
+  text-shadow: 0 0 20px rgba(255, 255, 255, 0.8);
+}
+
+/* Transaction amounts */
+.amount-positive {
+  color: #34d399;
+  font-weight: bold;
+  text-shadow: 0 0 10px rgba(52, 211, 153, 0.6);
+}
+
+.amount-negative {
+  color: #f87171;
+  font-weight: bold;
+  text-shadow: 0 0 10px rgba(248, 113, 113, 0.6);
+}
+
+/* WoW Class Colors */
+.class-warrior { color: #C79C6E; text-shadow: 0 0 10px rgba(199, 156, 110, 0.7); }
+.class-paladin { color: #F58CBA; text-shadow: 0 0 10px rgba(245, 140, 186, 0.7); }
+.class-hunter { color: #ABD473; text-shadow: 0 0 10px rgba(171, 212, 115, 0.7); }
+.class-rogue { color: #FFF569; text-shadow: 0 0 10px rgba(255, 245, 105, 0.7); }
+.class-priest { color: #FFFFFF; text-shadow: 0 0 15px rgba(255, 255, 255, 0.9); }
+.class-shaman { color: #0070DE; text-shadow: 0 0 10px rgba(0, 112, 222, 0.7); }
+.class-mage { color: #69CCF0; text-shadow: 0 0 10px rgba(105, 204, 240, 0.7); }
+.class-warlock { color: #9482C9; text-shadow: 0 0 10px rgba(148, 130, 201, 0.7); }
+.class-druid { color: #FF7D0A; text-shadow: 0 0 10px rgba(255, 125, 10, 0.7); }
+.class-death-knight { color: #C41F3B; text-shadow: 0 0 10px rgba(196, 31, 59, 0.7); }
+
+/* Item Rarity Colors */
+.rarity-common { color: #9d9d9d; }
+.rarity-uncommon { color: #1eff00; text-shadow: 0 0 8px rgba(30, 255, 0, 0.5); }
+.rarity-rare { color: #0070dd; text-shadow: 0 0 8px rgba(0, 112, 221, 0.5); }
+.rarity-epic { color: #a335ee; text-shadow: 0 0 12px rgba(163, 53, 238, 0.7); }
+.rarity-legendary { color: #ff8000; text-shadow: 0 0 15px rgba(255, 128, 0, 0.8); }
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 12px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--midnight-deepblue);
+}
+
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, var(--midnight-purple) 0%, var(--midnight-bright-purple) 100%);
+  border-radius: 6px;
+}
+
+/* Animation */
+.animate-fade-in {
+  animation: fadeIn 0.8s ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(30px); }
+  to { opacity: 1; transform: translateY(0); }
+}

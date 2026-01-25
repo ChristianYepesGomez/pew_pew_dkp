@@ -1,0 +1,65 @@
+import { useState } from 'react'
+import { useAuth } from '../hooks/useAuth'
+import { useSocket } from '../hooks/useSocket'
+import { useLanguage } from '../hooks/useLanguage'
+import Header from '../components/Layout/Header'
+import CharacterTab from '../components/DKP/CharacterTab'
+import MembersTab from '../components/Roster/MembersTab'
+import AuctionTab from '../components/Auction/AuctionTab'
+import HistoryTab from '../components/Auction/HistoryTab'
+import AdminTab from '../components/Admin/AdminTab'
+
+const Dashboard = () => {
+  const [activeTab, setActiveTab] = useState('character')
+  const { t } = useLanguage()
+  const { user } = useAuth()
+  const { isConnected } = useSocket()
+
+  const isAdmin = user?.role === 'admin' || user?.role === 'officer'
+
+  const tabs = [
+    { id: 'character', icon: 'fa-user-shield', label: t('my_character') },
+    { id: 'members', icon: 'fa-users', label: t('members') },
+    { id: 'auction', icon: 'fa-gavel', label: t('active_auction') },
+    { id: 'history', icon: 'fa-history', label: t('auction_history') },
+  ]
+
+  if (isAdmin) tabs.push({ id: 'admin', icon: 'fa-crown', label: t('admin') })
+
+  return (
+    <div className="min-h-screen">
+      <Header isConnected={isConnected} />
+
+      <div className="container mx-auto px-4 py-8 max-w-7xl">
+        {/* Tabs */}
+        <div className="flex flex-wrap gap-2 mb-8 border-b-2 border-midnight-bright-purple border-opacity-30 pb-4">
+          {tabs.map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`px-6 py-3 rounded-t-lg font-cinzel text-base tracking-wide transition-all duration-300 ${
+                activeTab === tab.id
+                  ? 'bg-gradient-to-r from-midnight-purple to-midnight-bright-purple text-white shadow-lg'
+                  : 'bg-transparent text-midnight-silver hover:bg-midnight-bright-purple hover:bg-opacity-10'
+              }`}
+            >
+              <i className={`fas ${tab.icon} mr-2`}></i>
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Content */}
+        <div className="animate-fade-in">
+          {activeTab === 'character' && <CharacterTab />}
+          {activeTab === 'members' && <MembersTab />}
+          {activeTab === 'auction' && <AuctionTab />}
+          {activeTab === 'history' && <HistoryTab />}
+          {activeTab === 'admin' && isAdmin && <AdminTab />}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+export default Dashboard
