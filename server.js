@@ -25,8 +25,8 @@ const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-producti
 app.use(cors());
 app.use(express.json());
 
-// Serve static files (Frontend HTML)
-app.use(express.static('public'));
+// Frontend is served separately via Vite (dkp-frontend project)
+// No static files served from backend
 
 // Make io accessible to routes
 app.set('io', io);

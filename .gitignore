@@ -1,5 +1,35 @@
-node_modules
-dist
+# Dependencies
+node_modules/
+
+# Environment
 .env
 .env.local
-*.local
+.env.*.local
+
+# Database
+data/*.db
+data/*.db-journal
+*.sqlite
+*.sqlite3
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Build
+dist/
+build/
+
+# Test coverage
+coverage/
