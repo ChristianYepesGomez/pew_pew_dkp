@@ -22,14 +22,8 @@ const Login = () => {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4">
+    <div className="min-h-screen flex flex-col items-center justify-center px-4">
       <div className="w-full max-w-md">
-        <div className="flex justify-end mb-4">
-          <button onClick={() => changeLanguage(language === 'es' ? 'en' : 'es')} className="text-midnight-silver hover:text-midnight-glow">
-            {language === 'es' ? '🇪🇸 ES' : '🇬🇧 EN'}
-          </button>
-        </div>
-
         <div className="bg-white bg-opacity-95 backdrop-blur-lg rounded-2xl shadow-2xl p-8">
           <div className="text-center mb-8">
             <div className="text-6xl mb-4"><i className="fas fa-moon text-midnight-purple"></i></div>
@@ -85,6 +79,17 @@ const Login = () => {
             </Link>
           </div>
         </div>
+      </div>
+
+      {/* Language selector at bottom - standard position like Google/Microsoft login pages */}
+      <div className="mt-6">
+        <button
+          onClick={() => changeLanguage(language === 'es' ? 'en' : 'es')}
+          className="text-gray-400 hover:text-white text-sm flex items-center gap-2 transition-colors"
+        >
+          <i className="fas fa-globe"></i>
+          {language === 'es' ? 'English' : 'Español'}
+        </button>
       </div>
     </div>
   )

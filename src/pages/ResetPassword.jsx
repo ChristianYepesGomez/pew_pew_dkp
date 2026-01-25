@@ -41,14 +41,8 @@ const ResetPassword = () => {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4">
+    <div className="min-h-screen flex flex-col items-center justify-center px-4">
       <div className="w-full max-w-md">
-        <div className="flex justify-end mb-4">
-          <button onClick={() => changeLanguage(language === 'es' ? 'en' : 'es')} className="text-midnight-silver hover:text-midnight-glow">
-            {language === 'es' ? '🇪🇸 ES' : '🇬🇧 EN'}
-          </button>
-        </div>
-
         <div className="bg-white bg-opacity-95 backdrop-blur-lg rounded-2xl shadow-2xl p-8">
           <div className="text-center mb-8">
             <div className="text-6xl mb-4"><i className="fas fa-lock text-midnight-purple"></i></div>
@@ -68,43 +62,45 @@ const ResetPassword = () => {
             </div>
           )}
 
-          <form onSubmit={handleSubmit}>
-            <div className="mb-4">
-              <label className="block text-gray-700 font-semibold mb-2">
-                <i className="fas fa-lock mr-2"></i>{t('new_password')}
-              </label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:border-midnight-purple focus:ring-2 focus:ring-midnight-purple focus:outline-none bg-white text-gray-900"
-                required
-                minLength={6}
-              />
-            </div>
+          {!message && (
+            <form onSubmit={handleSubmit}>
+              <div className="mb-4">
+                <label className="block text-gray-700 font-semibold mb-2">
+                  <i className="fas fa-lock mr-2"></i>{t('new_password')}
+                </label>
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:border-midnight-purple focus:ring-2 focus:ring-midnight-purple focus:outline-none bg-white text-gray-900"
+                  required
+                  minLength={6}
+                />
+              </div>
 
-            <div className="mb-6">
-              <label className="block text-gray-700 font-semibold mb-2">
-                <i className="fas fa-lock mr-2"></i>{t('confirm_password')}
-              </label>
-              <input
-                type="password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:border-midnight-purple focus:ring-2 focus:ring-midnight-purple focus:outline-none bg-white text-gray-900"
-                required
-                minLength={6}
-              />
-            </div>
+              <div className="mb-6">
+                <label className="block text-gray-700 font-semibold mb-2">
+                  <i className="fas fa-lock mr-2"></i>{t('confirm_password')}
+                </label>
+                <input
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:border-midnight-purple focus:ring-2 focus:ring-midnight-purple focus:outline-none bg-white text-gray-900"
+                  required
+                  minLength={6}
+                />
+              </div>
 
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-gradient-to-r from-midnight-purple to-midnight-bright-purple text-white font-bold py-3 px-4 rounded-lg hover:shadow-lg transform hover:-translate-y-0.5 transition-all disabled:opacity-50"
-            >
-              {loading ? <><i className="fas fa-circle-notch fa-spin mr-2"></i>{t('loading')}...</> : <><i className="fas fa-save mr-2"></i>{t('change_password')}</>}
-            </button>
-          </form>
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full bg-gradient-to-r from-midnight-purple to-midnight-bright-purple text-white font-bold py-3 px-4 rounded-lg hover:shadow-lg transform hover:-translate-y-0.5 transition-all disabled:opacity-50"
+              >
+                {loading ? <><i className="fas fa-circle-notch fa-spin mr-2"></i>{t('loading')}...</> : <><i className="fas fa-save mr-2"></i>{t('change_password')}</>}
+              </button>
+            </form>
+          )}
 
           <div className="text-center mt-6">
             <Link to="/login" className="text-midnight-purple font-semibold hover:text-midnight-bright-purple">
@@ -112,6 +108,17 @@ const ResetPassword = () => {
             </Link>
           </div>
         </div>
+      </div>
+
+      {/* Language selector at bottom */}
+      <div className="mt-6">
+        <button
+          onClick={() => changeLanguage(language === 'es' ? 'en' : 'es')}
+          className="text-gray-400 hover:text-white text-sm flex items-center gap-2 transition-colors"
+        >
+          <i className="fas fa-globe"></i>
+          {language === 'es' ? 'English' : 'Español'}
+        </button>
       </div>
     </div>
   )
