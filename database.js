@@ -55,6 +55,14 @@ function initDatabase() {
     // Column already exists
   }
 
+  // Add email column for password reset (migration)
+  try {
+    db.exec(`ALTER TABLE users ADD COLUMN email TEXT`);
+    console.log('✅ Added email column to users table');
+  } catch (e) {
+    // Column already exists
+  }
+
   // Add reset_token columns for password reset (migration)
   try {
     db.exec(`ALTER TABLE users ADD COLUMN reset_token TEXT`);

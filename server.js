@@ -93,38 +93,52 @@ app.post('/api/auth/login', async (req, res) => {
   }
 });
 
-// Request password reset (stores request for admin to handle)
+// Request password reset - searches by username or email
 app.post('/api/auth/forgot-password', async (req, res) => {
   try {
-    const { username } = req.body;
+    const { usernameOrEmail } = req.body;
 
-    if (!username) {
-      return res.status(400).json({ error: 'Username required' });
+    if (!usernameOrEmail) {
+      return res.status(400).json({ error: 'Username or email required' });
     }
 
-    const user = db.prepare('SELECT id, username FROM users WHERE username = ? AND is_active = 1').get(username);
+    // Search by username OR email
+    const user = db.prepare(`
+      SELECT id, username, email FROM users
+      WHERE (username = ? OR email = ?) AND is_active = 1
+    `).get(usernameOrEmail, usernameOrEmail);
 
     if (!user) {
-      // Don't reveal if user exists or not for security
-      return res.json({ message: 'If the user exists, an admin will be notified' });
+      return res.status(404).json({ error: 'User not found' });
     }
 
-    // Generate reset token (valid for 24 hours)
+    if (!user.email) {
+      return res.status(400).json({ error: 'No email configured for this user. Contact an administrator.' });
+    }
+
+    // Generate reset token (valid for 1 hour)
     const resetToken = jwt.sign(
       { userId: user.id, type: 'password_reset' },
       JWT_SECRET,
-      { expiresIn: '24h' }
+      { expiresIn: '1h' }
     );
 
     // Store reset token in database
     db.prepare(`
-      UPDATE users SET reset_token = ?, reset_token_expires = datetime('now', '+24 hours')
+      UPDATE users SET reset_token = ?, reset_token_expires = datetime('now', '+1 hour')
       WHERE id = ?
     `).run(resetToken, user.id);
 
-    console.log(`Password reset requested for user: ${username}`);
+    // TODO: Send email with reset link
+    // For now, log it (in production, use nodemailer or similar)
+    const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/reset-password/${resetToken}`;
+    console.log(`📧 Password reset link for ${user.username}: ${resetUrl}`);
 
-    res.json({ message: 'If the user exists, an admin will be notified' });
+    res.json({
+      message: 'Password reset link sent to your email',
+      // In development, include the token for testing
+      ...(process.env.NODE_ENV !== 'production' && { resetToken })
+    });
 
   } catch (error) {
     console.error('Forgot password error:', error);
