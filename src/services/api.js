@@ -39,6 +39,7 @@ export const dkpAPI = {
 
 export const membersAPI = {
   getAll: () => api.get('/members'),
+  create: (data) => api.post('/members', data),
 }
 
 export const auctionsAPI = {
@@ -53,6 +54,13 @@ export const auctionsAPI = {
 export const warcraftLogsAPI = {
   preview: (url) => api.post('/warcraftlogs/preview', { url }),
   confirm: (reportId) => api.post('/warcraftlogs/confirm', { reportId }),
+}
+
+export const raidItemsAPI = {
+  getAll: () => api.get('/raid-items'),
+  search: (query) => api.get(`/raid-items/search?q=${encodeURIComponent(query)}`),
+  getByRaid: (raidName) => api.get(`/raid-items/${encodeURIComponent(raidName)}`),
+  getRaidsList: () => api.get('/raids-list'),
 }
 
 export default api

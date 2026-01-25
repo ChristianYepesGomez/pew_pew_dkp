@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import { useAuth } from '../hooks/useAuth'
-import { useSocket } from '../hooks/useSocket'
 import { useLanguage } from '../hooks/useLanguage'
 import Header from '../components/Layout/Header'
 import CharacterTab from '../components/DKP/CharacterTab'
@@ -13,7 +12,6 @@ const Dashboard = () => {
   const [activeTab, setActiveTab] = useState('character')
   const { t } = useLanguage()
   const { user } = useAuth()
-  const { isConnected } = useSocket()
 
   const isAdmin = user?.role === 'admin' || user?.role === 'officer'
 
@@ -28,7 +26,7 @@ const Dashboard = () => {
 
   return (
     <div className="min-h-screen">
-      <Header isConnected={isConnected} />
+      <Header />
 
       <div className="container mx-auto px-4 py-8 max-w-7xl">
         {/* Tabs */}

@@ -40,8 +40,17 @@ const CharacterTab = () => {
           <div className="space-y-3">
             <p><strong className="text-midnight-glow">{t('name')}:</strong> <span className={classCSS}>{user?.characterName || '-'}</span></p>
             <p><strong className="text-midnight-glow">{t('class')}:</strong> <span className={classCSS}>{user?.characterClass || '-'}</span></p>
-            <p><strong className="text-midnight-glow">{t('role')}:</strong> <span>{user?.raidRole || '-'}</span></p>
-            <p><strong className="text-midnight-glow">{t('rank')}:</strong> <span className="px-3 py-1 bg-midnight-purple rounded-lg text-sm">{t('role_' + (user?.role || 'raider'))}</span></p>
+            <p><strong className="text-midnight-glow">{t('spec')}:</strong> <span>{user?.spec || '-'}</span></p>
+            <p><strong className="text-midnight-glow">{t('role')}:</strong>
+              <span className={`ml-2 px-3 py-1 rounded-lg text-xs font-bold ${user?.raidRole === 'Tank' ? 'bg-blue-500' : user?.raidRole === 'Healer' ? 'bg-green-500' : 'bg-red-500'} text-white`}>
+                {user?.raidRole || 'DPS'}
+              </span>
+            </p>
+            <p><strong className="text-midnight-glow">{t('rank')}:</strong>
+              <span className={`ml-2 px-3 py-1 rounded-lg text-sm ${user?.role === 'admin' ? 'bg-yellow-600' : user?.role === 'officer' ? 'bg-purple-600' : 'bg-gray-600'} text-white`}>
+                {t('role_' + (user?.role || 'raider'))}
+              </span>
+            </p>
           </div>
         </div>
 
@@ -51,7 +60,6 @@ const CharacterTab = () => {
           <div className="space-y-3">
             <p><strong className="text-midnight-glow">{t('total_gained')}:</strong> <span className="amount-positive">{dkpData.lifetimeGained || 0} DKP</span></p>
             <p><strong className="text-midnight-glow">{t('total_spent')}:</strong> <span className="amount-negative">{dkpData.lifetimeSpent || 0} DKP</span></p>
-            <p><strong className="text-midnight-glow">{t('last_decay')}:</strong> <span>{dkpData.lastDecay ? new Date(dkpData.lastDecay).toLocaleDateString() : t('never')}</span></p>
           </div>
         </div>
       </div>
