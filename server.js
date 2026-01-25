@@ -46,46 +46,7 @@ app.get('/health', (req, res) => {
 // AUTH ROUTES
 // ============================================
 
-// Register new user
-app.post('/api/auth/register', async (req, res) => {
-  try {
-    const { username, password, characterName, characterClass, role, raidRole, spec, server } = req.body;
-
-    if (!username || !password || !characterName || !characterClass) {
-      return res.status(400).json({ error: 'Missing required fields' });
-    }
-
-    // Check if username exists
-    const existingUser = db.prepare('SELECT id FROM users WHERE username = ?').get(username);
-    if (existingUser) {
-      return res.status(409).json({ error: 'Username already exists' });
-    }
-
-    // Hash password
-    const hashedPassword = await bcrypt.hash(password, 10);
-
-    // Insert user (default role is 'raider')
-    const result = db.prepare(`
-      INSERT INTO users (username, password, character_name, character_class, role, raid_role, spec, server)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(username, hashedPassword, characterName, characterClass, role || 'raider', raidRole || 'DPS', spec, server);
-
-    // Create initial DKP record
-    db.prepare(`
-      INSERT INTO member_dkp (user_id, current_dkp, lifetime_gained, lifetime_spent)
-      VALUES (?, 0, 0, 0)
-    `).run(result.lastInsertRowid);
-
-    res.status(201).json({ 
-      message: 'User registered successfully',
-      userId: result.lastInsertRowid 
-    });
-
-  } catch (error) {
-    console.error('Registration error:', error);
-    res.status(500).json({ error: 'Registration failed' });
-  }
-});
+// Note: Registration is disabled - users are created by admins only
 
 // Login
 app.post('/api/auth/login', async (req, res) => {
@@ -129,6 +90,94 @@ app.post('/api/auth/login', async (req, res) => {
   } catch (error) {
     console.error('Login error:', error);
     res.status(500).json({ error: 'Login failed' });
+  }
+});
+
+// Request password reset (stores request for admin to handle)
+app.post('/api/auth/forgot-password', async (req, res) => {
+  try {
+    const { username } = req.body;
+
+    if (!username) {
+      return res.status(400).json({ error: 'Username required' });
+    }
+
+    const user = db.prepare('SELECT id, username FROM users WHERE username = ? AND is_active = 1').get(username);
+
+    if (!user) {
+      // Don't reveal if user exists or not for security
+      return res.json({ message: 'If the user exists, an admin will be notified' });
+    }
+
+    // Generate reset token (valid for 24 hours)
+    const resetToken = jwt.sign(
+      { userId: user.id, type: 'password_reset' },
+      JWT_SECRET,
+      { expiresIn: '24h' }
+    );
+
+    // Store reset token in database
+    db.prepare(`
+      UPDATE users SET reset_token = ?, reset_token_expires = datetime('now', '+24 hours')
+      WHERE id = ?
+    `).run(resetToken, user.id);
+
+    console.log(`Password reset requested for user: ${username}`);
+
+    res.json({ message: 'If the user exists, an admin will be notified' });
+
+  } catch (error) {
+    console.error('Forgot password error:', error);
+    res.status(500).json({ error: 'Request failed' });
+  }
+});
+
+// Reset password with token
+app.post('/api/auth/reset-password', async (req, res) => {
+  try {
+    const { token, password } = req.body;
+
+    if (!token || !password) {
+      return res.status(400).json({ error: 'Token and password required' });
+    }
+
+    if (password.length < 6) {
+      return res.status(400).json({ error: 'Password must be at least 6 characters' });
+    }
+
+    // Verify token
+    let decoded;
+    try {
+      decoded = jwt.verify(token, JWT_SECRET);
+      if (decoded.type !== 'password_reset') {
+        return res.status(400).json({ error: 'Invalid reset token' });
+      }
+    } catch (err) {
+      return res.status(400).json({ error: 'Invalid or expired reset token' });
+    }
+
+    // Check if token matches stored token and is not expired
+    const user = db.prepare(`
+      SELECT id FROM users
+      WHERE id = ? AND reset_token = ? AND reset_token_expires > datetime('now')
+    `).get(decoded.userId, token);
+
+    if (!user) {
+      return res.status(400).json({ error: 'Invalid or expired reset token' });
+    }
+
+    // Hash new password and update
+    const hashedPassword = await bcrypt.hash(password, 10);
+    db.prepare(`
+      UPDATE users SET password = ?, reset_token = NULL, reset_token_expires = NULL
+      WHERE id = ?
+    `).run(hashedPassword, user.id);
+
+    res.json({ message: 'Password reset successfully' });
+
+  } catch (error) {
+    console.error('Reset password error:', error);
+    res.status(500).json({ error: 'Password reset failed' });
   }
 });
 

@@ -55,6 +55,20 @@ function initDatabase() {
     // Column already exists
   }
 
+  // Add reset_token columns for password reset (migration)
+  try {
+    db.exec(`ALTER TABLE users ADD COLUMN reset_token TEXT`);
+    console.log('✅ Added reset_token column to users table');
+  } catch (e) {
+    // Column already exists
+  }
+  try {
+    db.exec(`ALTER TABLE users ADD COLUMN reset_token_expires DATETIME`);
+    console.log('✅ Added reset_token_expires column to users table');
+  } catch (e) {
+    // Column already exists
+  }
+
   // Add item_name_en column to auctions if it doesn't exist (migration)
   try {
     db.exec(`ALTER TABLE auctions ADD COLUMN item_name_en TEXT`);
