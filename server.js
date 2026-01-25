@@ -273,7 +273,7 @@ app.post('/api/auth/reset-password', authenticateToken, authorizeRole(['admin', 
 // Get current user info
 app.get('/api/auth/me', authenticateToken, (req, res) => {
   const user = db.prepare(`
-    SELECT u.id, u.username, u.character_name, u.character_class, u.role, 
+    SELECT u.id, u.username, u.character_name, u.character_class, u.role, u.spec, u.raid_role,
            md.current_dkp, md.lifetime_gained, md.lifetime_spent
     FROM users u
     LEFT JOIN member_dkp md ON u.id = md.user_id
@@ -290,6 +290,8 @@ app.get('/api/auth/me', authenticateToken, (req, res) => {
     characterName: user.character_name,
     characterClass: user.character_class,
     role: user.role,
+    spec: user.spec,
+    raidRole: user.raid_role,
     currentDkp: user.current_dkp || 0,
     lifetimeGained: user.lifetime_gained || 0,
     lifetimeSpent: user.lifetime_spent || 0
@@ -343,11 +345,72 @@ app.put('/api/members/:id/role', authenticateToken, authorizeRole(['admin']), (r
 // Deactivate member (admin only)
 app.delete('/api/members/:id', authenticateToken, authorizeRole(['admin']), (req, res) => {
   const { id } = req.params;
-  
+
   db.prepare('UPDATE users SET is_active = 0 WHERE id = ?').run(id);
-  
+
   io.emit('member_removed', { memberId: id });
   res.json({ message: 'Member deactivated' });
+});
+
+// Create new member (admin only)
+app.post('/api/members', authenticateToken, authorizeRole(['admin']), async (req, res) => {
+  try {
+    const { username, password, characterName, characterClass, spec, raidRole, role, initialDkp } = req.body;
+
+    // Validate required fields
+    if (!username || !password || !characterName || !characterClass) {
+      return res.status(400).json({ error: 'Username, password, character name and class are required' });
+    }
+
+    if (password.length < 6) {
+      return res.status(400).json({ error: 'Password must be at least 6 characters' });
+    }
+
+    // Check if username already exists
+    const existing = db.prepare('SELECT id FROM users WHERE username = ?').get(username);
+    if (existing) {
+      return res.status(409).json({ error: 'Username already exists' });
+    }
+
+    // Validate role
+    const validRole = ['admin', 'officer', 'raider'].includes(role) ? role : 'raider';
+    const validRaidRole = ['Tank', 'Healer', 'DPS'].includes(raidRole) ? raidRole : 'DPS';
+
+    // Hash password
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    // Create user
+    const result = db.prepare(`
+      INSERT INTO users (username, password, character_name, character_class, spec, raid_role, role)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `).run(username, hashedPassword, characterName, characterClass, spec || null, validRaidRole, validRole);
+
+    // Create DKP entry
+    const dkp = parseInt(initialDkp) || 0;
+    db.prepare(`
+      INSERT INTO member_dkp (user_id, current_dkp, lifetime_gained)
+      VALUES (?, ?, ?)
+    `).run(result.lastInsertRowid, dkp, dkp);
+
+    io.emit('member_updated', { memberId: result.lastInsertRowid });
+
+    res.status(201).json({
+      message: 'Member created successfully',
+      member: {
+        id: result.lastInsertRowid,
+        username,
+        characterName,
+        characterClass,
+        spec,
+        raidRole: validRaidRole,
+        role: validRole,
+        currentDkp: dkp
+      }
+    });
+  } catch (error) {
+    console.error('Create member error:', error);
+    res.status(500).json({ error: 'Failed to create member' });
+  }
 });
 
 // ============================================
