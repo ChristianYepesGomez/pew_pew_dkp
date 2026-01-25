@@ -1,89 +1,58 @@
-import axios from 'axios';
+import axios from 'axios'
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api'
 
-// Create axios instance
 const api = axios.create({
   baseURL: API_URL,
-  headers: {
-    'Content-Type': 'application/json',
-  },
-});
+  headers: { 'Content-Type': 'application/json' },
+})
 
-// Add token to requests
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('token');
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-  return config;
-});
+  const token = localStorage.getItem('token')
+  if (token) config.headers.Authorization = `Bearer ${token}`
+  return config
+})
 
-// Handle auth errors
 api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      localStorage.removeItem('token');
-      window.location.reload();
+      localStorage.removeItem('token')
+      window.location.href = '/login'
     }
-    return Promise.reject(error);
+    return Promise.reject(error)
   }
-);
+)
 
-// Auth API
 export const authAPI = {
-  login: (username, password) => api.post('/api/auth/login', { username, password }),
-  register: (data) => api.post('/api/auth/register', data),
-  getCurrentUser: () => api.get('/api/auth/me'),
-  changePassword: (currentPassword, newPassword) => api.post('/api/auth/change-password', { currentPassword, newPassword }),
-  resetPassword: (userId, newPassword) => api.post('/api/auth/reset-password', { userId, newPassword }),
-};
+  login: (username, password) => api.post('/auth/login', { username, password }),
+  me: () => api.get('/auth/me'),
+  forgotPassword: (username) => api.post('/auth/forgot-password', { username }),
+  resetPassword: (token, password) => api.post('/auth/reset-password', { token, password }),
+}
 
-// Members API
-export const usersAPI = {
-  getAll: () => api.get('/api/members'),
-  getById: (id) => api.get(`/api/members/${id}`),
-  update: (id, data) => api.put(`/api/members/${id}/role`, data),
-  delete: (id) => api.delete(`/api/members/${id}`),
-  adjustDKP: (userId, amount, reason) => api.post('/api/dkp/adjust', { userId, amount, reason }),
-};
-
-// DKP API
 export const dkpAPI = {
-  getHistory: (userId, limit = 50) => api.get(`/api/dkp/history/${userId}`),
-};
+  getHistory: (userId) => api.get(`/dkp/history/${userId}`),
+  adjust: (userId, amount, reason) => api.post('/dkp/adjust', { userId, amount, reason }),
+  bulkAdjust: (userIds, amount, reason) => api.post('/dkp/bulk-adjust', { userIds, amount, reason }),
+}
 
-// Auctions API
+export const membersAPI = {
+  getAll: () => api.get('/members'),
+}
+
 export const auctionsAPI = {
-  getAll: () => api.get('/api/auctions/history'),
-  getActive: () => api.get('/api/auctions/active'),
-  create: (data) => api.post('/api/auctions', data),
-  placeBid: (auctionId, amount) => api.post(`/api/auctions/${auctionId}/bid`, { amount }),
-  end: (auctionId, winnerId) => api.post(`/api/auctions/${auctionId}/end`, { winnerId }),
-  cancel: (auctionId) => api.post(`/api/auctions/${auctionId}/cancel`),
-};
+  getActive: () => api.get('/auctions/active'),
+  getHistory: () => api.get('/auctions/history'),
+  create: (data) => api.post('/auctions', data),
+  bid: (auctionId, amount) => api.post(`/auctions/${auctionId}/bid`, { amount }),
+  end: (auctionId) => api.post(`/auctions/${auctionId}/end`),
+  cancel: (auctionId) => api.post(`/auctions/${auctionId}/cancel`),
+}
 
-// Warcraft Logs API
 export const warcraftLogsAPI = {
-  getConfig: () => api.get('/api/warcraftlogs/config'),
-  updateConfig: (key, value) => api.put('/api/warcraftlogs/config', { config_key: key, config_value: value }),
-  preview: (url) => api.post('/api/warcraftlogs/preview', { url }),
-  confirm: (data) => api.post('/api/warcraftlogs/confirm', data),
-  getHistory: (limit = 50) => api.get(`/api/warcraftlogs/history?limit=${limit}`),
-};
+  preview: (url) => api.post('/warcraftlogs/preview', { url }),
+  confirm: (reportId) => api.post('/warcraftlogs/confirm', { reportId }),
+}
 
-// Calendar API
-export const calendarAPI = {
-  getRaidDays: () => api.get('/api/calendar/raid-days'),
-  getMyAvailability: (weekStart) => api.get(`/api/calendar/my-availability/${weekStart}`),
-  updateAvailability: (weekStart, dayOfWeek, status, notes = '') => api.put('/api/calendar/availability', { week_start: weekStart, day_of_week: dayOfWeek, status, notes }),
-  getWeekOverview: (weekStart) => api.get(`/api/calendar/week-overview/${weekStart}`),
-};
-
-// Raid Items API
-export const raidItemsAPI = {
-  getAll: () => api.get('/api/raid-items'),
-};
-
-export default api;
+export default api
