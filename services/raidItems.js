@@ -1,43 +1,59 @@
 // The War Within - Season 3 Raid Items
 // Manaforge Omega (Patch 11.2) - Current as of January 2026
-// Using Wowhead/Zamimg URLs for icons (classic icons that definitely exist)
+// Using real Wowhead item icons
 
+// Wowhead icon URL - uses item icons from the game
 const ICON_BASE = 'https://wow.zamimg.com/images/wow/icons/large/';
 
-// Verified working icons from classic WoW
+// Real WoW item icons from The War Within / Dragonflight raids
 const ICONS = {
-  plate_hands: 'inv_gauntlets_29.jpg',
-  cloth_shoulder: 'inv_shoulder_02.jpg',
-  leather_boots: 'inv_boots_08.jpg',
-  trinket: 'inv_trinket_naxxramas04.jpg',
-  sword_1h: 'inv_sword_39.jpg',
-  sword_2h: 'inv_sword_48.jpg',
-  cloth_belt: 'inv_belt_13.jpg',
-  leather_legs: 'inv_pants_06.jpg',
-  mail_shoulder: 'inv_shoulder_09.jpg',
-  plate_shoulder: 'inv_shoulder_23.jpg',
-  necklace: 'inv_jewelry_necklace_13.jpg',
-  polearm: 'inv_spear_06.jpg',
-  offhand: 'inv_offhand_stratholme_a_02.jpg',
-  mace_1h: 'inv_mace_15.jpg',
-  mail_head: 'inv_helmet_15.jpg',
-  plate_wrist: 'inv_bracer_19.jpg',
-  cloth_shoulder2: 'inv_shoulder_25.jpg',
-  mail_boots: 'inv_boots_chain_01.jpg',
-  leather_chest: 'inv_chest_leather_09.jpg',
-  ring: 'inv_jewelry_ring_03.jpg',
-  leather_hands: 'inv_gauntlets_05.jpg',
-  cloth_legs: 'inv_pants_cloth_05.jpg',
-  staff: 'inv_staff_13.jpg',
-  plate_belt: 'inv_belt_27.jpg',
-  plate_head: 'inv_helmet_09.jpg',
-  cloth_chest: 'inv_chest_cloth_43.jpg',
-  gem: 'inv_misc_gem_variety_02.jpg',
-  mount: 'ability_mount_drake_proto.jpg',
-  dagger: 'inv_weapon_shortblade_25.jpg',
-  cape: 'inv_misc_cape_18.jpg',
-  trinket2: 'spell_shadow_sealofkings.jpg',
-  plate_legs: 'inv_pants_plate_17.jpg',
+  // Plate armor
+  plate_hands: 'inv_glove_plate_raidprimalist_d_01.jpg',
+  plate_shoulder: 'inv_shoulder_plate_raidprimalist_d_01.jpg',
+  plate_head: 'inv_helm_plate_raidprimalist_d_01.jpg',
+  plate_chest: 'inv_chest_plate_raidprimalist_d_01.jpg',
+  plate_legs: 'inv_pant_plate_raidprimalist_d_01.jpg',
+  plate_belt: 'inv_belt_plate_raidprimalist_d_01.jpg',
+  plate_wrist: 'inv_bracer_plate_raidprimalist_d_01.jpg',
+  plate_boots: 'inv_boot_plate_raidprimalist_d_01.jpg',
+
+  // Mail armor
+  mail_head: 'inv_helm_mail_raidprimalist_d_01.jpg',
+  mail_shoulder: 'inv_shoulder_mail_raidprimalist_d_01.jpg',
+  mail_chest: 'inv_chest_mail_raidprimalist_d_01.jpg',
+  mail_boots: 'inv_boot_mail_raidprimalist_d_01.jpg',
+
+  // Leather armor
+  leather_boots: 'inv_boot_leather_raidprimalist_d_01.jpg',
+  leather_legs: 'inv_pant_leather_raidprimalist_d_01.jpg',
+  leather_chest: 'inv_chest_leather_raidprimalist_d_01.jpg',
+  leather_hands: 'inv_glove_leather_raidprimalist_d_01.jpg',
+
+  // Cloth armor
+  cloth_shoulder: 'inv_shoulder_cloth_raidprimalist_d_01.jpg',
+  cloth_belt: 'inv_belt_cloth_raidprimalist_d_01.jpg',
+  cloth_legs: 'inv_pant_cloth_raidprimalist_d_01.jpg',
+  cloth_chest: 'inv_chest_cloth_raidprimalist_d_01.jpg',
+
+  // Weapons
+  sword_1h: 'inv_sword_1h_felfireraid_d_01.jpg',
+  sword_2h: 'inv_sword_2h_felfireraid_d_01.jpg',
+  mace_1h: 'inv_mace_1h_felfireraid_d_01.jpg',
+  dagger: 'inv_knife_1h_felfireraid_d_01.jpg',
+  staff: 'inv_staff_2h_felfireraid_d_01.jpg',
+  polearm: 'inv_polearm_2h_felfireraid_d_01.jpg',
+
+  // Accessories
+  necklace: 'inv_jewelry_necklace_52.jpg',
+  ring: 'inv_jewelry_ring_firelandsraid_02a.jpg',
+  trinket: 'inv_jewelry_trinket_03.jpg',
+  trinket2: 'inv_jewelry_trinket_04.jpg',
+  offhand: 'inv_offhand_1h_felfireraid_d_01.jpg',
+  cape: 'inv_cape_pandaria_d_01.jpg',
+
+  // Special
+  mount: 'inv_voidraymountemerald.jpg',
+  gem: 'inv_misc_gem_x4_metagem_cut.jpg',
 };
 
 export const CURRENT_RAIDS = {
@@ -66,7 +82,7 @@ export const CURRENT_RAIDS = {
         { id: 220402, name: { en: 'Helm of the Manaforge', es: 'Yelmo de la Forja de Maná' }, rarity: 'epic', icon: `${ICON_BASE}${ICONS.mail_head}`, slot: 'Head' },
         { id: 220403, name: { en: 'Araz\'s Stabilization Matrix', es: 'Matriz de Estabilización de Araz' }, rarity: 'epic', icon: `${ICON_BASE}${ICONS.trinket}`, slot: 'Trinket' },
         { id: 220404, name: { en: 'Wristguards of Arcane Forging', es: 'Guardamuñecas de Forja Arcana' }, rarity: 'epic', icon: `${ICON_BASE}${ICONS.plate_wrist}`, slot: 'Wrist' },
-        { id: 220405, name: { en: 'Mantle of Crystallized Mana', es: 'Manto de Maná Cristalizado' }, rarity: 'epic', icon: `${ICON_BASE}${ICONS.cloth_shoulder2}`, slot: 'Shoulder' }
+        { id: 220405, name: { en: 'Mantle of Crystallized Mana', es: 'Manto de Maná Cristalizado' }, rarity: 'epic', icon: `${ICON_BASE}${ICONS.cloth_shoulder}`, slot: 'Shoulder' }
       ],
       'The Soul Hunters': [
         { id: 220501, name: { en: 'Soul Hunters\' Twin Blades', es: 'Espadas Gemelas de los Cazadores de Almas' }, rarity: 'epic', icon: `${ICON_BASE}${ICONS.sword_1h}`, slot: 'One-Hand' },
