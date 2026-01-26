@@ -947,9 +947,9 @@ app.post('/api/auctions/:auctionId/bid', authenticateToken, (req, res) => {
     return res.status(404).json({ error: 'Active auction not found' });
   }
 
-  // Validate amount
-  if (amount < auction.min_bid) {
-    return res.status(400).json({ error: `Bid must be at least ${auction.min_bid} DKP` });
+  // Validate amount - must be at least 1 DKP
+  if (!amount || amount < 1) {
+    return res.status(400).json({ error: 'Bid must be at least 1 DKP' });
   }
 
   // Check user's DKP
@@ -1101,7 +1101,7 @@ app.get('/api/auctions/history', authenticateToken, (req, res) => {
   const limit = parseInt(req.query.limit) || 50;
 
   const auctions = db.prepare(`
-    SELECT a.*, 
+    SELECT a.*,
            creator.character_name as created_by_name,
            winner.character_name as winner_name,
            winner.character_class as winner_class
@@ -1113,7 +1113,23 @@ app.get('/api/auctions/history', authenticateToken, (req, res) => {
     LIMIT ?
   `).all(limit);
 
-  res.json(auctions);
+  // Format response with winner object
+  const formatted = auctions.map(a => ({
+    id: a.id,
+    item_name: a.item_name,
+    item_image: a.item_image,
+    item_rarity: a.item_rarity,
+    status: a.status,
+    winning_bid: a.winning_bid,
+    created_at: a.created_at,
+    ended_at: a.ended_at,
+    winner: a.winner_name ? {
+      characterName: a.winner_name,
+      characterClass: a.winner_class
+    } : null
+  }));
+
+  res.json(formatted);
 });
 
 // ============================================
