@@ -55,7 +55,7 @@ const MyCharacterModal = ({ onClose }) => {
   const loadHistory = async () => {
     try {
       const response = await dkpAPI.getHistory(user.id)
-      setHistory(response.data || [])
+      setHistory(response.data?.transactions || [])
     } catch (error) {
       console.error('Error loading history:', error)
     } finally {
@@ -143,7 +143,7 @@ const MyCharacterModal = ({ onClose }) => {
                 <div key={tx.id} className="bg-midnight-purple bg-opacity-20 rounded-lg p-3 flex items-center justify-between">
                   <div>
                     <p className="text-white m-0">{tx.reason}</p>
-                    <p className="text-xs text-midnight-silver m-0">{formatDate(tx.created_at)}</p>
+                    <p className="text-xs text-midnight-silver m-0">{formatDate(tx.createdAt)}</p>
                   </div>
                   <span className={`font-bold text-lg ${tx.amount >= 0 ? 'text-green-400' : 'text-red-400'}`}>
                     {tx.amount >= 0 ? '+' : ''}{tx.amount}
