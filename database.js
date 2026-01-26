@@ -99,36 +99,6 @@ function initDatabase() {
     // Column already exists
   }
 
-  // Assign default specs to users without one
-  const CLASS_DEFAULT_SPECS = {
-    Warrior: { Tank: 'Protection Warrior', Healer: 'Protection Warrior', DPS: 'Arms' },
-    Paladin: { Tank: 'Protection Paladin', Healer: 'Holy Paladin', DPS: 'Retribution' },
-    Hunter: { Tank: 'Beast Mastery', Healer: 'Beast Mastery', DPS: 'Marksmanship' },
-    Rogue: { Tank: 'Assassination', Healer: 'Assassination', DPS: 'Assassination' },
-    Priest: { Tank: 'Shadow', Healer: 'Holy Priest', DPS: 'Shadow' },
-    Shaman: { Tank: 'Enhancement', Healer: 'Restoration Shaman', DPS: 'Elemental' },
-    Mage: { Tank: 'Frost Mage', Healer: 'Frost Mage', DPS: 'Fire' },
-    Warlock: { Tank: 'Affliction', Healer: 'Affliction', DPS: 'Affliction' },
-    Druid: { Tank: 'Guardian', Healer: 'Restoration Druid', DPS: 'Balance' },
-    'Death Knight': { Tank: 'Blood', Healer: 'Blood', DPS: 'Frost DK' },
-    Monk: { Tank: 'Brewmaster', Healer: 'Mistweaver', DPS: 'Windwalker' },
-    'Demon Hunter': { Tank: 'Vengeance', Healer: 'Havoc', DPS: 'Havoc' },
-    Evoker: { Tank: 'Preservation', Healer: 'Preservation', DPS: 'Devastation' },
-  };
-
-  const usersWithoutSpec = db.prepare('SELECT id, character_class, raid_role FROM users WHERE spec IS NULL OR spec = ""').all();
-  if (usersWithoutSpec.length > 0) {
-    const updateSpec = db.prepare('UPDATE users SET spec = ? WHERE id = ?');
-    usersWithoutSpec.forEach(user => {
-      const classSpecs = CLASS_DEFAULT_SPECS[user.character_class];
-      if (classSpecs) {
-        const defaultSpec = classSpecs[user.raid_role] || classSpecs.DPS;
-        updateSpec.run(defaultSpec, user.id);
-        console.log(`✅ Assigned spec "${defaultSpec}" to user ${user.id} (${user.character_class} - ${user.raid_role})`);
-      }
-    });
-  }
-
   // Member DKP table (separate for easier updates)
   db.exec(`
     CREATE TABLE IF NOT EXISTS member_dkp (
