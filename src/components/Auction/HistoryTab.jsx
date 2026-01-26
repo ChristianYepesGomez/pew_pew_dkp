@@ -74,7 +74,7 @@ const HistoryTab = () => {
                       src={a.item_image}
                       alt={a.item_name}
                       className="w-10 h-10 object-contain"
-                      onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'flex'; }}
+                      onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'block'; }}
                     />
                   ) : null}
                   <i

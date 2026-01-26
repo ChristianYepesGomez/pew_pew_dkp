@@ -3,16 +3,16 @@ import { useLanguage } from '../../hooks/useLanguage'
 import { membersAPI } from '../../services/api'
 
 const CLASS_SPECS = {
-  Warrior: { specs: ['Arms', 'Fury', 'Protection'], defaultRoles: ['DPS', 'DPS', 'Tank'] },
-  Paladin: { specs: ['Holy', 'Protection', 'Retribution'], defaultRoles: ['Healer', 'Tank', 'DPS'] },
+  Warrior: { specs: ['Arms', 'Fury', 'Protection Warrior'], defaultRoles: ['DPS', 'DPS', 'Tank'] },
+  Paladin: { specs: ['Holy Paladin', 'Protection Paladin', 'Retribution'], defaultRoles: ['Healer', 'Tank', 'DPS'] },
   Hunter: { specs: ['Beast Mastery', 'Marksmanship', 'Survival'], defaultRoles: ['DPS', 'DPS', 'DPS'] },
-  Rogue: { specs: ['Assassination', 'Combat', 'Subtlety'], defaultRoles: ['DPS', 'DPS', 'DPS'] },
-  Priest: { specs: ['Discipline', 'Holy', 'Shadow'], defaultRoles: ['Healer', 'Healer', 'DPS'] },
-  Shaman: { specs: ['Elemental', 'Enhancement', 'Restoration'], defaultRoles: ['DPS', 'DPS', 'Healer'] },
-  Mage: { specs: ['Arcane', 'Fire', 'Frost'], defaultRoles: ['DPS', 'DPS', 'DPS'] },
+  Rogue: { specs: ['Assassination', 'Outlaw', 'Subtlety'], defaultRoles: ['DPS', 'DPS', 'DPS'] },
+  Priest: { specs: ['Discipline', 'Holy Priest', 'Shadow'], defaultRoles: ['Healer', 'Healer', 'DPS'] },
+  Shaman: { specs: ['Elemental', 'Enhancement', 'Restoration Shaman'], defaultRoles: ['DPS', 'DPS', 'Healer'] },
+  Mage: { specs: ['Arcane', 'Fire', 'Frost Mage'], defaultRoles: ['DPS', 'DPS', 'DPS'] },
   Warlock: { specs: ['Affliction', 'Demonology', 'Destruction'], defaultRoles: ['DPS', 'DPS', 'DPS'] },
-  Druid: { specs: ['Balance', 'Feral', 'Restoration'], defaultRoles: ['DPS', 'DPS', 'Healer'] },
-  'Death Knight': { specs: ['Blood', 'Frost', 'Unholy'], defaultRoles: ['Tank', 'DPS', 'DPS'] },
+  Druid: { specs: ['Balance', 'Feral', 'Guardian', 'Restoration Druid'], defaultRoles: ['DPS', 'DPS', 'Tank', 'Healer'] },
+  'Death Knight': { specs: ['Blood', 'Frost DK', 'Unholy'], defaultRoles: ['Tank', 'DPS', 'DPS'] },
 }
 
 const CLASSES = Object.keys(CLASS_SPECS)
@@ -23,13 +23,12 @@ const CreateMemberModal = ({ onClose, onSuccess }) => {
   const [error, setError] = useState('')
   const [form, setForm] = useState({
     username: '',
-    password: '',
     characterName: '',
     characterClass: 'Warrior',
     spec: 'Arms',
     raidRole: 'DPS',
     role: 'raider',
-    initialDkp: 0,
+    initialDkp: '',
   })
 
   const handleClassChange = (newClass) => {
@@ -58,7 +57,13 @@ const CreateMemberModal = ({ onClose, onSuccess }) => {
     setLoading(true)
 
     try {
-      await membersAPI.create(form)
+      // Password is auto-generated: username_pewpew
+      const password = `${form.username}_pewpew`
+      await membersAPI.create({
+        ...form,
+        password,
+        initialDkp: parseInt(form.initialDkp) || 0
+      })
       onSuccess()
     } catch (err) {
       setError(err.response?.data?.error || t('error_generic'))
@@ -99,7 +104,7 @@ const CreateMemberModal = ({ onClose, onSuccess }) => {
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
-          {/* Account Info */}
+          {/* Username & Character Name */}
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm text-midnight-silver mb-2">{t('username')} *</label>
@@ -112,28 +117,15 @@ const CreateMemberModal = ({ onClose, onSuccess }) => {
               />
             </div>
             <div>
-              <label className="block text-sm text-midnight-silver mb-2">{t('password')} *</label>
+              <label className="block text-sm text-midnight-silver mb-2">{t('character_name')} *</label>
               <input
-                type="password"
-                value={form.password}
-                onChange={(e) => setForm({ ...form, password: e.target.value })}
+                type="text"
+                value={form.characterName}
+                onChange={(e) => setForm({ ...form, characterName: e.target.value })}
                 className="w-full px-4 py-2 rounded-lg bg-midnight-purple bg-opacity-30 border border-midnight-bright-purple text-white placeholder-gray-500 focus:outline-none focus:border-midnight-glow"
                 required
-                minLength={6}
               />
             </div>
-          </div>
-
-          {/* Character Name */}
-          <div>
-            <label className="block text-sm text-midnight-silver mb-2">{t('character_name')} *</label>
-            <input
-              type="text"
-              value={form.characterName}
-              onChange={(e) => setForm({ ...form, characterName: e.target.value })}
-              className="w-full px-4 py-2 rounded-lg bg-midnight-purple bg-opacity-30 border border-midnight-bright-purple text-white placeholder-gray-500 focus:outline-none focus:border-midnight-glow"
-              required
-            />
           </div>
 
           {/* Class & Spec */}
@@ -198,7 +190,8 @@ const CreateMemberModal = ({ onClose, onSuccess }) => {
             <input
               type="number"
               value={form.initialDkp}
-              onChange={(e) => setForm({ ...form, initialDkp: parseInt(e.target.value) || 0 })}
+              onChange={(e) => setForm({ ...form, initialDkp: e.target.value })}
+              placeholder="0"
               className="w-full px-4 py-2 rounded-lg bg-midnight-purple bg-opacity-30 border border-midnight-bright-purple text-white placeholder-gray-500 focus:outline-none focus:border-midnight-glow"
               min={0}
             />

@@ -144,7 +144,7 @@ const AuctionTab = () => {
                         src={auction.itemImage}
                         alt={auction.itemName}
                         className="w-12 h-12 object-contain"
-                        onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'flex'; }}
+                        onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'block'; }}
                       />
                     ) : null}
                     <i

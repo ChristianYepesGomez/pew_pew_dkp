@@ -218,11 +218,7 @@ const MembersTab = () => {
             {filteredAndSortedMembers.map((m) => (
               <tr key={m.id} className="border-b border-midnight-bright-purple border-opacity-20 hover:bg-midnight-bright-purple hover:bg-opacity-10">
                 <td className="py-3 px-4">
-                  <div className="flex items-center gap-2">
-                    <strong style={{ color: CLASS_COLORS[m.characterClass] || '#FFF' }}>{m.characterName}</strong>
-                    {m.role === 'admin' && <span className="px-2 py-0.5 rounded text-xs bg-yellow-600 text-white">Admin</span>}
-                    {m.role === 'officer' && <span className="px-2 py-0.5 rounded text-xs bg-purple-600 text-white">Oficial</span>}
-                  </div>
+                  <strong style={{ color: CLASS_COLORS[m.characterClass] || '#FFF' }}>{m.characterName}</strong>
                 </td>
                 <td className="py-3 px-4">
                   {m.spec && SPEC_ICONS[m.spec] ? (
