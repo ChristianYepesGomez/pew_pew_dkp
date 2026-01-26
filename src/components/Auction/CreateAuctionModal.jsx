@@ -24,7 +24,6 @@ const CreateAuctionModal = ({ onClose, onSuccess }) => {
   const [filteredItems, setFilteredItems] = useState([])
   const [search, setSearch] = useState('')
   const [selectedItem, setSelectedItem] = useState(null)
-  const [minBid, setMinBid] = useState(50)
   const [durationMinutes, setDurationMinutes] = useState(5)
   const [loading, setLoading] = useState(true)
   const [creating, setCreating] = useState(false)
@@ -37,7 +36,7 @@ const CreateAuctionModal = ({ onClose, onSuccess }) => {
 
   useEffect(() => {
     filterItems()
-  }, [search, items, selectedBoss])
+  }, [search, items, selectedBoss, language])
 
   const loadItems = async () => {
     try {
@@ -83,7 +82,7 @@ const CreateAuctionModal = ({ onClose, onSuccess }) => {
         itemNameEN: selectedItem.name.en,
         itemImage: selectedItem.icon,
         itemRarity: selectedItem.rarity,
-        minBid: minBid,
+        minBid: 0,
         itemId: selectedItem.id,
         durationMinutes: durationMinutes
       })
@@ -172,8 +171,16 @@ const CreateAuctionModal = ({ onClose, onSuccess }) => {
                         : 'border-midnight-bright-purple border-opacity-30 hover:border-opacity-60 hover:bg-midnight-purple hover:bg-opacity-20'
                     }`}
                   >
-                    <div className={`w-12 h-12 rounded-lg bg-gradient-to-br ${RARITY_BG[item.rarity]} flex items-center justify-center flex-shrink-0`}>
-                      <i className="fas fa-gem text-xl" style={{ color: RARITY_COLORS[item.rarity] }}></i>
+                    <div className={`w-12 h-12 rounded-lg bg-gradient-to-br ${RARITY_BG[item.rarity]} flex items-center justify-center flex-shrink-0 overflow-hidden border`} style={{ borderColor: RARITY_COLORS[item.rarity] }}>
+                      {item.icon ? (
+                        <img
+                          src={item.icon}
+                          alt={item.name[language] || item.name.en}
+                          className="w-full h-full object-cover"
+                          onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'block'; }}
+                        />
+                      ) : null}
+                      <i className="fas fa-gem text-xl" style={{ color: RARITY_COLORS[item.rarity], display: item.icon ? 'none' : 'block' }}></i>
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="font-bold truncate m-0" style={{ color: RARITY_COLORS[item.rarity] }}>
@@ -200,43 +207,36 @@ const CreateAuctionModal = ({ onClose, onSuccess }) => {
           {/* Selected Item Preview & Settings */}
           {selectedItem && (
             <div className="flex-shrink-0 p-4 bg-midnight-purple bg-opacity-30 rounded-lg border border-midnight-bright-purple">
-              <div className="flex flex-col gap-4">
-                <div className="flex items-center gap-4">
-                  <div className={`w-16 h-16 rounded-lg bg-gradient-to-br ${RARITY_BG[selectedItem.rarity]} flex items-center justify-center`}>
-                    <i className="fas fa-gem text-2xl" style={{ color: RARITY_COLORS[selectedItem.rarity] }}></i>
-                  </div>
-                  <div className="flex-1">
-                    <p className="font-bold text-lg m-0" style={{ color: RARITY_COLORS[selectedItem.rarity] }}>
-                      {selectedItem.name[language] || selectedItem.name.en}
-                    </p>
-                    <p className="text-sm text-midnight-silver m-0">
-                      {selectedItem.boss} - {selectedItem.slot} - {selectedItem.rarity.toUpperCase()}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-6">
-                  <div className="flex items-center gap-2">
-                    <label className="text-midnight-silver">{t('min_bid')}:</label>
-                    <input
-                      type="number"
-                      value={minBid}
-                      onChange={(e) => setMinBid(parseInt(e.target.value) || 0)}
-                      min={0}
-                      className="w-24 px-3 py-2 rounded-lg bg-midnight-deepblue border border-midnight-bright-purple text-white text-center focus:outline-none focus:border-midnight-glow"
+              <div className="flex items-center gap-4">
+                <div className={`w-16 h-16 rounded-lg bg-gradient-to-br ${RARITY_BG[selectedItem.rarity]} flex items-center justify-center border-2 overflow-hidden`} style={{ borderColor: RARITY_COLORS[selectedItem.rarity] }}>
+                  {selectedItem.icon ? (
+                    <img
+                      src={selectedItem.icon}
+                      alt={selectedItem.name[language] || selectedItem.name.en}
+                      className="w-full h-full object-cover"
+                      onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'block'; }}
                     />
-                    <span className="text-midnight-glow">DKP</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <label className="text-midnight-silver">{t('duration')}:</label>
-                    <select
-                      value={durationMinutes}
-                      onChange={(e) => setDurationMinutes(parseInt(e.target.value))}
-                      className="px-3 py-2 rounded-lg bg-midnight-deepblue border border-midnight-bright-purple text-white focus:outline-none focus:border-midnight-glow"
-                    >
-                      <option value={5}>5 {t('minutes')}</option>
-                      <option value={10}>10 {t('minutes')}</option>
-                    </select>
-                  </div>
+                  ) : null}
+                  <i className="fas fa-gem text-2xl" style={{ color: RARITY_COLORS[selectedItem.rarity], display: selectedItem.icon ? 'none' : 'block' }}></i>
+                </div>
+                <div className="flex-1">
+                  <p className="font-bold text-lg m-0" style={{ color: RARITY_COLORS[selectedItem.rarity] }}>
+                    {selectedItem.name[language] || selectedItem.name.en}
+                  </p>
+                  <p className="text-sm text-midnight-silver m-0">
+                    {selectedItem.boss} - {selectedItem.slot}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <label className="text-midnight-silver">{t('duration')}:</label>
+                  <select
+                    value={durationMinutes}
+                    onChange={(e) => setDurationMinutes(parseInt(e.target.value))}
+                    className="px-3 py-2 rounded-lg bg-midnight-deepblue border border-midnight-bright-purple text-white focus:outline-none focus:border-midnight-glow"
+                  >
+                    <option value={5}>5 {t('minutes')}</option>
+                    <option value={10}>10 {t('minutes')}</option>
+                  </select>
                 </div>
               </div>
             </div>

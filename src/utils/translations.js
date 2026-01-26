@@ -137,6 +137,10 @@ export const translations = {
     expired: 'Expirada',
     duration: 'Duración',
     minutes: 'minutos',
+    search_name: 'Buscar por nombre...',
+    all_roles: 'Todos los roles',
+    auction_date: 'Fecha de subasta',
+    dkp_spent: 'DKP gastados',
   },
   en: {
     guild_name: 'Pew Pew Kittens with Guns',
@@ -276,5 +280,9 @@ export const translations = {
     expired: 'Expired',
     duration: 'Duration',
     minutes: 'minutes',
+    search_name: 'Search by name...',
+    all_roles: 'All roles',
+    auction_date: 'Auction date',
+    dkp_spent: 'DKP spent',
   },
 }

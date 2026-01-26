@@ -2,21 +2,19 @@ import { useState } from 'react'
 import { useAuth } from '../hooks/useAuth'
 import { useLanguage } from '../hooks/useLanguage'
 import Header from '../components/Layout/Header'
-import CharacterTab from '../components/DKP/CharacterTab'
 import MembersTab from '../components/Roster/MembersTab'
 import AuctionTab from '../components/Auction/AuctionTab'
 import HistoryTab from '../components/Auction/HistoryTab'
 import AdminTab from '../components/Admin/AdminTab'
 
 const Dashboard = () => {
-  const [activeTab, setActiveTab] = useState('character')
+  const [activeTab, setActiveTab] = useState('members')
   const { t } = useLanguage()
   const { user } = useAuth()
 
   const isAdmin = user?.role === 'admin' || user?.role === 'officer'
 
   const tabs = [
-    { id: 'character', icon: 'fa-user-shield', label: t('my_character') },
     { id: 'members', icon: 'fa-users', label: t('members') },
     { id: 'auction', icon: 'fa-gavel', label: t('active_auction') },
     { id: 'history', icon: 'fa-history', label: t('auction_history') },
@@ -49,7 +47,6 @@ const Dashboard = () => {
 
         {/* Content */}
         <div className="animate-fade-in">
-          {activeTab === 'character' && <CharacterTab />}
           {activeTab === 'members' && <MembersTab />}
           {activeTab === 'auction' && <AuctionTab />}
           {activeTab === 'history' && <HistoryTab />}

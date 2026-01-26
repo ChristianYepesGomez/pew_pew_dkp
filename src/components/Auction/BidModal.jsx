@@ -12,7 +12,7 @@ const RARITY_COLORS = {
 
 const BidModal = ({ auction, userDkp, onClose, onSuccess }) => {
   const { t } = useLanguage()
-  const minBid = (auction.currentBid || auction.minimumBid) + 1
+  const minBid = (auction.currentBid || 0) + 1
   const [amount, setAmount] = useState(minBid)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -80,7 +80,7 @@ const BidModal = ({ auction, userDkp, onClose, onSuccess }) => {
           </div>
           <div className="text-center">
             <p className="text-sm text-midnight-silver m-0">{t('current_bid')}</p>
-            <p className="text-2xl font-bold text-green-400 m-0">{auction.currentBid || auction.minimumBid}</p>
+            <p className="text-2xl font-bold text-green-400 m-0">{auction.currentBid || 0}</p>
           </div>
           <div className="text-center">
             <p className="text-sm text-midnight-silver m-0">{t('min_next_bid')}</p>
