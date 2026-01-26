@@ -442,8 +442,8 @@ app.delete('/api/members/:id', authenticateToken, authorizeRole(['admin']), (req
   res.json({ message: 'Member deactivated' });
 });
 
-// Create new member (admin only)
-app.post('/api/members', authenticateToken, authorizeRole(['admin']), async (req, res) => {
+// Create new member (admin or officer)
+app.post('/api/members', authenticateToken, authorizeRole(['admin', 'officer']), async (req, res) => {
   try {
     const { username, password, characterName, characterClass, spec, raidRole, role, initialDkp } = req.body;
 
