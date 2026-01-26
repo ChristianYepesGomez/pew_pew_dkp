@@ -1080,6 +1080,16 @@ app.post('/api/auctions/:auctionId/cancel', authenticateToken, authorizeRole(['a
   res.json({ message: 'Auction cancelled' });
 });
 
+// Cancel ALL active auctions (admin only) - for cleanup
+app.post('/api/auctions/cancel-all', authenticateToken, authorizeRole(['admin']), (req, res) => {
+  const result = db.prepare(`
+    UPDATE auctions SET status = 'cancelled', ended_at = CURRENT_TIMESTAMP WHERE status = 'active'
+  `).run();
+
+  io.emit('auctions_cleared', { count: result.changes });
+  res.json({ message: `Cancelled ${result.changes} active auctions` });
+});
+
 // Get all raid items
 app.get('/api/raid-items', authenticateToken, (req, res) => {
   const items = getAllRaidItems();
