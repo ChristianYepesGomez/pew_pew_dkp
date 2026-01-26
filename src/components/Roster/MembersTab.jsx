@@ -67,7 +67,7 @@ const MembersTab = () => {
   const [sortDir, setSortDir] = useState('desc')
   const [filterText, setFilterText] = useState('')
   const [filterRole, setFilterRole] = useState('all')
-  const isAdmin = user?.role === 'admin'
+  const isAdmin = user?.role === 'admin' || user?.role === 'officer'
 
   const loadMembers = async () => {
     try {

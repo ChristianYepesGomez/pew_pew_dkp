@@ -187,7 +187,7 @@ const CreateAuctionModal = ({ onClose, onSuccess }) => {
                         {item.name[language] || item.name.en}
                       </p>
                       <p className="text-xs text-midnight-silver m-0 truncate">
-                        {item.boss} - {item.slot}
+                        {t(item.boss) || item.boss} - {t(item.slot) || item.slot}
                       </p>
                     </div>
                     {selectedItem?.id === item.id && (
@@ -224,7 +224,7 @@ const CreateAuctionModal = ({ onClose, onSuccess }) => {
                     {selectedItem.name[language] || selectedItem.name.en}
                   </p>
                   <p className="text-sm text-midnight-silver m-0">
-                    {selectedItem.boss} - {selectedItem.slot}
+                    {t(selectedItem.boss) || selectedItem.boss} - {t(selectedItem.slot) || selectedItem.slot}
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
