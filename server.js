@@ -876,6 +876,14 @@ app.get('/api/auctions/active', authenticateToken, (req, res) => {
 
     const highestBidder = bids.length > 0 ? bids[0] : null;
 
+    // Calculate endsAt if not set (for old auctions)
+    let endsAt = auction.ends_at;
+    if (!endsAt && auction.created_at) {
+      const duration = auction.duration_minutes || 5;
+      const createdTime = new Date(auction.created_at).getTime();
+      endsAt = new Date(createdTime + duration * 60 * 1000).toISOString();
+    }
+
     return {
       id: auction.id,
       itemName: auction.item_name,
@@ -890,8 +898,8 @@ app.get('/api/auctions/active', authenticateToken, (req, res) => {
       createdByName: auction.created_by_name,
       createdAt: auction.created_at,
       endedAt: auction.ended_at,
-      endsAt: auction.ends_at,
-      durationMinutes: auction.duration_minutes,
+      endsAt: endsAt,
+      durationMinutes: auction.duration_minutes || 5,
       bidsCount: bids.length,
       highestBidder: highestBidder ? {
         characterName: highestBidder.character_name,
