@@ -95,10 +95,23 @@ function autoCloseAuction(auctionId) {
 
 // Schedule auto-close for existing active auctions on startup
 function scheduleExistingAuctions() {
-  const activeAuctions = db.prepare('SELECT id, ends_at FROM auctions WHERE status = ? AND ends_at IS NOT NULL').all('active');
+  // Get all active auctions (with or without ends_at)
+  const activeAuctions = db.prepare('SELECT id, ends_at, duration_minutes FROM auctions WHERE status = ?').all('active');
 
   for (const auction of activeAuctions) {
-    const endsAt = new Date(auction.ends_at).getTime();
+    let endsAt;
+
+    if (auction.ends_at) {
+      endsAt = new Date(auction.ends_at).getTime();
+    } else {
+      // Set default ends_at for auctions that don't have one (5 minutes from now)
+      const defaultDuration = auction.duration_minutes || 5;
+      const newEndsAt = new Date(Date.now() + defaultDuration * 60 * 1000).toISOString();
+      db.prepare('UPDATE auctions SET ends_at = ?, duration_minutes = ? WHERE id = ?').run(newEndsAt, defaultDuration, auction.id);
+      endsAt = new Date(newEndsAt).getTime();
+      console.log(`⏰ Set default ends_at for auction ${auction.id}: ${newEndsAt}`);
+    }
+
     const now = Date.now();
     const delay = endsAt - now;
 
@@ -234,10 +247,6 @@ app.post('/api/auth/reset-password', async (req, res) => {
 
     if (!token || !password) {
       return res.status(400).json({ error: 'Token and password required' });
-    }
-
-    if (password.length < 6) {
-      return res.status(400).json({ error: 'Password must be at least 6 characters' });
     }
 
     // Verify token
@@ -441,10 +450,6 @@ app.post('/api/members', authenticateToken, authorizeRole(['admin']), async (req
     // Validate required fields
     if (!username || !password || !characterName || !characterClass) {
       return res.status(400).json({ error: 'Username, password, character name and class are required' });
-    }
-
-    if (password.length < 6) {
-      return res.status(400).json({ error: 'Password must be at least 6 characters' });
     }
 
     // Check if username already exists
