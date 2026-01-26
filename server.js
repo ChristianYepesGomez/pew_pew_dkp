@@ -31,6 +31,87 @@ app.use(express.json());
 // Make io accessible to routes
 app.set('io', io);
 
+// Auto-close auction function
+function autoCloseAuction(auctionId) {
+  const auction = db.prepare('SELECT * FROM auctions WHERE id = ? AND status = ?').get(auctionId, 'active');
+  if (!auction) return; // Already ended or cancelled
+
+  // Get winning bid
+  const winningBid = db.prepare(`
+    SELECT ab.*, u.character_name, u.character_class
+    FROM auction_bids ab
+    JOIN users u ON ab.user_id = u.id
+    WHERE ab.auction_id = ?
+    ORDER BY ab.amount DESC
+    LIMIT 1
+  `).get(auctionId);
+
+  const transaction = db.transaction(() => {
+    if (winningBid) {
+      // Deduct DKP from winner
+      db.prepare(`
+        UPDATE member_dkp
+        SET current_dkp = current_dkp - ?,
+            lifetime_spent = lifetime_spent + ?
+        WHERE user_id = ?
+      `).run(winningBid.amount, winningBid.amount, winningBid.user_id);
+
+      // Log transaction
+      db.prepare(`
+        INSERT INTO dkp_transactions (user_id, amount, reason, performed_by)
+        VALUES (?, ?, ?, NULL)
+      `).run(winningBid.user_id, -winningBid.amount, `Won auction: ${auction.item_name} (auto-close)`);
+
+      // Update auction
+      db.prepare(`
+        UPDATE auctions
+        SET status = 'completed', winner_id = ?, winning_bid = ?, ended_at = CURRENT_TIMESTAMP
+        WHERE id = ?
+      `).run(winningBid.user_id, winningBid.amount, auctionId);
+    } else {
+      // No bids - cancel auction
+      db.prepare(`
+        UPDATE auctions SET status = 'cancelled', ended_at = CURRENT_TIMESTAMP WHERE id = ?
+      `).run(auctionId);
+    }
+  });
+
+  transaction();
+
+  const result = {
+    auctionId,
+    itemName: auction.item_name,
+    winner: winningBid ? {
+      userId: winningBid.user_id,
+      characterName: winningBid.character_name,
+      characterClass: winningBid.character_class,
+      amount: winningBid.amount
+    } : null
+  };
+
+  io.emit('auction_ended', result);
+  console.log(`🔔 Auction ${auctionId} auto-closed. Winner: ${winningBid?.character_name || 'No bids'}`);
+}
+
+// Schedule auto-close for existing active auctions on startup
+function scheduleExistingAuctions() {
+  const activeAuctions = db.prepare('SELECT id, ends_at FROM auctions WHERE status = ? AND ends_at IS NOT NULL').all('active');
+
+  for (const auction of activeAuctions) {
+    const endsAt = new Date(auction.ends_at).getTime();
+    const now = Date.now();
+    const delay = endsAt - now;
+
+    if (delay > 0) {
+      setTimeout(() => autoCloseAuction(auction.id), delay);
+      console.log(`📅 Scheduled auto-close for auction ${auction.id} in ${Math.round(delay / 1000)}s`);
+    } else {
+      // Auction should have ended already, close it now
+      autoCloseAuction(auction.id);
+    }
+  }
+}
+
 // ============================================
 // HEALTH CHECK (for Docker/Render)
 // ============================================
@@ -788,6 +869,8 @@ app.get('/api/auctions/active', authenticateToken, (req, res) => {
 
     const highestBid = bids.length > 0 ? bids[0].amount : 0;
 
+    const highestBidder = bids.length > 0 ? bids[0] : null;
+
     return {
       id: auction.id,
       itemName: auction.item_name,
@@ -802,7 +885,14 @@ app.get('/api/auctions/active', authenticateToken, (req, res) => {
       createdByName: auction.created_by_name,
       createdAt: auction.created_at,
       endedAt: auction.ended_at,
+      endsAt: auction.ends_at,
+      durationMinutes: auction.duration_minutes,
       bidsCount: bids.length,
+      highestBidder: highestBidder ? {
+        characterName: highestBidder.character_name,
+        characterClass: highestBidder.character_class,
+        amount: highestBidder.amount
+      } : null,
       bids: bids.map(b => ({
         id: b.id,
         userId: b.user_id,
@@ -819,19 +909,27 @@ app.get('/api/auctions/active', authenticateToken, (req, res) => {
 
 // Create new auction (officer+)
 app.post('/api/auctions', authenticateToken, authorizeRole(['admin', 'officer']), (req, res) => {
-  const { itemName, itemNameEN, itemImage, minBid, itemRarity, itemId } = req.body;
+  const { itemName, itemNameEN, itemImage, minBid, itemRarity, itemId, durationMinutes } = req.body;
 
   if (!itemName) {
     return res.status(400).json({ error: 'Item name is required' });
   }
 
+  const duration = durationMinutes || 5;
+  const endsAt = new Date(Date.now() + duration * 60 * 1000).toISOString();
+
   // Multiple active auctions are now allowed
   const result = db.prepare(`
-    INSERT INTO auctions (item_name, item_name_en, item_image, item_rarity, min_bid, created_by, status)
-    VALUES (?, ?, ?, ?, ?, ?, 'active')
-  `).run(itemName, itemNameEN || itemName, itemImage || '🎁', itemRarity || 'epic', minBid || 0, req.user.userId);
+    INSERT INTO auctions (item_name, item_name_en, item_image, item_rarity, min_bid, created_by, status, duration_minutes, ends_at)
+    VALUES (?, ?, ?, ?, ?, ?, 'active', ?, ?)
+  `).run(itemName, itemNameEN || itemName, itemImage || '🎁', itemRarity || 'epic', minBid || 0, req.user.userId, duration, endsAt);
 
   const auction = db.prepare('SELECT * FROM auctions WHERE id = ?').get(result.lastInsertRowid);
+
+  // Schedule auto-close
+  setTimeout(() => {
+    autoCloseAuction(auction.id);
+  }, duration * 60 * 1000);
 
   io.emit('auction_started', auction);
   res.status(201).json(auction);
@@ -1444,6 +1542,7 @@ io.on('connection', (socket) => {
 // ============================================
 
 initDatabase();
+scheduleExistingAuctions();
 
 server.listen(PORT, () => {
   console.log(`🎮 DKP Server running on port ${PORT}`);

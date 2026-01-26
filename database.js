@@ -85,6 +85,20 @@ function initDatabase() {
     // Column already exists
   }
 
+  // Add duration_minutes and ends_at columns for auction timer (migration)
+  try {
+    db.exec(`ALTER TABLE auctions ADD COLUMN duration_minutes INTEGER DEFAULT 5`);
+    console.log('✅ Added duration_minutes column to auctions table');
+  } catch (e) {
+    // Column already exists
+  }
+  try {
+    db.exec(`ALTER TABLE auctions ADD COLUMN ends_at DATETIME`);
+    console.log('✅ Added ends_at column to auctions table');
+  } catch (e) {
+    // Column already exists
+  }
+
   // Member DKP table (separate for easier updates)
   db.exec(`
     CREATE TABLE IF NOT EXISTS member_dkp (
