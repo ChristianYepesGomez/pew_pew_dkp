@@ -56,8 +56,8 @@ const MembersTab = () => {
   if (loading) return <div className="text-center py-20"><i className="fas fa-circle-notch fa-spin text-6xl text-midnight-glow"></i></div>
 
   return (
-    <div className="info-card">
-      <div className="flex justify-between items-center mb-4">
+    <div className="info-card flex flex-col" style={{ maxHeight: 'calc(100vh - 200px)' }}>
+      <div className="flex justify-between items-center mb-4 flex-shrink-0">
         <h3 className="m-0"><i className="fas fa-users mr-3"></i>{t('members_list')}</h3>
         {isAdmin && (
           <button
@@ -69,8 +69,8 @@ const MembersTab = () => {
           </button>
         )}
       </div>
-      <div className="overflow-x-auto">
-        <table className="w-full mt-4">
+      <div className="overflow-auto flex-1">
+        <table className="w-full">
           <thead>
             <tr className="border-b-2 border-midnight-bright-purple">
               <th className="text-left py-3 px-4 text-midnight-glow">{t('character')}</th>

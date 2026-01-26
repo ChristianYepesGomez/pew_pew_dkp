@@ -47,8 +47,8 @@ const DKPAdjustModal = ({ member, onClose, onSubmit }) => {
   const newDkp = (member?.current_dkp || 0) + (parseInt(amount) || 0)
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4">
-      <div className="bg-midnight-deepblue border-2 border-midnight-bright-purple rounded-2xl w-full max-w-md shadow-2xl">
+    <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-[100] p-4 overflow-y-auto">
+      <div className="bg-midnight-deepblue border-2 border-midnight-bright-purple rounded-2xl w-full max-w-md shadow-2xl my-auto">
         {/* Header */}
         <div className="p-6 border-b border-midnight-bright-purple border-opacity-30">
           <div className="flex items-center justify-between">

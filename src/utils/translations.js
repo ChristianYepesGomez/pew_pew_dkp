@@ -132,6 +132,11 @@ export const translations = {
     dkp_after_bid: 'DKP después de pujar',
     bid_too_low: 'La puja es muy baja',
     insufficient_dkp: 'DKP insuficiente',
+    highest_bidder: 'Máximo pujador',
+    time_remaining: 'Tiempo restante',
+    expired: 'Expirada',
+    duration: 'Duración',
+    minutes: 'minutos',
   },
   en: {
     guild_name: 'Pew Pew Kittens with Guns',
@@ -266,5 +271,10 @@ export const translations = {
     dkp_after_bid: 'DKP after bid',
     bid_too_low: 'Bid is too low',
     insufficient_dkp: 'Insufficient DKP',
+    highest_bidder: 'Highest bidder',
+    time_remaining: 'Time remaining',
+    expired: 'Expired',
+    duration: 'Duration',
+    minutes: 'minutes',
   },
 }

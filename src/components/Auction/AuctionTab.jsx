@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useAuth } from '../../hooks/useAuth'
 import { useSocket } from '../../hooks/useSocket'
 import { useLanguage } from '../../hooks/useLanguage'
@@ -26,6 +26,8 @@ const AuctionTab = () => {
   const [loading, setLoading] = useState(true)
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [bidModal, setBidModal] = useState({ open: false, auction: null })
+  const [timeRemaining, setTimeRemaining] = useState({})
+  const timerRef = useRef(null)
   const isAdmin = user?.role === 'admin' || user?.role === 'officer'
 
   const loadAuctions = async () => {
@@ -39,7 +41,39 @@ const AuctionTab = () => {
     }
   }
 
+  // Calculate time remaining for all auctions
+  const updateTimeRemaining = () => {
+    const newTimes = {}
+    auctions.forEach(auction => {
+      if (auction.endsAt) {
+        const endTime = new Date(auction.endsAt).getTime()
+        const now = Date.now()
+        const diff = endTime - now
+
+        if (diff > 0) {
+          const minutes = Math.floor(diff / 60000)
+          const seconds = Math.floor((diff % 60000) / 1000)
+          newTimes[auction.id] = { minutes, seconds, expired: false }
+        } else {
+          newTimes[auction.id] = { minutes: 0, seconds: 0, expired: true }
+        }
+      }
+    })
+    setTimeRemaining(newTimes)
+  }
+
   useEffect(() => { loadAuctions() }, [])
+
+  useEffect(() => {
+    if (auctions.length > 0) {
+      updateTimeRemaining()
+      timerRef.current = setInterval(updateTimeRemaining, 1000)
+    }
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current)
+    }
+  }, [auctions])
+
   useSocket({
     auction_started: loadAuctions,
     auction_ended: loadAuctions,
@@ -57,24 +91,17 @@ const AuctionTab = () => {
     loadAuctions()
   }
 
-  const handleEnd = async (auctionId) => {
-    if (!confirm(t('confirm'))) return
-    try {
-      await auctionsAPI.end(auctionId)
-      loadAuctions()
-    } catch (error) {
-      alert(error.response?.data?.error || t('error'))
-    }
+  const formatTime = (time) => {
+    if (!time) return '--:--'
+    if (time.expired) return t('expired') || 'Expired'
+    return `${time.minutes.toString().padStart(2, '0')}:${time.seconds.toString().padStart(2, '0')}`
   }
 
-  const handleCancel = async (auctionId) => {
-    if (!confirm(t('confirm_cancel_auction'))) return
-    try {
-      await auctionsAPI.cancel(auctionId)
-      loadAuctions()
-    } catch (error) {
-      alert(error.response?.data?.error || t('error'))
-    }
+  const getTimeColor = (time) => {
+    if (!time || time.expired) return 'text-red-500'
+    if (time.minutes < 1) return 'text-red-400 animate-pulse'
+    if (time.minutes < 2) return 'text-yellow-400'
+    return 'text-green-400'
   }
 
   if (loading) return <div className="text-center py-20"><i className="fas fa-circle-notch fa-spin text-6xl text-midnight-glow"></i></div>
@@ -97,89 +124,92 @@ const AuctionTab = () => {
         <p className="text-center text-gray-400 py-8">{t('no_active_auction')}</p>
       ) : (
         <div className="space-y-4">
-          {auctions.map((auction) => (
-            <div key={auction.id} className="bg-gradient-to-r from-purple-900 to-purple-800 rounded-xl p-6 border border-purple-600 border-opacity-50">
-              <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
-                {/* Item Info */}
+          {auctions.map((auction) => {
+            const time = timeRemaining[auction.id]
+            const isExpired = time?.expired
+
+            return (
+              <div
+                key={auction.id}
+                className={`bg-gradient-to-r from-purple-900 to-purple-800 rounded-xl p-4 border border-purple-600 border-opacity-50 ${isExpired ? 'opacity-60' : ''}`}
+              >
                 <div className="flex items-center gap-4">
-                  <div className="w-16 h-16 rounded-lg bg-midnight-deepblue flex items-center justify-center border-2" style={{ borderColor: RARITY_COLORS[auction.itemRarity] }}>
-                    <i className="fas fa-gem text-3xl" style={{ color: RARITY_COLORS[auction.itemRarity] }}></i>
+                  {/* Item Icon */}
+                  <div
+                    className="w-14 h-14 rounded-lg bg-midnight-deepblue flex items-center justify-center border-2 flex-shrink-0"
+                    style={{ borderColor: RARITY_COLORS[auction.itemRarity] }}
+                  >
+                    {auction.itemImage && auction.itemImage !== '🎁' ? (
+                      <img
+                        src={auction.itemImage}
+                        alt={auction.itemName}
+                        className="w-12 h-12 object-contain"
+                        onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'flex'; }}
+                      />
+                    ) : null}
+                    <i
+                      className="fas fa-gem text-2xl"
+                      style={{
+                        color: RARITY_COLORS[auction.itemRarity],
+                        display: auction.itemImage && auction.itemImage !== '🎁' ? 'none' : 'block'
+                      }}
+                    ></i>
                   </div>
-                  <div>
-                    <h4 className="text-xl font-cinzel mb-1" style={{ color: RARITY_COLORS[auction.itemRarity] }}>
+
+                  {/* Item Name */}
+                  <div className="flex-1 min-w-0">
+                    <h4
+                      className="text-lg font-cinzel mb-0 truncate"
+                      style={{ color: RARITY_COLORS[auction.itemRarity] }}
+                    >
                       {auction.itemName}
                     </h4>
-                    <p className="text-sm text-midnight-silver m-0">
-                      {t('created_by')}: {auction.createdByName}
+                  </div>
+
+                  {/* Highest Bidder */}
+                  <div className="text-center min-w-[120px]">
+                    <p className="text-xs text-midnight-silver m-0 mb-1">{t('highest_bidder')}</p>
+                    {auction.highestBidder ? (
+                      <p
+                        className="font-bold m-0 truncate"
+                        style={{ color: CLASS_COLORS[auction.highestBidder.characterClass] || '#FFF' }}
+                      >
+                        {auction.highestBidder.characterName}
+                      </p>
+                    ) : (
+                      <p className="text-gray-500 m-0">-</p>
+                    )}
+                  </div>
+
+                  {/* Current Bid */}
+                  <div className="text-center min-w-[100px]">
+                    <p className="text-xs text-midnight-silver m-0 mb-1">{t('current_bid')}</p>
+                    <p className="text-xl font-bold text-green-400 m-0">
+                      {auction.currentBid || 0} <span className="text-sm">DKP</span>
                     </p>
                   </div>
-                </div>
 
-                {/* Bid Info */}
-                <div className="flex flex-wrap items-center gap-6">
-                  <div className="text-center">
-                    <p className="text-sm text-midnight-silver m-0">{t('min_bid')}</p>
-                    <p className="text-xl font-bold text-midnight-glow m-0">{auction.minimumBid} DKP</p>
+                  {/* Time Remaining */}
+                  <div className="text-center min-w-[80px]">
+                    <p className="text-xs text-midnight-silver m-0 mb-1">{t('time_remaining')}</p>
+                    <p className={`text-xl font-mono font-bold m-0 ${getTimeColor(time)}`}>
+                      {formatTime(time)}
+                    </p>
                   </div>
-                  <div className="text-center">
-                    <p className="text-sm text-midnight-silver m-0">{t('current_bid')}</p>
-                    <p className="text-2xl font-bold text-green-400 m-0">{auction.currentBid || auction.minimumBid} DKP</p>
-                  </div>
-                  <div className="text-center">
-                    <p className="text-sm text-midnight-silver m-0">{t('bids')}</p>
-                    <p className="text-xl font-bold text-midnight-glow m-0">{auction.bidsCount}</p>
-                  </div>
-                </div>
 
-                {/* Actions */}
-                <div className="flex gap-2">
+                  {/* Bid Button */}
                   <button
                     onClick={() => setBidModal({ open: true, auction })}
-                    className="px-6 py-3 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-500 hover:to-green-600 text-white rounded-lg font-bold transition-all flex items-center gap-2"
+                    disabled={isExpired}
+                    className="px-6 py-3 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-500 hover:to-green-600 text-white rounded-lg font-bold transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
                   >
                     <i className="fas fa-hand-holding-usd"></i>
                     {t('place_bid')}
                   </button>
-                  {isAdmin && (
-                    <>
-                      <button
-                        onClick={() => handleEnd(auction.id)}
-                        className="px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-all"
-                        title={t('end_auction')}
-                      >
-                        <i className="fas fa-check"></i>
-                      </button>
-                      <button
-                        onClick={() => handleCancel(auction.id)}
-                        className="px-4 py-3 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-all"
-                        title={t('cancel_auction')}
-                      >
-                        <i className="fas fa-times"></i>
-                      </button>
-                    </>
-                  )}
                 </div>
               </div>
-
-              {/* Bids List */}
-              {auction.bids && auction.bids.length > 0 && (
-                <div className="mt-4 pt-4 border-t border-purple-600 border-opacity-30">
-                  <p className="text-sm text-midnight-silver mb-2">{t('recent_bids')}:</p>
-                  <div className="flex flex-wrap gap-2">
-                    {auction.bids.slice(0, 5).map((bid, idx) => (
-                      <div
-                        key={bid.id}
-                        className={`px-3 py-1 rounded-lg text-sm ${idx === 0 ? 'bg-green-600' : 'bg-midnight-purple bg-opacity-50'}`}
-                      >
-                        <span style={{ color: CLASS_COLORS[bid.characterClass] || '#FFF' }}>{bid.characterName}</span>
-                        <span className="ml-2 font-bold">{bid.amount} DKP</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          ))}
+            )
+          })}
         </div>
       )}
 
