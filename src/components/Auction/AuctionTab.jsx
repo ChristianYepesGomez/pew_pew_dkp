@@ -35,6 +35,7 @@ const AuctionTab = () => {
       const response = await auctionsAPI.getActive()
       setAuctions(response.data?.auctions || [])
     } catch (error) {
+      console.error('Error loading auctions:', error)
       setAuctions([])
     } finally {
       setLoading(false)
