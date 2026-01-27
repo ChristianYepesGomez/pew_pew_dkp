@@ -5,37 +5,37 @@
 // Wowhead icon URL - uses item icons from the game
 const ICON_BASE = 'https://wow.zamimg.com/images/wow/icons/large/';
 
-// Real WoW item icons from The War Within / Dragonflight raids
+// Real WoW item icons from verified Wowhead database
 const ICONS = {
-  // Plate armor
-  plate_hands: 'inv_glove_plate_raidprimalist_d_01.jpg',
-  plate_shoulder: 'inv_shoulder_plate_raidprimalist_d_01.jpg',
-  plate_head: 'inv_helm_plate_raidprimalist_d_01.jpg',
-  plate_chest: 'inv_chest_plate_raidprimalist_d_01.jpg',
-  plate_legs: 'inv_pant_plate_raidprimalist_d_01.jpg',
-  plate_belt: 'inv_belt_plate_raidprimalist_d_01.jpg',
-  plate_wrist: 'inv_bracer_plate_raidprimalist_d_01.jpg',
-  plate_boots: 'inv_boot_plate_raidprimalist_d_01.jpg',
+  // Plate armor - Tier 21 (Antorus)
+  plate_hands: 'inv_gauntlets_plate_raidpaladin_s_01.jpg',
+  plate_shoulder: 'inv_shoulder_plate_raidpaladin_s_01.jpg',
+  plate_head: 'inv_helm_plate_raidpaladin_s_01.jpg',
+  plate_chest: 'inv_chest_plate_raidpaladin_s_01.jpg',
+  plate_legs: 'inv_pant_plate_raidpaladin_s_01.jpg',
+  plate_belt: 'inv_belt_plate_raidwarrior_q_01.jpg',
+  plate_wrist: 'inv_bracer_plate_raiddeathknight_q_01.jpg',
+  plate_boots: 'inv_boot_plate_raidpaladin_s_01.jpg',
 
-  // Mail armor
-  mail_head: 'inv_helm_mail_raidprimalist_d_01.jpg',
-  mail_shoulder: 'inv_shoulder_mail_raidprimalist_d_01.jpg',
-  mail_chest: 'inv_chest_mail_raidprimalist_d_01.jpg',
-  mail_boots: 'inv_boot_mail_raidprimalist_d_01.jpg',
+  // Mail armor - Tier 21
+  mail_head: 'inv_helm_mail_raidhunter_s_01.jpg',
+  mail_shoulder: 'inv_shoulder_mail_raidhunter_s_01.jpg',
+  mail_chest: 'inv_chest_mail_raidhunter_s_01.jpg',
+  mail_boots: 'inv_boot_mail_raidhunter_s_01.jpg',
 
-  // Leather armor
-  leather_boots: 'inv_boot_leather_raidprimalist_d_01.jpg',
-  leather_legs: 'inv_pant_leather_raidprimalist_d_01.jpg',
-  leather_chest: 'inv_chest_leather_raidprimalist_d_01.jpg',
-  leather_hands: 'inv_glove_leather_raidprimalist_d_01.jpg',
+  // Leather armor - Tier 21
+  leather_boots: 'inv_boot_leather_raidrogue_s_01.jpg',
+  leather_legs: 'inv_pant_leather_raidrogue_s_01.jpg',
+  leather_chest: 'inv_chest_leather_raidrogue_s_01.jpg',
+  leather_hands: 'inv_gauntlets_leather_raidrogue_s_01.jpg',
 
-  // Cloth armor
-  cloth_shoulder: 'inv_shoulder_cloth_raidprimalist_d_01.jpg',
-  cloth_belt: 'inv_belt_cloth_raidprimalist_d_01.jpg',
-  cloth_legs: 'inv_pant_cloth_raidprimalist_d_01.jpg',
-  cloth_chest: 'inv_chest_cloth_raidprimalist_d_01.jpg',
+  // Cloth armor - Tier 21
+  cloth_shoulder: 'inv_shoulder_cloth_raidwarlock_s_01.jpg',
+  cloth_belt: 'inv_belt_cloth_raidmage_q_01.jpg',
+  cloth_legs: 'inv_pant_cloth_raidwarlock_s_01.jpg',
+  cloth_chest: 'inv_chest_cloth_raidwarlock_s_01.jpg',
 
-  // Weapons
+  // Weapons - Antorus
   sword_1h: 'inv_sword_1h_felfireraid_d_01.jpg',
   sword_2h: 'inv_sword_2h_felfireraid_d_01.jpg',
   mace_1h: 'inv_mace_1h_felfireraid_d_01.jpg',
@@ -43,16 +43,16 @@ const ICONS = {
   staff: 'inv_staff_2h_felfireraid_d_01.jpg',
   polearm: 'inv_polearm_2h_felfireraid_d_01.jpg',
 
-  // Accessories
+  // Accessories - Generic
   necklace: 'inv_jewelry_necklace_52.jpg',
   ring: 'inv_jewelry_ring_firelandsraid_02a.jpg',
-  trinket: 'inv_jewelry_trinket_03.jpg',
-  trinket2: 'inv_jewelry_trinket_04.jpg',
+  trinket: 'inv_misc_trinketpanda_02.jpg',
+  trinket2: 'inv_misc_enggizmos_14.jpg',
   offhand: 'inv_offhand_1h_felfireraid_d_01.jpg',
   cape: 'inv_cape_pandaria_d_01.jpg',
 
   // Special
-  mount: 'inv_voidraymountemerald.jpg',
+  mount: 'ability_mount_voidelfstrider.jpg',
   gem: 'inv_misc_gem_x4_metagem_cut.jpg',
 };
 
