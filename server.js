@@ -7,7 +7,7 @@ import jwt from 'jsonwebtoken';
 import { db, initDatabase } from './database.js';
 import { authenticateToken, authorizeRole } from './middleware/auth.js';
 import { processWarcraftLog, isConfigured as isWCLConfigured } from './services/warcraftlogs.js';
-import { getAllRaidItems, searchItems, getItemsByRaid, CURRENT_RAIDS } from './services/raidItems.js';
+import { getAllRaidItems, searchItems, getItemsByRaid, refreshFromAPI, getAvailableRaids, getDataSourceStatus, isAPIConfigured } from './services/raidItems.js';
 
 const app = express();
 const server = createServer(app);
@@ -1091,32 +1091,75 @@ app.post('/api/auctions/cancel-all', authenticateToken, authorizeRole(['admin'])
 });
 
 // Get all raid items
-app.get('/api/raid-items', authenticateToken, (req, res) => {
-  const items = getAllRaidItems();
-  res.json({ items });
+app.get('/api/raid-items', authenticateToken, async (req, res) => {
+  try {
+    const items = await getAllRaidItems();
+    res.json({ items });
+  } catch (error) {
+    console.error('Error fetching raid items:', error);
+    res.status(500).json({ error: 'Failed to fetch raid items' });
+  }
 });
 
 // Search raid items
-app.get('/api/raid-items/search', authenticateToken, (req, res) => {
-  const query = req.query.q || '';
-  const items = query ? searchItems(query) : getAllRaidItems();
-  res.json({ items });
+app.get('/api/raid-items/search', authenticateToken, async (req, res) => {
+  try {
+    const query = req.query.q || '';
+    const items = query ? await searchItems(query) : await getAllRaidItems();
+    res.json({ items });
+  } catch (error) {
+    console.error('Error searching raid items:', error);
+    res.status(500).json({ error: 'Failed to search raid items' });
+  }
 });
 
 // Get items by raid
-app.get('/api/raid-items/:raidName', authenticateToken, (req, res) => {
-  const { raidName } = req.params;
-  const items = getItemsByRaid(raidName);
-  res.json({ items });
+app.get('/api/raid-items/:raidName', authenticateToken, async (req, res) => {
+  try {
+    const { raidName } = req.params;
+    const items = await getItemsByRaid(raidName);
+    res.json({ items });
+  } catch (error) {
+    console.error('Error fetching raid items by raid:', error);
+    res.status(500).json({ error: 'Failed to fetch raid items' });
+  }
 });
 
-// Get all raids
-app.get('/api/raids-list', authenticateToken, (req, res) => {
-  const raids = Object.keys(CURRENT_RAIDS).map(name => ({
-    name,
-    bosses: Object.keys(CURRENT_RAIDS[name].bosses)
-  }));
-  res.json({ raids });
+// Get available raids
+app.get('/api/raids-list', authenticateToken, async (req, res) => {
+  try {
+    const raids = await getAvailableRaids();
+    res.json({ raids });
+  } catch (error) {
+    console.error('Error fetching raids list:', error);
+    res.status(500).json({ error: 'Failed to fetch raids list' });
+  }
+});
+
+// Get raid items data source status
+app.get('/api/raid-items/status', authenticateToken, authorizeRole(['admin', 'officer']), (req, res) => {
+  res.json(getDataSourceStatus());
+});
+
+// Force refresh raid items from Blizzard API
+app.post('/api/raid-items/refresh', authenticateToken, authorizeRole(['admin']), async (req, res) => {
+  try {
+    if (!isAPIConfigured()) {
+      return res.status(400).json({
+        error: 'Blizzard API not configured. Set BLIZZARD_CLIENT_ID and BLIZZARD_CLIENT_SECRET environment variables.'
+      });
+    }
+
+    const result = await refreshFromAPI();
+    if (result.success) {
+      res.json({ message: `Successfully refreshed ${result.count} items from Blizzard API` });
+    } else {
+      res.status(500).json({ error: result.error });
+    }
+  } catch (error) {
+    console.error('Error refreshing raid items:', error);
+    res.status(500).json({ error: 'Failed to refresh raid items from API' });
+  }
 });
 
 // Get auction history
