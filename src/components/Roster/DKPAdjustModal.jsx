@@ -44,7 +44,11 @@ const DKPAdjustModal = ({ member, onClose, onSubmit }) => {
     setReason(t(key))
   }
 
-  const newDkp = (member?.current_dkp || 0) + (parseInt(amount) || 0)
+  // Support both camelCase and snake_case field names
+  const currentDkp = member?.currentDkp ?? member?.current_dkp ?? 0
+  const characterName = member?.characterName ?? member?.character_name ?? ''
+  const characterClass = member?.characterClass ?? member?.character_class ?? ''
+  const newDkp = currentDkp + (parseInt(amount) || 0)
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-[100] p-4 overflow-y-auto">
@@ -58,8 +62,8 @@ const DKPAdjustModal = ({ member, onClose, onSubmit }) => {
               </div>
               <div>
                 <h3 className="text-lg font-bold text-white m-0">{t('adjust_dkp')}</h3>
-                <p className="text-sm m-0" style={{ color: CLASS_COLORS[member?.character_class] || '#FFF' }}>
-                  {member?.character_name}
+                <p className="text-sm m-0" style={{ color: CLASS_COLORS[characterClass] || '#FFF' }}>
+                  {characterName}
                 </p>
               </div>
             </div>
@@ -73,11 +77,11 @@ const DKPAdjustModal = ({ member, onClose, onSubmit }) => {
         <div className="p-6 bg-midnight-purple bg-opacity-20 flex justify-around">
           <div className="text-center">
             <p className="text-sm text-midnight-silver m-0">{t('current')}</p>
-            <p className="text-3xl font-bold text-midnight-glow m-0">{member?.current_dkp || 0}</p>
+            <p className="text-3xl font-bold text-midnight-glow m-0">{currentDkp}</p>
           </div>
           <div className="text-center">
             <p className="text-sm text-midnight-silver m-0">{t('after')}</p>
-            <p className={`text-3xl font-bold m-0 ${newDkp >= (member?.current_dkp || 0) ? 'text-green-400' : 'text-red-400'}`}>
+            <p className={`text-3xl font-bold m-0 ${newDkp >= currentDkp ? 'text-green-400' : 'text-red-400'}`}>
               {newDkp}
             </p>
           </div>

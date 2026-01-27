@@ -133,11 +133,19 @@ const MyCharacterModal = ({ onClose }) => {
             <div className="space-y-2">
               {history.map((tx) => (
                 <div key={tx.id} className="bg-midnight-purple bg-opacity-20 rounded-lg p-3 flex items-center justify-between">
-                  <div>
-                    <p className="text-white m-0">{tx.reason}</p>
-                    <p className="text-xs text-midnight-silver m-0">{formatDate(tx.createdAt)}</p>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-white m-0 truncate">{tx.reason}</p>
+                    <p className="text-xs text-midnight-silver m-0">
+                      {formatDate(tx.createdAt || tx.created_at)}
+                      {(tx.character_name || tx.characterName) && (
+                        <span className="ml-2 text-midnight-glow">
+                          <i className="fas fa-user-edit mr-1"></i>
+                          {tx.character_name || tx.characterName}
+                        </span>
+                      )}
+                    </p>
                   </div>
-                  <span className={`font-bold text-lg ${tx.amount >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                  <span className={`font-bold text-lg flex-shrink-0 ml-2 ${tx.amount >= 0 ? 'text-green-400' : 'text-red-400'}`}>
                     {tx.amount >= 0 ? '+' : ''}{tx.amount}
                   </span>
                 </div>

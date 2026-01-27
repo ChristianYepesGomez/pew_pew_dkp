@@ -12,7 +12,9 @@ const Dashboard = () => {
   const { t } = useLanguage()
   const { user } = useAuth()
 
-  const isAdmin = user?.role === 'admin' || user?.role === 'officer'
+  const isAdmin = user?.role === 'admin'
+  const isOfficer = user?.role === 'officer'
+  const canManage = isAdmin || isOfficer
 
   const tabs = [
     { id: 'members', icon: 'fa-users', label: t('members') },
@@ -20,6 +22,7 @@ const Dashboard = () => {
     { id: 'history', icon: 'fa-history', label: t('auction_history') },
   ]
 
+  // Only admin can see Admin tab (not officers)
   if (isAdmin) tabs.push({ id: 'admin', icon: 'fa-crown', label: t('admin') })
 
   return (

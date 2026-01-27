@@ -98,8 +98,8 @@ const CreateAuctionModal = ({ onClose, onSuccess }) => {
   const bosses = [...new Set(items.map(item => item.boss))]
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4">
-      <div className="bg-midnight-deepblue border-2 border-midnight-bright-purple rounded-2xl w-full max-w-4xl shadow-2xl max-h-[90vh] flex flex-col">
+    <div className="fixed inset-0 bg-black bg-opacity-70 flex items-start justify-center z-50 p-4 overflow-y-auto">
+      <div className="bg-midnight-deepblue border-2 border-midnight-bright-purple rounded-2xl w-full max-w-4xl shadow-2xl max-h-[85vh] flex flex-col my-auto">
         {/* Header */}
         <div className="p-6 border-b border-midnight-bright-purple border-opacity-30 flex-shrink-0">
           <div className="flex items-center justify-between">
