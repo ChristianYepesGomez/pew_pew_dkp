@@ -1584,6 +1584,10 @@ initDatabase();
 scheduleExistingAuctions();
 
 server.listen(PORT, () => {
+  console.log('==========================================');
+  console.log('  DKP Backend Server - BUILD v2.0');
+  console.log('  Date: 2026-01-27');
+  console.log('==========================================');
   console.log(`🎮 DKP Server running on port ${PORT}`);
   console.log(`📡 WebSocket ready for real-time updates`);
 });

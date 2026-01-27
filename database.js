@@ -20,7 +20,7 @@ db.pragma('foreign_keys = ON');
 db.pragma('encoding = "UTF-8"');
 
 function initDatabase() {
-  console.log('🗄️  Initializing database...');
+  console.log('🗄️  Initializing database... [BUILD v2.0 - 2026-01-27]');
 
   // Users table
   db.exec(`
@@ -278,26 +278,7 @@ function initDatabase() {
     CREATE INDEX IF NOT EXISTS idx_calendar_rewards_week ON calendar_dkp_rewards(week_start);
   `);
 
-  // Create default admin user if no users exist
-  const userCount = db.prepare('SELECT COUNT(*) as count FROM users').get();
-  if (userCount.count === 0) {
-    console.log('📝 Creating default admin user...');
-    
-    // Default password is 'admin123' - CHANGE THIS IN PRODUCTION
-    const hashedPassword = bcrypt.hashSync('admin123', 10);
-    
-    const result = db.prepare(`
-      INSERT INTO users (username, password, character_name, character_class, raid_role, spec, role)
-      VALUES ('admin', ?, 'GuildMaster', 'Warrior', 'DPS', 'Arms', 'admin')
-    `).run(hashedPassword);
-
-    db.prepare(`
-      INSERT INTO member_dkp (user_id, current_dkp, lifetime_gained)
-      VALUES (?, 50, 50)
-    `).run(result.lastInsertRowid);
-
-    console.log('✅ Default admin created (username: admin, password: admin123)');
-  }
+  // No default admin - use seed.js to create users
 
   // Create default DKP configuration if not exists
   const configCount = db.prepare('SELECT COUNT(*) as count FROM dkp_config').get();
