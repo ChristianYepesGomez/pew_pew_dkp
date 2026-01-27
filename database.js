@@ -131,6 +131,7 @@ function initDatabase() {
     CREATE TABLE IF NOT EXISTS auctions (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       item_name TEXT NOT NULL,
+      item_name_en TEXT,
       item_image TEXT DEFAULT '🎁',
       item_rarity TEXT DEFAULT 'epic' CHECK(item_rarity IN ('common', 'uncommon', 'rare', 'epic', 'legendary')),
       min_bid INTEGER DEFAULT 10,
@@ -140,6 +141,8 @@ function initDatabase() {
       created_by INTEGER,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       ended_at DATETIME,
+      duration_minutes INTEGER DEFAULT 5,
+      ends_at DATETIME,
       FOREIGN KEY (winner_id) REFERENCES users(id) ON DELETE SET NULL,
       FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL
     )
