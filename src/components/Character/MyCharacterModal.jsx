@@ -116,14 +116,6 @@ const MyCharacterModal = ({ onClose }) => {
               <p className="text-2xl font-bold text-red-400 m-0">-{user?.lifetimeSpent || 0}</p>
             </div>
           </div>
-          <div className="flex justify-center gap-4 mt-4">
-            <span className={`px-4 py-2 rounded-lg text-sm font-bold ${user?.raidRole === 'Tank' ? 'bg-blue-500' : user?.raidRole === 'Healer' ? 'bg-green-500' : 'bg-red-500'} text-white`}>
-              {t(user?.raidRole?.toLowerCase()) || 'DPS'}
-            </span>
-            <span className={`px-4 py-2 rounded-lg text-sm font-bold ${user?.role === 'admin' ? 'bg-yellow-600' : user?.role === 'officer' ? 'bg-purple-600' : 'bg-gray-600'} text-white`}>
-              {t('role_' + (user?.role || 'raider'))}
-            </span>
-          </div>
         </div>
 
         {/* History */}
