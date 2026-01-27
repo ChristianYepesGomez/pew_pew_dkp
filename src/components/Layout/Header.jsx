@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useAuth } from '../../hooks/useAuth'
 import { useLanguage } from '../../hooks/useLanguage'
+import { useSocket } from '../../hooks/useSocket'
 import MyCharacterModal from '../Character/MyCharacterModal'
 
 const CLASS_COLORS = {
@@ -9,9 +10,17 @@ const CLASS_COLORS = {
 }
 
 const Header = () => {
-  const { user, logout } = useAuth()
+  const { user, logout, refreshUser } = useAuth()
   const { t, language, changeLanguage } = useLanguage()
   const [showCharacterModal, setShowCharacterModal] = useState(false)
+
+  // Refresh user data when DKP changes
+  useSocket({
+    dkp_updated: (data) => {
+      if (data.userId === user?.id) refreshUser()
+    },
+    dkp_bulk_updated: () => refreshUser(),
+  })
 
   return (
     <>

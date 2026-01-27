@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '../../hooks/useAuth'
 import { useLanguage } from '../../hooks/useLanguage'
 import { dkpAPI } from '../../services/api'
@@ -48,6 +48,16 @@ const MyCharacterModal = ({ onClose }) => {
   const [history, setHistory] = useState([])
   const [loading, setLoading] = useState(true)
 
+  // Close on ESC key
+  const handleKeyDown = useCallback((e) => {
+    if (e.key === 'Escape') onClose()
+  }, [onClose])
+
+  useEffect(() => {
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [handleKeyDown])
+
   useEffect(() => {
     loadHistory()
   }, [])
@@ -74,7 +84,7 @@ const MyCharacterModal = ({ onClose }) => {
   }
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4">
+    <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-[100] p-4">
       <div className="bg-midnight-deepblue border-2 border-midnight-bright-purple rounded-2xl w-full max-w-2xl shadow-2xl max-h-[90vh] flex flex-col">
         {/* Header */}
         <div className="p-6 border-b border-midnight-bright-purple border-opacity-30 flex-shrink-0">

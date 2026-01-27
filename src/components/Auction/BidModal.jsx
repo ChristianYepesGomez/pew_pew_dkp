@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useLanguage } from '../../hooks/useLanguage'
 import { auctionsAPI } from '../../services/api'
 
@@ -16,6 +16,16 @@ const BidModal = ({ auction, userDkp, onClose, onSuccess }) => {
   const [amount, setAmount] = useState(minBid)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+
+  // Close on ESC key
+  const handleKeyDown = useCallback((e) => {
+    if (e.key === 'Escape') onClose()
+  }, [onClose])
+
+  useEffect(() => {
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [handleKeyDown])
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -50,7 +60,7 @@ const BidModal = ({ auction, userDkp, onClose, onSuccess }) => {
   ].filter(bid => bid <= userDkp)
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4">
+    <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-[100] p-4">
       <div className="bg-midnight-deepblue border-2 border-midnight-bright-purple rounded-2xl w-full max-w-md shadow-2xl">
         {/* Header */}
         <div className="p-6 border-b border-midnight-bright-purple border-opacity-30">

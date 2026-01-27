@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useLanguage } from '../../hooks/useLanguage'
 
 const CLASS_COLORS = {
@@ -27,6 +27,16 @@ const DKPAdjustModal = ({ member, onClose, onSubmit }) => {
   const [amount, setAmount] = useState('')
   const [reason, setReason] = useState('')
   const [loading, setLoading] = useState(false)
+
+  // Close on ESC key
+  const handleKeyDown = useCallback((e) => {
+    if (e.key === 'Escape') onClose()
+  }, [onClose])
+
+  useEffect(() => {
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [handleKeyDown])
 
   const handleSubmit = async (e) => {
     e.preventDefault()
