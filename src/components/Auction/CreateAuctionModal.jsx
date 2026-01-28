@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import { useLanguage } from '../../hooks/useLanguage'
 import { raidItemsAPI, auctionsAPI } from '../../services/api'
 
@@ -107,7 +108,7 @@ const CreateAuctionModal = ({ onClose, onSuccess }) => {
   // Get unique bosses
   const bosses = [...new Set(items.map(item => item.boss))]
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-[100] p-4 overflow-y-auto">
       <div className="bg-midnight-deepblue border-2 border-midnight-bright-purple rounded-2xl w-full max-w-4xl shadow-2xl max-h-[85vh] flex flex-col my-auto">
         {/* Header */}
@@ -275,7 +276,8 @@ const CreateAuctionModal = ({ onClose, onSuccess }) => {
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }
 

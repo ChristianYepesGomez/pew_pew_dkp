@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import { useLanguage } from '../../hooks/useLanguage'
 
 const CLASS_COLORS = {
@@ -60,7 +61,7 @@ const DKPAdjustModal = ({ member, onClose, onSubmit }) => {
   const characterClass = member?.characterClass ?? member?.character_class ?? ''
   const newDkp = currentDkp + (parseInt(amount) || 0)
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-[100] p-4 overflow-y-auto">
       <div className="bg-midnight-deepblue border-2 border-midnight-bright-purple rounded-2xl w-full max-w-md shadow-2xl my-auto">
         {/* Header */}
@@ -176,7 +177,8 @@ const DKPAdjustModal = ({ member, onClose, onSubmit }) => {
           </div>
         </form>
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }
 

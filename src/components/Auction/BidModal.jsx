@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import { useLanguage } from '../../hooks/useLanguage'
 import { auctionsAPI } from '../../services/api'
 
@@ -59,7 +60,7 @@ const BidModal = ({ auction, userDkp, onClose, onSuccess }) => {
     Math.ceil(minBid * 1.5),
   ].filter(bid => bid <= userDkp)
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-[100] p-4">
       <div className="bg-midnight-deepblue border-2 border-midnight-bright-purple rounded-2xl w-full max-w-md shadow-2xl">
         {/* Header */}
@@ -177,7 +178,8 @@ const BidModal = ({ auction, userDkp, onClose, onSuccess }) => {
           </div>
         </form>
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }
 

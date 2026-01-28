@@ -61,6 +61,8 @@ export const raidItemsAPI = {
   search: (query) => api.get(`/raid-items/search?q=${encodeURIComponent(query)}`),
   getByRaid: (raidName) => api.get(`/raid-items/${encodeURIComponent(raidName)}`),
   getRaidsList: () => api.get('/raids-list'),
+  getStatus: () => api.get('/raid-items/status'),
+  refresh: () => api.post('/raid-items/refresh'),
 }
 
 export default api

@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import { useLanguage } from '../../hooks/useLanguage'
 import { membersAPI } from '../../services/api'
 
@@ -84,7 +85,7 @@ const CreateMemberModal = ({ onClose, onSuccess }) => {
 
   const currentSpecs = CLASS_SPECS[form.characterClass]?.specs || []
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-[100] p-4 overflow-y-auto">
       <div className="bg-midnight-deepblue border-2 border-midnight-bright-purple rounded-2xl w-full max-w-lg shadow-2xl my-8">
         {/* Header */}
@@ -230,7 +231,8 @@ const CreateMemberModal = ({ onClose, onSuccess }) => {
           </div>
         </form>
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }
 
