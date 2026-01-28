@@ -1,0 +1,78 @@
+import axios from 'axios'
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api'
+
+const api = axios.create({
+  baseURL: API_URL,
+  headers: { 'Content-Type': 'application/json' },
+})
+
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem('token')
+  if (token) config.headers.Authorization = `Bearer ${token}`
+  return config
+})
+
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      localStorage.removeItem('token')
+      window.location.href = '/login'
+    }
+    return Promise.reject(error)
+  }
+)
+
+export const authAPI = {
+  login: (username, password) => api.post('/auth/login', { username, password }),
+  me: () => api.get('/auth/me'),
+  forgotPassword: (usernameOrEmail) => api.post('/auth/forgot-password', { usernameOrEmail }),
+  resetPassword: (token, password) => api.post('/auth/reset-password', { token, password }),
+}
+
+export const dkpAPI = {
+  getHistory: (userId) => api.get(`/dkp/history/${userId}`),
+  adjust: (userId, amount, reason) => api.post('/dkp/adjust', { userId, amount, reason }),
+  bulkAdjust: (userIds, amount, reason) => api.post('/dkp/bulk-adjust', { userIds, amount, reason }),
+}
+
+export const membersAPI = {
+  getAll: () => api.get('/members'),
+  create: (data) => api.post('/members', data),
+}
+
+export const auctionsAPI = {
+  getActive: () => api.get('/auctions/active'),
+  getHistory: () => api.get('/auctions/history'),
+  create: (data) => api.post('/auctions', data),
+  bid: (auctionId, amount) => api.post(`/auctions/${auctionId}/bid`, { amount }),
+  end: (auctionId) => api.post(`/auctions/${auctionId}/end`),
+  cancel: (auctionId) => api.post(`/auctions/${auctionId}/cancel`),
+}
+
+export const warcraftLogsAPI = {
+  preview: (url) => api.post('/warcraftlogs/preview', { url }),
+  confirm: (reportId) => api.post('/warcraftlogs/confirm', { reportId }),
+}
+
+export const raidItemsAPI = {
+  getAll: () => api.get('/raid-items'),
+  search: (query) => api.get(`/raid-items/search?q=${encodeURIComponent(query)}`),
+  getByRaid: (raidName) => api.get(`/raid-items/${encodeURIComponent(raidName)}`),
+  getRaidsList: () => api.get('/raids-list'),
+  getStatus: () => api.get('/raid-items/status'),
+  refresh: () => api.post('/raid-items/refresh'),
+}
+
+export const calendarAPI = {
+  getRaidDays: () => api.get('/calendar/raid-days'),
+  updateRaidDays: (days) => api.put('/calendar/raid-days', { days }),
+  getDates: (weeks = 2) => api.get(`/calendar/dates?weeks=${weeks}`),
+  getMySignups: (weeks = 2) => api.get(`/calendar/my-signups?weeks=${weeks}`),
+  signup: (date, status, notes) => api.post('/calendar/signup', { date, status, notes }),
+  getSummary: (date) => api.get(`/calendar/summary/${date}`),
+  getOverview: (weeks = 2) => api.get(`/calendar/overview?weeks=${weeks}`),
+}
+
+export default api

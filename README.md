@@ -1,274 +1,177 @@
-# 🎮 Guild DKP System - Backend
+# 🎮 DKP Frontend
 
-Sistema de gestión de Dragon Kill Points (DKP) para guilds de World of Warcraft.
+Frontend React + Vite para el sistema de gestión de DKP.
 
-> **📝 Nota sobre Frontend**: Este repositorio contiene el backend del sistema DKP.
-> Existe un **frontend provisional** disponible en la rama `frontend-provisional` que incluye
-> una interfaz funcional con React + Vite. El equipo de frontend está desarrollando
-> una versión definitiva de manera independiente.
->
-> Para ver el frontend provisional: `git checkout frontend-provisional`
+## 🚀 Quick Start
 
-## ✨ Características
-
-- **Autenticación JWT** - Login seguro con roles (admin, officer, raider)
-- **Gestión de DKP** - Ajustes individuales y masivos
-- **Sistema de Subastas** - Pujas en tiempo real con WebSockets
-- **Decay de DKP** - Sistema configurable de decaimiento
-- **Historial completo** - Registro de todas las transacciones
-- **Importación CSV** - Carga masiva de roster
-- **Tiempo real** - Actualizaciones instantáneas via Socket.IO
-
-## 🚀 Instalación
-
-### Requisitos
-- Node.js 18+
-- npm o yarn
-
-### Pasos
+### 1. Instalar Dependencias
 
 ```bash
-# 1. Instalar dependencias
 npm install
+```
 
-# 2. Configurar variables de entorno
-cp .env.example .env
-# Edita .env y cambia JWT_SECRET
+### 2. Configurar Variables de Entorno
 
-# 3. Iniciar servidor
-npm start
+Asegúrate de que `.env` existe con:
 
-# Para desarrollo con auto-reload:
+```env
+VITE_API_URL=http://localhost:3000
+```
+
+### 3. Iniciar Dev Server
+
+```bash
 npm run dev
 ```
 
-El servidor iniciará en `http://localhost:3000`
+El frontend estará disponible en: **http://localhost:5173**
 
-**Usuario admin por defecto:**
-- Username: `admin`
-- Password: `admin123`
-
-⚠️ **IMPORTANTE**: Cambia la contraseña del admin inmediatamente en producción.
-
-## 📡 API Endpoints
-
-### Autenticación
-
-| Método | Endpoint | Descripción | Rol |
-|--------|----------|-------------|-----|
-| POST | `/api/auth/register` | Registrar usuario | Público |
-| POST | `/api/auth/login` | Iniciar sesión | Público |
-| GET | `/api/auth/me` | Info usuario actual | Auth |
-
-### Miembros
-
-| Método | Endpoint | Descripción | Rol |
-|--------|----------|-------------|-----|
-| GET | `/api/members` | Listar todos los miembros | Auth |
-| PUT | `/api/members/:id/role` | Cambiar rol de usuario | Admin |
-| DELETE | `/api/members/:id` | Desactivar miembro | Admin |
-
-### DKP
-
-| Método | Endpoint | Descripción | Rol |
-|--------|----------|-------------|-----|
-| POST | `/api/dkp/adjust` | Ajustar DKP individual | Officer+ |
-| POST | `/api/dkp/bulk-adjust` | Ajustar DKP masivo | Officer+ |
-| POST | `/api/dkp/decay` | Aplicar decay | Admin |
-| GET | `/api/dkp/history/:userId` | Historial de DKP | Auth |
-
-### Subastas
-
-| Método | Endpoint | Descripción | Rol |
-|--------|----------|-------------|-----|
-| GET | `/api/auctions/active` | Subasta activa | Auth |
-| POST | `/api/auctions` | Crear subasta | Officer+ |
-| POST | `/api/auctions/:id/bid` | Pujar | Auth |
-| POST | `/api/auctions/:id/end` | Finalizar subasta | Officer+ |
-| POST | `/api/auctions/:id/cancel` | Cancelar subasta | Officer+ |
-| GET | `/api/auctions/history` | Historial subastas | Auth |
-
-### Raids
-
-| Método | Endpoint | Descripción | Rol |
-|--------|----------|-------------|-----|
-| POST | `/api/raids` | Crear evento raid | Officer+ |
-| POST | `/api/raids/:id/attendance` | Registrar asistencia | Officer+ |
-
-### Importación
-
-| Método | Endpoint | Descripción | Rol |
-|--------|----------|-------------|-----|
-| POST | `/api/import/roster` | Importar roster CSV | Admin |
-
-## 🔌 WebSocket Events
-
-### Eventos del Servidor → Cliente
-
-```javascript
-// Conectar
-const socket = io('http://localhost:3000');
-
-// Escuchar eventos
-socket.on('dkp_updated', ({ userId, newDkp, amount }) => {
-  // Actualizar UI
-});
-
-socket.on('auction_started', (auction) => {
-  // Mostrar nueva subasta
-});
-
-socket.on('bid_placed', ({ auctionId, userId, characterName, amount }) => {
-  // Actualizar pujas
-});
-
-socket.on('auction_ended', ({ auctionId, winner }) => {
-  // Mostrar ganador
-});
-```
-
-## 📊 Estructura de Base de Datos
-
-```
-users
-├── id
-├── username
-├── password (hashed)
-├── character_name
-├── character_class
-├── raid_role (Tank/Healer/DPS)
-├── role (admin/officer/raider)
-└── is_active
-
-member_dkp
-├── user_id
-├── current_dkp
-├── lifetime_gained
-├── lifetime_spent
-└── last_decay_at
-
-auctions
-├── id
-├── item_name
-├── item_image
-├── item_rarity
-├── min_bid
-├── status
-├── winner_id
-└── winning_bid
-
-auction_bids
-├── auction_id
-├── user_id
-└── amount
-
-dkp_transactions
-├── user_id
-├── amount
-├── reason
-├── performed_by
-└── created_at
-```
-
-## ⏰ Tareas Programadas
-
-El sistema incluye scripts para tareas periódicas:
+## 📦 Build para Producción
 
 ```bash
-# Aplicar 10% de decay semanal
-node tasks/scheduled.js decay 10
-
-# Limpiar transacciones de más de 90 días
-node tasks/scheduled.js cleanup 90
-
-# Generar reporte semanal
-node tasks/scheduled.js report
-
-# Ver miembros inactivos (30+ días sin raids)
-node tasks/scheduled.js inactive 30
+npm run build
 ```
 
-### Configurar Cron Jobs
+Los archivos estáticos se generan en `dist/`
 
-```bash
-# Decay semanal los lunes a las 00:00
-0 0 * * 1 cd /path/to/dkp-backend && node tasks/scheduled.js decay 10
+## 🏗️ Estructura del Proyecto
 
-# Limpieza mensual
-0 0 1 * * cd /path/to/dkp-backend && node tasks/scheduled.js cleanup 90
+```
+src/
+├── components/          # Componentes reutilizables
+│   ├── Header.jsx
+│   ├── TabNavigation.jsx
+│   └── tabs/
+│       ├── RosterTab.jsx
+│       ├── AuctionsTab.jsx
+│       ├── HistoryTab.jsx
+│       └── AdminTab.jsx
+├── pages/              # Páginas principales
+│   ├── LoginPage.jsx
+│   └── DashboardPage.jsx
+├── services/           # API y servicios
+│   └── api.js
+├── hooks/              # Custom React hooks
+│   └── useAuth.js
+├── styles/             # CSS modules
+│   ├── index.css       # Reset y base
+│   ├── login.css       # Login page
+│   ├── dashboard.css   # Dashboard layout
+│   └── components.css  # Componentes
+├── App.jsx
+└── main.jsx
 ```
 
-## 📝 Ejemplo: Importar Roster desde CSV
+## 🎨 Diseño
 
-Formato esperado del CSV:
-```csv
-characterName,characterClass,raidRole,dkp
-Thrallbane,Warrior,Tank,450
-Elyndra,Priest,Healer,380
-Shadowmeld,Rogue,DPS,320
+- **Tema oscuro** inspirado en Raider.io
+- **Colores de clase WoW** para personajes
+- **Minimalista** y limpio
+- **Responsive** (adaptable a móviles)
+
+## 🔐 Credenciales por Defecto
+
+```
+Usuario: admin
+Contraseña: admin123
 ```
 
-Request:
+⚠️ **IMPORTANTE**: Cambiar estas credenciales en producción.
+
+## 📋 Funcionalidades
+
+### Roster Tab
+- Ver todos los miembros del roster
+- DKP actual y lifetime de cada jugador
+- Colores de clase WoW
+- Badges de rol (Tank, Healer, DPS)
+
+### Auctions Tab
+- Ver auction activa
+- Hacer bids en items
+- Ver historial de bids
+
+### History Tab
+- Historial completo de transacciones DKP
+- Filtrado por fecha
+- Color coding (verde = ganancia, rojo = gasto)
+
+### Admin Tab (Solo Admin/Officer)
+- **Warcraft Logs**: Procesar logs y asignar DKP
+  - Preview con matching de participantes
+  - Detección de anomalías
+  - Confirmación manual
+- **Manual Adjustment**: Ajustar DKP manualmente
+- **Configuration**: Modificar configuración de DKP
+- **Recent Logs**: Ver historial de logs procesados
+
+## 🔌 Conexión con Backend
+
+El frontend se comunica con el backend en `http://localhost:3000` (configurable en `.env`).
+
+### API Endpoints Usados
+
 ```javascript
-POST /api/import/roster
-Authorization: Bearer <admin_token>
-Content-Type: application/json
+// Auth
+POST   /api/auth/login
+GET    /api/auth/me
 
-{
-  "members": [
-    { "characterName": "Thrallbane", "characterClass": "Warrior", "raidRole": "Tank", "dkp": 450 },
-    { "characterName": "Elyndra", "characterClass": "Priest", "raidRole": "Healer", "dkp": 380 }
-  ]
-}
+// Users
+GET    /api/users
+
+// DKP
+GET    /api/dkp/history
+
+// Auctions
+GET    /api/auctions/active
+POST   /api/auctions/:id/bid
+
+// Warcraft Logs
+GET    /api/warcraftlogs/config
+PUT    /api/warcraftlogs/config
+POST   /api/warcraftlogs/preview
+POST   /api/warcraftlogs/confirm
+GET    /api/warcraftlogs/history
 ```
 
-## 🔒 Seguridad
+## 🛠️ Tecnologías
 
-- Contraseñas hasheadas con bcrypt (10 rounds)
-- JWT con expiración de 7 días
-- Validación de roles en cada endpoint
-- Sanitización de inputs
-- CORS configurado
+- **React 18**: Framework UI
+- **Vite**: Build tool y dev server
+- **Axios**: Cliente HTTP
+- **Socket.IO Client**: WebSockets (real-time updates)
+- **CSS Puro**: Sin frameworks CSS
 
-### Producción
+## 📝 Notas de Desarrollo
 
-1. Cambia `JWT_SECRET` a una clave segura:
+- El token JWT se guarda en `localStorage`
+- El proxy de Vite redirige `/api/*` a `http://localhost:3000`
+- WebSocket se conecta automáticamente al login (pendiente implementar)
+
+## 🐛 Troubleshooting
+
+### Error: "Cannot connect to backend"
+
+1. Verifica que el backend esté corriendo:
    ```bash
-   node -e "console.log(require('crypto').randomBytes(64).toString('hex'))"
+   cd ../dkp-backend
+   docker-compose up
    ```
 
-2. Usa HTTPS (nginx/caddy como reverse proxy)
+2. Verifica que `VITE_API_URL` en `.env` sea correcto
 
-3. Configura rate limiting
+### Error: "Token expired"
 
-4. Activa backups de la base de datos
+Hacer logout y login de nuevo. El token JWT dura 7 días.
 
-## 📁 Estructura del Proyecto
+### Error: "Module not found"
 
-```
-dkp-backend/
-├── server.js           # Entry point, rutas principales
-├── database.js         # Configuración SQLite
-├── package.json
-├── .env.example
-├── middleware/
-│   └── auth.js         # JWT y autorización
-├── utils/
-│   └── validation.js   # Validadores
-├── tasks/
-│   └── scheduled.js    # Tareas programadas
-└── data/
-    └── dkp.db          # Base de datos (auto-creada)
+Reinstalar dependencias:
+```bash
+rm -rf node_modules package-lock.json
+npm install
 ```
 
-## 🤝 Próximos Pasos
+## 📚 Documentación Adicional
 
-- [ ] Integración con Wowhead para imágenes de items
-- [ ] Sistema de loot council alternativo
-- [ ] Notificaciones por Discord webhook
-- [ ] Estadísticas y gráficos
-- [ ] Soporte multi-guild
-
----
-
-**For the Horde! ⚔️ For the Alliance!**
+Ver [`ARCHITECTURE_DECISIONS.md`](../ARCHITECTURE_DECISIONS.md) para decisiones arquitectónicas y guías de desarrollo.

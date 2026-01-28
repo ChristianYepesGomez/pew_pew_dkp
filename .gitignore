@@ -1,5 +1,27 @@
+# Dependencies
 node_modules
+package-lock.json
+yarn.lock
+
+# Build output
 dist
-.env
-.env.local
 *.local
+
+# Logs
+*.log
+
+# Editor
+.vscode/*
+!.vscode/extensions.json
+.idea
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment and data
+.env
+data/
