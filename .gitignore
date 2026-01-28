@@ -1,35 +1,27 @@
 # Dependencies
-node_modules/
+node_modules
+package-lock.json
+yarn.lock
 
-# Environment
-.env
-.env.local
-.env.*.local
-
-# Database
-data/*.db
-data/*.db-journal
-*.sqlite
-*.sqlite3
+# Build output
+dist
+*.local
 
 # Logs
-logs/
 *.log
-npm-debug.log*
+
+# Editor
+.vscode/*
+!.vscode/extensions.json
+.idea
+*.swp
+*.swo
+*~
 
 # OS
 .DS_Store
 Thumbs.db
 
-# IDE
-.idea/
-.vscode/
-*.swp
-*.swo
-
-# Build
-dist/
-build/
-
-# Test coverage
-coverage/
+# Environment and data
+.env
+data/
