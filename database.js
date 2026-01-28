@@ -238,16 +238,32 @@ function initDatabase() {
     CREATE TABLE IF NOT EXISTS member_availability (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       user_id INTEGER NOT NULL,
-      week_start DATE NOT NULL,
-      day_of_week INTEGER NOT NULL CHECK(day_of_week BETWEEN 1 AND 7),
+      raid_date DATE NOT NULL,
       status TEXT DEFAULT 'tentative' CHECK(status IN ('confirmed', 'declined', 'tentative')),
       notes TEXT,
+      dkp_awarded INTEGER DEFAULT 0,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-      UNIQUE(user_id, week_start, day_of_week)
+      UNIQUE(user_id, raid_date)
     )
   `);
+
+  // Migration: Add dkp_awarded column if old schema (with week_start)
+  try {
+    db.exec(`ALTER TABLE member_availability ADD COLUMN dkp_awarded INTEGER DEFAULT 0`);
+    console.log('✅ Added dkp_awarded column to member_availability');
+  } catch (e) {
+    // Column already exists
+  }
+
+  // Migration: Add raid_date column if old schema
+  try {
+    db.exec(`ALTER TABLE member_availability ADD COLUMN raid_date DATE`);
+    console.log('✅ Added raid_date column to member_availability');
+  } catch (e) {
+    // Column already exists
+  }
 
   // Weekly DKP rewards tracking for calendar completion
   db.exec(`
@@ -273,9 +289,7 @@ function initDatabase() {
     CREATE INDEX IF NOT EXISTS idx_raid_attendance_user ON raid_attendance(user_id);
     CREATE INDEX IF NOT EXISTS idx_warcraftlogs_report_code ON warcraft_logs_processed(report_code);
     CREATE INDEX IF NOT EXISTS idx_member_availability_user ON member_availability(user_id);
-    CREATE INDEX IF NOT EXISTS idx_member_availability_week ON member_availability(week_start);
-    CREATE INDEX IF NOT EXISTS idx_calendar_rewards_user ON calendar_dkp_rewards(user_id);
-    CREATE INDEX IF NOT EXISTS idx_calendar_rewards_week ON calendar_dkp_rewards(week_start);
+    CREATE INDEX IF NOT EXISTS idx_member_availability_date ON member_availability(raid_date);
   `);
 
   // No default admin - use seed.js to create users
@@ -290,7 +304,7 @@ function initDatabase() {
       { key: 'boss_kill_bonus', value: '10', description: 'DKP bonus adicional por cada boss derrotado' },
       { key: 'default_server', value: 'Ragnaros', description: 'Servidor por defecto de la guild' },
       { key: 'auto_assign_enabled', value: 'false', description: 'Asignar DKP automáticamente (sin confirmación)' },
-      { key: 'calendar_dkp_per_day', value: '1', description: 'DKP otorgado por cada día de calendario completado' }
+      { key: 'calendar_dkp_per_day', value: '2', description: 'DKP otorgado por cada día de calendario completado' }
     ];
 
     const insertConfig = db.prepare(`
