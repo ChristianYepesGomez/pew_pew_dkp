@@ -7,7 +7,7 @@ import jwt from 'jsonwebtoken';
 import { db, initDatabase } from './database.js';
 import { authenticateToken, authorizeRole } from './middleware/auth.js';
 import { processWarcraftLog, isConfigured as isWCLConfigured } from './services/warcraftlogs.js';
-import { getAllRaidItems, searchItems, getItemsByRaid, CURRENT_RAIDS } from './services/raidItems.js';
+import { getAllRaidItems, searchItems, getItemsByRaid, getAvailableRaids } from './services/raidItems.js';
 
 const app = express();
 const server = createServer(app);
@@ -987,12 +987,13 @@ app.get('/api/raid-items/:raidName', authenticateToken, (req, res) => {
 });
 
 // Get all raids
-app.get('/api/raids-list', authenticateToken, (req, res) => {
-  const raids = Object.keys(CURRENT_RAIDS).map(name => ({
-    name,
-    bosses: Object.keys(CURRENT_RAIDS[name].bosses)
-  }));
-  res.json({ raids });
+app.get('/api/raids-list', authenticateToken, async (req, res) => {
+  try {
+    const raids = await getAvailableRaids();
+    res.json({ raids });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to get raids list' });
+  }
 });
 
 // Get auction history
