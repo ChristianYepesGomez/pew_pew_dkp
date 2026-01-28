@@ -5,6 +5,7 @@ import Header from '../components/Layout/Header'
 import MembersTab from '../components/Roster/MembersTab'
 import AuctionTab from '../components/Auction/AuctionTab'
 import HistoryTab from '../components/Auction/HistoryTab'
+import CalendarTab from '../components/Calendar/CalendarTab'
 import AdminTab from '../components/Admin/AdminTab'
 
 const Dashboard = () => {
@@ -18,6 +19,7 @@ const Dashboard = () => {
 
   const tabs = [
     { id: 'members', icon: 'fa-users', label: t('members') },
+    { id: 'calendar', icon: 'fa-calendar-alt', label: t('calendar') },
     { id: 'auction', icon: 'fa-gavel', label: t('active_auction') },
     { id: 'history', icon: 'fa-history', label: t('auction_history') },
   ]
@@ -30,8 +32,8 @@ const Dashboard = () => {
       <Header />
 
       <div className="container mx-auto px-4 py-8 max-w-7xl">
-        {/* Tabs */}
-        <div className="flex flex-wrap gap-2 mb-8 border-b-2 border-midnight-bright-purple border-opacity-30 pb-4">
+        {/* Tabs - Centered */}
+        <div className="flex flex-wrap justify-center gap-2 mb-8 border-b-2 border-midnight-bright-purple border-opacity-30 pb-4">
           {tabs.map((tab) => (
             <button
               key={tab.id}
@@ -51,6 +53,7 @@ const Dashboard = () => {
         {/* Content */}
         <div className="animate-fade-in">
           {activeTab === 'members' && <MembersTab />}
+          {activeTab === 'calendar' && <CalendarTab />}
           {activeTab === 'auction' && <AuctionTab />}
           {activeTab === 'history' && <HistoryTab />}
           {activeTab === 'admin' && isAdmin && <AdminTab />}

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { useLanguage } from '../../hooks/useLanguage'
 import { raidItemsAPI, auctionsAPI } from '../../services/api'
@@ -22,7 +22,6 @@ const RARITY_BG = {
 const CreateAuctionModal = ({ onClose, onSuccess }) => {
   const { t, language } = useLanguage()
   const [items, setItems] = useState([])
-  const [filteredItems, setFilteredItems] = useState([])
   const [search, setSearch] = useState('')
   const [selectedItem, setSelectedItem] = useState(null)
   const [durationMinutes, setDurationMinutes] = useState(5)
@@ -45,15 +44,10 @@ const CreateAuctionModal = ({ onClose, onSuccess }) => {
     loadItems()
   }, [])
 
-  useEffect(() => {
-    filterItems()
-  }, [search, items, selectedBoss, language])
-
   const loadItems = async () => {
     try {
       const response = await raidItemsAPI.getAll()
       setItems(response.data.items || [])
-      setFilteredItems(response.data.items || [])
     } catch (error) {
       console.error('Error loading items:', error)
     } finally {
@@ -61,24 +55,34 @@ const CreateAuctionModal = ({ onClose, onSuccess }) => {
     }
   }
 
-  const filterItems = () => {
+  // Get boss name in current language
+  const getBossName = useCallback((item) => {
+    return language === 'es' ? item.boss : (item.bossEn || item.boss)
+  }, [language])
+
+  // Filter items using useMemo for proper derived state
+  const filteredItems = useMemo(() => {
     let filtered = items
 
     if (selectedBoss !== 'all') {
       filtered = filtered.filter(item => item.boss === selectedBoss)
     }
 
-    if (search) {
-      const lowerSearch = search.toLowerCase()
-      filtered = filtered.filter(item =>
-        item.name[language]?.toLowerCase().includes(lowerSearch) ||
-        item.name.en?.toLowerCase().includes(lowerSearch) ||
-        item.boss?.toLowerCase().includes(lowerSearch)
-      )
+    if (search.trim()) {
+      const lowerSearch = search.toLowerCase().trim()
+      filtered = filtered.filter(item => {
+        const nameEn = (item.name?.en || '').toLowerCase()
+        const nameEs = (item.name?.es || '').toLowerCase()
+        const bossName = getBossName(item)?.toLowerCase() || ''
+
+        return nameEn.includes(lowerSearch) ||
+               nameEs.includes(lowerSearch) ||
+               bossName.includes(lowerSearch)
+      })
     }
 
-    setFilteredItems(filtered)
-  }
+    return filtered
+  }, [items, selectedBoss, search, getBossName])
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -105,8 +109,18 @@ const CreateAuctionModal = ({ onClose, onSuccess }) => {
     }
   }
 
-  // Get unique bosses
-  const bosses = [...new Set(items.map(item => item.boss))]
+  // Get unique bosses with both language names
+  const bossesMap = new Map()
+  items.forEach(item => {
+    if (!bossesMap.has(item.boss)) {
+      bossesMap.set(item.boss, {
+        key: item.boss, // Spanish name as unique key
+        es: item.boss,
+        en: item.bossEn || item.boss
+      })
+    }
+  })
+  const bosses = Array.from(bossesMap.values())
 
   return createPortal(
     <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-[100] p-4 overflow-y-auto">
@@ -157,7 +171,7 @@ const CreateAuctionModal = ({ onClose, onSuccess }) => {
               >
                 <option value="all">{t('all_bosses')}</option>
                 {bosses.map(boss => (
-                  <option key={boss} value={boss}>{boss}</option>
+                  <option key={boss.key} value={boss.key}>{language === 'es' ? boss.es : boss.en}</option>
                 ))}
               </select>
             </div>
@@ -198,7 +212,7 @@ const CreateAuctionModal = ({ onClose, onSuccess }) => {
                         {item.name[language] || item.name.en}
                       </p>
                       <p className="text-xs text-midnight-silver m-0 truncate">
-                        {t(item.boss) || item.boss} - {t(item.slot) || item.slot}
+                        {getBossName(item)} - {t(item.slot) || item.slot}
                       </p>
                     </div>
                     {selectedItem?.id === item.id && (
@@ -235,7 +249,7 @@ const CreateAuctionModal = ({ onClose, onSuccess }) => {
                     {selectedItem.name[language] || selectedItem.name.en}
                   </p>
                   <p className="text-sm text-midnight-silver m-0">
-                    {t(selectedItem.boss) || selectedItem.boss} - {t(selectedItem.slot) || selectedItem.slot}
+                    {getBossName(selectedItem)} - {t(selectedItem.slot) || selectedItem.slot}
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
