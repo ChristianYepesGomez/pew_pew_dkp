@@ -27,9 +27,9 @@ const getOAuthUrl = (region) => `https://${region}.battle.net/oauth/token`;
 // Current raid instance IDs - UPDATE THESE WHEN NEW RAIDS RELEASE
 // Find IDs at: https://wowhead.com/raids or via Blizzard API journal-instance index
 const CURRENT_RAID_INSTANCES = [
-  { id: 1296, name: 'Manaforge Omega', expansion: 'The War Within', season: 3 },
+  { id: 1302, name: 'Manaforge Omega', expansion: 'The War Within', season: 3 },
   // Add more raids here when they release
-  // { id: XXXX, name: 'Liberation of Undermine', expansion: 'The War Within', season: 2 },
+  // { id: 1296, name: 'Liberation of Undermine', expansion: 'The War Within', season: 2 },
 ];
 
 // Excluded item types (crafting mats, currency, etc.)
@@ -46,18 +46,26 @@ const EXCLUDED_ITEM_TYPES = [
   'Recipe',
 ];
 
-// Excluded item name patterns
+// Excluded item name patterns (both English and Spanish)
 const EXCLUDED_PATTERNS = [
   /^Spark of/i,
+  /^Chispa de/i, // Spark of (Spanish)
   /^Seda de/i, // Silk
   /^Silk/i,
   /^Thread/i,
   /^Hilo/i,
   /Essence$/i,
+  /Esencia$/i, // Essence (Spanish)
   /^Patrón:/i, // Pattern:
   /^Pattern:/i,
   /^Recipe:/i,
   /^Receta:/i,
+  /^Design:/i,
+  /^Diseño:/i, // Design (Spanish)
+  /^Formula:/i,
+  /^Fórmula:/i, // Formula (Spanish)
+  /^Schematic:/i,
+  /^Esquema:/i, // Schematic (Spanish)
 ];
 
 let accessToken = null;
@@ -237,7 +245,7 @@ async function fetchRaidItems(instanceId) {
         // Get full item details
         const itemDetails = await getItem(item.id);
 
-        // Check if should exclude
+        // Check if should exclude (based on item type, not name - names are language-dependent)
         if (shouldExcludeItem(itemDetails)) {
           continue;
         }
@@ -247,13 +255,11 @@ async function fetchRaidItems(instanceId) {
 
         items.push({
           id: item.id,
-          name: {
-            en: item.name, // The API returns localized name based on locale
-            es: item.name, // We'll get Spanish from the locale setting
-          },
+          name: item.name, // Store localized name as string
           rarity: mapQuality(itemDetails.quality),
           icon: iconUrl,
           slot: mapSlot(itemDetails.inventory_type),
+          slotType: itemDetails.inventory_type?.type, // Store raw slot type for consistency
           raid: instance.name,
           boss: encounter.name,
           itemLevel: itemDetails.level,
@@ -274,30 +280,71 @@ async function fetchRaidItems(instanceId) {
 async function fetchRaidItemsMultiLang(instanceId) {
   console.log(`Fetching items in multiple languages for instance ${instanceId}...`);
 
-  // Fetch in Spanish (primary)
+  // Fetch in English first (for consistent slot names)
   const originalLocale = CONFIG.locale;
-  CONFIG.locale = 'es_ES';
-  const spanishItems = await fetchRaidItems(instanceId);
-
-  // Fetch in English
   CONFIG.locale = 'en_US';
   const englishItems = await fetchRaidItems(instanceId);
+  console.log(`  Fetched ${englishItems.length} items in English`);
+
+  // Fetch in Spanish
+  CONFIG.locale = 'es_ES';
+  const spanishItems = await fetchRaidItems(instanceId);
+  console.log(`  Fetched ${spanishItems.length} items in Spanish`);
+
   CONFIG.locale = originalLocale;
 
-  // Merge translations
-  const mergedItems = spanishItems.map(esItem => {
-    const enItem = englishItems.find(en => en.id === esItem.id);
-    return {
-      ...esItem,
-      name: {
-        es: esItem.name.es,
-        en: enItem?.name.en || esItem.name.es,
-      },
-      boss: esItem.boss, // Keep Spanish boss name
-      bossEn: enItem?.boss || esItem.boss, // Also store English
-    };
-  });
+  // Create a map of English items by ID for faster lookup
+  const englishItemsMap = new Map(englishItems.map(item => [item.id, item]));
 
+  // Merge translations - use English as base for consistent slot names
+  const mergedItems = [];
+  const processedIds = new Set();
+
+  // First, process all English items and add Spanish translations
+  for (const enItem of englishItems) {
+    const esItem = spanishItems.find(es => es.id === enItem.id);
+
+    mergedItems.push({
+      id: enItem.id,
+      name: {
+        en: enItem.name,
+        es: esItem?.name || enItem.name, // Fallback to English if no Spanish
+      },
+      rarity: enItem.rarity,
+      icon: enItem.icon,
+      slot: enItem.slot, // Use English slot name
+      raid: esItem?.raid || enItem.raid, // Spanish raid name for display
+      raidEn: enItem.raid, // English raid name
+      boss: esItem?.boss || enItem.boss, // Spanish boss name for display
+      bossEn: enItem.boss, // English boss name
+      itemLevel: enItem.itemLevel,
+    });
+
+    processedIds.add(enItem.id);
+  }
+
+  // Add any Spanish-only items (items that might have been filtered differently)
+  for (const esItem of spanishItems) {
+    if (!processedIds.has(esItem.id)) {
+      mergedItems.push({
+        id: esItem.id,
+        name: {
+          en: esItem.name, // No English available, use Spanish
+          es: esItem.name,
+        },
+        rarity: esItem.rarity,
+        icon: esItem.icon,
+        slot: esItem.slot,
+        raid: esItem.raid,
+        raidEn: esItem.raid,
+        boss: esItem.boss,
+        bossEn: esItem.boss,
+        itemLevel: esItem.itemLevel,
+      });
+    }
+  }
+
+  console.log(`  Merged ${mergedItems.length} unique items`);
   return mergedItems;
 }
 
