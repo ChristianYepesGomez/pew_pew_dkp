@@ -1,24 +1,47 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useAuth } from '../hooks/useAuth'
-import { useSocket } from '../hooks/useSocket'
 import { useLanguage } from '../hooks/useLanguage'
+import { dkpAPI } from '../services/api'
 import Header from '../components/Layout/Header'
-import CharacterTab from '../components/DKP/CharacterTab'
 import MembersTab from '../components/Roster/MembersTab'
 import AuctionTab from '../components/Auction/AuctionTab'
 import HistoryTab from '../components/Auction/HistoryTab'
 import AdminTab from '../components/Admin/AdminTab'
+import CharacterProfileModal from '../components/Profile/CharacterProfileModal'
 
 const Dashboard = () => {
-  const [activeTab, setActiveTab] = useState('character')
+  const [activeTab, setActiveTab] = useState('members')
+  const [profileOpen, setProfileOpen] = useState(false)
+  const [userDkp, setUserDkp] = useState(0)
+  const [refreshingDkp, setRefreshingDkp] = useState(false)
   const { t } = useLanguage()
   const { user } = useAuth()
-  const { isConnected } = useSocket()
+  const isConnected = false
 
   const isAdmin = user?.role === 'admin' || user?.role === 'officer'
 
+  // Load user's DKP
+  const loadUserDkp = async () => {
+    if (!user?.id) return
+    try {
+      const response = await dkpAPI.getHistory(user.id)
+      setUserDkp(response.data.currentDkp || 0)
+    } catch (error) {
+      console.error('Error loading user DKP:', error)
+    }
+  }
+
+  useEffect(() => {
+    loadUserDkp()
+  }, [user?.id])
+
+  const handleRefreshDkp = async () => {
+    setRefreshingDkp(true)
+    await loadUserDkp()
+    setTimeout(() => setRefreshingDkp(false), 500)
+  }
+
   const tabs = [
-    { id: 'character', icon: 'fa-user-shield', label: t('my_character') },
     { id: 'members', icon: 'fa-users', label: t('members') },
     { id: 'auction', icon: 'fa-gavel', label: t('active_auction') },
     { id: 'history', icon: 'fa-history', label: t('auction_history') },
@@ -28,7 +51,13 @@ const Dashboard = () => {
 
   return (
     <div className="min-h-screen">
-      <Header isConnected={isConnected} />
+      <Header
+        isConnected={isConnected}
+        userDkp={userDkp}
+        onProfileClick={() => setProfileOpen(true)}
+        onRefreshDkp={handleRefreshDkp}
+        refreshingDkp={refreshingDkp}
+      />
 
       <div className="container mx-auto px-4 py-8 max-w-7xl">
         {/* Tabs */}
@@ -51,13 +80,18 @@ const Dashboard = () => {
 
         {/* Content */}
         <div className="animate-fade-in">
-          {activeTab === 'character' && <CharacterTab />}
           {activeTab === 'members' && <MembersTab />}
           {activeTab === 'auction' && <AuctionTab />}
           {activeTab === 'history' && <HistoryTab />}
           {activeTab === 'admin' && isAdmin && <AdminTab />}
         </div>
       </div>
+
+      {/* Character Profile Modal */}
+      <CharacterProfileModal
+        isOpen={profileOpen}
+        onClose={() => setProfileOpen(false)}
+      />
     </div>
   )
 }

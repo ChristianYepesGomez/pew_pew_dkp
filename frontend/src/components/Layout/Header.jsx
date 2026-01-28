@@ -1,15 +1,16 @@
 import { useAuth } from '../../hooks/useAuth'
 import { useLanguage } from '../../hooks/useLanguage'
+import CatLogo from './CatLogo'
 
-const Header = ({ isConnected }) => {
+const Header = ({ isConnected, userDkp = 0, onProfileClick, onRefreshDkp, refreshingDkp = false }) => {
   const { user, logout } = useAuth()
   const { t, language, changeLanguage } = useLanguage()
 
   return (
-    <nav className="bg-gradient-to-r from-midnight-deepblue to-midnight-purple backdrop-blur-lg shadow-lg border-b-2 border-midnight-bright-purple py-4">
+    <nav className="bg-gradient-to-r from-midnight-deepblue to-midnight-purple backdrop-blur-lg shadow-lg border-b-2 border-midnight-bright-purple py-4 sticky top-0 z-40">
       <div className="container mx-auto px-4 flex justify-between items-center">
         <div className="flex items-center">
-          <i className="fas fa-moon text-midnight-glow text-2xl mr-3"></i>
+          <CatLogo size={42} className="mr-3 drop-shadow-[0_0_8px_rgba(167,139,250,0.6)]" />
           <div>
             <h1 className="font-cinzel text-xl font-bold text-midnight-silver" style={{ textShadow: '0 0 10px rgba(167, 139, 250, 0.8)' }}>
               {t('guild_name')}
@@ -25,10 +26,27 @@ const Header = ({ isConnected }) => {
             <small className="text-midnight-silver">{isConnected ? t('connected') : t('disconnected')}</small>
           </div>
 
-          {/* User */}
-          <div className="flex items-center text-midnight-silver">
-            <i className="fas fa-user mr-2"></i>
-            <span>{user?.characterName || user?.username}</span>
+          {/* User Profile Button */}
+          <div className="flex items-center rounded-lg border border-midnight-bright-purple overflow-hidden">
+            <button
+              onClick={onProfileClick}
+              className="flex items-center px-4 py-2 hover:bg-midnight-bright-purple hover:bg-opacity-20 transition-all"
+            >
+              <i className="fas fa-user mr-2 text-midnight-glow"></i>
+              <span className="text-midnight-silver">{user?.characterName || user?.username}</span>
+            </button>
+            <button
+              onClick={onRefreshDkp}
+              disabled={refreshingDkp}
+              className="px-3 py-2 bg-midnight-bright-purple bg-opacity-20 hover:bg-opacity-40 transition-all border-l border-midnight-bright-purple"
+              title={t('refresh')}
+            >
+              {refreshingDkp ? (
+                <i className="fas fa-circle-notch fa-spin text-midnight-glow"></i>
+              ) : (
+                <span className="text-midnight-glow font-bold">({userDkp})</span>
+              )}
+            </button>
           </div>
 
           {/* Language */}

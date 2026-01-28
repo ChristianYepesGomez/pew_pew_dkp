@@ -84,6 +84,9 @@ export const translations = {
     select_class: 'Selecciona clase',
     select_spec: 'Especialización',
     create_auction: 'Crear Subasta',
+    character_stats: 'Estadísticas del Personaje',
+    refresh: 'Actualizar',
+    close: 'Cerrar',
   },
   en: {
     guild_name: 'Pew Pew Kittens with Guns',
@@ -170,5 +173,8 @@ export const translations = {
     select_class: 'Select class',
     select_spec: 'Specialization',
     create_auction: 'Create Auction',
+    character_stats: 'Character Stats',
+    refresh: 'Refresh',
+    close: 'Close',
   },
 }
