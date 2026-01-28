@@ -54,4 +54,14 @@ export const warcraftLogsAPI = {
   confirm: (reportId) => api.post('/warcraftlogs/confirm', { reportId }),
 }
 
+export const calendarAPI = {
+  getRaidDays: () => api.get('/calendar/raid-days'),
+  updateRaidDays: (days) => api.put('/calendar/raid-days', { days }),
+  getDates: (weeks = 2) => api.get(`/calendar/dates?weeks=${weeks}`),
+  getMySignups: (weeks = 2) => api.get(`/calendar/my-signups?weeks=${weeks}`),
+  signup: (date, status, notes) => api.post('/calendar/signup', { date, status, notes }),
+  getSummary: (date) => api.get(`/calendar/summary/${date}`),
+  getOverview: (weeks = 2) => api.get(`/calendar/overview?weeks=${weeks}`),
+}
+
 export default api
