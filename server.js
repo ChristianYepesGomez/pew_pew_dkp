@@ -38,17 +38,27 @@ function autoCloseAuction(auctionId) {
   const auction = db.prepare('SELECT * FROM auctions WHERE id = ? AND status = ?').get(auctionId, 'active');
   if (!auction) return; // Already ended or cancelled
 
-  // Get winning bid
-  const winningBid = db.prepare(`
+  // Get all bids sorted by amount descending (fallback if top bidder can't afford)
+  const allBids = db.prepare(`
     SELECT ab.*, u.character_name, u.character_class
     FROM auction_bids ab
     JOIN users u ON ab.user_id = u.id
     WHERE ab.auction_id = ?
     ORDER BY ab.amount DESC
-    LIMIT 1
-  `).get(auctionId);
+  `).all(auctionId);
+
+  let winningBid = null;
 
   const transaction = db.transaction(() => {
+    // Try each bidder in order until one can afford it
+    for (const bid of allBids) {
+      const bidderDkp = db.prepare('SELECT current_dkp FROM member_dkp WHERE user_id = ?').get(bid.user_id);
+      if (bidderDkp && bidderDkp.current_dkp >= bid.amount) {
+        winningBid = bid;
+        break;
+      }
+    }
+
     if (winningBid) {
       // Deduct DKP from winner
       db.prepare(`
@@ -71,7 +81,7 @@ function autoCloseAuction(auctionId) {
         WHERE id = ?
       `).run(winningBid.user_id, winningBid.amount, auctionId);
     } else {
-      // No bids - cancel auction
+      // No valid bids - cancel auction
       db.prepare(`
         UPDATE auctions SET status = 'cancelled', ended_at = CURRENT_TIMESTAMP WHERE id = ?
       `).run(auctionId);
@@ -436,14 +446,65 @@ app.put('/api/members/:id/role', authenticateToken, authorizeRole(['admin']), (r
   res.json({ message: 'Role updated successfully' });
 });
 
-// Deactivate member (admin only)
+// Deactivate member (admin only) - creates farewell record
 app.delete('/api/members/:id', authenticateToken, authorizeRole(['admin']), (req, res) => {
   const { id } = req.params;
 
+  // Get member info before deactivating
+  const member = db.prepare(`
+    SELECT u.*, md.current_dkp, md.lifetime_gained, md.lifetime_spent
+    FROM users u
+    LEFT JOIN member_dkp md ON u.id = md.user_id
+    WHERE u.id = ?
+  `).get(id);
+
+  if (!member) {
+    return res.status(404).json({ error: 'Member not found' });
+  }
+
+  // Get all items won by this member
+  const itemsWon = db.prepare(`
+    SELECT a.item_name, a.item_image, a.item_rarity, a.item_id, a.winning_bid, a.ended_at
+    FROM auctions a
+    WHERE a.winner_id = ? AND a.status = 'completed' AND a.farewell_data IS NULL
+    ORDER BY a.ended_at DESC
+  `).all(id);
+
+  // Create farewell auction record
+  const farewellData = JSON.stringify({
+    type: 'farewell',
+    member: {
+      characterName: member.character_name,
+      characterClass: member.character_class,
+      spec: member.spec,
+      raidRole: member.raid_role,
+      currentDkp: member.current_dkp || 0,
+      lifetimeGained: member.lifetime_gained || 0,
+      lifetimeSpent: member.lifetime_spent || 0,
+    },
+    itemsWon,
+    removedBy: req.user.userId,
+  });
+
+  // Insert farewell entry as a special completed auction with farewell_data
+  db.prepare(`
+    INSERT INTO auctions (item_name, item_image, item_rarity, status, winning_bid, winner_id, created_by, ended_at, duration_minutes, farewell_data)
+    VALUES (?, ?, 'legendary', 'completed', ?, ?, ?, datetime('now'), 0, ?)
+  `).run(
+    `${member.character_name}`,
+    null,
+    member.lifetime_spent || 0,
+    id,
+    req.user.userId,
+    farewellData
+  );
+
+  // Deactivate member
   db.prepare('UPDATE users SET is_active = 0 WHERE id = ?').run(id);
 
   io.emit('member_removed', { memberId: id });
-  res.json({ message: 'Member deactivated' });
+  io.emit('auction_ended');
+  res.json({ message: 'Member deactivated', member: member.character_name });
 });
 
 // Create new member (admin or officer)
@@ -1033,6 +1094,7 @@ app.get('/api/auctions/active', authenticateToken, (req, res) => {
       itemName: auction.item_name,
       itemImage: auction.item_image,
       itemRarity: auction.item_rarity,
+      itemId: auction.item_id,
       minimumBid: auction.min_bid,
       currentBid: highestBid,
       status: auction.status,
@@ -1061,7 +1123,23 @@ app.get('/api/auctions/active', authenticateToken, (req, res) => {
     };
   });
 
-  res.json({ auctions: auctionsWithBids });
+  // Calculate user's available DKP (current minus committed bids on active auctions)
+  const userId = req.user.userId;
+  const userDkp = db.prepare('SELECT current_dkp FROM member_dkp WHERE user_id = ?').get(userId);
+  const committedBids = db.prepare(`
+    SELECT COALESCE(SUM(ab.amount), 0) as total
+    FROM auction_bids ab
+    JOIN auctions a ON ab.auction_id = a.id
+    WHERE ab.user_id = ? AND a.status = 'active'
+    AND ab.amount = (
+      SELECT MAX(ab2.amount) FROM auction_bids ab2
+      WHERE ab2.auction_id = ab.auction_id AND ab2.user_id = ?
+    )
+  `).get(userId, userId);
+
+  const availableDkp = (userDkp?.current_dkp || 0) - (committedBids?.total || 0);
+
+  res.json({ auctions: auctionsWithBids, availableDkp });
 });
 
 // Create new auction (officer+)
@@ -1077,9 +1155,9 @@ app.post('/api/auctions', authenticateToken, authorizeRole(['admin', 'officer'])
 
   // Multiple active auctions are now allowed
   const result = db.prepare(`
-    INSERT INTO auctions (item_name, item_name_en, item_image, item_rarity, min_bid, created_by, status, duration_minutes, ends_at)
-    VALUES (?, ?, ?, ?, ?, ?, 'active', ?, ?)
-  `).run(itemName, itemNameEN || itemName, itemImage || '🎁', itemRarity || 'epic', minBid || 0, req.user.userId, duration, endsAt);
+    INSERT INTO auctions (item_name, item_name_en, item_image, item_rarity, min_bid, created_by, status, duration_minutes, ends_at, item_id)
+    VALUES (?, ?, ?, ?, ?, ?, 'active', ?, ?, ?)
+  `).run(itemName, itemNameEN || itemName, itemImage || '🎁', itemRarity || 'epic', minBid || 0, req.user.userId, duration, endsAt, itemId || null);
 
   const auction = db.prepare('SELECT * FROM auctions WHERE id = ?').get(result.lastInsertRowid);
 
@@ -1109,10 +1187,27 @@ app.post('/api/auctions/:auctionId/bid', authenticateToken, (req, res) => {
     return res.status(400).json({ error: 'Bid must be at least 1 DKP' });
   }
 
-  // Check user's DKP
+  // Check user's DKP including committed bids on other active auctions
   const userDkp = db.prepare('SELECT current_dkp FROM member_dkp WHERE user_id = ?').get(userId);
-  if (!userDkp || userDkp.current_dkp < amount) {
+  if (!userDkp) {
     return res.status(400).json({ error: 'Insufficient DKP' });
+  }
+
+  // Calculate DKP committed to other active auctions (highest bid per auction)
+  const committedBids = db.prepare(`
+    SELECT COALESCE(SUM(ab.amount), 0) as total
+    FROM auction_bids ab
+    JOIN auctions a ON ab.auction_id = a.id
+    WHERE ab.user_id = ? AND a.status = 'active' AND a.id != ?
+    AND ab.amount = (
+      SELECT MAX(ab2.amount) FROM auction_bids ab2
+      WHERE ab2.auction_id = ab.auction_id AND ab2.user_id = ?
+    )
+  `).get(userId, auctionId, userId);
+
+  const availableDkp = userDkp.current_dkp - (committedBids?.total || 0);
+  if (availableDkp < amount) {
+    return res.status(400).json({ error: 'Insufficient DKP (accounting for your bids on other active auctions)' });
   }
 
   // Check if higher bid exists
@@ -1155,21 +1250,31 @@ app.post('/api/auctions/:auctionId/end', authenticateToken, authorizeRole(['admi
     return res.status(404).json({ error: 'Active auction not found' });
   }
 
-  // Get winning bid
-  const winningBid = db.prepare(`
+  // Get all bids sorted by amount descending (fallback if top bidder can't afford)
+  const allBids = db.prepare(`
     SELECT ab.*, u.character_name, u.character_class
     FROM auction_bids ab
     JOIN users u ON ab.user_id = u.id
     WHERE ab.auction_id = ?
     ORDER BY ab.amount DESC
-    LIMIT 1
-  `).get(auctionId);
+  `).all(auctionId);
+
+  let winningBid = null;
 
   const transaction = db.transaction(() => {
+    // Try each bidder in order until one can afford it
+    for (const bid of allBids) {
+      const bidderDkp = db.prepare('SELECT current_dkp FROM member_dkp WHERE user_id = ?').get(bid.user_id);
+      if (bidderDkp && bidderDkp.current_dkp >= bid.amount) {
+        winningBid = bid;
+        break;
+      }
+    }
+
     if (winningBid) {
       // Deduct DKP from winner
       db.prepare(`
-        UPDATE member_dkp 
+        UPDATE member_dkp
         SET current_dkp = current_dkp - ?,
             lifetime_spent = lifetime_spent + ?
         WHERE user_id = ?
@@ -1183,12 +1288,12 @@ app.post('/api/auctions/:auctionId/end', authenticateToken, authorizeRole(['admi
 
       // Update auction
       db.prepare(`
-        UPDATE auctions 
+        UPDATE auctions
         SET status = 'completed', winner_id = ?, winning_bid = ?, ended_at = CURRENT_TIMESTAMP
         WHERE id = ?
       `).run(winningBid.user_id, winningBid.amount, auctionId);
     } else {
-      // No bids - cancel auction
+      // No valid bids - cancel auction
       db.prepare(`
         UPDATE auctions SET status = 'cancelled', ended_at = CURRENT_TIMESTAMP WHERE id = ?
       `).run(auctionId);
@@ -1324,20 +1429,27 @@ app.get('/api/auctions/history', authenticateToken, (req, res) => {
   `).all(limit);
 
   // Format response with winner object
-  const formatted = auctions.map(a => ({
-    id: a.id,
-    item_name: a.item_name,
-    item_image: a.item_image,
-    item_rarity: a.item_rarity,
-    status: a.status,
-    winning_bid: a.winning_bid,
-    created_at: a.created_at,
-    ended_at: a.ended_at,
-    winner: a.winner_name ? {
-      characterName: a.winner_name,
-      characterClass: a.winner_class
-    } : null
-  }));
+  const formatted = auctions.map(a => {
+    const entry = {
+      id: a.id,
+      item_name: a.item_name,
+      item_image: a.item_image,
+      item_rarity: a.item_rarity,
+      item_id: a.item_id,
+      status: a.status,
+      winning_bid: a.winning_bid,
+      created_at: a.created_at,
+      ended_at: a.ended_at,
+      winner: a.winner_name ? {
+        characterName: a.winner_name,
+        characterClass: a.winner_class
+      } : null
+    };
+    if (a.farewell_data) {
+      try { entry.farewell = JSON.parse(a.farewell_data); } catch (e) {}
+    }
+    return entry;
+  });
 
   res.json(formatted);
 });
@@ -1503,14 +1615,8 @@ app.post('/api/warcraftlogs/preview', authenticateToken, authorizeRole(['admin',
     // Process the log from Warcraft Logs API
     const reportData = await processWarcraftLog(url);
 
-    // Get DKP configuration
-    const raidDKP = parseInt(db.prepare(
-      "SELECT config_value FROM dkp_config WHERE config_key = 'raid_attendance_dkp'"
-    ).get()?.config_value || 50);
-
-    const bossBonus = parseInt(db.prepare(
-      "SELECT config_value FROM dkp_config WHERE config_key = 'boss_kill_bonus'"
-    ).get()?.config_value || 10);
+    // Flat 10 DKP per raid attendance
+    const raidDKP = 10;
 
     const defaultServer = db.prepare(
       "SELECT config_value FROM dkp_config WHERE config_key = 'default_server'"
@@ -1545,7 +1651,7 @@ app.post('/api/warcraftlogs/preview', authenticateToken, authorizeRole(['admin',
           character_name: user.character_name,
           current_dkp: user.current_dkp,
           server_match: serverMatch,
-          dkp_to_assign: raidDKP + (reportData.bossesKilled * bossBonus)
+          dkp_to_assign: raidDKP
         });
 
         if (!serverMatch) {
@@ -1598,9 +1704,7 @@ app.post('/api/warcraftlogs/preview', authenticateToken, authorizeRole(['admin',
       },
       dkp_calculation: {
         base_dkp: raidDKP,
-        boss_bonus: bossBonus,
-        bosses_killed: reportData.bossesKilled,
-        dkp_per_player: raidDKP + (reportData.bossesKilled * bossBonus),
+        dkp_per_player: raidDKP,
         total_dkp_to_assign: totalDKP
       },
       participants: matchResults,
