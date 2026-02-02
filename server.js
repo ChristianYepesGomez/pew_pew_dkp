@@ -9,6 +9,7 @@ import { db, initDatabase } from './database.js';
 import { authenticateToken, authorizeRole } from './middleware/auth.js';
 import { processWarcraftLog, isConfigured as isWCLConfigured } from './services/warcraftlogs.js';
 import { getAllRaidItems, searchItems, getItemsByRaid, refreshFromAPI, getAvailableRaids, getDataSourceStatus, isAPIConfigured } from './services/raidItems.js';
+import { sendPasswordResetEmail, isEmailConfigured } from './services/email.js';
 
 const app = express();
 const server = createServer(app);
@@ -224,15 +225,17 @@ app.post('/api/auth/forgot-password', async (req, res) => {
       WHERE id = ?
     `).run(resetToken, user.id);
 
-    // TODO: Send email with reset link
-    // For now, log it (in production, use nodemailer or similar)
     const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/reset-password/${resetToken}`;
-    console.log(`📧 Password reset link for ${user.username}: ${resetUrl}`);
+
+    const emailSent = await sendPasswordResetEmail(user.email, user.username, resetUrl);
+
+    if (!emailSent) {
+      console.log(`Password reset link for ${user.username}: ${resetUrl}`);
+    }
 
     res.json({
-      message: 'Password reset link sent to your email',
-      // In development, include the token for testing
-      ...(process.env.NODE_ENV !== 'production' && { resetToken })
+      message: emailSent ? 'Password reset link sent to your email' : 'Email not configured. Check server console for reset link.',
+      ...((!emailSent || process.env.NODE_ENV !== 'production') && { resetToken })
     });
 
   } catch (error) {
