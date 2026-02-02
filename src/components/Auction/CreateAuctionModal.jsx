@@ -4,11 +4,11 @@ import { useLanguage } from '../../hooks/useLanguage'
 import { raidItemsAPI, auctionsAPI } from '../../services/api'
 
 const RARITY_COLORS = {
-  common: '#9D9D9D',
-  uncommon: '#1EFF00',
-  rare: '#0070DD',
-  epic: '#A335EE',
-  legendary: '#FF8000',
+  common: '#C0C0C0',
+  uncommon: '#5BFF3B',
+  rare: '#5EB5FF',
+  epic: '#C680FF',
+  legendary: '#FFa040',
 }
 
 const RARITY_BG = {

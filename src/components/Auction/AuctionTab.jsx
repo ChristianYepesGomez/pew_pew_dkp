@@ -5,13 +5,14 @@ import { useLanguage } from '../../hooks/useLanguage'
 import { auctionsAPI } from '../../services/api'
 import CreateAuctionModal from './CreateAuctionModal'
 import BidModal from './BidModal'
+import WowheadTooltip from '../Common/WowheadTooltip'
 
 const RARITY_COLORS = {
-  common: '#9D9D9D',
-  uncommon: '#1EFF00',
-  rare: '#0070DD',
-  epic: '#A335EE',
-  legendary: '#FF8000',
+  common: '#C0C0C0',
+  uncommon: '#5BFF3B',
+  rare: '#5EB5FF',
+  epic: '#C680FF',
+  legendary: '#FFa040',
 }
 
 const CLASS_COLORS = {
@@ -23,6 +24,7 @@ const AuctionTab = () => {
   const { user } = useAuth()
   const { t } = useLanguage()
   const [auctions, setAuctions] = useState([])
+  const [availableDkp, setAvailableDkp] = useState(0)
   const [loading, setLoading] = useState(true)
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [bidModal, setBidModal] = useState({ open: false, auction: null })
@@ -34,6 +36,7 @@ const AuctionTab = () => {
     try {
       const response = await auctionsAPI.getActive()
       setAuctions(response.data?.auctions || [])
+      setAvailableDkp(response.data?.availableDkp ?? (user?.currentDkp || 0))
     } catch (error) {
       console.error('Error loading auctions:', error)
       setAuctions([])
@@ -136,26 +139,28 @@ const AuctionTab = () => {
               >
                 <div className="flex items-center gap-4">
                   {/* Item Icon */}
-                  <div
-                    className="w-14 h-14 rounded-lg bg-midnight-deepblue flex items-center justify-center border-2 flex-shrink-0 overflow-hidden"
-                    style={{ borderColor: RARITY_COLORS[auction.itemRarity] }}
-                  >
-                    {auction.itemImage && auction.itemImage !== '🎁' ? (
-                      <img
-                        src={auction.itemImage}
-                        alt={auction.itemName}
-                        className="w-full h-full object-cover"
-                        onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'block'; }}
-                      />
-                    ) : null}
-                    <i
-                      className="fas fa-gem text-2xl"
-                      style={{
-                        color: RARITY_COLORS[auction.itemRarity],
-                        display: auction.itemImage && auction.itemImage !== '🎁' ? 'none' : 'block'
-                      }}
-                    ></i>
-                  </div>
+                  <WowheadTooltip itemId={auction.itemId}>
+                    <div
+                      className="w-14 h-14 rounded-lg bg-midnight-deepblue flex items-center justify-center border-2 flex-shrink-0 overflow-hidden"
+                      style={{ borderColor: RARITY_COLORS[auction.itemRarity] }}
+                    >
+                      {auction.itemImage && auction.itemImage !== '🎁' ? (
+                        <img
+                          src={auction.itemImage}
+                          alt={auction.itemName}
+                          className="w-full h-full object-cover"
+                          onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'block'; }}
+                        />
+                      ) : null}
+                      <i
+                        className="fas fa-gem text-2xl"
+                        style={{
+                          color: RARITY_COLORS[auction.itemRarity],
+                          display: auction.itemImage && auction.itemImage !== '🎁' ? 'none' : 'block'
+                        }}
+                      ></i>
+                    </div>
+                  </WowheadTooltip>
 
                   {/* Item Name */}
                   <div className="flex-1 min-w-0">
@@ -226,7 +231,7 @@ const AuctionTab = () => {
       {bidModal.open && (
         <BidModal
           auction={bidModal.auction}
-          userDkp={user?.currentDkp || 0}
+          userDkp={availableDkp}
           onClose={() => setBidModal({ open: false, auction: null })}
           onSuccess={handleBidSuccess}
         />

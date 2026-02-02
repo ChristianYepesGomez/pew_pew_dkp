@@ -40,6 +40,7 @@ export const dkpAPI = {
 export const membersAPI = {
   getAll: () => api.get('/members'),
   create: (data) => api.post('/members', data),
+  remove: (id) => api.delete(`/members/${id}`),
 }
 
 export const auctionsAPI = {
@@ -53,7 +54,7 @@ export const auctionsAPI = {
 
 export const warcraftLogsAPI = {
   preview: (url) => api.post('/warcraftlogs/preview', { url }),
-  confirm: (reportId) => api.post('/warcraftlogs/confirm', { reportId }),
+  confirm: (data) => api.post('/warcraftlogs/confirm', data),
 }
 
 export const raidItemsAPI = {

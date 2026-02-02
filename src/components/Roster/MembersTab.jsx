@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
+import { createPortal } from 'react-dom'
 import { useAuth } from '../../hooks/useAuth'
 import { useSocket } from '../../hooks/useSocket'
 import { useLanguage } from '../../hooks/useLanguage'
@@ -63,6 +64,8 @@ const MembersTab = () => {
   const [loading, setLoading] = useState(true)
   const [adjustModal, setAdjustModal] = useState({ open: false, member: null })
   const [createModal, setCreateModal] = useState(false)
+  const [deleteModal, setDeleteModal] = useState({ open: false, member: null })
+  const [deleteLoading, setDeleteLoading] = useState(false)
   const [sortField, setSortField] = useState('currentDkp')
   const [sortDir, setSortDir] = useState('desc')
   const [filterText, setFilterText] = useState('')
@@ -144,6 +147,20 @@ const MembersTab = () => {
     setCreateModal(false)
   }
 
+  const handleDeleteMember = async () => {
+    if (!deleteModal.member) return
+    setDeleteLoading(true)
+    try {
+      await membersAPI.remove(deleteModal.member.id)
+      loadMembers()
+      setDeleteModal({ open: false, member: null })
+    } catch (error) {
+      console.error('Error removing member:', error)
+    } finally {
+      setDeleteLoading(false)
+    }
+  }
+
   const SortIcon = ({ field }) => {
     if (sortField !== field) return <i className="fas fa-sort text-gray-600 ml-1"></i>
     return sortDir === 'asc'
@@ -216,9 +233,20 @@ const MembersTab = () => {
           </thead>
           <tbody>
             {filteredAndSortedMembers.map((m) => (
-              <tr key={m.id} className="border-b border-midnight-bright-purple border-opacity-20 hover:bg-midnight-bright-purple hover:bg-opacity-10">
+              <tr key={m.id} className="group border-b border-midnight-bright-purple border-opacity-20 hover:bg-midnight-bright-purple hover:bg-opacity-10">
                 <td className="py-3 px-4">
-                  <strong style={{ color: CLASS_COLORS[m.characterClass] || '#FFF' }}>{m.characterName}</strong>
+                  <div className="flex items-center gap-2">
+                    {isAdmin && m.id !== user?.id && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setDeleteModal({ open: true, member: m }) }}
+                        className="text-red-500 opacity-0 group-hover:opacity-40 hover:!opacity-100 transition-opacity text-xs"
+                        title={t('remove_member')}
+                      >
+                        <i className="fas fa-times"></i>
+                      </button>
+                    )}
+                    <strong style={{ color: CLASS_COLORS[m.characterClass] || '#FFF' }}>{m.characterName}</strong>
+                  </div>
                 </td>
                 <td className="py-3 px-4">
                   {m.spec && SPEC_ICONS[m.spec] ? (
@@ -273,6 +301,41 @@ const MembersTab = () => {
           onClose={() => setCreateModal(false)}
           onSuccess={handleCreateMember}
         />
+      )}
+
+      {/* Delete Confirm Modal */}
+      {deleteModal.open && createPortal(
+        <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-[100] p-4">
+          <div className="bg-midnight-deepblue border-2 border-red-500 border-opacity-50 rounded-2xl w-full max-w-sm shadow-2xl p-6 text-center">
+            <i className="fas fa-skull-crossbones text-4xl text-red-400 mb-4"></i>
+            <h3 className="text-lg font-bold mb-2">{t('remove_member')}</h3>
+            <p className="text-midnight-silver mb-1">{t('confirm_remove_member')}</p>
+            <p className="font-bold text-lg mb-4" style={{ color: CLASS_COLORS[deleteModal.member?.characterClass] || '#FFF' }}>
+              {deleteModal.member?.characterName}
+            </p>
+            <p className="text-sm text-gray-500 mb-6">{t('farewell_note')}</p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setDeleteModal({ open: false, member: null })}
+                className="flex-1 px-4 py-3 rounded-lg border border-midnight-bright-purple text-midnight-silver hover:bg-midnight-bright-purple hover:bg-opacity-20 transition-all"
+              >
+                {t('cancel')}
+              </button>
+              <button
+                onClick={handleDeleteMember}
+                disabled={deleteLoading}
+                className="flex-1 px-4 py-3 rounded-lg bg-red-600 hover:bg-red-700 text-white font-bold transition-all disabled:opacity-50"
+              >
+                {deleteLoading ? (
+                  <i className="fas fa-circle-notch fa-spin"></i>
+                ) : (
+                  <><i className="fas fa-user-slash mr-2"></i>{t('confirm')}</>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
       )}
     </div>
   )

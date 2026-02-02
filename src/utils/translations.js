@@ -215,6 +215,15 @@ export const translations = {
     character_stats: 'Estadísticas del Personaje',
     refresh: 'Actualizar',
     close: 'Cerrar',
+    // Farewell / Member removal
+    remove_member: 'Eliminar Miembro',
+    confirm_remove_member: '¿Seguro que quieres eliminar a este miembro?',
+    farewell_note: 'Se creará un registro de despedida en el historial de subastas.',
+    farewell_left_guild: 'Dejó la guild',
+    farewell_message: 'Gracias por tu paso por la guild. ¡Buena suerte, aventurero!',
+    items_won: 'Items ganados',
+    items_obtained: 'Items obtenidos',
+    no_items_obtained: 'No obtuvo ningún item',
   },
   en: {
     guild_name: 'Pew Pew Kittens with Guns',
@@ -432,5 +441,14 @@ export const translations = {
     character_stats: 'Character Stats',
     refresh: 'Refresh',
     close: 'Close',
+    // Farewell / Member removal
+    remove_member: 'Remove Member',
+    confirm_remove_member: 'Are you sure you want to remove this member?',
+    farewell_note: 'A farewell record will be created in the auction history.',
+    farewell_left_guild: 'Left the guild',
+    farewell_message: 'Thank you for your time in the guild. Good luck, adventurer!',
+    items_won: 'Items won',
+    items_obtained: 'Items obtained',
+    no_items_obtained: 'No items obtained',
   },
 }
