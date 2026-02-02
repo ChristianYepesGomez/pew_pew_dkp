@@ -3,6 +3,7 @@ import { useAuth } from '../../hooks/useAuth'
 import { useLanguage } from '../../hooks/useLanguage'
 import { useSocket } from '../../hooks/useSocket'
 import MyCharacterModal from '../Character/MyCharacterModal'
+import CatLogo from './CatLogo'
 
 const CLASS_COLORS = {
   Warrior: '#C79C6E', Paladin: '#F58CBA', Hunter: '#ABD473', Rogue: '#FFF569', Priest: '#FFFFFF',
@@ -27,7 +28,7 @@ const Header = () => {
       <nav className="bg-gradient-to-r from-midnight-deepblue to-midnight-purple backdrop-blur-lg shadow-lg border-b-2 border-midnight-bright-purple py-4">
         <div className="container mx-auto px-4 flex justify-between items-center">
           <div className="flex items-center">
-            <i className="fas fa-moon text-midnight-glow text-2xl mr-3"></i>
+            <CatLogo size={42} className="mr-3 drop-shadow-[0_0_8px_rgba(167,139,250,0.6)]" />
             <div>
               <h1 className="font-cinzel text-xl font-bold text-midnight-silver" style={{ textShadow: '0 0 10px rgba(167, 139, 250, 0.8)' }}>
                 {t('guild_name')}

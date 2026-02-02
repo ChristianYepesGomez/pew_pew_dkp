@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../hooks/useAuth'
 import { useLanguage } from '../hooks/useLanguage'
+import CatLogo from '../components/Layout/CatLogo'
 
 const Login = () => {
   const [username, setUsername] = useState('')
@@ -26,7 +27,7 @@ const Login = () => {
       <div className="w-full max-w-md">
         <div className="bg-white bg-opacity-95 backdrop-blur-lg rounded-2xl shadow-2xl p-8">
           <div className="text-center mb-8">
-            <div className="text-6xl mb-4"><i className="fas fa-moon text-midnight-purple"></i></div>
+            <div className="mb-4 flex justify-center"><CatLogo size={80} /></div>
             <h2 className="text-2xl font-cinzel font-bold text-midnight-purple mb-2">{t('guild_name')}</h2>
             <p className="text-gray-600">{t('login_title')}</p>
           </div>
