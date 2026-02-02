@@ -391,8 +391,18 @@ export async function getCurrentRaidItems(forceRefresh = false) {
 
   // Check if credentials are configured
   if (!CONFIG.clientId || !CONFIG.clientSecret) {
-    console.warn('Blizzard API not configured - using static fallback data');
-    return null; // Will trigger fallback to static data
+    // Try stale cache before falling back to static data
+    try {
+      if (fs.existsSync(CONFIG.cacheFile)) {
+        const data = JSON.parse(fs.readFileSync(CONFIG.cacheFile, 'utf8'));
+        if (data.items && data.items.length > 0) {
+          console.log(`Using cached raid items (${data.items.length} items) - API not configured`);
+          return data.items;
+        }
+      }
+    } catch {}
+    console.warn('Blizzard API not configured and no cache available - using static fallback');
+    return null;
   }
 
   try {
