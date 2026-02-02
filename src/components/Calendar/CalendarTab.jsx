@@ -399,10 +399,11 @@ const ROLE_CONFIG = {
 // Single member entry in the roster
 const MemberEntry = ({ member, statusKey, isAdmin }) => {
   const status = MEMBER_STATUS[statusKey]
+  const hasNote = member.notes && isAdmin
   return (
     <div
       className={`flex items-center gap-1.5 py-0.5 ${status.opacity}`}
-      title={member.notes && isAdmin ? `${member.characterName} - ${member.notes}` : `${member.characterName} (${member.characterClass})`}
+      title={`${member.characterName} (${member.characterClass}${member.spec ? ' - ' + member.spec : ''})`}
     >
       <i className={`fas ${status.icon} ${status.color} text-[10px] flex-shrink-0`}></i>
       <span
@@ -411,15 +412,18 @@ const MemberEntry = ({ member, statusKey, isAdmin }) => {
       >
         {member.characterName}
       </span>
-      {member.notes && isAdmin && (
-        <i className="fas fa-comment-dots text-yellow-400 text-[9px] flex-shrink-0"></i>
+      {hasNote && (
+        <i
+          className="fas fa-comment-dots text-yellow-400 text-[9px] flex-shrink-0 cursor-help"
+          title={member.notes}
+        ></i>
       )}
     </div>
   )
 }
 
 // Role section (Tank, Healer, or DPS column)
-const RoleSection = ({ role, members, t, isAdmin }) => {
+const RoleSection = ({ role, members, t, isAdmin, columns = 1 }) => {
   const config = ROLE_CONFIG[role] || ROLE_CONFIG.DPS
 
   // Sort: confirmed first, then tentative, declined, noResponse
@@ -432,6 +436,10 @@ const RoleSection = ({ role, members, t, isAdmin }) => {
   const confirmedCount = (members.confirmed || []).length
   const tentativeCount = (members.tentative || []).length
   const total = allMembers.length
+
+  const gridClass = columns === 2
+    ? 'grid grid-cols-2 gap-x-4'
+    : ''
 
   return (
     <div className="flex-1 min-w-0">
@@ -446,7 +454,7 @@ const RoleSection = ({ role, members, t, isAdmin }) => {
         </span>
       </div>
       {/* Members */}
-      <div className="space-y-0">
+      <div className={gridClass}>
         {allMembers.map(member => (
           <MemberEntry key={member.id} member={member} statusKey={member.statusKey} isAdmin={isAdmin} />
         ))}
@@ -507,7 +515,7 @@ const SummaryView = ({ summary, t, isAdmin }) => {
         <RoleSection role="Healer" members={byRole.Healer} t={t} isAdmin={isAdmin} />
       </div>
       <div>
-        <RoleSection role="DPS" members={byRole.DPS} t={t} isAdmin={isAdmin} />
+        <RoleSection role="DPS" members={byRole.DPS} t={t} isAdmin={isAdmin} columns={2} />
       </div>
 
       {/* Legend */}
