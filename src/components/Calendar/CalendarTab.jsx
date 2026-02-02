@@ -388,11 +388,12 @@ const MEMBER_STATUS = {
   noResponse: { icon: 'fa-minus-circle', color: 'text-gray-500', opacity: 'opacity-30' },
 }
 
-// Role config
+// Mythic raid composition requirements
+const MYTHIC_SIZE = 20
 const ROLE_CONFIG = {
-  Tank: { icon: 'fa-shield-alt', color: 'text-blue-400', bgBorder: 'border-blue-500' },
-  Healer: { icon: 'fa-heart', color: 'text-green-400', bgBorder: 'border-green-500' },
-  DPS: { icon: 'fa-crosshairs', color: 'text-red-400', bgBorder: 'border-red-500' },
+  Tank:   { icon: 'fa-shield-alt', color: 'text-blue-400', bgBorder: 'border-blue-500', min: 2, max: 2 },
+  Healer: { icon: 'fa-heart',      color: 'text-green-400', bgBorder: 'border-green-500', min: 3, max: 5 },
+  DPS:    { icon: 'fa-crosshairs',  color: 'text-red-400',   bgBorder: 'border-red-500',   min: 13, max: 15 },
 }
 
 // Single member entry in the roster
@@ -434,7 +435,13 @@ const RoleSection = ({ role, members, t, isAdmin, columns = 1 }) => {
 
   const confirmedCount = (members.confirmed || []).length
   const tentativeCount = (members.tentative || []).length
-  const total = allMembers.length
+
+  // Requirement check
+  const ready = confirmedCount + tentativeCount
+  const isFilled = confirmedCount >= config.min
+  const couldFill = ready >= config.min
+  const reqLabel = config.min === config.max ? `${config.min}` : `${config.min}-${config.max}`
+  const countColor = isFilled ? 'text-green-400' : couldFill ? 'text-yellow-400' : 'text-red-400'
 
   const gridClass = columns === 2
     ? 'grid grid-cols-2 gap-x-4'
@@ -446,10 +453,11 @@ const RoleSection = ({ role, members, t, isAdmin, columns = 1 }) => {
       <div className={`flex items-center gap-2 mb-2 pb-1.5 border-b ${config.bgBorder} border-opacity-40`}>
         <i className={`fas ${config.icon} ${config.color}`}></i>
         <span className="text-white font-semibold text-sm">{t(role.toLowerCase())}</span>
-        <span className="text-midnight-silver text-xs ml-auto">
-          <span className="text-green-400 font-bold">{confirmedCount}</span>
+        <span className="text-xs ml-auto flex items-center gap-1.5">
+          <span className={`font-bold ${countColor}`}>{confirmedCount}</span>
           {tentativeCount > 0 && <span className="text-yellow-400">+{tentativeCount}</span>}
-          <span className="text-gray-500">/{total}</span>
+          <span className="text-gray-500">/ {reqLabel}</span>
+          {isFilled && <i className="fas fa-check text-green-400 text-[9px]"></i>}
         </span>
       </div>
       {/* Members */}
@@ -480,36 +488,45 @@ const SummaryView = ({ summary, t, isAdmin }) => {
     })
   })
 
-  // Progress bar values
+  // Progress bar based on mythic raid size (20)
   const confirmed = summary.counts.confirmed
   const tentative = summary.counts.tentative
-  const total = summary.counts.total
-  const pctConfirmed = total > 0 ? (confirmed / total) * 100 : 0
-  const pctTentative = total > 0 ? (tentative / total) * 100 : 0
+  const pctConfirmed = Math.min((confirmed / MYTHIC_SIZE) * 100, 100)
+  const pctTentative = Math.min((tentative / MYTHIC_SIZE) * 100, 100 - pctConfirmed)
 
-  // Color based on percentage
-  const barColor = pctConfirmed >= 70 ? 'bg-green-500' : pctConfirmed >= 40 ? 'bg-yellow-500' : 'bg-red-500'
+  // Bar color based on confirmed count towards 20
+  const barColor = confirmed >= MYTHIC_SIZE ? 'bg-green-500' : confirmed >= 15 ? 'bg-yellow-500' : 'bg-red-500'
+  const raidReady = confirmed >= MYTHIC_SIZE
 
   return (
     <div className="space-y-3">
-      {/* Progress Bar */}
+      {/* Mythic Progress */}
       <div>
         <div className="flex items-center justify-between text-xs mb-1.5">
-          <span className="text-white font-semibold">{t('raid_roster')}</span>
+          <span className="text-white font-semibold flex items-center gap-1.5">
+            <i className="fas fa-skull text-midnight-glow text-[10px]"></i>
+            Mythic
+          </span>
           <span className="text-midnight-silver">
-            <span className="text-green-400 font-bold">{confirmed}</span>
+            <span className={`font-bold ${raidReady ? 'text-green-400' : 'text-white'}`}>{confirmed}</span>
             {tentative > 0 && <span className="text-yellow-400"> +{tentative}</span>}
-            <span> / {total}</span>
+            <span> / {MYTHIC_SIZE}</span>
+            {raidReady && <i className="fas fa-check-circle text-green-400 ml-1.5"></i>}
           </span>
         </div>
         <div className="h-2 bg-midnight-deepblue rounded-full overflow-hidden flex">
           <div className={`${barColor} transition-all duration-500`} style={{ width: `${pctConfirmed}%` }}></div>
           <div className="bg-yellow-500 bg-opacity-50 transition-all duration-500" style={{ width: `${pctTentative}%` }}></div>
         </div>
+        {/* Slot markers at key thresholds */}
+        <div className="relative h-0">
+          <div className="absolute top-[-10px] text-[8px] text-gray-600" style={{ left: `${(15/MYTHIC_SIZE)*100}%`, transform: 'translateX(-50%)' }}>15</div>
+          <div className="absolute top-[-10px] text-[8px] text-gray-600" style={{ left: '100%', transform: 'translateX(-100%)' }}>20</div>
+        </div>
       </div>
 
       {/* Role Columns */}
-      <div className="flex gap-4">
+      <div className="flex gap-4 mt-4">
         <RoleSection role="Tank" members={byRole.Tank} t={t} isAdmin={isAdmin} />
         <RoleSection role="Healer" members={byRole.Healer} t={t} isAdmin={isAdmin} />
       </div>
