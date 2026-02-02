@@ -1,5 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
-import { createPortal } from 'react-dom'
+import { useState, useEffect } from 'react'
 import { useAuth } from '../../hooks/useAuth'
 import { useLanguage } from '../../hooks/useLanguage'
 import { calendarAPI } from '../../services/api'
@@ -89,7 +88,13 @@ const CalendarTab = () => {
     }
   }
 
-  const openSummary = async (date) => {
+  const loadSummary = async (date) => {
+    if (expandedDate === date) {
+      setExpandedDate(null)
+      setSummary(null)
+      return
+    }
+
     try {
       setLoadingSummary(true)
       setExpandedDate(date)
@@ -100,11 +105,6 @@ const CalendarTab = () => {
     } finally {
       setLoadingSummary(false)
     }
-  }
-
-  const closeSummary = () => {
-    setExpandedDate(null)
-    setSummary(null)
   }
 
   const handleStatusChange = async (date, status) => {
@@ -131,7 +131,7 @@ const CalendarTab = () => {
 
       // Refresh summary if viewing
       if (expandedDate === date) {
-        openSummary(date)
+        loadSummary(date)
       }
     } catch (error) {
       console.error('Error saving status:', error)
@@ -342,12 +342,25 @@ const CalendarTab = () => {
 
                         {/* View Summary Button */}
                         <button
-                          onClick={() => openSummary(signup.date)}
+                          onClick={() => loadSummary(signup.date)}
                           className="w-full py-2 px-3 bg-midnight-purple bg-opacity-20 text-midnight-silver text-sm rounded-lg hover:bg-opacity-40 hover:text-white transition-all flex items-center justify-center gap-2"
                         >
-                          <i className="fas fa-users"></i>
+                          <i className={`fas ${expandedDate === signup.date ? 'fa-chevron-up' : 'fa-chevron-down'}`}></i>
                           {t('view_details')}
                         </button>
+
+                        {/* Summary Dropdown */}
+                        {expandedDate === signup.date && (
+                          <div className="border-t border-midnight-bright-purple border-opacity-30 pt-4 animate-fade-in">
+                            {loadingSummary ? (
+                              <div className="text-center py-4">
+                                <i className="fas fa-circle-notch fa-spin text-midnight-glow"></i>
+                              </div>
+                            ) : summary ? (
+                              <SummaryView summary={summary} t={t} isAdmin={isAdmin} />
+                            ) : null}
+                          </div>
+                        )}
                       </div>
                     </div>
                   )
@@ -364,255 +377,55 @@ const CalendarTab = () => {
           )}
         </>
       )}
-      {/* Summary Modal */}
-      {expandedDate && (
-        <SummaryModal
-          date={expandedDate}
-          summary={summary}
-          loadingSummary={loadingSummary}
-          onClose={closeSummary}
-          t={t}
-          language={language}
-          isAdmin={isAdmin}
-        />
-      )}
     </div>
   )
 }
 
-// Status icon/color config for member entries
-const MEMBER_STATUS = {
-  confirmed: { icon: 'fa-check-circle', color: 'text-green-400', opacity: '' },
-  tentative: { icon: 'fa-question-circle', color: 'text-yellow-400', opacity: '' },
-  declined: { icon: 'fa-times-circle', color: 'text-red-400', opacity: 'opacity-40' },
-  noResponse: { icon: 'fa-minus-circle', color: 'text-gray-500', opacity: 'opacity-30' },
-}
-
-// Mythic raid composition requirements
-const MYTHIC_SIZE = 20
-const ROLE_CONFIG = {
-  Tank:   { icon: 'fa-shield-alt', color: 'text-blue-400', bgBorder: 'border-blue-500', min: 2, max: 2 },
-  Healer: { icon: 'fa-heart',      color: 'text-green-400', bgBorder: 'border-green-500', min: 3, max: 5 },
-  DPS:    { icon: 'fa-crosshairs',  color: 'text-red-400',   bgBorder: 'border-red-500',   min: 13, max: 15 },
-}
-
-// Single member entry in the roster
-const MemberEntry = ({ member, statusKey, isAdmin }) => {
-  const status = MEMBER_STATUS[statusKey]
-  const hasNote = member.notes && isAdmin
-  return (
-    <div
-      className={`flex items-center gap-1.5 py-0.5 ${status.opacity}`}
-      title={`${member.characterName} (${member.characterClass}${member.spec ? ' - ' + member.spec : ''})`}
-    >
-      <i className={`fas ${status.icon} ${status.color} text-[10px] flex-shrink-0`}></i>
-      <span
-        className="text-xs truncate"
-        style={{ color: CLASS_COLORS[member.characterClass] || '#fff' }}
-      >
-        {member.characterName}
-      </span>
-      {hasNote && (
-        <i
-          className="fas fa-comment-dots text-yellow-400 text-[9px] flex-shrink-0 cursor-help"
-          title={member.notes}
-        ></i>
-      )}
-    </div>
-  )
-}
-
-// Role section (Tank, Healer, or DPS column)
-const RoleSection = ({ role, members, t, isAdmin, columns = 1 }) => {
-  const config = ROLE_CONFIG[role] || ROLE_CONFIG.DPS
-
-  // Sort: confirmed first, then tentative, declined, noResponse
-  const statusOrder = ['confirmed', 'tentative', 'declined', 'noResponse']
-  const allMembers = []
-  statusOrder.forEach(statusKey => {
-    ;(members[statusKey] || []).forEach(m => allMembers.push({ ...m, statusKey }))
-  })
-
-  const confirmedCount = (members.confirmed || []).length
-  const tentativeCount = (members.tentative || []).length
-
-  // Requirement check
-  const ready = confirmedCount + tentativeCount
-  const isFilled = confirmedCount >= config.min
-  const couldFill = ready >= config.min
-  const reqLabel = config.min === config.max ? `${config.min}` : `${config.min}-${config.max}`
-  const countColor = isFilled ? 'text-green-400' : couldFill ? 'text-yellow-400' : 'text-red-400'
-
-  const gridClass = columns === 2
-    ? 'grid grid-cols-2 gap-x-4'
-    : ''
-
-  return (
-    <div className="flex-1 min-w-0">
-      {/* Role Header */}
-      <div className={`flex items-center gap-2 mb-2 pb-1.5 border-b ${config.bgBorder} border-opacity-40`}>
-        <i className={`fas ${config.icon} ${config.color}`}></i>
-        <span className="text-white font-semibold text-sm">{t(role.toLowerCase())}</span>
-        <span className="text-xs ml-auto flex items-center gap-1.5">
-          <span className={`font-bold ${countColor}`}>{confirmedCount}</span>
-          {tentativeCount > 0 && <span className="text-yellow-400">+{tentativeCount}</span>}
-          <span className="text-gray-500">/ {reqLabel}</span>
-          {isFilled && <i className="fas fa-check text-green-400 text-[9px]"></i>}
-        </span>
-      </div>
-      {/* Members */}
-      <div className={gridClass}>
-        {allMembers.map(member => (
-          <MemberEntry key={member.id} member={member} statusKey={member.statusKey} isAdmin={isAdmin} />
-        ))}
-        {allMembers.length === 0 && (
-          <div className="text-xs text-gray-600 italic py-1">-</div>
-        )}
-      </div>
-    </div>
-  )
-}
-
-// Summary View Component - Raid Composition
+// Summary View Component
 const SummaryView = ({ summary, t, isAdmin }) => {
-  // Group all members by role, maintaining status categories
-  const byRole = { Tank: {}, Healer: {}, DPS: {} }
-  const statusKeys = ['confirmed', 'tentative', 'declined', 'noResponse']
-
-  statusKeys.forEach(statusKey => {
-    ;(summary[statusKey] || []).forEach(member => {
-      const role = member.raidRole || 'DPS'
-      const roleKey = role === 'Tank' ? 'Tank' : role === 'Healer' ? 'Healer' : 'DPS'
-      if (!byRole[roleKey][statusKey]) byRole[roleKey][statusKey] = []
-      byRole[roleKey][statusKey].push(member)
-    })
-  })
-
-  // Progress bar based on mythic raid size (20)
-  const confirmed = summary.counts.confirmed
-  const tentative = summary.counts.tentative
-  const pctConfirmed = Math.min((confirmed / MYTHIC_SIZE) * 100, 100)
-  const pctTentative = Math.min((tentative / MYTHIC_SIZE) * 100, 100 - pctConfirmed)
-
-  // Bar color based on confirmed count towards 20
-  const barColor = confirmed >= MYTHIC_SIZE ? 'bg-green-500' : confirmed >= 15 ? 'bg-yellow-500' : 'bg-red-500'
-  const raidReady = confirmed >= MYTHIC_SIZE
+  const categories = [
+    { key: 'confirmed', icon: 'fa-check-circle', color: 'text-green-400', label: t('members_confirmed') },
+    { key: 'tentative', icon: 'fa-question-circle', color: 'text-yellow-400', label: t('members_tentative') },
+    { key: 'declined', icon: 'fa-times-circle', color: 'text-red-400', label: t('members_declined') },
+    { key: 'noResponse', icon: 'fa-minus-circle', color: 'text-gray-400', label: t('members_no_response') },
+  ]
 
   return (
     <div className="space-y-3">
-      {/* Mythic Progress */}
-      <div>
-        <div className="flex items-center justify-between text-xs mb-1.5">
-          <span className="text-white font-semibold flex items-center gap-1.5">
-            <i className="fas fa-skull text-midnight-glow text-[10px]"></i>
-            Mythic
-          </span>
-          <span className="text-midnight-silver">
-            <span className={`font-bold ${raidReady ? 'text-green-400' : 'text-white'}`}>{confirmed}</span>
-            {tentative > 0 && <span className="text-yellow-400"> +{tentative}</span>}
-            <span> / {MYTHIC_SIZE}</span>
-            {raidReady && <i className="fas fa-check-circle text-green-400 ml-1.5"></i>}
-          </span>
-        </div>
-        <div className="h-2 bg-midnight-deepblue rounded-full overflow-hidden flex">
-          <div className={`${barColor} transition-all duration-500`} style={{ width: `${pctConfirmed}%` }}></div>
-          <div className="bg-yellow-500 bg-opacity-50 transition-all duration-500" style={{ width: `${pctTentative}%` }}></div>
-        </div>
-        {/* Slot markers at key thresholds */}
-        <div className="relative h-0">
-          <div className="absolute top-[-10px] text-[8px] text-gray-600" style={{ left: `${(15/MYTHIC_SIZE)*100}%`, transform: 'translateX(-50%)' }}>15</div>
-          <div className="absolute top-[-10px] text-[8px] text-gray-600" style={{ left: '100%', transform: 'translateX(-100%)' }}>20</div>
-        </div>
+      {/* Counts */}
+      <div className="grid grid-cols-4 gap-2 text-center text-sm">
+        {categories.map(cat => (
+          <div key={cat.key} className={cat.color}>
+            <i className={`fas ${cat.icon} text-lg`}></i>
+            <div className="font-bold">{summary.counts[cat.key]}</div>
+          </div>
+        ))}
       </div>
 
-      {/* Role Columns */}
-      <div className="flex gap-4 mt-4">
-        <RoleSection role="Tank" members={byRole.Tank} t={t} isAdmin={isAdmin} />
-        <RoleSection role="Healer" members={byRole.Healer} t={t} isAdmin={isAdmin} />
-      </div>
-      <div>
-        <RoleSection role="DPS" members={byRole.DPS} t={t} isAdmin={isAdmin} columns={2} />
-      </div>
-
-      {/* Legend */}
-      <div className="flex justify-center gap-3 text-[10px] text-midnight-silver pt-1 border-t border-midnight-bright-purple border-opacity-20">
-        <span className="flex items-center gap-1"><i className="fas fa-check-circle text-green-400"></i>{t('confirmed')}</span>
-        <span className="flex items-center gap-1"><i className="fas fa-question-circle text-yellow-400"></i>{t('tentative')}</span>
-        <span className="flex items-center gap-1 opacity-50"><i className="fas fa-times-circle text-red-400"></i>{t('declined')}</span>
-        <span className="flex items-center gap-1 opacity-30"><i className="fas fa-minus-circle text-gray-500"></i>{t('members_no_response')}</span>
+      {/* Member Lists */}
+      <div className="space-y-2">
+        {categories.map(cat => (
+          summary[cat.key]?.length > 0 && (
+            <div key={cat.key} className="text-xs">
+              <div className={`${cat.color} font-semibold mb-1`}>{cat.label}:</div>
+              <div className="flex flex-wrap gap-1">
+                {summary[cat.key].map(member => (
+                  <span
+                    key={member.id}
+                    className="px-2 py-0.5 rounded bg-midnight-deepblue"
+                    style={{ color: CLASS_COLORS[member.characterClass] || '#fff' }}
+                    title={member.notes && isAdmin ? `Nota: ${member.notes}` : member.characterName}
+                  >
+                    {member.characterName}
+                    {member.notes && isAdmin && <i className="fas fa-sticky-note ml-1 text-yellow-400"></i>}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )
+        ))}
       </div>
     </div>
-  )
-}
-
-// Summary Modal Component (rendered via portal)
-const SummaryModal = ({ date, summary, loadingSummary, onClose, t, language, isAdmin }) => {
-  const dateInfo = (() => {
-    const d = new Date(date + 'T00:00:00')
-    const dayName = d.toLocaleDateString(language === 'es' ? 'es-ES' : 'en-US', { weekday: 'long' })
-    const dayNum = d.getDate()
-    const month = d.toLocaleDateString(language === 'es' ? 'es-ES' : 'en-US', { month: 'long' })
-    return {
-      dayName: dayName.charAt(0).toUpperCase() + dayName.slice(1),
-      dayNum,
-      month: month.charAt(0).toUpperCase() + month.slice(1)
-    }
-  })()
-
-  useEffect(() => {
-    const handleKey = (e) => {
-      if (e.key === 'Escape') onClose()
-    }
-    document.addEventListener('keydown', handleKey)
-    return () => document.removeEventListener('keydown', handleKey)
-  }, [onClose])
-
-  return createPortal(
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      onClick={onClose}
-    >
-      {/* Backdrop */}
-      <div className="absolute inset-0 bg-black bg-opacity-70 backdrop-blur-sm" />
-
-      {/* Modal */}
-      <div
-        className="relative w-full max-w-lg bg-midnight-deepblue border border-midnight-bright-purple border-opacity-40 rounded-2xl shadow-2xl shadow-midnight-glow/10 animate-fade-in overflow-hidden"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Modal Header */}
-        <div className="px-6 py-4 bg-midnight-purple bg-opacity-30 border-b border-midnight-bright-purple border-opacity-30 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-lg bg-midnight-purple bg-opacity-40 flex flex-col items-center justify-center">
-              <span className="text-lg font-bold text-white leading-none">{dateInfo.dayNum}</span>
-              <span className="text-[10px] text-midnight-silver uppercase">{dateInfo.month}</span>
-            </div>
-            <div>
-              <h3 className="text-lg font-cinzel font-bold text-white">{t('raid_roster')}</h3>
-              <p className="text-sm text-midnight-silver">{dateInfo.dayName}</p>
-            </div>
-          </div>
-          <button
-            onClick={onClose}
-            className="w-8 h-8 rounded-lg bg-midnight-purple bg-opacity-30 text-midnight-silver hover:text-white hover:bg-opacity-50 transition-all flex items-center justify-center"
-          >
-            <i className="fas fa-times"></i>
-          </button>
-        </div>
-
-        {/* Modal Body */}
-        <div className="p-6 max-h-[70vh] overflow-y-auto">
-          {loadingSummary ? (
-            <div className="text-center py-12">
-              <i className="fas fa-circle-notch fa-spin text-3xl text-midnight-glow"></i>
-            </div>
-          ) : summary ? (
-            <SummaryView summary={summary} t={t} isAdmin={isAdmin} />
-          ) : null}
-        </div>
-      </div>
-    </div>,
-    document.body
   )
 }
 

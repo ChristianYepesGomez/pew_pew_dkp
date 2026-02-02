@@ -206,6 +206,7 @@ export const translations = {
     admin_notes: 'Notas de miembros',
     no_notes: 'Sin notas',
     no_raids_scheduled: 'No hay raids programadas',
+    raid_roster: 'Composición de Raid',
   },
   en: {
     guild_name: 'Pew Pew Kittens with Guns',
@@ -414,5 +415,6 @@ export const translations = {
     admin_notes: 'Member notes',
     no_notes: 'No notes',
     no_raids_scheduled: 'No raids scheduled',
+    raid_roster: 'Raid Roster',
   },
 }

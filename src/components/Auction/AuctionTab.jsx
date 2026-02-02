@@ -137,14 +137,14 @@ const AuctionTab = () => {
                 <div className="flex items-center gap-4">
                   {/* Item Icon */}
                   <div
-                    className="w-14 h-14 rounded-lg bg-midnight-deepblue flex items-center justify-center border-2 flex-shrink-0"
+                    className="w-14 h-14 rounded-lg bg-midnight-deepblue flex items-center justify-center border-2 flex-shrink-0 overflow-hidden"
                     style={{ borderColor: RARITY_COLORS[auction.itemRarity] }}
                   >
                     {auction.itemImage && auction.itemImage !== '🎁' ? (
                       <img
                         src={auction.itemImage}
                         alt={auction.itemName}
-                        className="w-12 h-12 object-contain"
+                        className="w-full h-full object-cover"
                         onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'block'; }}
                       />
                     ) : null}
