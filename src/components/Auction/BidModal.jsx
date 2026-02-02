@@ -2,13 +2,14 @@ import { useState, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { useLanguage } from '../../hooks/useLanguage'
 import { auctionsAPI } from '../../services/api'
+import WowheadTooltip from '../Common/WowheadTooltip'
 
 const RARITY_COLORS = {
-  common: '#9D9D9D',
-  uncommon: '#1EFF00',
-  rare: '#0070DD',
-  epic: '#A335EE',
-  legendary: '#FF8000',
+  common: '#C0C0C0',
+  uncommon: '#5BFF3B',
+  rare: '#5EB5FF',
+  epic: '#C680FF',
+  legendary: '#FFa040',
 }
 
 const BidModal = ({ auction, userDkp, onClose, onSuccess }) => {
@@ -60,17 +61,19 @@ const BidModal = ({ auction, userDkp, onClose, onSuccess }) => {
         <div className="p-6 border-b border-midnight-bright-purple border-opacity-30">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-lg bg-midnight-purple flex items-center justify-center border-2 overflow-hidden" style={{ borderColor: RARITY_COLORS[auction.itemRarity] }}>
-                {auction.itemImage && auction.itemImage !== '🎁' ? (
-                  <img
-                    src={auction.itemImage}
-                    alt={auction.itemName}
-                    className="w-full h-full object-cover"
-                    onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'block'; }}
-                  />
-                ) : null}
-                <i className="fas fa-gem text-xl" style={{ color: RARITY_COLORS[auction.itemRarity], display: auction.itemImage && auction.itemImage !== '🎁' ? 'none' : 'block' }}></i>
-              </div>
+              <WowheadTooltip itemId={auction.itemId}>
+                <div className="w-12 h-12 rounded-lg bg-midnight-purple flex items-center justify-center border-2 overflow-hidden" style={{ borderColor: RARITY_COLORS[auction.itemRarity] }}>
+                  {auction.itemImage && auction.itemImage !== '🎁' ? (
+                    <img
+                      src={auction.itemImage}
+                      alt={auction.itemName}
+                      className="w-full h-full object-cover"
+                      onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'block'; }}
+                    />
+                  ) : null}
+                  <i className="fas fa-gem text-xl" style={{ color: RARITY_COLORS[auction.itemRarity], display: auction.itemImage && auction.itemImage !== '🎁' ? 'none' : 'block' }}></i>
+                </div>
+              </WowheadTooltip>
               <div>
                 <h3 className="text-lg font-bold m-0" style={{ color: RARITY_COLORS[auction.itemRarity] }}>
                   {auction.itemName}
