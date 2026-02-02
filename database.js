@@ -249,20 +249,31 @@ function initDatabase() {
     )
   `);
 
-  // Migration: Add dkp_awarded column if old schema (with week_start)
+  // Migration: Recreate member_availability if it has the old schema (week_start/day_of_week)
   try {
-    db.exec(`ALTER TABLE member_availability ADD COLUMN dkp_awarded INTEGER DEFAULT 0`);
-    console.log('✅ Added dkp_awarded column to member_availability');
+    const columns = db.prepare("PRAGMA table_info(member_availability)").all();
+    const hasWeekStart = columns.some(c => c.name === 'week_start');
+    if (hasWeekStart) {
+      console.log('⬆️  Migrating member_availability to new schema (raid_date)...');
+      db.exec(`DROP TABLE member_availability`);
+      db.exec(`
+        CREATE TABLE member_availability (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          user_id INTEGER NOT NULL,
+          raid_date DATE NOT NULL,
+          status TEXT DEFAULT 'tentative' CHECK(status IN ('confirmed', 'declined', 'tentative')),
+          notes TEXT,
+          dkp_awarded INTEGER DEFAULT 0,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+          UNIQUE(user_id, raid_date)
+        )
+      `);
+      console.log('✅ member_availability migrated successfully');
+    }
   } catch (e) {
-    // Column already exists
-  }
-
-  // Migration: Add raid_date column if old schema
-  try {
-    db.exec(`ALTER TABLE member_availability ADD COLUMN raid_date DATE`);
-    console.log('✅ Added raid_date column to member_availability');
-  } catch (e) {
-    // Column already exists
+    console.warn('Migration warning:', e.message);
   }
 
   // Weekly DKP rewards tracking for calendar completion
