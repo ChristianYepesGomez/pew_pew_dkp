@@ -381,49 +381,141 @@ const CalendarTab = () => {
   )
 }
 
-// Summary View Component
+// Status icon/color config for member entries
+const MEMBER_STATUS = {
+  confirmed: { icon: 'fa-check-circle', color: 'text-green-400', opacity: '' },
+  tentative: { icon: 'fa-question-circle', color: 'text-yellow-400', opacity: '' },
+  declined: { icon: 'fa-times-circle', color: 'text-red-400', opacity: 'opacity-40' },
+  noResponse: { icon: 'fa-minus-circle', color: 'text-gray-500', opacity: 'opacity-30' },
+}
+
+// Role config
+const ROLE_CONFIG = {
+  Tank: { icon: 'fa-shield-alt', color: 'text-blue-400', bgBorder: 'border-blue-500' },
+  Healer: { icon: 'fa-heart', color: 'text-green-400', bgBorder: 'border-green-500' },
+  DPS: { icon: 'fa-crosshairs', color: 'text-red-400', bgBorder: 'border-red-500' },
+}
+
+// Single member entry in the roster
+const MemberEntry = ({ member, statusKey, isAdmin }) => {
+  const status = MEMBER_STATUS[statusKey]
+  return (
+    <div
+      className={`flex items-center gap-1.5 py-0.5 ${status.opacity}`}
+      title={member.notes && isAdmin ? `${member.characterName} - ${member.notes}` : `${member.characterName} (${member.characterClass})`}
+    >
+      <i className={`fas ${status.icon} ${status.color} text-[10px] flex-shrink-0`}></i>
+      <span
+        className="text-xs truncate"
+        style={{ color: CLASS_COLORS[member.characterClass] || '#fff' }}
+      >
+        {member.characterName}
+      </span>
+      {member.notes && isAdmin && (
+        <i className="fas fa-comment-dots text-yellow-400 text-[9px] flex-shrink-0"></i>
+      )}
+    </div>
+  )
+}
+
+// Role section (Tank, Healer, or DPS column)
+const RoleSection = ({ role, members, t, isAdmin }) => {
+  const config = ROLE_CONFIG[role] || ROLE_CONFIG.DPS
+
+  // Sort: confirmed first, then tentative, declined, noResponse
+  const statusOrder = ['confirmed', 'tentative', 'declined', 'noResponse']
+  const allMembers = []
+  statusOrder.forEach(statusKey => {
+    ;(members[statusKey] || []).forEach(m => allMembers.push({ ...m, statusKey }))
+  })
+
+  const confirmedCount = (members.confirmed || []).length
+  const tentativeCount = (members.tentative || []).length
+  const total = allMembers.length
+
+  return (
+    <div className="flex-1 min-w-0">
+      {/* Role Header */}
+      <div className={`flex items-center gap-2 mb-2 pb-1.5 border-b ${config.bgBorder} border-opacity-40`}>
+        <i className={`fas ${config.icon} ${config.color}`}></i>
+        <span className="text-white font-semibold text-sm">{t(role.toLowerCase())}</span>
+        <span className="text-midnight-silver text-xs ml-auto">
+          <span className="text-green-400 font-bold">{confirmedCount}</span>
+          {tentativeCount > 0 && <span className="text-yellow-400">+{tentativeCount}</span>}
+          <span className="text-gray-500">/{total}</span>
+        </span>
+      </div>
+      {/* Members */}
+      <div className="space-y-0">
+        {allMembers.map(member => (
+          <MemberEntry key={member.id} member={member} statusKey={member.statusKey} isAdmin={isAdmin} />
+        ))}
+        {allMembers.length === 0 && (
+          <div className="text-xs text-gray-600 italic py-1">-</div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// Summary View Component - Raid Composition
 const SummaryView = ({ summary, t, isAdmin }) => {
-  const categories = [
-    { key: 'confirmed', icon: 'fa-check-circle', color: 'text-green-400', label: t('members_confirmed') },
-    { key: 'tentative', icon: 'fa-question-circle', color: 'text-yellow-400', label: t('members_tentative') },
-    { key: 'declined', icon: 'fa-times-circle', color: 'text-red-400', label: t('members_declined') },
-    { key: 'noResponse', icon: 'fa-minus-circle', color: 'text-gray-400', label: t('members_no_response') },
-  ]
+  // Group all members by role, maintaining status categories
+  const byRole = { Tank: {}, Healer: {}, DPS: {} }
+  const statusKeys = ['confirmed', 'tentative', 'declined', 'noResponse']
+
+  statusKeys.forEach(statusKey => {
+    ;(summary[statusKey] || []).forEach(member => {
+      const role = member.raidRole || 'DPS'
+      const roleKey = role === 'Tank' ? 'Tank' : role === 'Healer' ? 'Healer' : 'DPS'
+      if (!byRole[roleKey][statusKey]) byRole[roleKey][statusKey] = []
+      byRole[roleKey][statusKey].push(member)
+    })
+  })
+
+  // Progress bar values
+  const confirmed = summary.counts.confirmed
+  const tentative = summary.counts.tentative
+  const total = summary.counts.total
+  const pctConfirmed = total > 0 ? (confirmed / total) * 100 : 0
+  const pctTentative = total > 0 ? (tentative / total) * 100 : 0
+
+  // Color based on percentage
+  const barColor = pctConfirmed >= 70 ? 'bg-green-500' : pctConfirmed >= 40 ? 'bg-yellow-500' : 'bg-red-500'
 
   return (
     <div className="space-y-3">
-      {/* Counts */}
-      <div className="grid grid-cols-4 gap-2 text-center text-sm">
-        {categories.map(cat => (
-          <div key={cat.key} className={cat.color}>
-            <i className={`fas ${cat.icon} text-lg`}></i>
-            <div className="font-bold">{summary.counts[cat.key]}</div>
-          </div>
-        ))}
+      {/* Progress Bar */}
+      <div>
+        <div className="flex items-center justify-between text-xs mb-1.5">
+          <span className="text-white font-semibold">{t('raid_roster')}</span>
+          <span className="text-midnight-silver">
+            <span className="text-green-400 font-bold">{confirmed}</span>
+            {tentative > 0 && <span className="text-yellow-400"> +{tentative}</span>}
+            <span> / {total}</span>
+          </span>
+        </div>
+        <div className="h-2 bg-midnight-deepblue rounded-full overflow-hidden flex">
+          <div className={`${barColor} transition-all duration-500`} style={{ width: `${pctConfirmed}%` }}></div>
+          <div className="bg-yellow-500 bg-opacity-50 transition-all duration-500" style={{ width: `${pctTentative}%` }}></div>
+        </div>
       </div>
 
-      {/* Member Lists */}
-      <div className="space-y-2">
-        {categories.map(cat => (
-          summary[cat.key]?.length > 0 && (
-            <div key={cat.key} className="text-xs">
-              <div className={`${cat.color} font-semibold mb-1`}>{cat.label}:</div>
-              <div className="flex flex-wrap gap-1">
-                {summary[cat.key].map(member => (
-                  <span
-                    key={member.id}
-                    className="px-2 py-0.5 rounded bg-midnight-deepblue"
-                    style={{ color: CLASS_COLORS[member.characterClass] || '#fff' }}
-                    title={member.notes && isAdmin ? `Nota: ${member.notes}` : member.characterName}
-                  >
-                    {member.characterName}
-                    {member.notes && isAdmin && <i className="fas fa-sticky-note ml-1 text-yellow-400"></i>}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )
-        ))}
+      {/* Role Columns */}
+      <div className="flex gap-4">
+        <RoleSection role="Tank" members={byRole.Tank} t={t} isAdmin={isAdmin} />
+        <RoleSection role="Healer" members={byRole.Healer} t={t} isAdmin={isAdmin} />
+      </div>
+      <div>
+        <RoleSection role="DPS" members={byRole.DPS} t={t} isAdmin={isAdmin} />
+      </div>
+
+      {/* Legend */}
+      <div className="flex justify-center gap-3 text-[10px] text-midnight-silver pt-1 border-t border-midnight-bright-purple border-opacity-20">
+        <span className="flex items-center gap-1"><i className="fas fa-check-circle text-green-400"></i>{t('confirmed')}</span>
+        <span className="flex items-center gap-1"><i className="fas fa-question-circle text-yellow-400"></i>{t('tentative')}</span>
+        <span className="flex items-center gap-1 opacity-50"><i className="fas fa-times-circle text-red-400"></i>{t('declined')}</span>
+        <span className="flex items-center gap-1 opacity-30"><i className="fas fa-minus-circle text-gray-500"></i>{t('members_no_response')}</span>
       </div>
     </div>
   )
