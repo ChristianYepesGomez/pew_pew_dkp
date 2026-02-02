@@ -20,7 +20,7 @@ db.pragma('foreign_keys = ON');
 db.pragma('encoding = "UTF-8"');
 
 function initDatabase() {
-  console.log('🗄️  Initializing database...');
+  console.log('🗄️  Initializing database... [BUILD v2.0 - 2026-01-27]');
 
   // Users table
   db.exec(`
@@ -55,10 +55,46 @@ function initDatabase() {
     // Column already exists
   }
 
+  // Add email column for password reset (migration)
+  try {
+    db.exec(`ALTER TABLE users ADD COLUMN email TEXT`);
+    console.log('✅ Added email column to users table');
+  } catch (e) {
+    // Column already exists
+  }
+
+  // Add reset_token columns for password reset (migration)
+  try {
+    db.exec(`ALTER TABLE users ADD COLUMN reset_token TEXT`);
+    console.log('✅ Added reset_token column to users table');
+  } catch (e) {
+    // Column already exists
+  }
+  try {
+    db.exec(`ALTER TABLE users ADD COLUMN reset_token_expires DATETIME`);
+    console.log('✅ Added reset_token_expires column to users table');
+  } catch (e) {
+    // Column already exists
+  }
+
   // Add item_name_en column to auctions if it doesn't exist (migration)
   try {
     db.exec(`ALTER TABLE auctions ADD COLUMN item_name_en TEXT`);
     console.log('✅ Added item_name_en column to auctions table');
+  } catch (e) {
+    // Column already exists
+  }
+
+  // Add duration_minutes and ends_at columns for auction timer (migration)
+  try {
+    db.exec(`ALTER TABLE auctions ADD COLUMN duration_minutes INTEGER DEFAULT 5`);
+    console.log('✅ Added duration_minutes column to auctions table');
+  } catch (e) {
+    // Column already exists
+  }
+  try {
+    db.exec(`ALTER TABLE auctions ADD COLUMN ends_at DATETIME`);
+    console.log('✅ Added ends_at column to auctions table');
   } catch (e) {
     // Column already exists
   }
@@ -99,23 +135,18 @@ function initDatabase() {
       item_image TEXT DEFAULT '🎁',
       item_rarity TEXT DEFAULT 'epic' CHECK(item_rarity IN ('common', 'uncommon', 'rare', 'epic', 'legendary')),
       min_bid INTEGER DEFAULT 10,
-      duration_minutes INTEGER DEFAULT 5,
-      ends_at DATETIME,
       status TEXT DEFAULT 'active' CHECK(status IN ('active', 'completed', 'cancelled')),
       winner_id INTEGER,
       winning_bid INTEGER,
       created_by INTEGER,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       ended_at DATETIME,
+      duration_minutes INTEGER DEFAULT 5,
+      ends_at DATETIME,
       FOREIGN KEY (winner_id) REFERENCES users(id) ON DELETE SET NULL,
       FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL
     )
   `);
-
-  // Migrations for existing databases
-  try { db.exec(`ALTER TABLE auctions ADD COLUMN item_name_en TEXT`); } catch (e) {}
-  try { db.exec(`ALTER TABLE auctions ADD COLUMN duration_minutes INTEGER DEFAULT 5`); } catch (e) {}
-  try { db.exec(`ALTER TABLE auctions ADD COLUMN ends_at DATETIME`); } catch (e) {}
 
   // Auction bids table
   db.exec(`
@@ -202,7 +233,7 @@ function initDatabase() {
     )
   `);
 
-  // Member availability for raid days (per-day signup system)
+  // Member availability for raid days
   db.exec(`
     CREATE TABLE IF NOT EXISTS member_availability (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -218,17 +249,21 @@ function initDatabase() {
     )
   `);
 
-  // Migration: Add raid_date column if old schema exists
-  try {
-    db.exec(`ALTER TABLE member_availability ADD COLUMN raid_date DATE`);
-    console.log('✅ Migration: Added raid_date column');
-  } catch (e) { /* Column already exists */ }
-
-  // Migration: Add dkp_awarded column if missing
+  // Migration: Add dkp_awarded column if old schema (with week_start)
   try {
     db.exec(`ALTER TABLE member_availability ADD COLUMN dkp_awarded INTEGER DEFAULT 0`);
-    console.log('✅ Migration: Added dkp_awarded column');
-  } catch (e) { /* Column already exists */ }
+    console.log('✅ Added dkp_awarded column to member_availability');
+  } catch (e) {
+    // Column already exists
+  }
+
+  // Migration: Add raid_date column if old schema
+  try {
+    db.exec(`ALTER TABLE member_availability ADD COLUMN raid_date DATE`);
+    console.log('✅ Added raid_date column to member_availability');
+  } catch (e) {
+    // Column already exists
+  }
 
   // Weekly DKP rewards tracking for calendar completion
   db.exec(`
@@ -255,30 +290,9 @@ function initDatabase() {
     CREATE INDEX IF NOT EXISTS idx_warcraftlogs_report_code ON warcraft_logs_processed(report_code);
     CREATE INDEX IF NOT EXISTS idx_member_availability_user ON member_availability(user_id);
     CREATE INDEX IF NOT EXISTS idx_member_availability_date ON member_availability(raid_date);
-    CREATE INDEX IF NOT EXISTS idx_calendar_rewards_user ON calendar_dkp_rewards(user_id);
-    CREATE INDEX IF NOT EXISTS idx_calendar_rewards_week ON calendar_dkp_rewards(week_start);
   `);
 
-  // Create default admin user if no users exist
-  const userCount = db.prepare('SELECT COUNT(*) as count FROM users').get();
-  if (userCount.count === 0) {
-    console.log('📝 Creating default admin user...');
-    
-    // Default password is 'admin123' - CHANGE THIS IN PRODUCTION
-    const hashedPassword = bcrypt.hashSync('admin123', 10);
-    
-    const result = db.prepare(`
-      INSERT INTO users (username, password, character_name, character_class, raid_role, spec, role)
-      VALUES ('admin', ?, 'GuildMaster', 'Warrior', 'DPS', 'Arms', 'admin')
-    `).run(hashedPassword);
-
-    db.prepare(`
-      INSERT INTO member_dkp (user_id, current_dkp, lifetime_gained)
-      VALUES (?, 50, 50)
-    `).run(result.lastInsertRowid);
-
-    console.log('✅ Default admin created (username: admin, password: admin123)');
-  }
+  // No default admin - use seed.js to create users
 
   // Create default DKP configuration if not exists
   const configCount = db.prepare('SELECT COUNT(*) as count FROM dkp_config').get();
@@ -290,7 +304,7 @@ function initDatabase() {
       { key: 'boss_kill_bonus', value: '10', description: 'DKP bonus adicional por cada boss derrotado' },
       { key: 'default_server', value: 'Ragnaros', description: 'Servidor por defecto de la guild' },
       { key: 'auto_assign_enabled', value: 'false', description: 'Asignar DKP automáticamente (sin confirmación)' },
-      { key: 'calendar_dkp_per_day', value: '2', description: 'DKP otorgado por registrar asistencia cada día de raid' }
+      { key: 'calendar_dkp_per_day', value: '2', description: 'DKP otorgado por cada día de calendario completado' }
     ];
 
     const insertConfig = db.prepare(`

@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import express from 'express';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
@@ -7,7 +8,7 @@ import jwt from 'jsonwebtoken';
 import { db, initDatabase } from './database.js';
 import { authenticateToken, authorizeRole } from './middleware/auth.js';
 import { processWarcraftLog, isConfigured as isWCLConfigured } from './services/warcraftlogs.js';
-import { getAllRaidItems, searchItems, getItemsByRaid, getAvailableRaids } from './services/raidItems.js';
+import { getAllRaidItems, searchItems, getItemsByRaid, refreshFromAPI, getAvailableRaids, getDataSourceStatus, isAPIConfigured } from './services/raidItems.js';
 
 const app = express();
 const server = createServer(app);
@@ -25,11 +26,105 @@ const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-producti
 app.use(cors());
 app.use(express.json());
 
-// Serve static files (Frontend HTML)
-app.use(express.static('public'));
+// Frontend is served separately via Vite (dkp-frontend project)
+// No static files served from backend
 
 // Make io accessible to routes
 app.set('io', io);
+
+// Auto-close auction function
+function autoCloseAuction(auctionId) {
+  const auction = db.prepare('SELECT * FROM auctions WHERE id = ? AND status = ?').get(auctionId, 'active');
+  if (!auction) return; // Already ended or cancelled
+
+  // Get winning bid
+  const winningBid = db.prepare(`
+    SELECT ab.*, u.character_name, u.character_class
+    FROM auction_bids ab
+    JOIN users u ON ab.user_id = u.id
+    WHERE ab.auction_id = ?
+    ORDER BY ab.amount DESC
+    LIMIT 1
+  `).get(auctionId);
+
+  const transaction = db.transaction(() => {
+    if (winningBid) {
+      // Deduct DKP from winner
+      db.prepare(`
+        UPDATE member_dkp
+        SET current_dkp = current_dkp - ?,
+            lifetime_spent = lifetime_spent + ?
+        WHERE user_id = ?
+      `).run(winningBid.amount, winningBid.amount, winningBid.user_id);
+
+      // Log transaction
+      db.prepare(`
+        INSERT INTO dkp_transactions (user_id, amount, reason, performed_by)
+        VALUES (?, ?, ?, NULL)
+      `).run(winningBid.user_id, -winningBid.amount, `Won auction: ${auction.item_name} (auto-close)`);
+
+      // Update auction
+      db.prepare(`
+        UPDATE auctions
+        SET status = 'completed', winner_id = ?, winning_bid = ?, ended_at = CURRENT_TIMESTAMP
+        WHERE id = ?
+      `).run(winningBid.user_id, winningBid.amount, auctionId);
+    } else {
+      // No bids - cancel auction
+      db.prepare(`
+        UPDATE auctions SET status = 'cancelled', ended_at = CURRENT_TIMESTAMP WHERE id = ?
+      `).run(auctionId);
+    }
+  });
+
+  transaction();
+
+  const result = {
+    auctionId,
+    itemName: auction.item_name,
+    winner: winningBid ? {
+      userId: winningBid.user_id,
+      characterName: winningBid.character_name,
+      characterClass: winningBid.character_class,
+      amount: winningBid.amount
+    } : null
+  };
+
+  io.emit('auction_ended', result);
+  console.log(`🔔 Auction ${auctionId} auto-closed. Winner: ${winningBid?.character_name || 'No bids'}`);
+}
+
+// Schedule auto-close for existing active auctions on startup
+function scheduleExistingAuctions() {
+  // Get all active auctions (with or without ends_at)
+  const activeAuctions = db.prepare('SELECT id, ends_at, duration_minutes FROM auctions WHERE status = ?').all('active');
+
+  for (const auction of activeAuctions) {
+    let endsAt;
+
+    if (auction.ends_at) {
+      endsAt = new Date(auction.ends_at).getTime();
+    } else {
+      // Set default ends_at for auctions that don't have one (5 minutes from now)
+      const defaultDuration = auction.duration_minutes || 5;
+      const newEndsAt = new Date(Date.now() + defaultDuration * 60 * 1000).toISOString();
+      db.prepare('UPDATE auctions SET ends_at = ?, duration_minutes = ? WHERE id = ?').run(newEndsAt, defaultDuration, auction.id);
+      endsAt = new Date(newEndsAt).getTime();
+      console.log(`⏰ Set default ends_at for auction ${auction.id}: ${newEndsAt}`);
+    }
+
+    const now = Date.now();
+    const delay = endsAt - now;
+
+    if (delay > 0) {
+      setTimeout(() => autoCloseAuction(auction.id), delay);
+      console.log(`📅 Scheduled auto-close for auction ${auction.id} in ${Math.round(delay / 1000)}s`);
+    } else {
+      // Auction should have ended already, close it now
+      autoCloseAuction(auction.id);
+    }
+  }
+}
 
 // ============================================
 // HEALTH CHECK (for Docker/Render)
@@ -46,46 +141,7 @@ app.get('/health', (req, res) => {
 // AUTH ROUTES
 // ============================================
 
-// Register new user
-app.post('/api/auth/register', async (req, res) => {
-  try {
-    const { username, password, characterName, characterClass, role, raidRole, spec, server } = req.body;
-
-    if (!username || !password || !characterName || !characterClass) {
-      return res.status(400).json({ error: 'Missing required fields' });
-    }
-
-    // Check if username exists
-    const existingUser = db.prepare('SELECT id FROM users WHERE username = ?').get(username);
-    if (existingUser) {
-      return res.status(409).json({ error: 'Username already exists' });
-    }
-
-    // Hash password
-    const hashedPassword = await bcrypt.hash(password, 10);
-
-    // Insert user (default role is 'raider')
-    const result = db.prepare(`
-      INSERT INTO users (username, password, character_name, character_class, role, raid_role, spec, server)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(username, hashedPassword, characterName, characterClass, role || 'raider', raidRole || 'DPS', spec, server);
-
-    // Create initial DKP record
-    db.prepare(`
-      INSERT INTO member_dkp (user_id, current_dkp, lifetime_gained, lifetime_spent)
-      VALUES (?, 0, 0, 0)
-    `).run(result.lastInsertRowid);
-
-    res.status(201).json({ 
-      message: 'User registered successfully',
-      userId: result.lastInsertRowid 
-    });
-
-  } catch (error) {
-    console.error('Registration error:', error);
-    res.status(500).json({ error: 'Registration failed' });
-  }
-});
+// Note: Registration is disabled - users are created by admins only
 
 // Login
 app.post('/api/auth/login', async (req, res) => {
@@ -93,10 +149,10 @@ app.post('/api/auth/login', async (req, res) => {
     const { username, password } = req.body;
 
     const user = db.prepare(`
-      SELECT u.*, md.current_dkp 
+      SELECT u.*, md.current_dkp
       FROM users u
       LEFT JOIN member_dkp md ON u.id = md.user_id
-      WHERE u.username = ? AND u.is_active = 1
+      WHERE LOWER(u.username) = LOWER(?) AND u.is_active = 1
     `).get(username);
 
     if (!user) {
@@ -129,6 +185,104 @@ app.post('/api/auth/login', async (req, res) => {
   } catch (error) {
     console.error('Login error:', error);
     res.status(500).json({ error: 'Login failed' });
+  }
+});
+
+// Request password reset - searches by username or email
+app.post('/api/auth/forgot-password', async (req, res) => {
+  try {
+    const { usernameOrEmail } = req.body;
+
+    if (!usernameOrEmail) {
+      return res.status(400).json({ error: 'Username or email required' });
+    }
+
+    // Search by username OR email (case-insensitive)
+    const user = db.prepare(`
+      SELECT id, username, email FROM users
+      WHERE (LOWER(username) = LOWER(?) OR LOWER(email) = LOWER(?)) AND is_active = 1
+    `).get(usernameOrEmail, usernameOrEmail);
+
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    if (!user.email) {
+      return res.status(400).json({ error: 'No email configured for this user. Contact an administrator.' });
+    }
+
+    // Generate reset token (valid for 1 hour)
+    const resetToken = jwt.sign(
+      { userId: user.id, type: 'password_reset' },
+      JWT_SECRET,
+      { expiresIn: '1h' }
+    );
+
+    // Store reset token in database
+    db.prepare(`
+      UPDATE users SET reset_token = ?, reset_token_expires = datetime('now', '+1 hour')
+      WHERE id = ?
+    `).run(resetToken, user.id);
+
+    // TODO: Send email with reset link
+    // For now, log it (in production, use nodemailer or similar)
+    const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/reset-password/${resetToken}`;
+    console.log(`📧 Password reset link for ${user.username}: ${resetUrl}`);
+
+    res.json({
+      message: 'Password reset link sent to your email',
+      // In development, include the token for testing
+      ...(process.env.NODE_ENV !== 'production' && { resetToken })
+    });
+
+  } catch (error) {
+    console.error('Forgot password error:', error);
+    res.status(500).json({ error: 'Request failed' });
+  }
+});
+
+// Reset password with token
+app.post('/api/auth/reset-password', async (req, res) => {
+  try {
+    const { token, password } = req.body;
+
+    if (!token || !password) {
+      return res.status(400).json({ error: 'Token and password required' });
+    }
+
+    // Verify token
+    let decoded;
+    try {
+      decoded = jwt.verify(token, JWT_SECRET);
+      if (decoded.type !== 'password_reset') {
+        return res.status(400).json({ error: 'Invalid reset token' });
+      }
+    } catch (err) {
+      return res.status(400).json({ error: 'Invalid or expired reset token' });
+    }
+
+    // Check if token matches stored token and is not expired
+    const user = db.prepare(`
+      SELECT id FROM users
+      WHERE id = ? AND reset_token = ? AND reset_token_expires > datetime('now')
+    `).get(decoded.userId, token);
+
+    if (!user) {
+      return res.status(400).json({ error: 'Invalid or expired reset token' });
+    }
+
+    // Hash new password and update
+    const hashedPassword = await bcrypt.hash(password, 10);
+    db.prepare(`
+      UPDATE users SET password = ?, reset_token = NULL, reset_token_expires = NULL
+      WHERE id = ?
+    `).run(hashedPassword, user.id);
+
+    res.json({ message: 'Password reset successfully' });
+
+  } catch (error) {
+    console.error('Reset password error:', error);
+    res.status(500).json({ error: 'Password reset failed' });
   }
 });
 
@@ -210,7 +364,7 @@ app.post('/api/auth/reset-password', authenticateToken, authorizeRole(['admin', 
 // Get current user info
 app.get('/api/auth/me', authenticateToken, (req, res) => {
   const user = db.prepare(`
-    SELECT u.id, u.username, u.character_name, u.character_class, u.role, 
+    SELECT u.id, u.username, u.character_name, u.character_class, u.role, u.spec, u.raid_role,
            md.current_dkp, md.lifetime_gained, md.lifetime_spent
     FROM users u
     LEFT JOIN member_dkp md ON u.id = md.user_id
@@ -227,6 +381,8 @@ app.get('/api/auth/me', authenticateToken, (req, res) => {
     characterName: user.character_name,
     characterClass: user.character_class,
     role: user.role,
+    spec: user.spec,
+    raidRole: user.raid_role,
     currentDkp: user.current_dkp || 0,
     lifetimeGained: user.lifetime_gained || 0,
     lifetimeSpent: user.lifetime_spent || 0
@@ -280,11 +436,68 @@ app.put('/api/members/:id/role', authenticateToken, authorizeRole(['admin']), (r
 // Deactivate member (admin only)
 app.delete('/api/members/:id', authenticateToken, authorizeRole(['admin']), (req, res) => {
   const { id } = req.params;
-  
+
   db.prepare('UPDATE users SET is_active = 0 WHERE id = ?').run(id);
-  
+
   io.emit('member_removed', { memberId: id });
   res.json({ message: 'Member deactivated' });
+});
+
+// Create new member (admin or officer)
+app.post('/api/members', authenticateToken, authorizeRole(['admin', 'officer']), async (req, res) => {
+  try {
+    const { username, password, characterName, characterClass, spec, raidRole, role, initialDkp } = req.body;
+
+    // Validate required fields
+    if (!username || !password || !characterName || !characterClass) {
+      return res.status(400).json({ error: 'Username, password, character name and class are required' });
+    }
+
+    // Check if username already exists (case-insensitive)
+    const existing = db.prepare('SELECT id FROM users WHERE LOWER(username) = LOWER(?)').get(username);
+    if (existing) {
+      return res.status(409).json({ error: 'Username already exists' });
+    }
+
+    // Validate role
+    const validRole = ['admin', 'officer', 'raider'].includes(role) ? role : 'raider';
+    const validRaidRole = ['Tank', 'Healer', 'DPS'].includes(raidRole) ? raidRole : 'DPS';
+
+    // Hash password
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    // Create user
+    const result = db.prepare(`
+      INSERT INTO users (username, password, character_name, character_class, spec, raid_role, role)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `).run(username, hashedPassword, characterName, characterClass, spec || null, validRaidRole, validRole);
+
+    // Create DKP entry
+    const dkp = parseInt(initialDkp) || 0;
+    db.prepare(`
+      INSERT INTO member_dkp (user_id, current_dkp, lifetime_gained)
+      VALUES (?, ?, ?)
+    `).run(result.lastInsertRowid, dkp, dkp);
+
+    io.emit('member_updated', { memberId: result.lastInsertRowid });
+
+    res.status(201).json({
+      message: 'Member created successfully',
+      member: {
+        id: result.lastInsertRowid,
+        username,
+        characterName,
+        characterClass,
+        spec,
+        raidRole: validRaidRole,
+        role: validRole,
+        currentDkp: dkp
+      }
+    });
+  } catch (error) {
+    console.error('Create member error:', error);
+    res.status(500).json({ error: 'Failed to create member' });
+  }
 });
 
 // ============================================
@@ -432,7 +645,7 @@ app.get('/api/dkp/history/:userId', authenticateToken, (req, res) => {
 // CALENDAR ROUTES
 // ============================================
 
-// Helper function to get raid dates for N weeks
+// Helper: Get raid dates for the next N weeks
 function getRaidDates(weeks = 2) {
   const raidDays = db.prepare(`
     SELECT day_of_week, day_name, raid_time
@@ -453,7 +666,7 @@ function getRaidDates(weeks = 2) {
     // JavaScript: 0=Sunday, 1=Monday, ... 6=Saturday
     // Database: 1=Monday, 2=Tuesday, ... 7=Sunday
     const jsDay = date.getDay();
-    const dbDay = jsDay === 0 ? 7 : jsDay;
+    const dbDay = jsDay === 0 ? 7 : jsDay; // Convert Sunday from 0 to 7
 
     const raidDay = raidDays.find(rd => rd.day_of_week === dbDay);
     if (raidDay) {
@@ -485,33 +698,43 @@ app.get('/api/calendar/raid-days', authenticateToken, (req, res) => {
 app.put('/api/calendar/raid-days', authenticateToken, authorizeRole(['admin']), (req, res) => {
   const { days } = req.body;
 
-  if (!Array.isArray(days)) {
-    return res.status(400).json({ error: 'days must be an array' });
+  if (!days || !Array.isArray(days)) {
+    return res.status(400).json({ error: 'days array required' });
   }
 
-  // Deactivate all days first
+  // First, deactivate all days
   db.prepare('UPDATE raid_days SET is_active = 0').run();
 
-  // Activate specified days
+  // Then, upsert the provided days
+  const upsert = db.prepare(`
+    INSERT INTO raid_days (day_of_week, day_name, is_active, raid_time)
+    VALUES (?, ?, 1, ?)
+    ON CONFLICT(day_of_week) DO UPDATE SET
+      day_name = excluded.day_name,
+      is_active = 1,
+      raid_time = excluded.raid_time
+  `);
+
+  const dayNames = {
+    1: 'Lunes', 2: 'Martes', 3: 'Miércoles', 4: 'Jueves',
+    5: 'Viernes', 6: 'Sábado', 7: 'Domingo'
+  };
+
   for (const day of days) {
-    db.prepare(`
-      INSERT INTO raid_days (day_of_week, day_name, is_active, raid_time)
-      VALUES (?, ?, 1, ?)
-      ON CONFLICT(day_of_week) DO UPDATE SET is_active = 1, raid_time = ?, day_name = ?
-    `).run(day.dayOfWeek, day.dayName, day.raidTime || '20:00', day.raidTime || '20:00', day.dayName);
+    upsert.run(day.dayOfWeek, day.dayName || dayNames[day.dayOfWeek], day.raidTime || '20:00');
   }
 
   res.json({ message: 'Raid days updated' });
 });
 
-// Get upcoming raid dates
+// Get upcoming raid dates for next 2 weeks
 app.get('/api/calendar/dates', authenticateToken, (req, res) => {
   const weeks = parseInt(req.query.weeks) || 2;
-  const dates = getRaidDates(weeks);
-  res.json({ dates });
+  const dates = getRaidDates(Math.min(weeks, 4)); // Max 4 weeks
+  res.json(dates);
 });
 
-// Get user's signups for upcoming raid dates
+// Get user's signups for upcoming dates
 app.get('/api/calendar/my-signups', authenticateToken, (req, res) => {
   const userId = req.user.userId;
   const weeks = parseInt(req.query.weeks) || 2;
@@ -630,77 +853,75 @@ app.post('/api/calendar/signup', authenticateToken, (req, res) => {
 // Get summary for a specific date (all users)
 app.get('/api/calendar/summary/:date', authenticateToken, (req, res) => {
   const { date } = req.params;
+  const isAdmin = ['admin', 'officer'].includes(req.user.role);
 
   // Get all active users
   const users = db.prepare(`
-    SELECT id, character_name, character_class, raid_role
-    FROM users
-    WHERE is_active = 1
-    ORDER BY character_name
+    SELECT u.id, u.character_name, u.character_class, u.raid_role, u.spec
+    FROM users u
+    WHERE u.is_active = 1
+    ORDER BY u.character_name
   `).all();
 
   // Get signups for this date
   const signups = db.prepare(`
-    SELECT ma.user_id, ma.status, ma.notes, u.character_name, u.character_class, u.raid_role
-    FROM member_availability ma
-    JOIN users u ON ma.user_id = u.id
-    WHERE ma.raid_date = ?
+    SELECT user_id, status, notes
+    FROM member_availability
+    WHERE raid_date = ?
   `).all(date);
 
-  const signupMap = {};
-  signups.forEach(s => { signupMap[s.user_id] = s; });
+  // Merge and categorize
+  const summary = {
+    date,
+    confirmed: [],
+    declined: [],
+    tentative: [],
+    noResponse: []
+  };
 
-  // Categorize users
-  const confirmed = [];
-  const tentative = [];
-  const declined = [];
-  const noResponse = [];
-
-  users.forEach(user => {
-    const signup = signupMap[user.id];
-    const memberData = {
+  for (const user of users) {
+    const signup = signups.find(s => s.user_id === user.id);
+    const memberInfo = {
       id: user.id,
       characterName: user.character_name,
       characterClass: user.character_class,
       raidRole: user.raid_role,
-      notes: signup?.notes || null
+      spec: user.spec,
+      // Only include notes for admins
+      ...(isAdmin && signup?.notes && { notes: signup.notes })
     };
 
     if (!signup) {
-      noResponse.push(memberData);
+      summary.noResponse.push(memberInfo);
     } else if (signup.status === 'confirmed') {
-      confirmed.push(memberData);
-    } else if (signup.status === 'tentative') {
-      tentative.push(memberData);
+      summary.confirmed.push(memberInfo);
     } else if (signup.status === 'declined') {
-      declined.push(memberData);
+      summary.declined.push(memberInfo);
+    } else {
+      summary.tentative.push(memberInfo);
     }
-  });
+  }
 
-  res.json({
-    date,
-    counts: {
-      confirmed: confirmed.length,
-      tentative: tentative.length,
-      declined: declined.length,
-      noResponse: noResponse.length,
-      total: users.length
-    },
-    confirmed,
-    tentative,
-    declined,
-    noResponse
-  });
+  // Add counts
+  summary.counts = {
+    confirmed: summary.confirmed.length,
+    declined: summary.declined.length,
+    tentative: summary.tentative.length,
+    noResponse: summary.noResponse.length,
+    total: users.length
+  };
+
+  res.json(summary);
 });
 
-// Get full overview for admin (all dates and all members)
+// Get all signups overview (admin/officer only)
 app.get('/api/calendar/overview', authenticateToken, authorizeRole(['admin', 'officer']), (req, res) => {
   const weeks = parseInt(req.query.weeks) || 2;
   const raidDates = getRaidDates(weeks);
 
   // Get all active users
   const users = db.prepare(`
-    SELECT id, character_name, character_class, raid_role
+    SELECT id, character_name, character_class, raid_role, spec
     FROM users
     WHERE is_active = 1
     ORDER BY character_name
@@ -719,40 +940,45 @@ app.get('/api/calendar/overview', authenticateToken, authorizeRole(['admin', 'of
     WHERE raid_date IN (${placeholders})
   `).all(...dateStrings);
 
-  // Build member signup map
-  const signupMap = {};
-  allSignups.forEach(s => {
-    if (!signupMap[s.user_id]) signupMap[s.user_id] = {};
-    signupMap[s.user_id][s.raid_date] = { status: s.status, notes: s.notes };
-  });
-
-  // Build response
-  const dates = raidDates.map(rd => {
-    let confirmed = 0, tentative = 0, declined = 0, noResponse = 0;
-
-    users.forEach(user => {
-      const signup = signupMap[user.id]?.[rd.date];
-      if (!signup) noResponse++;
-      else if (signup.status === 'confirmed') confirmed++;
-      else if (signup.status === 'tentative') tentative++;
-      else if (signup.status === 'declined') declined++;
-    });
-
+  // Build overview per date
+  const datesOverview = raidDates.map(date => {
+    const dateSignups = allSignups.filter(s => s.raid_date === date.date);
     return {
-      ...rd,
-      counts: { confirmed, tentative, declined, noResponse }
+      ...date,
+      counts: {
+        confirmed: dateSignups.filter(s => s.status === 'confirmed').length,
+        declined: dateSignups.filter(s => s.status === 'declined').length,
+        tentative: dateSignups.filter(s => s.status === 'tentative').length,
+        noResponse: users.length - dateSignups.length
+      }
     };
   });
 
-  const members = users.map(user => ({
-    id: user.id,
-    characterName: user.character_name,
-    characterClass: user.character_class,
-    raidRole: user.raid_role,
-    signups: signupMap[user.id] || {}
-  }));
+  // Build member grid
+  const members = users.map(user => {
+    const signups = {};
+    for (const date of raidDates) {
+      const signup = allSignups.find(s => s.user_id === user.id && s.raid_date === date.date);
+      signups[date.date] = {
+        status: signup?.status || null,
+        notes: signup?.notes || null
+      };
+    }
 
-  res.json({ dates, members });
+    return {
+      id: user.id,
+      characterName: user.character_name,
+      characterClass: user.character_class,
+      raidRole: user.raid_role,
+      spec: user.spec,
+      signups
+    };
+  });
+
+  res.json({
+    dates: datesOverview,
+    members
+  });
 });
 
 // ============================================
@@ -785,21 +1011,23 @@ app.get('/api/auctions/active', authenticateToken, (req, res) => {
 
     const highestBid = bids.length > 0 ? bids[0].amount : 0;
 
-    const highestBidder = bids.length > 0 ? {
-      characterName: bids[0].character_name,
-      characterClass: bids[0].character_class
-    } : null;
+    const highestBidder = bids.length > 0 ? bids[0] : null;
+
+    // Calculate endsAt if not set (for old auctions)
+    let endsAt = auction.ends_at;
+    if (!endsAt && auction.created_at) {
+      const duration = auction.duration_minutes || 5;
+      const createdTime = new Date(auction.created_at).getTime();
+      endsAt = new Date(createdTime + duration * 60 * 1000).toISOString();
+    }
 
     return {
       id: auction.id,
       itemName: auction.item_name,
-      itemNameEN: auction.item_name_en,
       itemImage: auction.item_image,
       itemRarity: auction.item_rarity,
       minimumBid: auction.min_bid,
       currentBid: highestBid,
-      highestBidder,
-      endsAt: auction.ends_at,
       status: auction.status,
       winnerId: auction.winner_id,
       winningBid: auction.winning_bid,
@@ -807,7 +1035,14 @@ app.get('/api/auctions/active', authenticateToken, (req, res) => {
       createdByName: auction.created_by_name,
       createdAt: auction.created_at,
       endedAt: auction.ended_at,
+      endsAt: endsAt,
+      durationMinutes: auction.duration_minutes || 5,
       bidsCount: bids.length,
+      highestBidder: highestBidder ? {
+        characterName: highestBidder.character_name,
+        characterClass: highestBidder.character_class,
+        amount: highestBidder.amount
+      } : null,
       bids: bids.map(b => ({
         id: b.id,
         userId: b.user_id,
@@ -833,21 +1068,20 @@ app.post('/api/auctions', authenticateToken, authorizeRole(['admin', 'officer'])
   const duration = durationMinutes || 5;
   const endsAt = new Date(Date.now() + duration * 60 * 1000).toISOString();
 
+  // Multiple active auctions are now allowed
   const result = db.prepare(`
-    INSERT INTO auctions (item_name, item_name_en, item_image, item_rarity, min_bid, duration_minutes, ends_at, created_by, status)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'active')
-  `).run(itemName, itemNameEN || itemName, itemImage || '🎁', itemRarity || 'epic', minBid || 0, duration, endsAt, req.user.userId);
+    INSERT INTO auctions (item_name, item_name_en, item_image, item_rarity, min_bid, created_by, status, duration_minutes, ends_at)
+    VALUES (?, ?, ?, ?, ?, ?, 'active', ?, ?)
+  `).run(itemName, itemNameEN || itemName, itemImage || '🎁', itemRarity || 'epic', minBid || 0, req.user.userId, duration, endsAt);
 
   const auction = db.prepare('SELECT * FROM auctions WHERE id = ?').get(result.lastInsertRowid);
 
-  io.emit('auction_started', {
-    id: auction.id,
-    itemName: auction.item_name,
-    itemNameEN: auction.item_name_en,
-    itemImage: auction.item_image,
-    itemRarity: auction.item_rarity,
-    endsAt: auction.ends_at
-  });
+  // Schedule auto-close
+  setTimeout(() => {
+    autoCloseAuction(auction.id);
+  }, duration * 60 * 1000);
+
+  io.emit('auction_started', auction);
   res.status(201).json(auction);
 });
 
@@ -863,9 +1097,9 @@ app.post('/api/auctions/:auctionId/bid', authenticateToken, (req, res) => {
     return res.status(404).json({ error: 'Active auction not found' });
   }
 
-  // Validate amount
-  if (amount < auction.min_bid) {
-    return res.status(400).json({ error: `Bid must be at least ${auction.min_bid} DKP` });
+  // Validate amount - must be at least 1 DKP
+  if (!amount || amount < 1) {
+    return res.status(400).json({ error: 'Bid must be at least 1 DKP' });
   }
 
   // Check user's DKP
@@ -983,33 +1217,85 @@ app.post('/api/auctions/:auctionId/cancel', authenticateToken, authorizeRole(['a
   res.json({ message: 'Auction cancelled' });
 });
 
+// Cancel ALL active auctions (admin only) - for cleanup
+app.post('/api/auctions/cancel-all', authenticateToken, authorizeRole(['admin']), (req, res) => {
+  const result = db.prepare(`
+    UPDATE auctions SET status = 'cancelled', ended_at = CURRENT_TIMESTAMP WHERE status = 'active'
+  `).run();
+
+  io.emit('auctions_cleared', { count: result.changes });
+  res.json({ message: `Cancelled ${result.changes} active auctions` });
+});
+
 // Get all raid items
 app.get('/api/raid-items', authenticateToken, async (req, res) => {
-  const items = await getAllRaidItems();
-  res.json({ items });
+  try {
+    const items = await getAllRaidItems();
+    res.json({ items });
+  } catch (error) {
+    console.error('Error fetching raid items:', error);
+    res.status(500).json({ error: 'Failed to fetch raid items' });
+  }
 });
 
 // Search raid items
 app.get('/api/raid-items/search', authenticateToken, async (req, res) => {
-  const query = req.query.q || '';
-  const items = query ? await searchItems(query) : await getAllRaidItems();
-  res.json({ items });
+  try {
+    const query = req.query.q || '';
+    const items = query ? await searchItems(query) : await getAllRaidItems();
+    res.json({ items });
+  } catch (error) {
+    console.error('Error searching raid items:', error);
+    res.status(500).json({ error: 'Failed to search raid items' });
+  }
 });
 
 // Get items by raid
 app.get('/api/raid-items/:raidName', authenticateToken, async (req, res) => {
-  const { raidName } = req.params;
-  const items = await getItemsByRaid(raidName);
-  res.json({ items });
+  try {
+    const { raidName } = req.params;
+    const items = await getItemsByRaid(raidName);
+    res.json({ items });
+  } catch (error) {
+    console.error('Error fetching raid items by raid:', error);
+    res.status(500).json({ error: 'Failed to fetch raid items' });
+  }
 });
 
-// Get all raids
+// Get available raids
 app.get('/api/raids-list', authenticateToken, async (req, res) => {
   try {
     const raids = await getAvailableRaids();
     res.json({ raids });
   } catch (error) {
-    res.status(500).json({ error: 'Failed to get raids list' });
+    console.error('Error fetching raids list:', error);
+    res.status(500).json({ error: 'Failed to fetch raids list' });
+  }
+});
+
+// Get raid items data source status
+app.get('/api/raid-items/status', authenticateToken, authorizeRole(['admin', 'officer']), (req, res) => {
+  res.json(getDataSourceStatus());
+});
+
+// Force refresh raid items from Blizzard API
+app.post('/api/raid-items/refresh', authenticateToken, authorizeRole(['admin']), async (req, res) => {
+  try {
+    if (!isAPIConfigured()) {
+      return res.status(400).json({
+        error: 'Blizzard API not configured. Set BLIZZARD_CLIENT_ID and BLIZZARD_CLIENT_SECRET environment variables.'
+      });
+    }
+
+    const result = await refreshFromAPI();
+    if (result.success) {
+      res.json({ message: `Successfully refreshed ${result.count} items from Blizzard API` });
+    } else {
+      res.status(500).json({ error: result.error });
+    }
+  } catch (error) {
+    console.error('Error refreshing raid items:', error);
+    res.status(500).json({ error: 'Failed to refresh raid items from API' });
   }
 });
 
@@ -1018,7 +1304,7 @@ app.get('/api/auctions/history', authenticateToken, (req, res) => {
   const limit = parseInt(req.query.limit) || 50;
 
   const auctions = db.prepare(`
-    SELECT a.*, 
+    SELECT a.*,
            creator.character_name as created_by_name,
            winner.character_name as winner_name,
            winner.character_class as winner_class
@@ -1030,7 +1316,23 @@ app.get('/api/auctions/history', authenticateToken, (req, res) => {
     LIMIT ?
   `).all(limit);
 
-  res.json(auctions);
+  // Format response with winner object
+  const formatted = auctions.map(a => ({
+    id: a.id,
+    item_name: a.item_name,
+    item_image: a.item_image,
+    item_rarity: a.item_rarity,
+    status: a.status,
+    winning_bid: a.winning_bid,
+    created_at: a.created_at,
+    ended_at: a.ended_at,
+    winner: a.winner_name ? {
+      characterName: a.winner_name,
+      characterClass: a.winner_class
+    } : null
+  }));
+
+  res.json(formatted);
 });
 
 // ============================================
@@ -1459,8 +1761,13 @@ io.on('connection', (socket) => {
 // ============================================
 
 initDatabase();
+scheduleExistingAuctions();
 
 server.listen(PORT, () => {
+  console.log('==========================================');
+  console.log('  DKP Backend Server - BUILD v2.0');
+  console.log('  Date: 2026-01-27');
+  console.log('==========================================');
   console.log(`🎮 DKP Server running on port ${PORT}`);
   console.log(`📡 WebSocket ready for real-time updates`);
 });
