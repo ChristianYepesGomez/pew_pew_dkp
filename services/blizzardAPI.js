@@ -157,14 +157,20 @@ async function getItemMedia(itemId) {
 
 // Check if item should be excluded
 function shouldExcludeItem(item) {
-  // Check item type
+  // Armor (4) and Weapon (2) classes are always gear - keep them
+  const itemClassId = item.item_class?.id;
+  if (itemClassId === 2 || itemClassId === 4) {
+    return false;
+  }
+
+  // For non-gear classes, check item subclass against excluded types
   if (item.item_subclass?.name && EXCLUDED_ITEM_TYPES.some(type =>
     item.item_subclass.name.toLowerCase().includes(type.toLowerCase())
   )) {
     return true;
   }
 
-  // Check name patterns
+  // Check name patterns (only for non-gear items)
   const name = item.name || '';
   if (EXCLUDED_PATTERNS.some(pattern => pattern.test(name))) {
     return true;
@@ -230,6 +236,7 @@ async function fetchRaidItems(instanceId) {
 
   const instance = await getJournalInstance(instanceId);
   const items = [];
+  const seenIds = new Set();
 
   console.log(`Found raid: ${instance.name} with ${instance.encounters?.length || 0} encounters`);
 
@@ -241,6 +248,10 @@ async function fetchRaidItems(instanceId) {
       try {
         const item = itemRef.item;
         if (!item?.id) continue;
+
+        // Skip duplicate items (shared loot tables across sub-bosses)
+        if (seenIds.has(item.id)) continue;
+        seenIds.add(item.id);
 
         // Get full item details
         const itemDetails = await getItem(item.id);
@@ -293,8 +304,9 @@ async function fetchRaidItemsMultiLang(instanceId) {
 
   CONFIG.locale = originalLocale;
 
-  // Create a map of English items by ID for faster lookup
+  // Create maps for faster lookup
   const englishItemsMap = new Map(englishItems.map(item => [item.id, item]));
+  const spanishItemsMap = new Map(spanishItems.map(item => [item.id, item]));
 
   // Merge translations - use English as base for consistent slot names
   const mergedItems = [];
@@ -302,7 +314,7 @@ async function fetchRaidItemsMultiLang(instanceId) {
 
   // First, process all English items and add Spanish translations
   for (const enItem of englishItems) {
-    const esItem = spanishItems.find(es => es.id === enItem.id);
+    const esItem = spanishItemsMap.get(enItem.id);
 
     mergedItems.push({
       id: enItem.id,
