@@ -670,8 +670,12 @@ function getRaidDates(weeks = 2) {
 
     const raidDay = raidDays.find(rd => rd.day_of_week === dbDay);
     if (raidDay) {
+      // Use local date components (not toISOString which returns UTC)
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
       dates.push({
-        date: date.toISOString().split('T')[0],
+        date: `${year}-${month}-${day}`,
         dayOfWeek: dbDay,
         dayName: raidDay.day_name,
         raidTime: raidDay.raid_time
