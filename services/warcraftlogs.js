@@ -11,8 +11,8 @@ let tokenExpiry = null;
  * Get OAuth access token from Warcraft Logs
  */
 async function getAccessToken() {
-  const clientId = process.env.WARCRAFTLOGS_CLIENT_ID;
-  const clientSecret = process.env.WARCRAFTLOGS_CLIENT_SECRET;
+  const clientId = process.env.WCL_CLIENT_ID;
+  const clientSecret = process.env.WCL_CLIENT_SECRET;
 
   if (!clientId || !clientSecret) {
     throw new Error('Warcraft Logs credentials not configured. Set WARCRAFTLOGS_CLIENT_ID and WARCRAFTLOGS_CLIENT_SECRET in .env');
@@ -247,7 +247,7 @@ export async function processWarcraftLog(urlOrCode) {
  * Test if Warcraft Logs credentials are configured
  */
 export function isConfigured() {
-  return !!(process.env.WARCRAFTLOGS_CLIENT_ID && process.env.WARCRAFTLOGS_CLIENT_SECRET);
+  return !!(process.env.WCL_CLIENT_ID && process.env.WCL_CLIENT_SECRET);
 }
 
 export { extractReportCode, getAccessToken };
