@@ -53,13 +53,6 @@ const BidModal = ({ auction, userDkp, onClose, onSuccess }) => {
     }
   }
 
-  const quickBids = [
-    minBid,
-    Math.ceil(minBid * 1.1),
-    Math.ceil(minBid * 1.25),
-    Math.ceil(minBid * 1.5),
-  ].filter(bid => bid <= userDkp)
-
   return createPortal(
     <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-[100] p-4">
       <div className="bg-midnight-deepblue border-2 border-midnight-bright-purple rounded-2xl w-full max-w-md shadow-2xl">
@@ -67,8 +60,16 @@ const BidModal = ({ auction, userDkp, onClose, onSuccess }) => {
         <div className="p-6 border-b border-midnight-bright-purple border-opacity-30">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-lg bg-midnight-purple flex items-center justify-center border-2" style={{ borderColor: RARITY_COLORS[auction.itemRarity] }}>
-                <i className="fas fa-gem text-xl" style={{ color: RARITY_COLORS[auction.itemRarity] }}></i>
+              <div className="w-12 h-12 rounded-lg bg-midnight-purple flex items-center justify-center border-2 overflow-hidden" style={{ borderColor: RARITY_COLORS[auction.itemRarity] }}>
+                {auction.itemImage && auction.itemImage !== '🎁' ? (
+                  <img
+                    src={auction.itemImage}
+                    alt={auction.itemName}
+                    className="w-full h-full object-cover"
+                    onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'block'; }}
+                  />
+                ) : null}
+                <i className="fas fa-gem text-xl" style={{ color: RARITY_COLORS[auction.itemRarity], display: auction.itemImage && auction.itemImage !== '🎁' ? 'none' : 'block' }}></i>
               </div>
               <div>
                 <h3 className="text-lg font-bold m-0" style={{ color: RARITY_COLORS[auction.itemRarity] }}>
@@ -108,30 +109,7 @@ const BidModal = ({ auction, userDkp, onClose, onSuccess }) => {
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
-          {/* Quick bids */}
-          {quickBids.length > 1 && (
-            <div>
-              <label className="block text-sm text-midnight-silver mb-2">{t('quick_bid')}</label>
-              <div className="grid grid-cols-4 gap-2">
-                {quickBids.map((bid) => (
-                  <button
-                    key={bid}
-                    type="button"
-                    onClick={() => setAmount(bid)}
-                    className={`py-2 rounded-lg text-sm font-bold transition-all ${
-                      amount === bid
-                        ? 'bg-green-600 text-white'
-                        : 'bg-midnight-purple bg-opacity-50 text-midnight-silver hover:bg-opacity-70'
-                    }`}
-                  >
-                    {bid}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Custom amount */}
+          {/* Bid amount */}
           <div>
             <label className="block text-sm text-midnight-silver mb-2">{t('your_bid')}</label>
             <div className="flex items-center gap-2">

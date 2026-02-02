@@ -66,14 +66,14 @@ const HistoryTab = () => {
               >
                 {/* Item Icon */}
                 <div
-                  className="w-12 h-12 rounded-lg bg-midnight-deepblue flex items-center justify-center border-2 flex-shrink-0"
+                  className="w-12 h-12 rounded-lg bg-midnight-deepblue flex items-center justify-center border-2 flex-shrink-0 overflow-hidden"
                   style={{ borderColor: RARITY_COLORS[a.item_rarity] || RARITY_COLORS.epic }}
                 >
                   {a.item_image && a.item_image !== '🎁' ? (
                     <img
                       src={a.item_image}
                       alt={a.item_name}
-                      className="w-10 h-10 object-contain"
+                      className="w-full h-full object-cover"
                       onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'block'; }}
                     />
                   ) : null}
