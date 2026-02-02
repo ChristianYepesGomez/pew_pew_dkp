@@ -25,3 +25,7 @@ Thumbs.db
 # Environment and data
 .env
 data/
+*.db
+
+# Claude Code
+.claude/
