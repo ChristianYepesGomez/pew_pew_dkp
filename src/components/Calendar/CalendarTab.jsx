@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import { useAuth } from '../../hooks/useAuth'
 import { useLanguage } from '../../hooks/useLanguage'
 import { calendarAPI } from '../../services/api'
@@ -88,13 +89,7 @@ const CalendarTab = () => {
     }
   }
 
-  const loadSummary = async (date) => {
-    if (expandedDate === date) {
-      setExpandedDate(null)
-      setSummary(null)
-      return
-    }
-
+  const openSummary = async (date) => {
     try {
       setLoadingSummary(true)
       setExpandedDate(date)
@@ -105,6 +100,11 @@ const CalendarTab = () => {
     } finally {
       setLoadingSummary(false)
     }
+  }
+
+  const closeSummary = () => {
+    setExpandedDate(null)
+    setSummary(null)
   }
 
   const handleStatusChange = async (date, status) => {
@@ -131,7 +131,7 @@ const CalendarTab = () => {
 
       // Refresh summary if viewing
       if (expandedDate === date) {
-        loadSummary(date)
+        openSummary(date)
       }
     } catch (error) {
       console.error('Error saving status:', error)
@@ -342,25 +342,12 @@ const CalendarTab = () => {
 
                         {/* View Summary Button */}
                         <button
-                          onClick={() => loadSummary(signup.date)}
+                          onClick={() => openSummary(signup.date)}
                           className="w-full py-2 px-3 bg-midnight-purple bg-opacity-20 text-midnight-silver text-sm rounded-lg hover:bg-opacity-40 hover:text-white transition-all flex items-center justify-center gap-2"
                         >
-                          <i className={`fas ${expandedDate === signup.date ? 'fa-chevron-up' : 'fa-chevron-down'}`}></i>
+                          <i className="fas fa-users"></i>
                           {t('view_details')}
                         </button>
-
-                        {/* Summary Dropdown */}
-                        {expandedDate === signup.date && (
-                          <div className="border-t border-midnight-bright-purple border-opacity-30 pt-4 animate-fade-in">
-                            {loadingSummary ? (
-                              <div className="text-center py-4">
-                                <i className="fas fa-circle-notch fa-spin text-midnight-glow"></i>
-                              </div>
-                            ) : summary ? (
-                              <SummaryView summary={summary} t={t} isAdmin={isAdmin} />
-                            ) : null}
-                          </div>
-                        )}
                       </div>
                     </div>
                   )
@@ -376,6 +363,18 @@ const CalendarTab = () => {
             </div>
           )}
         </>
+      )}
+      {/* Summary Modal */}
+      {expandedDate && (
+        <SummaryModal
+          date={expandedDate}
+          summary={summary}
+          loadingSummary={loadingSummary}
+          onClose={closeSummary}
+          t={t}
+          language={language}
+          isAdmin={isAdmin}
+        />
       )}
     </div>
   )
@@ -526,6 +525,77 @@ const SummaryView = ({ summary, t, isAdmin }) => {
         <span className="flex items-center gap-1 opacity-30"><i className="fas fa-minus-circle text-gray-500"></i>{t('members_no_response')}</span>
       </div>
     </div>
+  )
+}
+
+// Summary Modal Component (rendered via portal)
+const SummaryModal = ({ date, summary, loadingSummary, onClose, t, language, isAdmin }) => {
+  const dateInfo = (() => {
+    const d = new Date(date + 'T00:00:00')
+    const dayName = d.toLocaleDateString(language === 'es' ? 'es-ES' : 'en-US', { weekday: 'long' })
+    const dayNum = d.getDate()
+    const month = d.toLocaleDateString(language === 'es' ? 'es-ES' : 'en-US', { month: 'long' })
+    return {
+      dayName: dayName.charAt(0).toUpperCase() + dayName.slice(1),
+      dayNum,
+      month: month.charAt(0).toUpperCase() + month.slice(1)
+    }
+  })()
+
+  useEffect(() => {
+    const handleKey = (e) => {
+      if (e.key === 'Escape') onClose()
+    }
+    document.addEventListener('keydown', handleKey)
+    return () => document.removeEventListener('keydown', handleKey)
+  }, [onClose])
+
+  return createPortal(
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      onClick={onClose}
+    >
+      {/* Backdrop */}
+      <div className="absolute inset-0 bg-black bg-opacity-70 backdrop-blur-sm" />
+
+      {/* Modal */}
+      <div
+        className="relative w-full max-w-lg bg-midnight-deepblue border border-midnight-bright-purple border-opacity-40 rounded-2xl shadow-2xl shadow-midnight-glow/10 animate-fade-in overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Modal Header */}
+        <div className="px-6 py-4 bg-midnight-purple bg-opacity-30 border-b border-midnight-bright-purple border-opacity-30 flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 rounded-lg bg-midnight-purple bg-opacity-40 flex flex-col items-center justify-center">
+              <span className="text-lg font-bold text-white leading-none">{dateInfo.dayNum}</span>
+              <span className="text-[10px] text-midnight-silver uppercase">{dateInfo.month}</span>
+            </div>
+            <div>
+              <h3 className="text-lg font-cinzel font-bold text-white">{t('raid_roster')}</h3>
+              <p className="text-sm text-midnight-silver">{dateInfo.dayName}</p>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className="w-8 h-8 rounded-lg bg-midnight-purple bg-opacity-30 text-midnight-silver hover:text-white hover:bg-opacity-50 transition-all flex items-center justify-center"
+          >
+            <i className="fas fa-times"></i>
+          </button>
+        </div>
+
+        {/* Modal Body */}
+        <div className="p-6 max-h-[70vh] overflow-y-auto">
+          {loadingSummary ? (
+            <div className="text-center py-12">
+              <i className="fas fa-circle-notch fa-spin text-3xl text-midnight-glow"></i>
+            </div>
+          ) : summary ? (
+            <SummaryView summary={summary} t={t} isAdmin={isAdmin} />
+          ) : null}
+        </div>
+      </div>
+    </div>,
+    document.body
   )
 }
 
