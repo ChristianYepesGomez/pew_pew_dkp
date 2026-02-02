@@ -99,6 +99,22 @@ function initDatabase() {
     // Column already exists
   }
 
+  // Add farewell_data column for member farewell records (migration)
+  try {
+    db.exec(`ALTER TABLE auctions ADD COLUMN farewell_data TEXT`);
+    console.log('✅ Added farewell_data column to auctions table');
+  } catch (e) {
+    // Column already exists
+  }
+
+  // Add item_id column for WoW item tooltips (migration)
+  try {
+    db.exec(`ALTER TABLE auctions ADD COLUMN item_id INTEGER`);
+    console.log('✅ Added item_id column to auctions table');
+  } catch (e) {
+    // Column already exists
+  }
+
   // Member DKP table (separate for easier updates)
   db.exec(`
     CREATE TABLE IF NOT EXISTS member_dkp (
