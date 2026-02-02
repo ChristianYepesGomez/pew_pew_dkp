@@ -95,9 +95,12 @@ function initDatabase() {
     CREATE TABLE IF NOT EXISTS auctions (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       item_name TEXT NOT NULL,
+      item_name_en TEXT,
       item_image TEXT DEFAULT '🎁',
       item_rarity TEXT DEFAULT 'epic' CHECK(item_rarity IN ('common', 'uncommon', 'rare', 'epic', 'legendary')),
       min_bid INTEGER DEFAULT 10,
+      duration_minutes INTEGER DEFAULT 5,
+      ends_at DATETIME,
       status TEXT DEFAULT 'active' CHECK(status IN ('active', 'completed', 'cancelled')),
       winner_id INTEGER,
       winning_bid INTEGER,
@@ -108,6 +111,11 @@ function initDatabase() {
       FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL
     )
   `);
+
+  // Migrations for existing databases
+  try { db.exec(`ALTER TABLE auctions ADD COLUMN item_name_en TEXT`); } catch (e) {}
+  try { db.exec(`ALTER TABLE auctions ADD COLUMN duration_minutes INTEGER DEFAULT 5`); } catch (e) {}
+  try { db.exec(`ALTER TABLE auctions ADD COLUMN ends_at DATETIME`); } catch (e) {}
 
   // Auction bids table
   db.exec(`

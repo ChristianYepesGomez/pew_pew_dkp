@@ -785,13 +785,21 @@ app.get('/api/auctions/active', authenticateToken, (req, res) => {
 
     const highestBid = bids.length > 0 ? bids[0].amount : 0;
 
+    const highestBidder = bids.length > 0 ? {
+      characterName: bids[0].character_name,
+      characterClass: bids[0].character_class
+    } : null;
+
     return {
       id: auction.id,
       itemName: auction.item_name,
+      itemNameEN: auction.item_name_en,
       itemImage: auction.item_image,
       itemRarity: auction.item_rarity,
       minimumBid: auction.min_bid,
       currentBid: highestBid,
+      highestBidder,
+      endsAt: auction.ends_at,
       status: auction.status,
       winnerId: auction.winner_id,
       winningBid: auction.winning_bid,
@@ -816,21 +824,30 @@ app.get('/api/auctions/active', authenticateToken, (req, res) => {
 
 // Create new auction (officer+)
 app.post('/api/auctions', authenticateToken, authorizeRole(['admin', 'officer']), (req, res) => {
-  const { itemName, itemNameEN, itemImage, minBid, itemRarity, itemId } = req.body;
+  const { itemName, itemNameEN, itemImage, minBid, itemRarity, itemId, durationMinutes } = req.body;
 
   if (!itemName) {
     return res.status(400).json({ error: 'Item name is required' });
   }
 
-  // Multiple active auctions are now allowed
+  const duration = durationMinutes || 5;
+  const endsAt = new Date(Date.now() + duration * 60 * 1000).toISOString();
+
   const result = db.prepare(`
-    INSERT INTO auctions (item_name, item_name_en, item_image, item_rarity, min_bid, created_by, status)
-    VALUES (?, ?, ?, ?, ?, ?, 'active')
-  `).run(itemName, itemNameEN || itemName, itemImage || '🎁', itemRarity || 'epic', minBid || 0, req.user.userId);
+    INSERT INTO auctions (item_name, item_name_en, item_image, item_rarity, min_bid, duration_minutes, ends_at, created_by, status)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'active')
+  `).run(itemName, itemNameEN || itemName, itemImage || '🎁', itemRarity || 'epic', minBid || 0, duration, endsAt, req.user.userId);
 
   const auction = db.prepare('SELECT * FROM auctions WHERE id = ?').get(result.lastInsertRowid);
 
-  io.emit('auction_started', auction);
+  io.emit('auction_started', {
+    id: auction.id,
+    itemName: auction.item_name,
+    itemNameEN: auction.item_name_en,
+    itemImage: auction.item_image,
+    itemRarity: auction.item_rarity,
+    endsAt: auction.ends_at
+  });
   res.status(201).json(auction);
 });
 
@@ -967,22 +984,22 @@ app.post('/api/auctions/:auctionId/cancel', authenticateToken, authorizeRole(['a
 });
 
 // Get all raid items
-app.get('/api/raid-items', authenticateToken, (req, res) => {
-  const items = getAllRaidItems();
+app.get('/api/raid-items', authenticateToken, async (req, res) => {
+  const items = await getAllRaidItems();
   res.json({ items });
 });
 
 // Search raid items
-app.get('/api/raid-items/search', authenticateToken, (req, res) => {
+app.get('/api/raid-items/search', authenticateToken, async (req, res) => {
   const query = req.query.q || '';
-  const items = query ? searchItems(query) : getAllRaidItems();
+  const items = query ? await searchItems(query) : await getAllRaidItems();
   res.json({ items });
 });
 
 // Get items by raid
-app.get('/api/raid-items/:raidName', authenticateToken, (req, res) => {
+app.get('/api/raid-items/:raidName', authenticateToken, async (req, res) => {
   const { raidName } = req.params;
-  const items = getItemsByRaid(raidName);
+  const items = await getItemsByRaid(raidName);
   res.json({ items });
 });
 
