@@ -10,7 +10,7 @@ const dbPath = process.env.DATABASE_PATH || join(__dirname, 'data', 'dkp.db');
 // Ensure data directory exists
 import { mkdirSync } from 'fs';
 try {
-  mkdirSync(join(__dirname, 'data'), { recursive: true });
+  mkdirSync(dirname(dbPath), { recursive: true });
 } catch (e) {}
 
 const db = new Database(dbPath);
