@@ -92,11 +92,7 @@ const MyCharacterModal = ({ onClose }) => {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <div className="w-16 h-16 rounded-full bg-midnight-purple flex items-center justify-center overflow-hidden border-2" style={{ borderColor: CLASS_COLORS[user?.characterClass] || '#A78BFA' }}>
-                {user?.spec && SPEC_ICONS[user.spec] ? (
-                  <img src={SPEC_ICONS[user.spec]} alt={user.spec} className="w-14 h-14" />
-                ) : (
-                  <i className="fas fa-user-shield text-3xl text-midnight-glow"></i>
-                )}
+                <img src="/logo.png" alt="Profile" className="w-full h-full object-cover" />
               </div>
               <div>
                 <h3 className="text-2xl font-cinzel font-bold m-0" style={{ color: CLASS_COLORS[user?.characterClass] || '#FFF' }}>

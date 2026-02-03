@@ -245,18 +245,21 @@ const CalendarTab = () => {
                   const dateInfo = formatDate(signup.date)
                   const currentStatus = signup.status
                   const isSaving = saving === signup.date
+                  const isLocked = signup.isLocked
 
                   return (
                     <div
                       key={signup.date}
                       className={`bg-midnight-purple bg-opacity-20 rounded-xl border-2 overflow-hidden transition-all ${
-                        dateInfo.isToday
-                          ? 'border-midnight-glow shadow-lg shadow-midnight-glow/20'
-                          : 'border-midnight-bright-purple border-opacity-30'
+                        isLocked
+                          ? 'border-red-500 border-opacity-30 opacity-75'
+                          : dateInfo.isToday
+                            ? 'border-midnight-glow shadow-lg shadow-midnight-glow/20'
+                            : 'border-midnight-bright-purple border-opacity-30'
                       }`}
                     >
                       {/* Date Header */}
-                      <div className={`px-4 py-3 ${dateInfo.isToday ? 'bg-midnight-glow bg-opacity-20' : 'bg-midnight-purple bg-opacity-30'}`}>
+                      <div className={`px-4 py-3 ${isLocked ? 'bg-red-900 bg-opacity-20' : dateInfo.isToday ? 'bg-midnight-glow bg-opacity-20' : 'bg-midnight-purple bg-opacity-30'}`}>
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-3">
                             <div className="text-center">
@@ -266,8 +269,8 @@ const CalendarTab = () => {
                             <div>
                               <div className="font-semibold text-white">{dateInfo.dayName}</div>
                               <div className="text-sm text-midnight-silver">
-                                {signup.raidTime || '20:00'}
-                                {dateInfo.isToday && (
+                                {signup.raidTime || '21:00'}
+                                {dateInfo.isToday && !isLocked && (
                                   <span className="ml-2 px-2 py-0.5 bg-midnight-glow text-midnight-deepblue text-xs rounded-full font-bold">
                                     {t('today')}
                                   </span>
@@ -275,69 +278,107 @@ const CalendarTab = () => {
                               </div>
                             </div>
                           </div>
-                          {signup.dkpAwarded > 0 && (
-                            <div className="flex items-center gap-1 text-yellow-400 text-sm">
-                              <i className="fas fa-coins"></i>
-                              <span>+{signup.dkpAwarded}</span>
-                            </div>
-                          )}
+                          <div className="flex items-center gap-2">
+                            {signup.dkpAwarded > 0 && (
+                              <div className="flex items-center gap-1 text-yellow-400 text-sm">
+                                <i className="fas fa-coins"></i>
+                                <span>+{signup.dkpAwarded}</span>
+                              </div>
+                            )}
+                            {isLocked && (
+                              <div className="flex items-center gap-1 text-red-400 text-sm">
+                                <i className="fas fa-lock"></i>
+                              </div>
+                            )}
+                          </div>
                         </div>
                       </div>
 
                       {/* Status Selection */}
                       <div className="p-4 space-y-4">
-                        {/* Current Status Display */}
-                        {currentStatus && (
-                          <div className={`flex items-center gap-2 text-sm ${STATUS_CONFIG[currentStatus]?.color}`}>
-                            <i className={`fas ${STATUS_CONFIG[currentStatus]?.icon}`}></i>
-                            <span>{t('your_status')}: <strong>{t(currentStatus)}</strong></span>
-                          </div>
-                        )}
-
-                        {/* Status Buttons */}
-                        <div className="flex gap-2">
-                          {Object.entries(STATUS_CONFIG).map(([status, config]) => (
-                            <button
-                              key={status}
-                              onClick={() => handleStatusChange(signup.date, status)}
-                              disabled={isSaving}
-                              className={`flex-1 py-2 px-3 rounded-lg transition-all flex items-center justify-center gap-2 ${
-                                currentStatus === status
-                                  ? `${config.bg} text-white`
-                                  : `bg-midnight-purple bg-opacity-30 ${config.color} ${config.bgHover} hover:text-white`
-                              } ${isSaving ? 'opacity-50 cursor-not-allowed' : ''}`}
-                            >
-                              {isSaving && saving === signup.date ? (
-                                <i className="fas fa-circle-notch fa-spin"></i>
-                              ) : (
-                                <i className={`fas ${config.icon}`}></i>
-                              )}
-                              <span className="hidden sm:inline text-sm">{t(status)}</span>
-                            </button>
-                          ))}
-                        </div>
-
-                        {/* Note Input (for tentative) */}
-                        {currentStatus === 'tentative' && (
-                          <div className="space-y-2">
-                            <input
-                              type="text"
-                              value={notes[signup.date] || ''}
-                              onChange={(e) => setNotes(prev => ({ ...prev, [signup.date]: e.target.value }))}
-                              placeholder={t('note_placeholder')}
-                              className="w-full px-3 py-2 bg-midnight-deepblue border border-midnight-bright-purple rounded-lg text-white text-sm placeholder-gray-500 focus:outline-none focus:border-midnight-glow"
-                            />
-                            {notes[signup.date] !== signup.notes && (
-                              <button
-                                onClick={() => handleStatusChange(signup.date, 'tentative')}
-                                disabled={isSaving}
-                                className="w-full py-1 px-3 bg-midnight-glow bg-opacity-20 text-midnight-glow text-sm rounded-lg hover:bg-opacity-30 transition-all"
-                              >
-                                <i className="fas fa-save mr-2"></i>
-                                {t('save_status')}
-                              </button>
+                        {/* Locked message */}
+                        {isLocked ? (
+                          <>
+                            {currentStatus ? (
+                              <div className={`flex items-center gap-2 text-sm ${STATUS_CONFIG[currentStatus]?.color}`}>
+                                <i className={`fas ${STATUS_CONFIG[currentStatus]?.icon}`}></i>
+                                <span>{t('your_status')}: <strong>{t(currentStatus)}</strong></span>
+                              </div>
+                            ) : (
+                              <div className="flex items-center gap-2 text-sm text-red-400">
+                                <i className="fas fa-times-circle"></i>
+                                <span>{t('no_signup')}</span>
+                              </div>
                             )}
-                          </div>
+                            <div className="bg-red-900 bg-opacity-20 border border-red-500 border-opacity-30 rounded-lg p-3 text-center">
+                              <i className="fas fa-lock mr-2 text-red-400"></i>
+                              <span className="text-red-300 text-sm">{t('signup_locked')}</span>
+                            </div>
+                          </>
+                        ) : (
+                          <>
+                            {/* Deadline info */}
+                            {signup.cutoffTime && (
+                              <div className="flex items-center gap-2 text-xs text-midnight-silver">
+                                <i className="fas fa-clock"></i>
+                                <span>{t('signup_deadline')}: {signup.cutoffTime}</span>
+                              </div>
+                            )}
+
+                            {/* Current Status Display */}
+                            {currentStatus && (
+                              <div className={`flex items-center gap-2 text-sm ${STATUS_CONFIG[currentStatus]?.color}`}>
+                                <i className={`fas ${STATUS_CONFIG[currentStatus]?.icon}`}></i>
+                                <span>{t('your_status')}: <strong>{t(currentStatus)}</strong></span>
+                              </div>
+                            )}
+
+                            {/* Status Buttons */}
+                            <div className="flex gap-2">
+                              {Object.entries(STATUS_CONFIG).map(([status, config]) => (
+                                <button
+                                  key={status}
+                                  onClick={() => handleStatusChange(signup.date, status)}
+                                  disabled={isSaving}
+                                  className={`flex-1 py-2 px-3 rounded-lg transition-all flex items-center justify-center gap-2 ${
+                                    currentStatus === status
+                                      ? `${config.bg} text-white`
+                                      : `bg-midnight-purple bg-opacity-30 ${config.color} ${config.bgHover} hover:text-white`
+                                  } ${isSaving ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                >
+                                  {isSaving && saving === signup.date ? (
+                                    <i className="fas fa-circle-notch fa-spin"></i>
+                                  ) : (
+                                    <i className={`fas ${config.icon}`}></i>
+                                  )}
+                                  <span className="hidden sm:inline text-sm">{t(status)}</span>
+                                </button>
+                              ))}
+                            </div>
+
+                            {/* Note Input (for tentative) */}
+                            {currentStatus === 'tentative' && (
+                              <div className="space-y-2">
+                                <input
+                                  type="text"
+                                  value={notes[signup.date] || ''}
+                                  onChange={(e) => setNotes(prev => ({ ...prev, [signup.date]: e.target.value }))}
+                                  placeholder={t('note_placeholder')}
+                                  className="w-full px-3 py-2 bg-midnight-deepblue border border-midnight-bright-purple rounded-lg text-white text-sm placeholder-gray-500 focus:outline-none focus:border-midnight-glow"
+                                />
+                                {notes[signup.date] !== signup.notes && (
+                                  <button
+                                    onClick={() => handleStatusChange(signup.date, 'tentative')}
+                                    disabled={isSaving}
+                                    className="w-full py-1 px-3 bg-midnight-glow bg-opacity-20 text-midnight-glow text-sm rounded-lg hover:bg-opacity-30 transition-all"
+                                  >
+                                    <i className="fas fa-save mr-2"></i>
+                                    {t('save_status')}
+                                  </button>
+                                )}
+                              </div>
+                            )}
+                          </>
                         )}
 
                         {/* View Summary Button */}
