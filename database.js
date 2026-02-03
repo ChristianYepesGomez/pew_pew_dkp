@@ -279,6 +279,7 @@ async function initDatabase() {
     'ALTER TABLE auctions ADD COLUMN ends_at DATETIME',
     'ALTER TABLE auctions ADD COLUMN farewell_data TEXT',
     'ALTER TABLE auctions ADD COLUMN item_id INTEGER',
+    "ALTER TABLE member_dkp ADD COLUMN role TEXT DEFAULT 'DPS'",
   ];
 
   for (const sql of columnMigrations) {
