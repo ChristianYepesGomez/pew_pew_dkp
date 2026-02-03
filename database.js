@@ -8,10 +8,19 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const dbPath = process.env.DATABASE_PATH || join(__dirname, 'data', 'dkp.db');
 
 // Ensure data directory exists
-import { mkdirSync } from 'fs';
-try {
-  mkdirSync(dirname(dbPath), { recursive: true });
-} catch (e) {}
+import { mkdirSync, existsSync } from 'fs';
+const dbDir = dirname(dbPath);
+if (!existsSync(dbDir)) {
+  try {
+    mkdirSync(dbDir, { recursive: true });
+    console.log(`📁 Created database directory: ${dbDir}`);
+  } catch (e) {
+    // Fallback to project-local data directory
+    console.warn(`⚠️ Cannot create ${dbDir}, falling back to local data/`);
+    const fallbackDir = join(__dirname, 'data');
+    mkdirSync(fallbackDir, { recursive: true });
+  }
+}
 
 const db = new Database(dbPath);
 
@@ -113,6 +122,26 @@ function initDatabase() {
     console.log('✅ Added item_id column to auctions table');
   } catch (e) {
     // Column already exists
+  }
+
+  // Migrate raid days to Mon/Wed/Thu at 21:00 and DKP to +1
+  const currentRaidDays = db.prepare('SELECT day_of_week FROM raid_days WHERE is_active = 1 ORDER BY day_of_week').all();
+  const currentDaySet = currentRaidDays.map(r => r.day_of_week).join(',');
+  if (currentDaySet !== '1,3,4') {
+    console.log('📝 Migrating raid days to Lunes/Miércoles/Jueves at 21:00...');
+    db.exec('DELETE FROM raid_days');
+    const insertRD = db.prepare('INSERT INTO raid_days (day_of_week, day_name, is_active, raid_time) VALUES (?, ?, 1, ?)');
+    insertRD.run(1, 'Lunes', '21:00');
+    insertRD.run(3, 'Miércoles', '21:00');
+    insertRD.run(4, 'Jueves', '21:00');
+    console.log('✅ Raid days migrated');
+  }
+
+  // Migrate calendar DKP reward to +1
+  const calDkp = db.prepare("SELECT config_value FROM dkp_config WHERE config_key = 'calendar_dkp_per_day'").get();
+  if (calDkp && calDkp.config_value !== '1') {
+    db.prepare("UPDATE dkp_config SET config_value = '1' WHERE config_key = 'calendar_dkp_per_day'").run();
+    console.log('✅ Calendar DKP reward updated to +1');
   }
 
   // Member DKP table (separate for easier updates)
@@ -331,7 +360,7 @@ function initDatabase() {
       { key: 'boss_kill_bonus', value: '10', description: 'DKP bonus adicional por cada boss derrotado' },
       { key: 'default_server', value: 'Ragnaros', description: 'Servidor por defecto de la guild' },
       { key: 'auto_assign_enabled', value: 'false', description: 'Asignar DKP automáticamente (sin confirmación)' },
-      { key: 'calendar_dkp_per_day', value: '2', description: 'DKP otorgado por cada día de calendario completado' }
+      { key: 'calendar_dkp_per_day', value: '1', description: 'DKP otorgado por cada día de calendario completado' }
     ];
 
     const insertConfig = db.prepare(`
@@ -346,15 +375,15 @@ function initDatabase() {
     console.log('✅ Default DKP configuration created');
   }
 
-  // Create default raid days if not exists (Monday, Tuesday, Wednesday)
+  // Create default raid days if not exists (Monday, Wednesday, Thursday)
   const raidDaysCount = db.prepare('SELECT COUNT(*) as count FROM raid_days').get();
   if (raidDaysCount.count === 0) {
     console.log('📝 Creating default raid days...');
 
     const raidDays = [
-      { day_of_week: 1, day_name: 'Lunes', is_active: 1, raid_time: '20:00' },
-      { day_of_week: 2, day_name: 'Martes', is_active: 1, raid_time: '20:00' },
-      { day_of_week: 3, day_name: 'Miércoles', is_active: 1, raid_time: '20:00' }
+      { day_of_week: 1, day_name: 'Lunes', is_active: 1, raid_time: '21:00' },
+      { day_of_week: 3, day_name: 'Miércoles', is_active: 1, raid_time: '21:00' },
+      { day_of_week: 4, day_name: 'Jueves', is_active: 1, raid_time: '21:00' }
     ];
 
     const insertRaidDay = db.prepare(`
@@ -366,7 +395,7 @@ function initDatabase() {
       insertRaidDay.run(day.day_of_week, day.day_name, day.is_active, day.raid_time);
     }
 
-    console.log('✅ Default raid days created (Lunes, Martes, Miércoles)');
+    console.log('✅ Default raid days created (Lunes, Miércoles, Jueves)');
   }
 
   console.log('✅ Database initialized successfully');
