@@ -147,27 +147,11 @@ async function scheduleExistingAuctions() {
 // ============================================
 // HEALTH CHECK (for Docker/Render)
 // ============================================
-app.get('/health', async (req, res) => {
-  // Include raid items diagnostic info
-  let raidItemsDiag = {};
-  try {
-    const items = await getAllRaidItems();
-    raidItemsDiag = {
-      itemCount: items?.length || 0,
-      firstItemId: items?.[0]?.id || null,
-      firstItemName: items?.[0]?.name || null,
-      dataSource: getDataSourceStatus(),
-      sampleIds: items?.slice(0, 5).map(i => i.id) || [],
-    };
-  } catch (e) {
-    raidItemsDiag = { error: e.message };
-  }
-
+app.get('/health', (req, res) => {
   res.status(200).json({
     status: 'healthy',
     timestamp: new Date().toISOString(),
-    uptime: process.uptime(),
-    raidItems: raidItemsDiag,
+    uptime: process.uptime()
   });
 });
 
