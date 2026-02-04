@@ -234,9 +234,9 @@ const CalendarTab = () => {
       ) : (
         <>
           {/* Signup cutoff info banner */}
-          <div className="flex items-center gap-3 px-4 py-3 bg-midnight-purple bg-opacity-20 border border-midnight-bright-purple border-opacity-20 rounded-xl text-sm">
-            <i className="fas fa-info-circle text-midnight-glow flex-shrink-0"></i>
-            <span className="text-midnight-silver">{t('signup_cutoff_info')}</span>
+          <div className="flex items-center gap-3 px-4 py-3 bg-yellow-500 bg-opacity-10 border border-yellow-500 border-opacity-30 rounded-xl text-sm">
+            <i className="fas fa-clock text-yellow-400 flex-shrink-0"></i>
+            <span className="text-yellow-200">{t('signup_cutoff_info')}</span>
           </div>
 
           {/* User Calendar View */}
