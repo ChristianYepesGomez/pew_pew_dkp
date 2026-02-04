@@ -481,9 +481,94 @@ export function setCurrentRaids(raids) {
   CURRENT_RAID_INSTANCES.push(...raids);
 }
 
+// ============================================
+// USER OAUTH (for character import)
+// ============================================
+
+const BLIZZARD_CLASS_MAP = {
+  1: 'Warrior', 2: 'Paladin', 3: 'Hunter', 4: 'Rogue',
+  5: 'Priest', 6: 'Death Knight', 7: 'Shaman', 8: 'Mage',
+  9: 'Warlock', 10: 'Monk', 11: 'Druid', 12: 'Demon Hunter',
+  13: 'Evoker',
+};
+
+export function isBlizzardOAuthConfigured() {
+  return !!(CONFIG.clientId && CONFIG.clientSecret);
+}
+
+export function getBlizzardOAuthUrl(redirectUri, state) {
+  const region = CONFIG.region;
+  const params = new URLSearchParams({
+    client_id: CONFIG.clientId,
+    redirect_uri: redirectUri,
+    response_type: 'code',
+    scope: 'wow.profile',
+    state,
+  });
+  return `https://${region}.battle.net/oauth/authorize?${params.toString()}`;
+}
+
+export async function getUserToken(code, redirectUri) {
+  const response = await axios.post(
+    getOAuthUrl(CONFIG.region),
+    new URLSearchParams({
+      grant_type: 'authorization_code',
+      code,
+      redirect_uri: redirectUri,
+    }).toString(),
+    {
+      auth: {
+        username: CONFIG.clientId,
+        password: CONFIG.clientSecret,
+      },
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+    }
+  );
+  return response.data.access_token;
+}
+
+export async function getUserCharacters(userToken) {
+  const region = CONFIG.region;
+  const response = await axios.get(
+    `${getApiUrl(region)}/profile/user/wow`,
+    {
+      params: {
+        namespace: `profile-${region}`,
+      },
+      headers: {
+        Authorization: `Bearer ${userToken}`,
+      },
+    }
+  );
+
+  const characters = [];
+  for (const account of response.data.wow_accounts || []) {
+    for (const char of account.characters || []) {
+      characters.push({
+        name: char.name,
+        realm: char.realm?.name || char.realm?.slug || 'Unknown',
+        realmSlug: char.realm?.slug || '',
+        className: BLIZZARD_CLASS_MAP[char.playable_class?.id] || `Class ${char.playable_class?.id}`,
+        classId: char.playable_class?.id,
+        level: char.level || 0,
+        faction: char.faction?.type || 'Unknown',
+      });
+    }
+  }
+
+  characters.sort((a, b) => b.level - a.level);
+  return characters;
+}
+
 export default {
   getCurrentRaidItems,
   getAvailableRaids,
   refreshCache,
   setCurrentRaids,
+  isBlizzardOAuthConfigured,
+  getBlizzardOAuthUrl,
+  getUserToken,
+  getUserCharacters,
 };
