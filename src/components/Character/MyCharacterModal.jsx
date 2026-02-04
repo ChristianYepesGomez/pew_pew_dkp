@@ -288,8 +288,12 @@ const MyCharacterModal = ({ onClose }) => {
       }
     }
 
-    const res = await charactersAPI.getAll()
-    setCharacters(res.data || [])
+    try {
+      const res = await charactersAPI.getAll()
+      setCharacters(res.data || [])
+    } catch (error) {
+      console.error('Failed to reload characters:', error)
+    }
     setBlizzardChars([])
     setSelectedChars(new Set())
     setImporting(false)
@@ -297,6 +301,7 @@ const MyCharacterModal = ({ onClose }) => {
     if (importCount > 0) {
       setCharError(`${importCount} ${t('characters_imported')}`)
       setTimeout(() => setCharError(''), 4000)
+      refreshUser()
     }
   }
 
