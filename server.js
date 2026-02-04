@@ -448,26 +448,31 @@ app.get('/api/auth/blizzard/url', authenticateToken, (req, res) => {
   res.json({ url, configured: true });
 });
 
-// Blizzard OAuth callback - renders HTML that sends data to parent window
+// Blizzard OAuth callback - redirects popup to frontend for same-origin postMessage
 app.get('/api/auth/blizzard/callback', async (req, res) => {
   const { code, state, error: authError } = req.query;
+  const frontendUrl = (process.env.FRONTEND_URL || 'http://localhost:5173').split(',')[0].trim().replace(/\/+$/, '');
 
   if (authError) {
-    return res.send(renderBlizzardCallbackHTML({ error: 'Authorization denied by user' }));
+    const encoded = Buffer.from(JSON.stringify({ error: 'Authorization denied by user' })).toString('base64');
+    return res.redirect(`${frontendUrl}/blizzard-callback.html#data=${encoded}`);
   }
 
   if (!code || !state) {
-    return res.send(renderBlizzardCallbackHTML({ error: 'Missing authorization code' }));
+    const encoded = Buffer.from(JSON.stringify({ error: 'Missing authorization code' })).toString('base64');
+    return res.redirect(`${frontendUrl}/blizzard-callback.html#data=${encoded}`);
   }
 
   let decoded;
   try {
     decoded = jwt.verify(state, JWT_SECRET);
     if (decoded.type !== 'blizzard_oauth') {
-      return res.send(renderBlizzardCallbackHTML({ error: 'Invalid state parameter' }));
+      const encoded = Buffer.from(JSON.stringify({ error: 'Invalid state parameter' })).toString('base64');
+      return res.redirect(`${frontendUrl}/blizzard-callback.html#data=${encoded}`);
     }
   } catch {
-    return res.send(renderBlizzardCallbackHTML({ error: 'Expired or invalid state. Please try again.' }));
+    const encoded = Buffer.from(JSON.stringify({ error: 'Expired or invalid state. Please try again.' })).toString('base64');
+    return res.redirect(`${frontendUrl}/blizzard-callback.html#data=${encoded}`);
   }
 
   try {
@@ -479,36 +484,15 @@ app.get('/api/auth/blizzard/callback', async (req, res) => {
     const characters = await getUserCharacters(userToken);
 
     console.log(`Blizzard OAuth: fetched ${characters.length} characters for user ${decoded.userId}`);
-    res.send(renderBlizzardCallbackHTML({ characters }));
+    const encoded = Buffer.from(JSON.stringify({ characters })).toString('base64');
+    res.redirect(`${frontendUrl}/blizzard-callback.html#data=${encoded}`);
   } catch (err) {
     console.error('Blizzard OAuth callback error:', err.message);
-    res.send(renderBlizzardCallbackHTML({ error: 'Failed to fetch characters from Blizzard. Please try again.' }));
+    const encoded = Buffer.from(JSON.stringify({ error: 'Failed to fetch characters from Blizzard. Please try again.' })).toString('base64');
+    res.redirect(`${frontendUrl}/blizzard-callback.html#data=${encoded}`);
   }
 });
 
-function renderBlizzardCallbackHTML(data) {
-  const encoded = Buffer.from(JSON.stringify(data)).toString('base64');
-  return `<!DOCTYPE html>
-<html><head><title>Blizzard Character Import</title>
-<style>body{background:#1a1a2e;color:#e0e0e0;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;}
-.msg{text-align:center;}.spinner{border:3px solid #333;border-top:3px solid #00aeff;border-radius:50%;width:40px;height:40px;animation:spin 1s linear infinite;margin:0 auto 16px;}
-@keyframes spin{to{transform:rotate(360deg)}}</style></head>
-<body><div class="msg"><div class="spinner"></div><p>${data.error ? data.error : 'Importing characters...'}</p>
-<p style="font-size:12px;color:#888;">${data.error ? 'You can close this window.' : 'This window will close automatically.'}</p></div>
-<script>
-try {
-  var data = JSON.parse(atob('${encoded}'));
-  if (window.opener) {
-    window.opener.postMessage({ type: 'blizzard-characters', data: data }, '*');
-    if (!data.error) setTimeout(function() { window.close(); }, 1500);
-  } else {
-    document.querySelector('.msg p').textContent = 'Could not communicate with parent window. Please close this window and try again.';
-  }
-} catch(e) {
-  document.querySelector('.msg p').textContent = 'Error processing response.';
-}
-</script></body></html>`;
-}
 
 // ============================================
 // MEMBER/ROSTER ROUTES
