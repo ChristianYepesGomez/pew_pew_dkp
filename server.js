@@ -368,7 +368,7 @@ app.post('/api/auth/reset-password', authenticateToken, authorizeRole(['admin', 
 app.get('/api/auth/me', authenticateToken, async (req, res) => {
   try {
     const user = await db.get(`
-      SELECT u.id, u.username, u.character_name, u.character_class, u.role, u.spec, u.raid_role,
+      SELECT u.id, u.username, u.character_name, u.character_class, u.role, u.spec, u.raid_role, u.email,
              md.current_dkp, md.lifetime_gained, md.lifetime_spent
       FROM users u
       LEFT JOIN member_dkp md ON u.id = md.user_id
@@ -387,6 +387,7 @@ app.get('/api/auth/me', authenticateToken, async (req, res) => {
       role: user.role,
       spec: user.spec,
       raidRole: user.raid_role,
+      email: user.email || null,
       currentDkp: user.current_dkp || 0,
       lifetimeGained: user.lifetime_gained || 0,
       lifetimeSpent: user.lifetime_spent || 0
@@ -394,6 +395,31 @@ app.get('/api/auth/me', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('Get user error:', error);
     res.status(500).json({ error: 'Failed to get user info' });
+  }
+});
+
+// Update own profile (email)
+app.put('/api/auth/profile', authenticateToken, async (req, res) => {
+  try {
+    const { email } = req.body;
+    const userId = req.user.userId;
+
+    if (email !== undefined && email !== null && email !== '') {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email)) {
+        return res.status(400).json({ error: 'Invalid email format' });
+      }
+    }
+
+    await db.run(
+      'UPDATE users SET email = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+      email || null, userId
+    );
+
+    res.json({ message: 'Profile updated successfully' });
+  } catch (error) {
+    console.error('Update profile error:', error);
+    res.status(500).json({ error: 'Failed to update profile' });
   }
 });
 
@@ -553,6 +579,165 @@ app.post('/api/members', authenticateToken, authorizeRole(['admin', 'officer']),
   } catch (error) {
     console.error('Create member error:', error);
     res.status(500).json({ error: 'Failed to create member' });
+  }
+});
+
+// ============================================
+// CHARACTER ROUTES (multi-character system)
+// ============================================
+
+// Get current user's characters
+app.get('/api/characters', authenticateToken, async (req, res) => {
+  try {
+    const characters = await db.all(
+      'SELECT * FROM characters WHERE user_id = ? ORDER BY is_primary DESC, created_at ASC',
+      req.user.userId
+    );
+
+    res.json(characters.map(c => ({
+      id: c.id,
+      characterName: c.character_name,
+      characterClass: c.character_class,
+      spec: c.spec,
+      raidRole: c.raid_role,
+      isPrimary: !!c.is_primary,
+      createdAt: c.created_at
+    })));
+  } catch (error) {
+    console.error('Get characters error:', error);
+    res.status(500).json({ error: 'Failed to get characters' });
+  }
+});
+
+// Create new character
+app.post('/api/characters', authenticateToken, async (req, res) => {
+  try {
+    const { characterName, characterClass, spec, raidRole } = req.body;
+    const userId = req.user.userId;
+
+    if (!characterName || !characterClass) {
+      return res.status(400).json({ error: 'Character name and class are required' });
+    }
+
+    const validRaidRole = ['Tank', 'Healer', 'DPS'].includes(raidRole) ? raidRole : 'DPS';
+
+    const existing = await db.all('SELECT id FROM characters WHERE user_id = ?', userId);
+    const isPrimary = existing.length === 0 ? 1 : 0;
+
+    const result = await db.run(
+      'INSERT INTO characters (user_id, character_name, character_class, spec, raid_role, is_primary) VALUES (?, ?, ?, ?, ?, ?)',
+      userId, characterName, characterClass, spec || null, validRaidRole, isPrimary
+    );
+
+    if (isPrimary) {
+      await db.run(
+        'UPDATE users SET character_name = ?, character_class = ?, spec = ?, raid_role = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+        characterName, characterClass, spec || null, validRaidRole, userId
+      );
+    }
+
+    res.status(201).json({
+      id: result.lastInsertRowid,
+      characterName,
+      characterClass,
+      spec: spec || null,
+      raidRole: validRaidRole,
+      isPrimary: !!isPrimary
+    });
+  } catch (error) {
+    console.error('Create character error:', error);
+    res.status(500).json({ error: 'Failed to create character' });
+  }
+});
+
+// Update character
+app.put('/api/characters/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { characterName, characterClass, spec, raidRole } = req.body;
+    const userId = req.user.userId;
+
+    const character = await db.get('SELECT * FROM characters WHERE id = ? AND user_id = ?', id, userId);
+    if (!character) {
+      return res.status(404).json({ error: 'Character not found' });
+    }
+
+    const newName = characterName || character.character_name;
+    const newClass = characterClass || character.character_class;
+    const newSpec = spec !== undefined ? (spec || null) : character.spec;
+    const newRole = raidRole && ['Tank', 'Healer', 'DPS'].includes(raidRole) ? raidRole : character.raid_role;
+
+    await db.run(
+      'UPDATE characters SET character_name = ?, character_class = ?, spec = ?, raid_role = ? WHERE id = ?',
+      newName, newClass, newSpec, newRole, id
+    );
+
+    if (character.is_primary) {
+      await db.run(
+        'UPDATE users SET character_name = ?, character_class = ?, spec = ?, raid_role = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+        newName, newClass, newSpec, newRole, userId
+      );
+    }
+
+    res.json({ message: 'Character updated' });
+  } catch (error) {
+    console.error('Update character error:', error);
+    res.status(500).json({ error: 'Failed to update character' });
+  }
+});
+
+// Delete character
+app.delete('/api/characters/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.userId;
+
+    const character = await db.get('SELECT * FROM characters WHERE id = ? AND user_id = ?', id, userId);
+    if (!character) {
+      return res.status(404).json({ error: 'Character not found' });
+    }
+
+    const charCount = await db.get('SELECT COUNT(*) as count FROM characters WHERE user_id = ?', userId);
+    if (charCount.count <= 1) {
+      return res.status(400).json({ error: 'Cannot delete your only character' });
+    }
+
+    if (character.is_primary) {
+      return res.status(400).json({ error: 'Cannot delete primary character. Set another as primary first.' });
+    }
+
+    await db.run('DELETE FROM characters WHERE id = ?', id);
+    res.json({ message: 'Character deleted' });
+  } catch (error) {
+    console.error('Delete character error:', error);
+    res.status(500).json({ error: 'Failed to delete character' });
+  }
+});
+
+// Set character as primary
+app.put('/api/characters/:id/primary', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.userId;
+
+    const character = await db.get('SELECT * FROM characters WHERE id = ? AND user_id = ?', id, userId);
+    if (!character) {
+      return res.status(404).json({ error: 'Character not found' });
+    }
+
+    await db.run('UPDATE characters SET is_primary = 0 WHERE user_id = ?', userId);
+    await db.run('UPDATE characters SET is_primary = 1 WHERE id = ?', id);
+
+    await db.run(
+      'UPDATE users SET character_name = ?, character_class = ?, spec = ?, raid_role = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+      character.character_name, character.character_class, character.spec, character.raid_role, userId
+    );
+
+    io.emit('member_updated', { memberId: userId });
+    res.json({ message: 'Primary character updated' });
+  } catch (error) {
+    console.error('Set primary character error:', error);
+    res.status(500).json({ error: 'Failed to set primary character' });
   }
 });
 
