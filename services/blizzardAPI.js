@@ -558,8 +558,13 @@ export async function getUserCharacters(userToken) {
     }
   }
 
-  characters.sort((a, b) => b.level - a.level);
-  return characters;
+  // Filter: only max-level characters with valid names
+  const maxLevel = characters.reduce((max, c) => Math.max(max, c.level), 0);
+  const filtered = characters
+    .filter(c => c.name && c.level >= maxLevel && maxLevel > 0)
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+  return filtered;
 }
 
 export default {
