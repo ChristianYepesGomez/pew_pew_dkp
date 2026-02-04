@@ -4,7 +4,7 @@ import { useAuth } from '../hooks/useAuth'
 import { useLanguage } from '../hooks/useLanguage'
 import CatLogo from '../components/Layout/CatLogo'
 
-const CLASSES = ['Warrior', 'Paladin', 'Hunter', 'Rogue', 'Priest', 'Shaman', 'Mage', 'Warlock', 'Druid', 'Death Knight']
+const CLASSES = ['Warrior', 'Paladin', 'Hunter', 'Rogue', 'Priest', 'Shaman', 'Mage', 'Warlock', 'Druid', 'Death Knight', 'Monk', 'Demon Hunter', 'Evoker']
 const ROLES = ['Tank', 'Healer', 'DPS']
 
 const Register = () => {
