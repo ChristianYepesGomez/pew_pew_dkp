@@ -10,6 +10,7 @@ import { authenticateToken, authorizeRole } from './middleware/auth.js';
 import { processWarcraftLog, isConfigured as isWCLConfigured } from './services/warcraftlogs.js';
 import { getAllRaidItems, searchItems, getItemsByRaid, refreshFromAPI, getAvailableRaids, getDataSourceStatus, isAPIConfigured } from './services/raidItems.js';
 import { sendPasswordResetEmail, isEmailConfigured } from './services/email.js';
+import { getBlizzardOAuthUrl, getUserToken, getUserCharacters, isBlizzardOAuthConfigured } from './services/blizzardAPI.js';
 
 const app = express();
 const server = createServer(app);
@@ -422,6 +423,91 @@ app.put('/api/auth/profile', authenticateToken, async (req, res) => {
     res.status(500).json({ error: 'Failed to update profile' });
   }
 });
+
+// ============================================
+// BLIZZARD OAUTH (character import)
+// ============================================
+
+// Get Blizzard OAuth authorization URL
+app.get('/api/auth/blizzard/url', authenticateToken, (req, res) => {
+  if (!isBlizzardOAuthConfigured()) {
+    return res.status(503).json({ error: 'Blizzard API not configured' });
+  }
+
+  const state = jwt.sign(
+    { userId: req.user.userId, type: 'blizzard_oauth' },
+    JWT_SECRET,
+    { expiresIn: '10m' }
+  );
+
+  const protocol = (req.get('x-forwarded-proto') || req.protocol).split(',')[0].trim();
+  const host = req.get('host');
+  const redirectUri = `${protocol}://${host}/api/auth/blizzard/callback`;
+
+  const url = getBlizzardOAuthUrl(redirectUri, state);
+  res.json({ url, configured: true });
+});
+
+// Blizzard OAuth callback - renders HTML that sends data to parent window
+app.get('/api/auth/blizzard/callback', async (req, res) => {
+  const { code, state, error: authError } = req.query;
+  const frontendOrigin = (process.env.FRONTEND_URL || 'http://localhost:5173').split(',')[0].trim().replace(/\/+$/, '');
+
+  if (authError) {
+    return res.send(renderBlizzardCallbackHTML({ error: 'Authorization denied by user' }, frontendOrigin));
+  }
+
+  if (!code || !state) {
+    return res.send(renderBlizzardCallbackHTML({ error: 'Missing authorization code' }, frontendOrigin));
+  }
+
+  let decoded;
+  try {
+    decoded = jwt.verify(state, JWT_SECRET);
+    if (decoded.type !== 'blizzard_oauth') {
+      return res.send(renderBlizzardCallbackHTML({ error: 'Invalid state parameter' }, frontendOrigin));
+    }
+  } catch {
+    return res.send(renderBlizzardCallbackHTML({ error: 'Expired or invalid state. Please try again.' }, frontendOrigin));
+  }
+
+  try {
+    const protocol = (req.get('x-forwarded-proto') || req.protocol).split(',')[0].trim();
+    const host = req.get('host');
+    const redirectUri = `${protocol}://${host}/api/auth/blizzard/callback`;
+
+    const userToken = await getUserToken(code, redirectUri);
+    const characters = await getUserCharacters(userToken);
+
+    console.log(`Blizzard OAuth: fetched ${characters.length} characters for user ${decoded.userId}`);
+    res.send(renderBlizzardCallbackHTML({ characters }, frontendOrigin));
+  } catch (err) {
+    console.error('Blizzard OAuth callback error:', err.message);
+    res.send(renderBlizzardCallbackHTML({ error: 'Failed to fetch characters from Blizzard. Please try again.' }, frontendOrigin));
+  }
+});
+
+function renderBlizzardCallbackHTML(data, targetOrigin) {
+  const encoded = Buffer.from(JSON.stringify(data)).toString('base64');
+  return `<!DOCTYPE html>
+<html><head><title>Blizzard Character Import</title>
+<style>body{background:#1a1a2e;color:#e0e0e0;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;}
+.msg{text-align:center;}.spinner{border:3px solid #333;border-top:3px solid #00aeff;border-radius:50%;width:40px;height:40px;animation:spin 1s linear infinite;margin:0 auto 16px;}
+@keyframes spin{to{transform:rotate(360deg)}}</style></head>
+<body><div class="msg"><div class="spinner"></div><p>${data.error ? data.error : 'Importing characters...'}</p>
+<p style="font-size:12px;color:#888;">${data.error ? 'You can close this window.' : 'This window will close automatically.'}</p></div>
+<script>
+try {
+  var data = JSON.parse(atob('${encoded}'));
+  if (window.opener) {
+    window.opener.postMessage({ type: 'blizzard-characters', data: data }, '${targetOrigin}');
+    if (!data.error) setTimeout(function() { window.close(); }, 1500);
+  }
+} catch(e) {
+  document.querySelector('.msg p').textContent = 'Error processing response.';
+}
+</script></body></html>`;
+}
 
 // ============================================
 // MEMBER/ROSTER ROUTES
