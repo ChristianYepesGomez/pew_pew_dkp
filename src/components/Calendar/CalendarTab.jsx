@@ -233,6 +233,12 @@ const CalendarTab = () => {
         <AdminOverview overview={overview} t={t} language={language} />
       ) : (
         <>
+          {/* Signup cutoff info banner */}
+          <div className="flex items-center gap-3 px-4 py-3 bg-midnight-purple bg-opacity-20 border border-midnight-bright-purple border-opacity-20 rounded-xl text-sm">
+            <i className="fas fa-info-circle text-midnight-glow flex-shrink-0"></i>
+            <span className="text-midnight-silver">{t('signup_cutoff_info')}</span>
+          </div>
+
           {/* User Calendar View */}
           {Object.entries(groupedSignups).map(([weekNum, weekSignups]) => (
             <div key={weekNum} className="space-y-4">
@@ -318,14 +324,6 @@ const CalendarTab = () => {
                           </>
                         ) : (
                           <>
-                            {/* Deadline info */}
-                            {signup.cutoffTime && (
-                              <div className="flex items-center gap-2 text-xs text-midnight-silver">
-                                <i className="fas fa-clock"></i>
-                                <span>{t('signup_deadline')}: {signup.cutoffTime}</span>
-                              </div>
-                            )}
-
                             {/* Current Status Display */}
                             {currentStatus && (
                               <div className={`flex items-center gap-2 text-sm ${STATUS_CONFIG[currentStatus]?.color}`}>
