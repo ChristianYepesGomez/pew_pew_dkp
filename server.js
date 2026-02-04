@@ -451,24 +451,23 @@ app.get('/api/auth/blizzard/url', authenticateToken, (req, res) => {
 // Blizzard OAuth callback - renders HTML that sends data to parent window
 app.get('/api/auth/blizzard/callback', async (req, res) => {
   const { code, state, error: authError } = req.query;
-  const frontendOrigin = (process.env.FRONTEND_URL || 'http://localhost:5173').split(',')[0].trim().replace(/\/+$/, '');
 
   if (authError) {
-    return res.send(renderBlizzardCallbackHTML({ error: 'Authorization denied by user' }, frontendOrigin));
+    return res.send(renderBlizzardCallbackHTML({ error: 'Authorization denied by user' }));
   }
 
   if (!code || !state) {
-    return res.send(renderBlizzardCallbackHTML({ error: 'Missing authorization code' }, frontendOrigin));
+    return res.send(renderBlizzardCallbackHTML({ error: 'Missing authorization code' }));
   }
 
   let decoded;
   try {
     decoded = jwt.verify(state, JWT_SECRET);
     if (decoded.type !== 'blizzard_oauth') {
-      return res.send(renderBlizzardCallbackHTML({ error: 'Invalid state parameter' }, frontendOrigin));
+      return res.send(renderBlizzardCallbackHTML({ error: 'Invalid state parameter' }));
     }
   } catch {
-    return res.send(renderBlizzardCallbackHTML({ error: 'Expired or invalid state. Please try again.' }, frontendOrigin));
+    return res.send(renderBlizzardCallbackHTML({ error: 'Expired or invalid state. Please try again.' }));
   }
 
   try {
@@ -480,14 +479,14 @@ app.get('/api/auth/blizzard/callback', async (req, res) => {
     const characters = await getUserCharacters(userToken);
 
     console.log(`Blizzard OAuth: fetched ${characters.length} characters for user ${decoded.userId}`);
-    res.send(renderBlizzardCallbackHTML({ characters }, frontendOrigin));
+    res.send(renderBlizzardCallbackHTML({ characters }));
   } catch (err) {
     console.error('Blizzard OAuth callback error:', err.message);
-    res.send(renderBlizzardCallbackHTML({ error: 'Failed to fetch characters from Blizzard. Please try again.' }, frontendOrigin));
+    res.send(renderBlizzardCallbackHTML({ error: 'Failed to fetch characters from Blizzard. Please try again.' }));
   }
 });
 
-function renderBlizzardCallbackHTML(data, targetOrigin) {
+function renderBlizzardCallbackHTML(data) {
   const encoded = Buffer.from(JSON.stringify(data)).toString('base64');
   return `<!DOCTYPE html>
 <html><head><title>Blizzard Character Import</title>
@@ -500,9 +499,10 @@ function renderBlizzardCallbackHTML(data, targetOrigin) {
 try {
   var data = JSON.parse(atob('${encoded}'));
   if (window.opener) {
-    try { window.opener.postMessage({ type: 'blizzard-characters', data: data }, '${targetOrigin}'); }
-    catch(e) { window.opener.postMessage({ type: 'blizzard-characters', data: data }, '*'); }
+    window.opener.postMessage({ type: 'blizzard-characters', data: data }, '*');
     if (!data.error) setTimeout(function() { window.close(); }, 1500);
+  } else {
+    document.querySelector('.msg p').textContent = 'Could not communicate with parent window. Please close this window and try again.';
   }
 } catch(e) {
   document.querySelector('.msg p').textContent = 'Error processing response.';
