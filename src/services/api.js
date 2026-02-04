@@ -27,6 +27,7 @@ api.interceptors.response.use(
 export const authAPI = {
   login: (username, password) => api.post('/auth/login', { username, password }),
   me: () => api.get('/auth/me'),
+  updateProfile: (data) => api.put('/auth/profile', data),
   forgotPassword: (usernameOrEmail) => api.post('/auth/forgot-password', { usernameOrEmail }),
   resetPassword: (token, password) => api.post('/auth/reset-password', { token, password }),
 }
@@ -64,6 +65,14 @@ export const raidItemsAPI = {
   getRaidsList: () => api.get('/raids-list'),
   getStatus: () => api.get('/raid-items/status'),
   refresh: () => api.post('/raid-items/refresh'),
+}
+
+export const charactersAPI = {
+  getAll: () => api.get('/characters'),
+  create: (data) => api.post('/characters', data),
+  update: (id, data) => api.put(`/characters/${id}`, data),
+  remove: (id) => api.delete(`/characters/${id}`),
+  setPrimary: (id) => api.put(`/characters/${id}/primary`),
 }
 
 export const calendarAPI = {
