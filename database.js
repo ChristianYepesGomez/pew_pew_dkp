@@ -266,6 +266,20 @@ async function initDatabase() {
     )
   `);
 
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS characters (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      character_name TEXT NOT NULL,
+      character_class TEXT NOT NULL,
+      spec TEXT,
+      raid_role TEXT DEFAULT 'DPS' CHECK(raid_role IN ('Tank', 'Healer', 'DPS')),
+      is_primary INTEGER DEFAULT 0,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    )
+  `);
+
   // ── Column migrations (for databases created before these columns) ──
 
   const columnMigrations = [
@@ -325,6 +339,7 @@ async function initDatabase() {
     'CREATE INDEX IF NOT EXISTS idx_warcraftlogs_report_code ON warcraft_logs_processed(report_code)',
     'CREATE INDEX IF NOT EXISTS idx_member_availability_user ON member_availability(user_id)',
     'CREATE INDEX IF NOT EXISTS idx_member_availability_date ON member_availability(raid_date)',
+    'CREATE INDEX IF NOT EXISTS idx_characters_user ON characters(user_id)',
   ];
 
   for (const sql of indexes) {
@@ -375,6 +390,22 @@ async function initDatabase() {
     await db.run('INSERT INTO raid_days (day_of_week, day_name, is_active, raid_time) VALUES (?, ?, 1, ?)', 3, 'Miércoles', '21:00');
     await db.run('INSERT INTO raid_days (day_of_week, day_name, is_active, raid_time) VALUES (?, ?, 1, ?)', 4, 'Jueves', '21:00');
     console.log('✅ Raid days migrated');
+  }
+
+  // Migrate existing users into characters table (one-time)
+  const charCount = await db.get('SELECT COUNT(*) as count FROM characters');
+  if (charCount.count === 0) {
+    const existingUsers = await db.all('SELECT id, character_name, character_class, spec, raid_role FROM users WHERE is_active = 1');
+    if (existingUsers.length > 0) {
+      console.log(`📝 Migrating ${existingUsers.length} users to characters table...`);
+      for (const u of existingUsers) {
+        await db.run(
+          'INSERT INTO characters (user_id, character_name, character_class, spec, raid_role, is_primary) VALUES (?, ?, ?, ?, ?, 1)',
+          u.id, u.character_name, u.character_class, u.spec || null, u.raid_role || 'DPS'
+        );
+      }
+      console.log('✅ Characters migration complete');
+    }
   }
 
   // Ensure calendar DKP reward is +1
