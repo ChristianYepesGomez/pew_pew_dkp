@@ -75,6 +75,10 @@ export const charactersAPI = {
   setPrimary: (id) => api.put(`/characters/${id}/primary`),
 }
 
+export const blizzardAPI = {
+  getOAuthUrl: () => api.get('/auth/blizzard/url'),
+}
+
 export const calendarAPI = {
   getRaidDays: () => api.get('/calendar/raid-days'),
   updateRaidDays: (days) => api.put('/calendar/raid-days', { days }),

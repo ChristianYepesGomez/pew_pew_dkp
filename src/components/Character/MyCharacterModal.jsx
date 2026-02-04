@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { useAuth } from '../../hooks/useAuth'
 import { useLanguage } from '../../hooks/useLanguage'
-import { dkpAPI, authAPI, charactersAPI } from '../../services/api'
+import { dkpAPI, authAPI, charactersAPI, blizzardAPI } from '../../services/api'
 
 const CLASS_COLORS = {
   Warrior: '#C79C6E', Paladin: '#F58CBA', Hunter: '#ABD473', Rogue: '#FFF569', Priest: '#FFFFFF',
@@ -88,6 +88,11 @@ const MyCharacterModal = ({ onClose }) => {
   })
   const [charError, setCharError] = useState('')
   const [showHistory, setShowHistory] = useState(false)
+  const [blizzardChars, setBlizzardChars] = useState([])
+  const [blizzardLoading, setBlizzardLoading] = useState(false)
+  const [blizzardError, setBlizzardError] = useState('')
+  const [selectedChars, setSelectedChars] = useState(new Set())
+  const [importing, setImporting] = useState(false)
 
   const handleKeyDown = useCallback((e) => {
     if (e.key === 'Escape') onClose()
@@ -199,6 +204,95 @@ const MyCharacterModal = ({ onClose }) => {
     }
   }
 
+  const handleBlizzardImport = async () => {
+    setBlizzardLoading(true)
+    setBlizzardError('')
+    setBlizzardChars([])
+    try {
+      const res = await blizzardAPI.getOAuthUrl()
+      const popup = window.open(res.data.url, 'blizzard-auth', 'width=600,height=700,scrollbars=yes')
+
+      if (!popup) {
+        setBlizzardError(t('blizzard_popup_blocked'))
+        setBlizzardLoading(false)
+        return
+      }
+
+      const handler = (event) => {
+        if (event.data?.type !== 'blizzard-characters') return
+        window.removeEventListener('message', handler)
+        clearInterval(pollTimer)
+        const data = event.data.data
+        if (data.error) {
+          setBlizzardError(data.error)
+        } else {
+          const chars = data.characters || []
+          setBlizzardChars(chars)
+          const preSelected = new Set()
+          chars.forEach((c, i) => {
+            const exists = characters.some(ex => ex.characterName.toLowerCase() === c.name.toLowerCase())
+            if (c.level >= 70 && !exists) preSelected.add(i)
+          })
+          setSelectedChars(preSelected)
+        }
+        setBlizzardLoading(false)
+      }
+      window.addEventListener('message', handler)
+
+      const pollTimer = setInterval(() => {
+        if (popup.closed) {
+          clearInterval(pollTimer)
+          window.removeEventListener('message', handler)
+          setBlizzardLoading(false)
+        }
+      }, 1000)
+    } catch (error) {
+      setBlizzardError(error.response?.data?.error || 'Error')
+      setBlizzardLoading(false)
+    }
+  }
+
+  const toggleCharSelection = (index) => {
+    const newSelected = new Set(selectedChars)
+    if (newSelected.has(index)) {
+      newSelected.delete(index)
+    } else {
+      newSelected.add(index)
+    }
+    setSelectedChars(newSelected)
+  }
+
+  const handleImportSelected = async () => {
+    setImporting(true)
+    setCharError('')
+    let importCount = 0
+
+    for (const index of selectedChars) {
+      const char = blizzardChars[index]
+      try {
+        await charactersAPI.create({
+          characterName: char.name,
+          characterClass: char.className,
+          raidRole: 'DPS',
+        })
+        importCount++
+      } catch (error) {
+        console.error(`Failed to import ${char.name}:`, error.response?.data?.error || error.message)
+      }
+    }
+
+    const res = await charactersAPI.getAll()
+    setCharacters(res.data || [])
+    setBlizzardChars([])
+    setSelectedChars(new Set())
+    setImporting(false)
+
+    if (importCount > 0) {
+      setCharError(`${importCount} ${t('characters_imported')}`)
+      setTimeout(() => setCharError(''), 4000)
+    }
+  }
+
   const formatDate = (dateStr) => {
     const date = new Date(dateStr)
     return date.toLocaleDateString(language === 'es' ? 'es-ES' : 'en-US', {
@@ -286,17 +380,87 @@ const MyCharacterModal = ({ onClose }) => {
               <h4 className="text-sm font-cinzel text-midnight-glow m-0">
                 <i className="fas fa-users mr-2"></i>{t('my_characters')}
               </h4>
-              <button
-                onClick={() => setShowAddForm(!showAddForm)}
-                className="text-xs px-3 py-1 rounded-lg bg-midnight-purple bg-opacity-50 text-midnight-glow hover:bg-opacity-70 transition-all"
-              >
-                <i className={`fas ${showAddForm ? 'fa-minus' : 'fa-plus'} mr-1`}></i>
-                {t('add_character')}
-              </button>
+              <div className="flex gap-2">
+                <button
+                  onClick={handleBlizzardImport}
+                  disabled={blizzardLoading}
+                  className="text-xs px-3 py-1 rounded-lg bg-blue-700 bg-opacity-60 text-blue-200 hover:bg-opacity-80 transition-all disabled:opacity-50"
+                  title={t('blizzard_import_hint')}
+                >
+                  {blizzardLoading ? (
+                    <><i className="fas fa-spinner fa-spin mr-1"></i></>
+                  ) : (
+                    <><i className="fas fa-download mr-1"></i>{t('import_from_blizzard')}</>
+                  )}
+                </button>
+                <button
+                  onClick={() => setShowAddForm(!showAddForm)}
+                  className="text-xs px-3 py-1 rounded-lg bg-midnight-purple bg-opacity-50 text-midnight-glow hover:bg-opacity-70 transition-all"
+                >
+                  <i className={`fas ${showAddForm ? 'fa-minus' : 'fa-plus'} mr-1`}></i>
+                  {t('add_character')}
+                </button>
+              </div>
             </div>
 
             {charError && (
-              <p className="text-xs text-red-400 mb-2">{charError}</p>
+              <p className={`text-xs mb-2 ${charError.includes(t('characters_imported')) ? 'text-green-400' : 'text-red-400'}`}>{charError}</p>
+            )}
+
+            {blizzardError && (
+              <p className="text-xs text-red-400 mb-2"><i className="fas fa-exclamation-circle mr-1"></i>{blizzardError}</p>
+            )}
+
+            {/* Blizzard Import Results */}
+            {blizzardChars.length > 0 && (
+              <div className="bg-blue-900 bg-opacity-20 border border-blue-700 border-opacity-30 rounded-lg p-3 mb-3">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-sm text-blue-300 m-0 font-bold">
+                    <i className="fas fa-download mr-1"></i>
+                    {t('blizzard_characters_found')} ({blizzardChars.length})
+                  </p>
+                  <button onClick={() => { setBlizzardChars([]); setSelectedChars(new Set()) }}
+                    className="text-xs text-gray-400 hover:text-white transition-all">
+                    <i className="fas fa-times"></i>
+                  </button>
+                </div>
+                <div className="space-y-1 max-h-48 overflow-auto mb-2">
+                  {blizzardChars.map((char, idx) => {
+                    const alreadyExists = characters.some(c =>
+                      c.characterName.toLowerCase() === char.name.toLowerCase()
+                    )
+                    return (
+                      <label key={idx} className={`flex items-center gap-2 p-2 rounded cursor-pointer hover:bg-midnight-purple hover:bg-opacity-30 ${alreadyExists ? 'opacity-40 cursor-not-allowed' : ''}`}>
+                        <input
+                          type="checkbox"
+                          checked={selectedChars.has(idx)}
+                          onChange={() => !alreadyExists && toggleCharSelection(idx)}
+                          disabled={alreadyExists}
+                          className="accent-blue-500 flex-shrink-0"
+                        />
+                        <span className="text-sm font-bold truncate" style={{ color: CLASS_COLORS[char.className] || '#FFF' }}>
+                          {char.name}
+                        </span>
+                        <span className="text-xs text-midnight-silver flex-shrink-0">{char.className}</span>
+                        <span className="text-xs text-gray-500 truncate hidden sm:inline">{char.realm}</span>
+                        <span className="text-xs text-gray-500 ml-auto flex-shrink-0">Lv.{char.level}</span>
+                        {alreadyExists && <span className="text-[10px] text-yellow-500 flex-shrink-0">{t('already_added')}</span>}
+                      </label>
+                    )
+                  })}
+                </div>
+                <button
+                  onClick={handleImportSelected}
+                  disabled={selectedChars.size === 0 || importing}
+                  className="w-full py-2 rounded-lg bg-gradient-to-r from-blue-600 to-blue-800 text-white text-sm font-bold hover:shadow-lg transition-all disabled:opacity-50"
+                >
+                  {importing ? (
+                    <><i className="fas fa-spinner fa-spin mr-1"></i>{t('importing')}</>
+                  ) : (
+                    <><i className="fas fa-download mr-1"></i>{t('import_selected')} ({selectedChars.size})</>
+                  )}
+                </button>
+              </div>
             )}
 
             {/* Add Character Form */}
