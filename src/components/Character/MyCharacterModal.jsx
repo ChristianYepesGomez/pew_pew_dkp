@@ -222,18 +222,25 @@ const MyCharacterModal = ({ onClose }) => {
         if (event.data?.type !== 'blizzard-characters') return
         window.removeEventListener('message', handler)
         clearInterval(pollTimer)
-        const data = event.data.data
-        if (data.error) {
-          setBlizzardError(data.error)
-        } else {
-          const chars = data.characters || []
-          setBlizzardChars(chars)
-          const preSelected = new Set()
-          chars.forEach((c, i) => {
-            const exists = characters.some(ex => ex.characterName.toLowerCase() === c.name.toLowerCase())
-            if (c.level >= 70 && !exists) preSelected.add(i)
-          })
-          setSelectedChars(preSelected)
+        try {
+          const data = event.data.data
+          if (data.error) {
+            setBlizzardError(data.error)
+          } else {
+            const chars = (data.characters || []).filter(c => c.name)
+            setBlizzardChars(chars)
+            const preSelected = new Set()
+            chars.forEach((c, i) => {
+              const exists = characters.some(ex =>
+                (ex.characterName || '').toLowerCase() === (c.name || '').toLowerCase()
+              )
+              if (!exists) preSelected.add(i)
+            })
+            setSelectedChars(preSelected)
+          }
+        } catch (err) {
+          console.error('Error processing Blizzard characters:', err)
+          setBlizzardError('Error processing character data')
         }
         setBlizzardLoading(false)
       }
@@ -427,7 +434,7 @@ const MyCharacterModal = ({ onClose }) => {
                 <div className="space-y-1 max-h-48 overflow-auto mb-2">
                   {blizzardChars.map((char, idx) => {
                     const alreadyExists = characters.some(c =>
-                      c.characterName.toLowerCase() === char.name.toLowerCase()
+                      (c.characterName || '').toLowerCase() === (char.name || '').toLowerCase()
                     )
                     return (
                       <label key={idx} className={`flex items-center gap-2 p-2 rounded cursor-pointer hover:bg-midnight-purple hover:bg-opacity-30 ${alreadyExists ? 'opacity-40 cursor-not-allowed' : ''}`}>
