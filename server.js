@@ -500,7 +500,8 @@ function renderBlizzardCallbackHTML(data, targetOrigin) {
 try {
   var data = JSON.parse(atob('${encoded}'));
   if (window.opener) {
-    window.opener.postMessage({ type: 'blizzard-characters', data: data }, '${targetOrigin}');
+    try { window.opener.postMessage({ type: 'blizzard-characters', data: data }, '${targetOrigin}'); }
+    catch(e) { window.opener.postMessage({ type: 'blizzard-characters', data: data }, '*'); }
     if (!data.error) setTimeout(function() { window.close(); }, 1500);
   }
 } catch(e) {
