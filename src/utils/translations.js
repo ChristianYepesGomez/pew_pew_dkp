@@ -244,6 +244,16 @@ export const translations = {
     character_deleted: 'Personaje eliminado',
     cannot_delete_only: 'No puedes eliminar tu único personaje',
     cannot_delete_primary: 'No puedes eliminar el personaje principal. Cambia de principal primero.',
+    // Blizzard Import
+    import_from_blizzard: 'Importar de Blizzard',
+    blizzard_characters_found: 'Personajes encontrados',
+    import_selected: 'Importar seleccionados',
+    importing: 'Importando...',
+    already_added: 'Ya existe',
+    characters_imported: 'importados correctamente',
+    blizzard_not_configured: 'Conexión con Blizzard no disponible',
+    blizzard_popup_blocked: 'El navegador bloqueó la ventana emergente. Permite popups e inténtalo de nuevo.',
+    blizzard_import_hint: 'Conecta tu cuenta de Blizzard para importar tus personajes automáticamente',
   },
   en: {
     guild_name: 'Pew Pew Kittens with Guns',
@@ -490,5 +500,15 @@ export const translations = {
     character_deleted: 'Character deleted',
     cannot_delete_only: 'Cannot delete your only character',
     cannot_delete_primary: 'Cannot delete primary character. Set another as primary first.',
+    // Blizzard Import
+    import_from_blizzard: 'Import from Blizzard',
+    blizzard_characters_found: 'Characters found',
+    import_selected: 'Import selected',
+    importing: 'Importing...',
+    already_added: 'Already added',
+    characters_imported: 'imported successfully',
+    blizzard_not_configured: 'Blizzard connection not available',
+    blizzard_popup_blocked: 'Browser blocked the popup. Please allow popups and try again.',
+    blizzard_import_hint: 'Connect your Blizzard account to import your characters automatically',
   },
 }
