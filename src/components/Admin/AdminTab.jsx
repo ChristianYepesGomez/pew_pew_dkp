@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useLanguage } from '../../hooks/useLanguage'
 import { membersAPI, dkpAPI, warcraftLogsAPI } from '../../services/api'
 
@@ -17,6 +17,12 @@ const AdminTab = () => {
   const [wclUrl, setWclUrl] = useState('')
   const [wclPreview, setWclPreview] = useState(null)
   const [loading, setLoading] = useState(false)
+  const [wclHistory, setWclHistory] = useState([])
+  const [loadingHistory, setLoadingHistory] = useState(false)
+  const [expandedReport, setExpandedReport] = useState(null)
+  const [reportTransactions, setReportTransactions] = useState({})
+  const [revertConfirm, setRevertConfirm] = useState(null)
+  const [reverting, setReverting] = useState(false)
 
   const showNotification = (type, message) => {
     setNotification({ type, message })
@@ -80,6 +86,52 @@ const AdminTab = () => {
       showNotification('error', msg)
     } finally {
       setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    loadWclHistory()
+  }, [])
+
+  const loadWclHistory = async () => {
+    try {
+      setLoadingHistory(true)
+      const res = await warcraftLogsAPI.history(50)
+      setWclHistory(res.data || [])
+    } catch (error) {
+      console.error('Error loading WCL history:', error)
+    } finally {
+      setLoadingHistory(false)
+    }
+  }
+
+  const handleExpandReport = async (code) => {
+    if (expandedReport === code) {
+      setExpandedReport(null)
+      return
+    }
+    setExpandedReport(code)
+    if (!reportTransactions[code]) {
+      try {
+        const res = await warcraftLogsAPI.reportTransactions(code)
+        setReportTransactions(prev => ({ ...prev, [code]: res.data.transactions || [] }))
+      } catch (error) {
+        console.error('Error loading report transactions:', error)
+      }
+    }
+  }
+
+  const handleRevert = async (code) => {
+    try {
+      setReverting(true)
+      await warcraftLogsAPI.revert(code)
+      showNotification('success', t('dkp_reverted'))
+      setRevertConfirm(null)
+      loadWclHistory()
+    } catch (error) {
+      showNotification('error', error.response?.data?.error || t('error_generic'))
+    } finally {
+      setReverting(false)
     }
   }
 
@@ -176,6 +228,115 @@ const AdminTab = () => {
           </div>
         )}
       </div>
+
+      {/* WCL History */}
+      <div className="info-card">
+        <h3><i className="fas fa-history mr-3"></i>{t('wcl_history')}</h3>
+        {loadingHistory ? (
+          <div className="text-center py-8"><i className="fas fa-circle-notch fa-spin text-2xl text-midnight-glow"></i></div>
+        ) : wclHistory.length === 0 ? (
+          <p className="text-midnight-silver mt-4 text-center">{t('no_data')}</p>
+        ) : (
+          <div className="mt-4 space-y-2">
+            {wclHistory.map(report => (
+              <div key={report.report_code} className={`rounded-lg border overflow-hidden transition-all ${
+                report.is_reverted
+                  ? 'border-red-500 border-opacity-30 bg-red-900 bg-opacity-10'
+                  : 'border-midnight-bright-purple border-opacity-20 bg-midnight-purple bg-opacity-10'
+              }`}>
+                {/* Report Row */}
+                <div
+                  className="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-midnight-purple hover:bg-opacity-20 transition-all"
+                  onClick={() => handleExpandReport(report.report_code)}
+                >
+                  <i className={`fas fa-scroll ${report.is_reverted ? 'text-red-400' : 'text-orange-400'}`}></i>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold text-white text-sm truncate">{report.report_title}</span>
+                      {report.is_reverted && (
+                        <span className="text-xs bg-red-500 bg-opacity-20 text-red-400 px-2 py-0.5 rounded">{t('reverted')}</span>
+                      )}
+                    </div>
+                    <div className="text-xs text-midnight-silver flex items-center gap-2 flex-wrap">
+                      {report.raid_date && <span><i className="fas fa-calendar-day mr-1"></i>{report.raid_date}</span>}
+                      <span><i className="fas fa-users mr-1"></i>{report.participants_count}</span>
+                      <span className="text-midnight-glow"><i className="fas fa-coins mr-1"></i>{report.dkp_assigned}</span>
+                      <span><i className="fas fa-user mr-1"></i>{report.processed_by_name}</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    {!report.is_reverted && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setRevertConfirm(report.report_code) }}
+                        className="px-3 py-1.5 bg-red-500 bg-opacity-10 text-red-400 rounded-lg text-xs hover:bg-opacity-20 transition-all"
+                        title={t('revert_dkp')}
+                      >
+                        <i className="fas fa-undo mr-1"></i>{t('revert_dkp')}
+                      </button>
+                    )}
+                    <i className={`fas fa-chevron-${expandedReport === report.report_code ? 'up' : 'down'} text-midnight-silver text-xs`}></i>
+                  </div>
+                </div>
+
+                {/* Expanded Transactions */}
+                {expandedReport === report.report_code && (
+                  <div className="px-4 pb-3 border-t border-midnight-bright-purple border-opacity-20">
+                    {reportTransactions[report.report_code] ? (
+                      reportTransactions[report.report_code].length > 0 ? (
+                        <div className="mt-2 space-y-1">
+                          {reportTransactions[report.report_code].map(txn => (
+                            <div key={txn.id} className="flex items-center justify-between text-sm py-1">
+                              <span style={{ color: CLASS_COLORS[txn.character_class] || '#fff' }}>{txn.character_name}</span>
+                              <span className={txn.amount > 0 ? 'text-green-400' : 'text-red-400'}>
+                                {txn.amount > 0 ? '+' : ''}{txn.amount} DKP
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-midnight-silver text-sm mt-2">{t('no_data')}</p>
+                      )
+                    ) : (
+                      <div className="text-center py-4"><i className="fas fa-circle-notch fa-spin text-midnight-glow"></i></div>
+                    )}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Revert Confirmation Dialog */}
+      {revertConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => setRevertConfirm(null)}>
+          <div className="absolute inset-0 bg-black bg-opacity-70"></div>
+          <div className="relative bg-midnight-deepblue border border-red-500 border-opacity-40 rounded-2xl p-6 max-w-sm w-full shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="text-center space-y-4">
+              <div className="w-16 h-16 rounded-full bg-red-500 bg-opacity-20 flex items-center justify-center mx-auto">
+                <i className="fas fa-exclamation-triangle text-red-400 text-2xl"></i>
+              </div>
+              <h3 className="text-lg font-bold text-white">{t('revert_dkp')}</h3>
+              <p className="text-midnight-silver text-sm">{t('confirm_revert')}</p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setRevertConfirm(null)}
+                  className="flex-1 py-2 px-4 border border-midnight-bright-purple text-midnight-silver rounded-lg hover:bg-midnight-purple hover:bg-opacity-20 transition-all"
+                >
+                  {t('cancel')}
+                </button>
+                <button
+                  onClick={() => handleRevert(revertConfirm)}
+                  disabled={reverting}
+                  className="flex-1 py-2 px-4 bg-red-600 text-white rounded-lg font-bold hover:bg-red-700 transition-all disabled:opacity-50"
+                >
+                  {reverting ? <i className="fas fa-circle-notch fa-spin"></i> : <><i className="fas fa-undo mr-2"></i>{t('revert_dkp')}</>}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { useAuth } from '../../hooks/useAuth'
 import { useLanguage } from '../../hooks/useLanguage'
-import { calendarAPI } from '../../services/api'
+import { calendarAPI, warcraftLogsAPI } from '../../services/api'
 
 const CLASS_COLORS = {
   Warrior: '#C79C6E', Paladin: '#F58CBA', Hunter: '#ABD473', Rogue: '#FFF569', Priest: '#FFFFFF',
@@ -47,11 +47,14 @@ const CalendarTab = () => {
   const [notification, setNotification] = useState(null)
   const [adminView, setAdminView] = useState(false)
   const [overview, setOverview] = useState(null)
+  const [wclData, setWclData] = useState({})
+  const [wclModal, setWclModal] = useState(null)
 
   const isAdmin = user?.role === 'admin' || user?.role === 'officer'
 
   useEffect(() => {
     loadSignups()
+    loadWclData()
   }, [])
 
   useEffect(() => {
@@ -87,6 +90,21 @@ const CalendarTab = () => {
       setOverview(response.data)
     } catch (error) {
       console.error('Error loading overview:', error)
+    }
+  }
+
+  const loadWclData = async () => {
+    try {
+      const response = await calendarAPI.getDatesWithLogs(4)
+      const map = {}
+      for (const d of response.data || []) {
+        if (d.wclReport) {
+          map[d.date] = d.wclReport
+        }
+      }
+      setWclData(map)
+    } catch (error) {
+      console.error('Error loading WCL data:', error)
     }
   }
 
@@ -286,6 +304,32 @@ const CalendarTab = () => {
                             </div>
                           </div>
                           <div className="flex items-center gap-2">
+                            {/* WCL Icon */}
+                            {wclData[signup.date] ? (
+                              <a
+                                href={`https://www.warcraftlogs.com/reports/${wclData[signup.date].code}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex items-center gap-1 text-orange-400 text-sm hover:text-orange-300 transition-colors"
+                                title={`${wclData[signup.date].title} (${wclData[signup.date].dkpAssigned} DKP)`}
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <i className="fas fa-scroll"></i>
+                                <span className="text-xs">{wclData[signup.date].dkpAssigned}</span>
+                              </a>
+                            ) : isAdmin ? (
+                              <button
+                                onClick={(e) => { e.stopPropagation(); setWclModal(signup.date) }}
+                                className="flex items-center gap-1 text-gray-600 text-sm hover:text-orange-400 transition-colors"
+                                title={t('link_wcl_report')}
+                              >
+                                <i className="fas fa-scroll"></i>
+                              </button>
+                            ) : (
+                              <div className="text-gray-700 text-sm" title={t('no_wcl_report')}>
+                                <i className="fas fa-scroll"></i>
+                              </div>
+                            )}
                             {signup.dkpAwarded > 0 && (
                               <div className="flex items-center gap-1 text-yellow-400 text-sm">
                                 <i className="fas fa-coins"></i>
@@ -414,6 +458,17 @@ const CalendarTab = () => {
           t={t}
           language={language}
           isAdmin={isAdmin}
+        />
+      )}
+
+      {/* WCL Link Modal */}
+      {wclModal && (
+        <WCLLinkModal
+          date={wclModal}
+          onClose={() => setWclModal(null)}
+          onLinked={() => { setWclModal(null); loadWclData() }}
+          t={t}
+          language={language}
         />
       )}
     </div>
@@ -750,6 +805,274 @@ const AdminOverview = ({ overview, t, language }) => {
         </div>
       </div>
     </div>
+  )
+}
+
+// WCL Link Modal - allows admin to link a WCL report to a raid date
+const WCLLinkModal = ({ date, onClose, onLinked, t, language }) => {
+  const [autoReports, setAutoReports] = useState([])
+  const [loadingAuto, setLoadingAuto] = useState(true)
+  const [autoError, setAutoError] = useState(null)
+  const [manualUrl, setManualUrl] = useState('')
+  const [preview, setPreview] = useState(null)
+  const [loadingPreview, setLoadingPreview] = useState(false)
+  const [confirming, setConfirming] = useState(false)
+  const [error, setError] = useState('')
+  const [step, setStep] = useState('select') // 'select' | 'preview'
+
+  const dateInfo = (() => {
+    const d = new Date(date + 'T00:00:00')
+    const dayName = d.toLocaleDateString(language === 'es' ? 'es-ES' : 'en-US', { weekday: 'long' })
+    const dayNum = d.getDate()
+    const month = d.toLocaleDateString(language === 'es' ? 'es-ES' : 'en-US', { month: 'long' })
+    return { dayName: dayName.charAt(0).toUpperCase() + dayName.slice(1), dayNum, month: month.charAt(0).toUpperCase() + month.slice(1) }
+  })()
+
+  // Load auto-detected reports
+  useEffect(() => {
+    const load = async () => {
+      try {
+        setLoadingAuto(true)
+        const res = await warcraftLogsAPI.guildReports(date)
+        setAutoReports(res.data || [])
+      } catch (err) {
+        const msg = err.response?.data?.error || ''
+        if (msg.includes('guild ID')) {
+          setAutoError('guild_not_configured')
+        } else {
+          setAutoError(msg || 'error')
+        }
+      } finally {
+        setLoadingAuto(false)
+      }
+    }
+    load()
+  }, [date])
+
+  useEffect(() => {
+    const handleKey = (e) => { if (e.key === 'Escape') onClose() }
+    document.addEventListener('keydown', handleKey)
+    return () => document.removeEventListener('keydown', handleKey)
+  }, [onClose])
+
+  const handleSelectReport = async (code) => {
+    try {
+      setLoadingPreview(true)
+      setError('')
+      const res = await warcraftLogsAPI.preview(`https://www.warcraftlogs.com/reports/${code}`)
+      setPreview(res.data)
+      setStep('preview')
+    } catch (err) {
+      setError(err.response?.data?.error || t('error_processing_wcl'))
+    } finally {
+      setLoadingPreview(false)
+    }
+  }
+
+  const handleManualSubmit = async () => {
+    if (!manualUrl.trim()) return
+    try {
+      setLoadingPreview(true)
+      setError('')
+      const res = await warcraftLogsAPI.preview(manualUrl.trim())
+      setPreview(res.data)
+      setStep('preview')
+    } catch (err) {
+      setError(err.response?.data?.error || t('error_processing_wcl'))
+    } finally {
+      setLoadingPreview(false)
+    }
+  }
+
+  const handleConfirm = async () => {
+    if (!preview) return
+    try {
+      setConfirming(true)
+      setError('')
+      await warcraftLogsAPI.confirm({
+        reportCode: preview.report.code,
+        reportTitle: preview.report.title,
+        startTime: preview.report.startTime,
+        endTime: preview.report.endTime,
+        region: preview.report.region,
+        guildName: preview.report.guildName,
+        raidDate: date,
+        participants: preview.participants
+      })
+      onLinked()
+    } catch (err) {
+      setError(err.response?.data?.error || t('error_processing_wcl'))
+    } finally {
+      setConfirming(false)
+    }
+  }
+
+  const matchedCount = preview?.participants?.filter(p => p.matched)?.length || 0
+  const totalDkp = preview?.participants?.filter(p => p.matched)?.reduce((sum, p) => sum + (p.dkp_to_assign || 0), 0) || 0
+
+  return createPortal(
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4" onClick={onClose}>
+      <div className="absolute inset-0 bg-black bg-opacity-70 backdrop-blur-sm" />
+      <div
+        className="relative w-full max-w-lg bg-midnight-deepblue border border-midnight-bright-purple border-opacity-40 rounded-2xl shadow-2xl animate-fade-in overflow-hidden max-h-[85vh] flex flex-col"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="px-6 py-4 bg-midnight-purple bg-opacity-30 border-b border-midnight-bright-purple border-opacity-30 flex items-center justify-between flex-shrink-0">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-orange-500 bg-opacity-20 flex items-center justify-center">
+              <i className="fas fa-scroll text-orange-400"></i>
+            </div>
+            <div>
+              <h3 className="text-lg font-bold text-white">{t('link_wcl_report')}</h3>
+              <p className="text-sm text-midnight-silver">{dateInfo.dayName} {dateInfo.dayNum} {dateInfo.month}</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="w-8 h-8 rounded-lg bg-midnight-purple bg-opacity-30 text-midnight-silver hover:text-white hover:bg-opacity-50 transition-all flex items-center justify-center">
+            <i className="fas fa-times"></i>
+          </button>
+        </div>
+
+        {/* Body */}
+        <div className="p-6 overflow-y-auto flex-1 space-y-4">
+          {error && (
+            <div className="bg-red-500 bg-opacity-20 border border-red-500 text-red-400 px-4 py-3 rounded-lg text-sm">
+              <i className="fas fa-exclamation-circle mr-2"></i>{error}
+            </div>
+          )}
+
+          {step === 'select' ? (
+            <>
+              {/* Auto-detected reports */}
+              <div>
+                <h4 className="text-sm font-semibold text-white mb-3 flex items-center gap-2">
+                  <i className="fas fa-search text-midnight-glow"></i>
+                  {t('auto_detected_reports')}
+                </h4>
+                {loadingAuto ? (
+                  <div className="text-center py-6"><i className="fas fa-circle-notch fa-spin text-2xl text-midnight-glow"></i></div>
+                ) : autoError === 'guild_not_configured' ? (
+                  <div className="bg-yellow-500 bg-opacity-10 border border-yellow-500 border-opacity-30 rounded-lg p-3 text-sm text-yellow-300">
+                    <i className="fas fa-info-circle mr-2"></i>{t('wcl_guild_not_configured')}
+                  </div>
+                ) : autoError ? (
+                  <div className="bg-red-500 bg-opacity-10 border border-red-500 border-opacity-30 rounded-lg p-3 text-sm text-red-300">
+                    <i className="fas fa-exclamation-triangle mr-2"></i>{autoError}
+                  </div>
+                ) : autoReports.length === 0 ? (
+                  <div className="text-center py-4 text-midnight-silver text-sm">{t('no_reports_found')}</div>
+                ) : (
+                  <div className="space-y-2">
+                    {autoReports.map(report => (
+                      <div key={report.code} className="flex items-center justify-between bg-midnight-purple bg-opacity-20 rounded-lg p-3 border border-midnight-bright-purple border-opacity-20">
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm font-semibold text-white truncate">{report.title}</div>
+                          <div className="text-xs text-midnight-silver">{report.zone} &middot; {report.owner}</div>
+                        </div>
+                        {report.alreadyProcessed ? (
+                          <span className="text-xs text-yellow-400 px-2 py-1 bg-yellow-500 bg-opacity-10 rounded">{t('report_already_processed')}</span>
+                        ) : report.wasReverted ? (
+                          <span className="text-xs text-gray-400 px-2 py-1 bg-gray-500 bg-opacity-10 rounded">{t('report_was_reverted')}</span>
+                        ) : (
+                          <button
+                            onClick={() => handleSelectReport(report.code)}
+                            disabled={loadingPreview}
+                            className="ml-3 px-3 py-1.5 bg-orange-500 bg-opacity-20 text-orange-400 rounded-lg text-sm hover:bg-opacity-30 transition-all flex-shrink-0"
+                          >
+                            {loadingPreview ? <i className="fas fa-circle-notch fa-spin"></i> : <><i className="fas fa-link mr-1"></i>{t('link_this_report')}</>}
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Divider */}
+              <div className="flex items-center gap-3 py-1">
+                <div className="flex-1 border-t border-midnight-bright-purple border-opacity-20"></div>
+                <span className="text-xs text-midnight-silver">{t('or_enter_url')}</span>
+                <div className="flex-1 border-t border-midnight-bright-purple border-opacity-20"></div>
+              </div>
+
+              {/* Manual URL Input */}
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={manualUrl}
+                  onChange={(e) => setManualUrl(e.target.value)}
+                  placeholder="https://www.warcraftlogs.com/reports/..."
+                  className="flex-1 px-3 py-2 bg-midnight-purple bg-opacity-30 border border-midnight-bright-purple rounded-lg text-white text-sm placeholder-gray-500 focus:outline-none focus:border-midnight-glow"
+                  onKeyDown={(e) => e.key === 'Enter' && handleManualSubmit()}
+                />
+                <button
+                  onClick={handleManualSubmit}
+                  disabled={!manualUrl.trim() || loadingPreview}
+                  className="px-4 py-2 bg-midnight-glow bg-opacity-20 text-midnight-glow rounded-lg text-sm hover:bg-opacity-30 transition-all disabled:opacity-50"
+                >
+                  {loadingPreview ? <i className="fas fa-circle-notch fa-spin"></i> : <i className="fas fa-search"></i>}
+                </button>
+              </div>
+            </>
+          ) : (
+            /* Preview step */
+            <>
+              <button onClick={() => { setStep('select'); setPreview(null) }} className="text-sm text-midnight-silver hover:text-white transition-colors">
+                <i className="fas fa-arrow-left mr-2"></i>{t('back') || 'Volver'}
+              </button>
+
+              {preview && (
+                <div className="space-y-4">
+                  {/* Report info */}
+                  <div className="bg-midnight-purple bg-opacity-20 rounded-lg p-4 border border-midnight-bright-purple border-opacity-20">
+                    <h4 className="font-bold text-white">{preview.report.title}</h4>
+                    <div className="text-sm text-midnight-silver mt-1">
+                      {preview.report.bossesKilled}/{preview.report.totalBosses} {t('bosses')} &middot; {preview.report.participantCount} {t('participants')}
+                    </div>
+                  </div>
+
+                  {/* Summary */}
+                  <div className="flex gap-4 justify-around bg-midnight-purple bg-opacity-10 rounded-lg p-3">
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-green-400">{matchedCount}</div>
+                      <div className="text-xs text-midnight-silver">{t('players_to_receive')}</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-midnight-glow">{totalDkp}</div>
+                      <div className="text-xs text-midnight-silver">Total DKP</div>
+                    </div>
+                  </div>
+
+                  {/* Matched participants list */}
+                  <div className="max-h-48 overflow-y-auto space-y-1">
+                    {preview.participants?.filter(p => p.matched).map(p => (
+                      <div key={p.user_id} className="flex items-center justify-between text-sm py-1 px-2 bg-midnight-purple bg-opacity-10 rounded">
+                        <span className="text-white">{p.character_name}</span>
+                        <span className="text-midnight-glow font-bold">+{p.dkp_to_assign} DKP</span>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Confirm button */}
+                  <button
+                    onClick={handleConfirm}
+                    disabled={confirming || matchedCount === 0}
+                    className="w-full py-3 bg-gradient-to-r from-orange-600 to-orange-700 text-white font-bold rounded-lg hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {confirming ? (
+                      <><i className="fas fa-circle-notch fa-spin mr-2"></i>{t('loading')}...</>
+                    ) : (
+                      <><i className="fas fa-check mr-2"></i>{t('confirm_apply_to')} {matchedCount} {t('players')}</>
+                    )}
+                  </button>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+    </div>,
+    document.body
   )
 }
 

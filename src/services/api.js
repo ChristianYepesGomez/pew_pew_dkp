@@ -56,6 +56,10 @@ export const auctionsAPI = {
 export const warcraftLogsAPI = {
   preview: (url) => api.post('/warcraftlogs/preview', { url }),
   confirm: (data) => api.post('/warcraftlogs/confirm', data),
+  history: (limit = 50) => api.get(`/warcraftlogs/history?limit=${limit}`),
+  revert: (code) => api.post(`/warcraftlogs/revert/${code}`),
+  guildReports: (date) => api.get(`/warcraftlogs/guild-reports?date=${date}`),
+  reportTransactions: (code) => api.get(`/warcraftlogs/report/${code}/transactions`),
 }
 
 export const raidItemsAPI = {
@@ -87,6 +91,7 @@ export const calendarAPI = {
   signup: (date, status, notes) => api.post('/calendar/signup', { date, status, notes }),
   getSummary: (date) => api.get(`/calendar/summary/${date}`),
   getOverview: (weeks = 2) => api.get(`/calendar/overview?weeks=${weeks}`),
+  getDatesWithLogs: (weeks = 4) => api.get(`/calendar/dates-with-logs?weeks=${weeks}`),
 }
 
 export default api
