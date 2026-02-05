@@ -276,11 +276,21 @@ const MyCharacterModal = ({ onClose }) => {
 
     for (const index of selectedChars) {
       const char = blizzardChars[index]
+      // Use spec/role from Blizzard, or pick a random valid one for the class
+      let spec = char.spec || null
+      let raidRole = char.raidRole || 'DPS'
+      if (!spec && CLASS_SPECS[char.className]) {
+        const classData = CLASS_SPECS[char.className]
+        const randIdx = Math.floor(Math.random() * classData.specs.length)
+        spec = classData.specs[randIdx]
+        raidRole = classData.defaultRoles[randIdx]
+      }
       try {
         await charactersAPI.create({
           characterName: char.name,
           characterClass: char.className,
-          raidRole: 'DPS',
+          spec: spec || '',
+          raidRole,
         })
         importCount++
       } catch (error) {
@@ -453,7 +463,7 @@ const MyCharacterModal = ({ onClose }) => {
                         <span className="text-sm font-bold truncate" style={{ color: CLASS_COLORS[char.className] || '#FFF' }}>
                           {char.name}
                         </span>
-                        <span className="text-xs text-midnight-silver flex-shrink-0">{char.className}</span>
+                        <span className="text-xs text-midnight-silver flex-shrink-0">{char.className}{char.spec ? ` - ${char.spec}` : ''}</span>
                         <span className="text-xs text-gray-500 truncate hidden sm:inline">{char.realm}</span>
                         <span className="text-xs text-gray-500 ml-auto flex-shrink-0">Lv.{char.level}</span>
                         {alreadyExists && <span className="text-[10px] text-yellow-500 flex-shrink-0">{t('already_added')}</span>}
