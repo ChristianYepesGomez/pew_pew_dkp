@@ -75,6 +75,37 @@ const userLimiter = rateLimit({
 app.use(cors(corsOptions));
 app.use(express.json());
 
+// ── Config Cache (avoid repeated DB reads for static config values) ──
+const configCache = {
+  values: {},
+  lastFetch: 0,
+  TTL: 60000, // 1 minute cache
+};
+
+async function getCachedConfig(key, defaultValue) {
+  const now = Date.now();
+  // Refresh cache if stale
+  if (now - configCache.lastFetch > configCache.TTL) {
+    try {
+      const configs = await db.all('SELECT config_key, config_value FROM dkp_config');
+      configCache.values = {};
+      for (const c of configs) {
+        configCache.values[c.config_key] = c.config_value;
+      }
+      configCache.lastFetch = now;
+    } catch (e) {
+      console.error('Config cache refresh failed:', e);
+    }
+  }
+  const value = configCache.values[key];
+  return value !== undefined ? value : defaultValue;
+}
+
+// Invalidate cache when config is updated (called from PUT /api/config)
+function invalidateConfigCache() {
+  configCache.lastFetch = 0;
+}
+
 // Frontend is served separately via Vite (dkp-frontend project)
 // No static files served from backend
 
@@ -773,8 +804,7 @@ app.put('/api/members/:id/vault', adminLimiter, authenticateToken, authorizeRole
 
     if (wasCompleted) {
       // Remove vault completion AND remove the DKP that was awarded
-      const vaultDkpConfig = await db.get("SELECT config_value FROM dkp_config WHERE config_key = 'weekly_vault_dkp'");
-      const vaultDkp = parseInt(vaultDkpConfig?.config_value || '10', 10);
+      const vaultDkp = parseInt(await getCachedConfig('weekly_vault_dkp', '10'), 10);
 
       await db.transaction(async (tx) => {
         // Remove vault status
@@ -804,10 +834,8 @@ app.put('/api/members/:id/vault', adminLimiter, authenticateToken, authorizeRole
       res.json({ message: 'Vault completion removed, DKP deducted', completed: false, dkpRemoved: vaultDkp });
     } else {
       // Mark as completed and award DKP
-      const vaultDkpConfig = await db.get("SELECT config_value FROM dkp_config WHERE config_key = 'weekly_vault_dkp'");
-      const capConfig = await db.get("SELECT config_value FROM dkp_config WHERE config_key = 'dkp_cap'");
-      const vaultDkp = parseInt(vaultDkpConfig?.config_value || '10', 10);
-      const dkpCap = parseInt(capConfig?.config_value || '250', 10);
+      const vaultDkp = parseInt(await getCachedConfig('weekly_vault_dkp', '10'), 10);
+      const dkpCap = parseInt(await getCachedConfig('dkp_cap', '250'), 10);
 
       await db.transaction(async (tx) => {
         // Update vault status
@@ -2344,6 +2372,9 @@ app.put('/api/warcraftlogs/config', adminLimiter, authenticateToken, authorizeRo
       SET config_value = ?, updated_at = CURRENT_TIMESTAMP, updated_by = ?
       WHERE config_key = ?
     `, config_value, req.user.userId, config_key);
+
+    // Invalidate config cache so new values take effect immediately
+    invalidateConfigCache();
 
     res.json({ message: 'Configuration updated', config_key, config_value });
   } catch (error) {
