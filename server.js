@@ -1414,9 +1414,9 @@ app.get('/api/auctions/active', authenticateToken, async (req, res) => {
       WHERE ab.user_id = ? AND a.status = 'active'
       AND ab.amount = (
         SELECT MAX(ab2.amount) FROM auction_bids ab2
-        WHERE ab2.auction_id = ab.auction_id AND ab2.user_id = ?
+        WHERE ab2.auction_id = ab.auction_id
       )
-    `, userId, userId);
+    `, userId);
 
     const availableDkp = (userDkp?.current_dkp || 0) - (committedBids?.total || 0);
 
@@ -1486,9 +1486,9 @@ app.post('/api/auctions/:auctionId/bid', authenticateToken, async (req, res) => 
       WHERE ab.user_id = ? AND a.status = 'active' AND a.id != ?
       AND ab.amount = (
         SELECT MAX(ab2.amount) FROM auction_bids ab2
-        WHERE ab2.auction_id = ab.auction_id AND ab2.user_id = ?
+        WHERE ab2.auction_id = ab.auction_id
       )
-    `, userId, auctionId, userId);
+    `, userId, auctionId);
 
     const availableDkp = userDkp.current_dkp - (committedBids?.total || 0);
     if (availableDkp < amount) {
