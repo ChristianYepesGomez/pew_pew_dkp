@@ -3229,6 +3229,28 @@ app.get('/api/bosses', authenticateToken, async (req, res) => {
   }
 });
 
+// DEBUG: Check raw boss_statistics data
+app.get('/api/bosses/debug/stats', authenticateToken, authorizeRole(['admin']), async (req, res) => {
+  try {
+    const stats = await db.all('SELECT * FROM boss_statistics ORDER BY boss_id');
+    const bosses = await db.all('SELECT id, wcl_encounter_id, name FROM wcl_bosses ORDER BY id');
+    const processed = await db.all('SELECT * FROM boss_stats_processed ORDER BY id DESC LIMIT 20');
+    res.json({
+      boss_statistics: stats,
+      wcl_bosses: bosses,
+      recent_processed: processed,
+      counts: {
+        stats: stats.length,
+        bosses: bosses.length,
+        processed: processed.length
+      }
+    });
+  } catch (error) {
+    console.error('Debug stats error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Get detailed stats for a specific boss
 app.get('/api/bosses/:bossId', authenticateToken, async (req, res) => {
   try {
