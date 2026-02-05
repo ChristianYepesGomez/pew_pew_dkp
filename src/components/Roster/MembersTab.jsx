@@ -3,59 +3,10 @@ import { createPortal } from 'react-dom'
 import { useAuth } from '../../hooks/useAuth'
 import { useSocket } from '../../hooks/useSocket'
 import { useLanguage } from '../../hooks/useLanguage'
-import { membersAPI, dkpAPI } from '../../services/api'
+import { membersAPI, dkpAPI, buffsAPI } from '../../services/api'
 import DKPAdjustModal from './DKPAdjustModal'
 import VaultIcon from '../Common/VaultIcon'
 import CLASS_COLORS from '../../utils/classColors'
-
-// WoW Buffs for Easter egg system (short-duration cooldowns only)
-// type: 'self' = only the caster class can have it, 'external' = anyone can receive it
-// selfClasses: classes that can self-cast this buff
-// targetRoles: for external buffs, which roles can receive (null = any)
-const BUFFS = [
-  // Raid-wide lust effects (applies to ALL members when triggered) - Horde only
-  { id: 'bloodlust', name: 'Bloodlust', duration: 40, icon: 'https://wow.zamimg.com/images/wow/icons/medium/spell_nature_bloodlust.jpg', glow: '#ff4444', type: 'external', raidWide: true },
-  { id: 'timewarp', name: 'Time Warp', duration: 40, icon: 'https://wow.zamimg.com/images/wow/icons/medium/ability_mage_timewarp.jpg', glow: '#69CCF0', type: 'external', raidWide: true },
-  // Self-cast cooldowns (class-specific)
-  { id: 'icyveins', name: 'Icy Veins', duration: 25, icon: 'https://wow.zamimg.com/images/wow/icons/medium/spell_frost_coldhearted.jpg', glow: '#69CCF0', type: 'self', selfClasses: ['Mage'] },
-  { id: 'combustion', name: 'Combustion', duration: 12, icon: 'https://wow.zamimg.com/images/wow/icons/medium/spell_fire_sealoffire.jpg', glow: '#ff6600', type: 'self', selfClasses: ['Mage'] },
-  { id: 'metamorphosis', name: 'Metamorphosis', duration: 24, icon: 'https://wow.zamimg.com/images/wow/icons/medium/ability_demonhunter_metamorphasisdps.jpg', glow: '#00ff00', type: 'self', selfClasses: ['Demon Hunter'] },
-  { id: 'avenging', name: 'Avenging Wrath', duration: 20, icon: 'https://wow.zamimg.com/images/wow/icons/medium/spell_holy_avenginewrath.jpg', glow: '#F58CBA', type: 'self', selfClasses: ['Paladin'] },
-  { id: 'recklessness', name: 'Recklessness', duration: 12, icon: 'https://wow.zamimg.com/images/wow/icons/medium/warrior_talent_icon_innerrage.jpg', glow: '#C79C6E', type: 'self', selfClasses: ['Warrior'] },
-  { id: 'shadowdance', name: 'Shadow Dance', duration: 8, icon: 'https://wow.zamimg.com/images/wow/icons/medium/ability_rogue_shadowdance.jpg', glow: '#FFF569', type: 'self', selfClasses: ['Rogue'] },
-  { id: 'berserk', name: 'Berserk', duration: 15, icon: 'https://wow.zamimg.com/images/wow/icons/medium/ability_druid_berserk.jpg', glow: '#FF7D0A', type: 'self', selfClasses: ['Druid'] },
-  { id: 'vendetta', name: 'Vendetta', duration: 20, icon: 'https://wow.zamimg.com/images/wow/icons/medium/ability_rogue_deadliness.jpg', glow: '#FFF569', type: 'self', selfClasses: ['Rogue'] },
-  { id: 'pillarofrost', name: 'Pillar of Frost', duration: 12, icon: 'https://wow.zamimg.com/images/wow/icons/medium/ability_deathknight_pillaroffrost.jpg', glow: '#C41F3B', type: 'self', selfClasses: ['Death Knight'] },
-  { id: 'celestialalignment', name: 'Celestial Alignment', duration: 20, icon: 'https://wow.zamimg.com/images/wow/icons/medium/spell_nature_natureguardian.jpg', glow: '#FF7D0A', type: 'self', selfClasses: ['Druid'] },
-  { id: 'trueshot', name: 'Trueshot', duration: 15, icon: 'https://wow.zamimg.com/images/wow/icons/medium/ability_trueshot.jpg', glow: '#ABD473', type: 'self', selfClasses: ['Hunter'] },
-  { id: 'darksoultorment', name: 'Dark Soul', duration: 20, icon: 'https://wow.zamimg.com/images/wow/icons/medium/warlock_darksoultorment.jpg', glow: '#8788EE', type: 'self', selfClasses: ['Warlock'] },
-  // External buffs (short cooldowns only - can be cast on others)
-  { id: 'powerinfusion', name: 'Power Infusion', duration: 15, icon: 'https://wow.zamimg.com/images/wow/icons/medium/spell_holy_powerinfusion.jpg', glow: '#ffff00', type: 'external' },
-  { id: 'innervate', name: 'Innervate', duration: 10, icon: 'https://wow.zamimg.com/images/wow/icons/medium/spell_nature_lightning.jpg', glow: '#00ff00', type: 'external', targetRoles: ['Healer'] },
-  { id: 'windfury', name: 'Windfury Totem', duration: 20, icon: 'https://wow.zamimg.com/images/wow/icons/medium/spell_nature_windfury.jpg', glow: '#0070DE', type: 'external', targetRoles: ['DPS', 'Tank'] },
-  { id: 'painsuppression', name: 'Pain Suppression', duration: 8, icon: 'https://wow.zamimg.com/images/wow/icons/medium/spell_holy_painsupression.jpg', glow: '#ffffff', type: 'external', targetRoles: ['Tank'] },
-  { id: 'ironbark', name: 'Ironbark', duration: 12, icon: 'https://wow.zamimg.com/images/wow/icons/medium/spell_druid_ironbark.jpg', glow: '#FF7D0A', type: 'external', targetRoles: ['Tank'] },
-  { id: 'blessingofprotection', name: 'Blessing of Protection', duration: 10, icon: 'https://wow.zamimg.com/images/wow/icons/medium/spell_holy_sealofprotection.jpg', glow: '#F58CBA', type: 'external', targetRoles: ['Healer', 'DPS'] },
-]
-
-// Get valid buffs for a member based on their class and role
-function getValidBuffsForMember(member) {
-  const memberClass = member.characterClass
-  const memberRole = member.raidRole || 'DPS'
-
-  return BUFFS.filter(buff => {
-    if (buff.type === 'self') {
-      // Self-buffs only for the specific class
-      return buff.selfClasses?.includes(memberClass)
-    } else {
-      // External buffs: check role restrictions if any
-      if (buff.targetRoles) {
-        return buff.targetRoles.includes(memberRole)
-      }
-      return true // No restrictions
-    }
-  })
-}
 
 // Spec icons from Wowhead (WoW Classic/Retail icons)
 const SPEC_ICONS = {
@@ -131,9 +82,9 @@ const MembersTab = () => {
   const canManageVault = isAdmin || isOfficer
   const [avatarPreview, setAvatarPreview] = useState(null) // { avatar, name, class }
 
-  // Buff system state (Easter egg)
-  const [activeBuffs, setActiveBuffs] = useState({}) // { memberId: { buff, expiresAt } }
-  const buffTimerRef = useRef(null)
+  // Global buff system state (synchronized via SSE)
+  const [activeBuffs, setActiveBuffs] = useState({}) // { memberId: { buff, expiresAt, casterName } }
+  const sseRef = useRef(null)
 
   const loadMembers = async () => {
     try {
@@ -165,31 +116,70 @@ const MembersTab = () => {
     return () => window.removeEventListener('roster-refresh', refresh)
   }, [])
 
-  // Buff system: randomly apply buffs to members (Easter egg)
-  const applyRandomBuff = useCallback(() => {
-    if (members.length === 0) return
-    const randomMember = members[Math.floor(Math.random() * members.length)]
-    // Get only valid buffs for this member's class/role
-    const validBuffs = getValidBuffsForMember(randomMember)
-    if (validBuffs.length === 0) return // No valid buffs for this member
-    const randomBuff = validBuffs[Math.floor(Math.random() * validBuffs.length)]
-    const expiresAt = Date.now() + randomBuff.duration * 1000
+  // Global buff system via SSE (Server-Sent Events)
+  useEffect(() => {
+    const token = localStorage.getItem('token')
+    if (!token) return
 
-    // Raid-wide buffs (lust) apply to ALL members
-    if (randomBuff.raidWide) {
-      setActiveBuffs(prev => {
-        const newBuffs = { ...prev }
-        members.forEach(m => {
-          newBuffs[m.id] = { buff: randomBuff, expiresAt }
-        })
-        return newBuffs
-      })
-    } else {
-      setActiveBuffs(prev => ({ ...prev, [randomMember.id]: { buff: randomBuff, expiresAt } }))
+    // Build SSE URL with auth
+    const baseUrl = (import.meta.env.VITE_API_URL || 'http://localhost:3000/api').replace('/api', '')
+    const sseUrl = `${baseUrl}/api/buffs/stream`
+
+    // Create EventSource with auth header workaround (use fetch for auth, then EventSource)
+    const connectSSE = () => {
+      // EventSource doesn't support custom headers, so we'll use a polyfill approach
+      // or pass token as query param (less secure but works for this use case)
+      const eventSource = new EventSource(`${sseUrl}?token=${token}`)
+
+      eventSource.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data)
+
+          if (data.type === 'connected') {
+            console.log('🌟 Connected to global buff stream')
+          } else if (data.type === 'sync') {
+            // Initial sync of active buffs
+            setActiveBuffs(data.activeBuffs || {})
+          } else if (data.type === 'buff_applied') {
+            // New buff applied
+            setActiveBuffs(prev => {
+              const newBuffs = { ...prev }
+              for (const targetId of data.targets) {
+                newBuffs[targetId] = {
+                  buff: data.buff,
+                  expiresAt: data.expiresAt,
+                  casterName: data.casterName,
+                }
+              }
+              return newBuffs
+            })
+          }
+        } catch (err) {
+          console.error('Error parsing SSE message:', err)
+        }
+      }
+
+      eventSource.onerror = () => {
+        console.log('SSE connection error, will reconnect...')
+        eventSource.close()
+        // Reconnect after 5 seconds
+        setTimeout(connectSSE, 5000)
+      }
+
+      sseRef.current = eventSource
     }
-  }, [members])
 
-  // Clear expired buffs
+    connectSSE()
+
+    return () => {
+      if (sseRef.current) {
+        sseRef.current.close()
+        sseRef.current = null
+      }
+    }
+  }, [])
+
+  // Clear expired buffs locally (cleanup)
   useEffect(() => {
     const interval = setInterval(() => {
       setActiveBuffs(prev => {
@@ -203,23 +193,6 @@ const MembersTab = () => {
     }, 1000)
     return () => clearInterval(interval)
   }, [])
-
-  // Schedule random buff every 30-90 seconds
-  useEffect(() => {
-    const scheduleNextBuff = () => {
-      const delay = 30000 + Math.random() * 60000 // 30-90 seconds
-      buffTimerRef.current = setTimeout(() => {
-        applyRandomBuff()
-        scheduleNextBuff()
-      }, delay)
-    }
-    // Initial buff after 10-20 seconds
-    buffTimerRef.current = setTimeout(() => {
-      applyRandomBuff()
-      scheduleNextBuff()
-    }, 10000 + Math.random() * 10000)
-    return () => clearTimeout(buffTimerRef.current)
-  }, [applyRandomBuff])
 
   const handleSort = (field) => {
     if (sortField === field) {
@@ -433,13 +406,13 @@ const MembersTab = () => {
                       {activeBuffs[m.id] && (
                         <div
                           className="animate-pulse"
-                          title={activeBuffs[m.id].buff.name}
+                          title={`${activeBuffs[m.id].buff.name}${activeBuffs[m.id].casterName ? ` (${activeBuffs[m.id].casterName})` : ''}`}
                         >
                           <img
                             src={activeBuffs[m.id].buff.icon}
                             alt={activeBuffs[m.id].buff.name}
                             className="w-5 h-5 rounded border border-yellow-400"
-                            style={{ boxShadow: `0 0 8px ${activeBuffs[m.id].buff.glow}` }}
+                            style={{ boxShadow: `0 0 8px ${activeBuffs[m.id].buff.raidWide ? '#ff4444' : '#ffff00'}` }}
                           />
                         </div>
                       )}

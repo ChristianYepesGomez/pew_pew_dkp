@@ -111,4 +111,13 @@ export const vaultAPI = {
   processWeekly: () => api.post('/admin/vault/process-weekly'),
 }
 
+export const buffsAPI = {
+  getActive: () => api.get('/buffs/active'),
+  // SSE stream URL (not an axios call, used for EventSource)
+  getStreamUrl: () => {
+    const baseUrl = API_URL.replace('/api', '')
+    return `${baseUrl}/api/buffs/stream`
+  },
+}
+
 export default api
