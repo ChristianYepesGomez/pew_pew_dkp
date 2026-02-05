@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { useLanguage } from '../../hooks/useLanguage'
 import { auctionsAPI } from '../../services/api'
@@ -15,9 +15,10 @@ const RARITY_COLORS = {
 const BidModal = ({ auction, userDkp, onClose, onSuccess }) => {
   const { t } = useLanguage()
   const minBid = (auction.currentBid || 0) + 1
-  const [amount, setAmount] = useState(minBid)
+  const [amount, setAmount] = useState(String(minBid))
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const inputRef = useRef(null)
 
   // Close on ESC key
   const handleKeyDown = useCallback((e) => {
@@ -29,23 +30,32 @@ const BidModal = ({ auction, userDkp, onClose, onSuccess }) => {
     return () => document.removeEventListener('keydown', handleKeyDown)
   }, [handleKeyDown])
 
+  useEffect(() => {
+    if (inputRef.current) {
+      inputRef.current.focus()
+      inputRef.current.select()
+    }
+  }, [])
+
+  const numAmount = parseInt(amount) || 0
+
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
 
-    if (amount < minBid) {
+    if (numAmount < minBid) {
       setError(t('bid_too_low'))
       return
     }
 
-    if (amount > userDkp) {
+    if (numAmount > userDkp) {
       setError(t('insufficient_dkp'))
       return
     }
 
     setLoading(true)
     try {
-      await auctionsAPI.bid(auction.id, amount)
+      await auctionsAPI.bid(auction.id, numAmount)
       onSuccess()
     } catch (err) {
       setError(err.response?.data?.error || t('error_generic'))
@@ -117,9 +127,11 @@ const BidModal = ({ auction, userDkp, onClose, onSuccess }) => {
             <label className="block text-sm text-midnight-silver mb-2">{t('your_bid')}</label>
             <div className="flex items-center gap-2">
               <input
+                ref={inputRef}
                 type="number"
                 value={amount}
-                onChange={(e) => setAmount(parseInt(e.target.value) || 0)}
+                onChange={(e) => setAmount(e.target.value)}
+                onFocus={(e) => e.target.select()}
                 min={minBid}
                 max={userDkp}
                 className="flex-1 px-4 py-3 rounded-lg bg-midnight-purple bg-opacity-30 border border-midnight-bright-purple text-white text-center text-xl font-bold focus:outline-none focus:border-midnight-glow"
@@ -131,8 +143,8 @@ const BidModal = ({ auction, userDkp, onClose, onSuccess }) => {
           {/* After bid preview */}
           <div className="bg-midnight-purple bg-opacity-20 rounded-lg p-3 text-center">
             <p className="text-sm text-midnight-silver m-0">{t('dkp_after_bid')}</p>
-            <p className={`text-xl font-bold m-0 ${userDkp - amount >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-              {userDkp - amount} DKP
+            <p className={`text-xl font-bold m-0 ${userDkp - numAmount >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+              {userDkp - numAmount} DKP
             </p>
           </div>
 
@@ -147,7 +159,7 @@ const BidModal = ({ auction, userDkp, onClose, onSuccess }) => {
             </button>
             <button
               type="submit"
-              disabled={loading || amount < minBid || amount > userDkp}
+              disabled={loading || numAmount < minBid || numAmount > userDkp}
               className="flex-1 px-4 py-3 rounded-lg bg-gradient-to-r from-green-600 to-green-700 text-white font-bold hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? (
