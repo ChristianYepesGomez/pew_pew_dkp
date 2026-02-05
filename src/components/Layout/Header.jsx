@@ -3,17 +3,14 @@ import { useAuth } from '../../hooks/useAuth'
 import { useLanguage } from '../../hooks/useLanguage'
 import { useSocket } from '../../hooks/useSocket'
 import MyCharacterModal from '../Character/MyCharacterModal'
-
-const CLASS_COLORS = {
-  Warrior: '#C79C6E', Paladin: '#F58CBA', Hunter: '#ABD473', Rogue: '#FFF569', Priest: '#FFFFFF',
-  Shaman: '#0070DE', Mage: '#40C7EB', Warlock: '#8788EE', Druid: '#FF7D0A', 'Death Knight': '#C41F3B',
-  DeathKnight: '#C41F3B', 'Demon Hunter': '#A330C9', DemonHunter: '#A330C9', Monk: '#00FF96', Evoker: '#33937F',
-}
+import DKPInfoModal from '../Common/DKPInfoModal'
+import CLASS_COLORS from '../../utils/classColors'
 
 const Header = () => {
   const { user, logout, refreshUser } = useAuth()
   const { t, language, changeLanguage } = useLanguage()
   const [showCharacterModal, setShowCharacterModal] = useState(false)
+  const [showDkpInfo, setShowDkpInfo] = useState(false)
 
   // Refresh user data when DKP changes
   useSocket({
@@ -42,10 +39,22 @@ const Header = () => {
               onClick={() => setShowCharacterModal(true)}
               className="flex items-center text-midnight-silver hover:text-white transition-colors cursor-pointer px-3 py-2 rounded-lg hover:bg-midnight-bright-purple hover:bg-opacity-20"
             >
-              <i className="fas fa-user mr-2"></i>
-              <span style={{ color: CLASS_COLORS[user?.characterClass] || '#FFF' }}>
+              <div
+                className="w-8 h-8 rounded-full mr-2 overflow-hidden border-2 flex-shrink-0"
+                style={{ borderColor: user?.characterClass ? (CLASS_COLORS[user.characterClass] || '#A78BFA') : '#A78BFA' }}
+              >
+                {user?.avatar ? (
+                  <img src={user.avatar} alt="" className="w-full h-full object-cover" />
+                ) : (
+                  <img src="/logo.png" alt="" className="w-full h-full object-cover" />
+                )}
+              </div>
+              <span style={{ color: user?.characterClass ? (CLASS_COLORS[user.characterClass] || '#A78BFA') : '#A78BFA' }}>
                 {user?.characterName || user?.username}
               </span>
+              {!user?.characterName && (
+                <span className="ml-1 text-xs text-midnight-silver opacity-60">({t('no_character')})</span>
+              )}
               <span className="ml-2 text-midnight-glow font-bold">({user?.currentDkp || 0} DKP)</span>
             </button>
 
@@ -56,6 +65,15 @@ const Header = () => {
               title={t('logout')}
             >
               <i className="fas fa-sign-out-alt"></i>
+            </button>
+
+            {/* DKP Help */}
+            <button
+              onClick={() => setShowDkpInfo(true)}
+              className="px-3 py-2 rounded-lg text-midnight-silver hover:text-midnight-glow hover:bg-midnight-bright-purple hover:bg-opacity-20 transition-all"
+              title={t('dkp_how_it_works')}
+            >
+              <i className="fas fa-question-circle"></i>
             </button>
 
             {/* Language */}
@@ -70,6 +88,9 @@ const Header = () => {
       {showCharacterModal && (
         <MyCharacterModal onClose={() => setShowCharacterModal(false)} />
       )}
+
+      {/* DKP Info Modal */}
+      {showDkpInfo && <DKPInfoModal onClose={() => setShowDkpInfo(false)} />}
     </>
   )
 }

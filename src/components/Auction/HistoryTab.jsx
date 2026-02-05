@@ -4,20 +4,8 @@ import { useSocket } from '../../hooks/useSocket'
 import { useLanguage } from '../../hooks/useLanguage'
 import { auctionsAPI } from '../../services/api'
 import WowheadTooltip from '../Common/WowheadTooltip'
-
-const RARITY_COLORS = {
-  common: '#C0C0C0',
-  uncommon: '#5BFF3B',
-  rare: '#5EB5FF',
-  epic: '#C680FF',
-  legendary: '#FFa040',
-}
-
-const CLASS_COLORS = {
-  Warrior: '#C79C6E', Paladin: '#F58CBA', Hunter: '#ABD473', Rogue: '#FFF569', Priest: '#FFFFFF',
-  Shaman: '#0070DE', Mage: '#40C7EB', Warlock: '#8788EE', Druid: '#FF7D0A', 'Death Knight': '#C41F3B',
-  DeathKnight: '#C41F3B', DemonHunter: '#A330C9', Monk: '#00FF96', Evoker: '#33937F',
-}
+import CLASS_COLORS from '../../utils/classColors'
+import RARITY_COLORS from '../../utils/rarityColors'
 
 const HistoryTab = () => {
   const { t, language } = useLanguage()
@@ -144,13 +132,40 @@ const HistoryTab = () => {
                 {/* Winner & DKP */}
                 {hasWinner ? (
                   <div className="flex items-center gap-4">
+                    {/* Roll info if it was a tie */}
+                    {a.was_tie && a.rolls && (
+                      <div className="text-center px-3 py-1 bg-yellow-500 bg-opacity-10 border border-yellow-500 border-opacity-30 rounded-lg">
+                        <p className="text-xs text-yellow-400 m-0 mb-1">
+                          <i className="fas fa-dice mr-1"></i>{t('tie_resolved')}
+                        </p>
+                        <div className="flex flex-col gap-0.5">
+                          {a.rolls.map((roll, idx) => (
+                            <p
+                              key={idx}
+                              className={`text-xs m-0 ${roll.isWinner ? 'text-yellow-400 font-bold' : 'text-gray-500'}`}
+                            >
+                              <span style={{ color: roll.isWinner ? CLASS_COLORS[roll.characterClass] : undefined }}>
+                                {roll.characterName}
+                              </span>
+                              : {roll.roll}
+                              {roll.isWinner && <i className="fas fa-trophy ml-1 text-yellow-400"></i>}
+                            </p>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                     <div className="text-right">
                       <p className="text-xs text-midnight-silver m-0 mb-1">{t('winner')}</p>
                       <p
-                        className="font-bold m-0"
+                        className="font-bold m-0 flex items-center justify-end gap-2"
                         style={{ color: CLASS_COLORS[a.winner.characterClass] || '#FFF' }}
                       >
                         {a.winner.characterName}
+                        {a.was_tie && (
+                          <span className="text-xs text-yellow-400" title={`Roll: ${a.winning_roll}`}>
+                            <i className="fas fa-dice"></i> {a.winning_roll}
+                          </span>
+                        )}
                       </p>
                     </div>
                     <div className="text-right min-w-[80px]">

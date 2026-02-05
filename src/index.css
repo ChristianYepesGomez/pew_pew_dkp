@@ -189,3 +189,13 @@ body::after {
   from { opacity: 0; transform: translateY(30px); }
   to { opacity: 1; transform: translateY(0); }
 }
+
+.animate-pulse-subtle {
+  animation: pulseBorder 2s ease-in-out infinite;
+}
+
+@keyframes pulseBorder {
+  0%, 100% { border-color: rgba(249, 115, 22, 0.4); }
+  50% { border-color: rgba(249, 115, 22, 0.8); box-shadow: 0 0 12px rgba(249, 115, 22, 0.15); }
+}
+

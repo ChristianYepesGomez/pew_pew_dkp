@@ -2,14 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { useLanguage } from '../../hooks/useLanguage'
 import { raidItemsAPI, auctionsAPI } from '../../services/api'
-
-const RARITY_COLORS = {
-  common: '#C0C0C0',
-  uncommon: '#5BFF3B',
-  rare: '#5EB5FF',
-  epic: '#C680FF',
-  legendary: '#FFa040',
-}
+import RARITY_COLORS from '../../utils/rarityColors'
 
 const RARITY_BG = {
   common: 'from-gray-600 to-gray-700',
