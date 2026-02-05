@@ -7,7 +7,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { db, initDatabase } from './database.js';
 import { authenticateToken, authorizeRole } from './middleware/auth.js';
-import { processWarcraftLog, isConfigured as isWCLConfigured } from './services/warcraftlogs.js';
+import { processWarcraftLog, isConfigured as isWCLConfigured, getGuildReports, getGuildId } from './services/warcraftlogs.js';
 import { getAllRaidItems, searchItems, getItemsByRaid, refreshFromAPI, getAvailableRaids, getDataSourceStatus, isAPIConfigured } from './services/raidItems.js';
 import { sendPasswordResetEmail, isEmailConfigured } from './services/email.js';
 import { getBlizzardOAuthUrl, getUserToken, getUserCharacters, isBlizzardOAuthConfigured } from './services/blizzardAPI.js';
@@ -2034,7 +2034,7 @@ app.post('/api/warcraftlogs/confirm', authenticateToken, authorizeRole(['admin',
     }
 
     const alreadyProcessed = await db.get(
-      'SELECT * FROM warcraft_logs_processed WHERE report_code = ?', reportCode
+      'SELECT * FROM warcraft_logs_processed WHERE report_code = ? AND is_reverted = 0', reportCode
     );
 
     if (alreadyProcessed) {
@@ -2052,8 +2052,17 @@ app.post('/api/warcraftlogs/confirm', authenticateToken, authorizeRole(['admin',
     const reportTitle = req.body.reportTitle || `Raid ${reportCode}`;
     const startTime = req.body.startTime || Date.now();
     const endTime = req.body.endTime || Date.now();
+    const raidDate = req.body.raidDate || null;
 
     const totalDKP = await db.transaction(async (tx) => {
+      // Insert the processed report first so we can get its ID for transactions
+      const reportResult = await tx.run(`
+        INSERT INTO warcraft_logs_processed
+        (report_code, report_title, start_time, end_time, region, guild_name, participants_count, dkp_assigned, processed_by, raid_date)
+        VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, ?)
+      `, reportCode, reportTitle, startTime, endTime, req.body.region || 'Unknown', req.body.guildName || null, matchedParticipants.length, req.user.userId, raidDate);
+
+      const wclReportId = reportResult.lastInsertRowid;
       let totalAssigned = 0;
 
       for (const participant of matchedParticipants) {
@@ -2067,9 +2076,9 @@ app.post('/api/warcraftlogs/confirm', authenticateToken, authorizeRole(['admin',
         `, dkpAmount, dkpAmount, participant.user_id);
 
         await tx.run(`
-          INSERT INTO dkp_transactions (user_id, amount, reason, performed_by)
-          VALUES (?, ?, ?, ?)
-        `, participant.user_id, dkpAmount, `Warcraft Logs: ${reportTitle}`, req.user.userId);
+          INSERT INTO dkp_transactions (user_id, amount, reason, performed_by, wcl_report_id)
+          VALUES (?, ?, ?, ?, ?)
+        `, participant.user_id, dkpAmount, `Warcraft Logs: ${reportTitle}`, req.user.userId, wclReportId);
 
         totalAssigned += dkpAmount;
 
@@ -2082,11 +2091,8 @@ app.post('/api/warcraftlogs/confirm', authenticateToken, authorizeRole(['admin',
         });
       }
 
-      await tx.run(`
-        INSERT INTO warcraft_logs_processed
-        (report_code, report_title, start_time, end_time, region, guild_name, participants_count, dkp_assigned, processed_by)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `, reportCode, reportTitle, startTime, endTime, req.body.region || 'Unknown', req.body.guildName || null, matchedParticipants.length, totalAssigned, req.user.userId);
+      // Update the total DKP assigned
+      await tx.run('UPDATE warcraft_logs_processed SET dkp_assigned = ? WHERE id = ?', totalAssigned, wclReportId);
 
       return totalAssigned;
     });
@@ -2113,9 +2119,11 @@ app.get('/api/warcraftlogs/history', authenticateToken, async (req, res) => {
     const limit = parseInt(req.query.limit) || 50;
 
     const history = await db.all(`
-      SELECT wlp.*, u.character_name as processed_by_name
+      SELECT wlp.*, u.character_name as processed_by_name,
+             u2.character_name as reverted_by_name
       FROM warcraft_logs_processed wlp
       LEFT JOIN users u ON wlp.processed_by = u.id
+      LEFT JOIN users u2 ON wlp.reverted_by = u2.id
       ORDER BY wlp.processed_at DESC
       LIMIT ?
     `, limit);
@@ -2124,6 +2132,214 @@ app.get('/api/warcraftlogs/history', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('WCL history error:', error);
     res.status(500).json({ error: 'Failed to get WCL history' });
+  }
+});
+
+// Get all DKP transactions for a specific WCL report
+app.get('/api/warcraftlogs/report/:code/transactions', authenticateToken, async (req, res) => {
+  try {
+    const { code } = req.params;
+
+    const report = await db.get('SELECT id, report_code, report_title, is_reverted FROM warcraft_logs_processed WHERE report_code = ?', code);
+    if (!report) {
+      return res.status(404).json({ error: 'Report not found' });
+    }
+
+    // Try by wcl_report_id first, fall back to reason LIKE match
+    let transactions = await db.all(`
+      SELECT dt.*, u.character_name, u.character_class
+      FROM dkp_transactions dt
+      LEFT JOIN users u ON dt.user_id = u.id
+      WHERE dt.wcl_report_id = ?
+      ORDER BY dt.created_at DESC
+    `, report.id);
+
+    if (transactions.length === 0) {
+      transactions = await db.all(`
+        SELECT dt.*, u.character_name, u.character_class
+        FROM dkp_transactions dt
+        LEFT JOIN users u ON dt.user_id = u.id
+        WHERE dt.reason LIKE ?
+        ORDER BY dt.created_at DESC
+      `, `Warcraft Logs: ${report.report_title}%`);
+    }
+
+    res.json({ report, transactions });
+  } catch (error) {
+    console.error('WCL report transactions error:', error);
+    res.status(500).json({ error: 'Failed to get report transactions' });
+  }
+});
+
+// Revert all DKP from a WCL report (atomic)
+app.post('/api/warcraftlogs/revert/:reportCode', authenticateToken, authorizeRole(['admin']), async (req, res) => {
+  try {
+    const { reportCode } = req.params;
+
+    const report = await db.get(
+      'SELECT * FROM warcraft_logs_processed WHERE report_code = ? AND is_reverted = 0',
+      reportCode
+    );
+
+    if (!report) {
+      return res.status(404).json({ error: 'Report not found or already reverted' });
+    }
+
+    await db.transaction(async (tx) => {
+      // Find all transactions linked to this report
+      let transactions = await tx.all(
+        'SELECT * FROM dkp_transactions WHERE wcl_report_id = ?', report.id
+      );
+
+      // Fallback to reason match for legacy records
+      if (transactions.length === 0) {
+        transactions = await tx.all(
+          'SELECT * FROM dkp_transactions WHERE reason LIKE ?',
+          `Warcraft Logs: ${report.report_title}%`
+        );
+      }
+
+      // Create reversal transactions and subtract DKP
+      for (const txn of transactions) {
+        if (txn.amount <= 0) continue;
+
+        await tx.run(`
+          UPDATE member_dkp
+          SET current_dkp = current_dkp - ?,
+              lifetime_gained = lifetime_gained - ?
+          WHERE user_id = ?
+        `, txn.amount, txn.amount, txn.user_id);
+
+        await tx.run(`
+          INSERT INTO dkp_transactions (user_id, amount, reason, performed_by, wcl_report_id)
+          VALUES (?, ?, ?, ?, ?)
+        `, txn.user_id, -txn.amount, `Revert: ${report.report_title}`, req.user.userId, report.id);
+
+        const newDkpRow = await tx.get('SELECT current_dkp FROM member_dkp WHERE user_id = ?', txn.user_id);
+        io.emit('dkp_updated', {
+          userId: txn.user_id,
+          newDkp: newDkpRow?.current_dkp || 0,
+          amount: -txn.amount
+        });
+      }
+
+      // Mark report as reverted
+      await tx.run(`
+        UPDATE warcraft_logs_processed
+        SET is_reverted = 1, reverted_by = ?, reverted_at = datetime('now')
+        WHERE id = ?
+      `, req.user.userId, report.id);
+    });
+
+    res.json({ message: 'DKP reverted successfully', report_code: reportCode });
+  } catch (error) {
+    console.error('WCL revert error:', error);
+    res.status(500).json({ error: 'Failed to revert DKP' });
+  }
+});
+
+// Auto-detect guild reports for a specific raid date
+app.get('/api/warcraftlogs/guild-reports', authenticateToken, authorizeRole(['admin', 'officer']), async (req, res) => {
+  try {
+    const { date } = req.query;
+    if (!date) {
+      return res.status(400).json({ error: 'date parameter required (YYYY-MM-DD)' });
+    }
+
+    // Get guild ID from config
+    const guildConfig = await db.get("SELECT config_value FROM dkp_config WHERE config_key = 'wcl_guild_id'");
+    if (!guildConfig) {
+      return res.status(400).json({ error: 'WCL guild ID not configured. Set wcl_guild_id in DKP config.' });
+    }
+
+    const guildId = parseInt(guildConfig.config_value);
+
+    // Search window: raid date 18:00 to next day 06:00 (Europe/Madrid)
+    const raidDate = new Date(date + 'T18:00:00+01:00');
+    const raidEnd = new Date(date + 'T06:00:00+01:00');
+    raidEnd.setDate(raidEnd.getDate() + 1);
+
+    const startTime = raidDate.getTime();
+    const endTime = raidEnd.getTime();
+
+    const reports = await getGuildReports(guildId, startTime, endTime);
+
+    // Check which reports are already processed
+    for (const report of reports) {
+      const processed = await db.get(
+        'SELECT id, is_reverted FROM warcraft_logs_processed WHERE report_code = ?',
+        report.code
+      );
+      report.alreadyProcessed = !!processed && !processed.is_reverted;
+      report.wasReverted = !!processed && !!processed.is_reverted;
+    }
+
+    res.json(reports);
+  } catch (error) {
+    console.error('Guild reports error:', error);
+    res.status(500).json({ error: 'Failed to fetch guild reports' });
+  }
+});
+
+// Get raid dates enriched with WCL report info
+app.get('/api/calendar/dates-with-logs', authenticateToken, async (req, res) => {
+  try {
+    const weeks = parseInt(req.query.weeks) || 4;
+    const raidDates = await getRaidDates(weeks);
+
+    if (raidDates.length === 0) {
+      return res.json([]);
+    }
+
+    // Also look back 2 weeks for past raid dates
+    const pastWeeks = 2;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const raidDays = await db.all('SELECT day_of_week, day_name, raid_time FROM raid_days WHERE is_active = 1 ORDER BY day_of_week');
+    const pastDates = [];
+    for (let i = pastWeeks * 7; i > 0; i--) {
+      const d = new Date(today);
+      d.setDate(today.getDate() - i);
+      const jsDay = d.getDay();
+      const dbDay = jsDay === 0 ? 7 : jsDay;
+      const raidDay = raidDays.find(rd => rd.day_of_week === dbDay);
+      if (raidDay) {
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        pastDates.push({ date: `${year}-${month}-${day}`, dayName: raidDay.day_name, raidTime: raidDay.raid_time, isPast: true });
+      }
+    }
+
+    const allDates = [...pastDates, ...raidDates.map(d => ({ ...d, isPast: false }))];
+
+    // Get all WCL reports linked to these dates
+    const allDateStrings = allDates.map(d => d.date);
+    const placeholders = allDateStrings.map(() => '?').join(',');
+
+    const linkedReports = allDateStrings.length > 0 ? await db.all(`
+      SELECT report_code, report_title, raid_date, dkp_assigned, participants_count, is_reverted
+      FROM warcraft_logs_processed
+      WHERE raid_date IN (${placeholders})
+    `, ...allDateStrings) : [];
+
+    const enriched = allDates.map(d => {
+      const report = linkedReports.find(r => r.raid_date === d.date && !r.is_reverted);
+      return {
+        ...d,
+        wclReport: report ? {
+          code: report.report_code,
+          title: report.report_title,
+          dkpAssigned: report.dkp_assigned,
+          participantsCount: report.participants_count,
+        } : null,
+      };
+    });
+
+    res.json(enriched);
+  } catch (error) {
+    console.error('Dates with logs error:', error);
+    res.status(500).json({ error: 'Failed to get dates with logs' });
   }
 });
 
