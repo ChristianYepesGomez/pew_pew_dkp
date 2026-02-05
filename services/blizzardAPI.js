@@ -492,6 +492,62 @@ const BLIZZARD_CLASS_MAP = {
   13: 'Evoker',
 };
 
+// Map Blizzard spec IDs to internal spec names and raid roles
+const BLIZZARD_SPEC_MAP = {
+  // Warrior
+  71: { spec: 'Arms', role: 'DPS' },
+  72: { spec: 'Fury', role: 'DPS' },
+  73: { spec: 'Protection Warrior', role: 'Tank' },
+  // Paladin
+  65: { spec: 'Holy Paladin', role: 'Healer' },
+  66: { spec: 'Protection Paladin', role: 'Tank' },
+  70: { spec: 'Retribution', role: 'DPS' },
+  // Hunter
+  253: { spec: 'Beast Mastery', role: 'DPS' },
+  254: { spec: 'Marksmanship', role: 'DPS' },
+  255: { spec: 'Survival', role: 'DPS' },
+  // Rogue
+  259: { spec: 'Assassination', role: 'DPS' },
+  260: { spec: 'Outlaw', role: 'DPS' },
+  261: { spec: 'Subtlety', role: 'DPS' },
+  // Priest
+  256: { spec: 'Discipline', role: 'Healer' },
+  257: { spec: 'Holy Priest', role: 'Healer' },
+  258: { spec: 'Shadow', role: 'DPS' },
+  // Death Knight
+  250: { spec: 'Blood', role: 'Tank' },
+  251: { spec: 'Frost DK', role: 'DPS' },
+  252: { spec: 'Unholy', role: 'DPS' },
+  // Shaman
+  262: { spec: 'Elemental', role: 'DPS' },
+  263: { spec: 'Enhancement', role: 'DPS' },
+  264: { spec: 'Restoration Shaman', role: 'Healer' },
+  // Mage
+  62: { spec: 'Arcane', role: 'DPS' },
+  63: { spec: 'Fire', role: 'DPS' },
+  64: { spec: 'Frost Mage', role: 'DPS' },
+  // Warlock
+  265: { spec: 'Affliction', role: 'DPS' },
+  266: { spec: 'Demonology', role: 'DPS' },
+  267: { spec: 'Destruction', role: 'DPS' },
+  // Monk
+  268: { spec: 'Brewmaster', role: 'Tank' },
+  269: { spec: 'Windwalker', role: 'DPS' },
+  270: { spec: 'Mistweaver', role: 'Healer' },
+  // Druid
+  102: { spec: 'Balance', role: 'DPS' },
+  103: { spec: 'Feral', role: 'DPS' },
+  104: { spec: 'Guardian', role: 'Tank' },
+  105: { spec: 'Restoration Druid', role: 'Healer' },
+  // Demon Hunter
+  577: { spec: 'Havoc', role: 'DPS' },
+  581: { spec: 'Vengeance', role: 'Tank' },
+  // Evoker
+  1467: { spec: 'Devastation', role: 'DPS' },
+  1468: { spec: 'Preservation', role: 'Healer' },
+  1473: { spec: 'Augmentation', role: 'DPS' },
+};
+
 export function isBlizzardOAuthConfigured() {
   return !!(CONFIG.clientId && CONFIG.clientSecret);
 }
@@ -553,12 +609,15 @@ export async function getUserCharacters(userToken) {
   const characters = [];
   for (const account of response.data.wow_accounts || []) {
     for (const char of account.characters || []) {
+      const specInfo = BLIZZARD_SPEC_MAP[char.active_spec?.id];
       characters.push({
         name: locStr(char.name) || char.name,
         realm: locStr(char.realm?.name) || char.realm?.slug || 'Unknown',
         realmSlug: char.realm?.slug || '',
         className: BLIZZARD_CLASS_MAP[char.playable_class?.id] || `Class ${char.playable_class?.id}`,
         classId: char.playable_class?.id,
+        spec: specInfo?.spec || null,
+        raidRole: specInfo?.role || null,
         level: char.level || 0,
         faction: char.faction?.type || 'Unknown',
       });
