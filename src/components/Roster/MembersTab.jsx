@@ -9,19 +9,51 @@ import VaultIcon from '../Common/VaultIcon'
 import CLASS_COLORS from '../../utils/classColors'
 
 // WoW Buffs for Easter egg system
+// type: 'self' = only the caster class can have it, 'external' = anyone can receive it
+// selfClasses: classes that can self-cast this buff
+// targetRoles: for external buffs, which roles can receive (null = any)
 const BUFFS = [
-  { id: 'bloodlust', name: 'Bloodlust', duration: 40, icon: 'https://wow.zamimg.com/images/wow/icons/medium/spell_nature_bloodlust.jpg', glow: '#ff4444' },
-  { id: 'heroism', name: 'Heroism', duration: 40, icon: 'https://wow.zamimg.com/images/wow/icons/medium/ability_shaman_heroism.jpg', glow: '#4444ff' },
-  { id: 'powerinfusion', name: 'Power Infusion', duration: 15, icon: 'https://wow.zamimg.com/images/wow/icons/medium/spell_holy_powerinfusion.jpg', glow: '#ffff00' },
-  { id: 'icyveins', name: 'Icy Veins', duration: 25, icon: 'https://wow.zamimg.com/images/wow/icons/medium/spell_frost_coldhearted.jpg', glow: '#69CCF0' },
-  { id: 'innervate', name: 'Innervate', duration: 10, icon: 'https://wow.zamimg.com/images/wow/icons/medium/spell_nature_lightning.jpg', glow: '#00ff00' },
-  { id: 'arcaneintellect', name: 'Arcane Intellect', duration: 60, icon: 'https://wow.zamimg.com/images/wow/icons/medium/spell_holy_magicalsentry.jpg', glow: '#69CCF0' },
-  { id: 'markofthewild', name: 'Mark of the Wild', duration: 60, icon: 'https://wow.zamimg.com/images/wow/icons/medium/spell_nature_regeneration.jpg', glow: '#FF7D0A' },
-  { id: 'fortitude', name: 'Power Word: Fortitude', duration: 60, icon: 'https://wow.zamimg.com/images/wow/icons/medium/spell_holy_wordfortitude.jpg', glow: '#ffffff' },
-  { id: 'battleshout', name: 'Battle Shout', duration: 60, icon: 'https://wow.zamimg.com/images/wow/icons/medium/ability_warrior_battleshout.jpg', glow: '#C79C6E' },
-  { id: 'windfury', name: 'Windfury', duration: 12, icon: 'https://wow.zamimg.com/images/wow/icons/medium/spell_nature_cyclone.jpg', glow: '#0070DE' },
-  { id: 'blessing', name: 'Blessing of Kings', duration: 60, icon: 'https://wow.zamimg.com/images/wow/icons/medium/spell_magic_magearmor.jpg', glow: '#F58CBA' },
+  // Self-cast only buffs (class-specific)
+  // Raid-wide lust effects (everyone gets it)
+  { id: 'bloodlust', name: 'Bloodlust', duration: 40, icon: 'https://wow.zamimg.com/images/wow/icons/medium/spell_nature_bloodlust.jpg', glow: '#ff4444', type: 'external' },
+  { id: 'heroism', name: 'Heroism', duration: 40, icon: 'https://wow.zamimg.com/images/wow/icons/medium/ability_shaman_heroism.jpg', glow: '#4444ff', type: 'external' },
+  { id: 'timewarp', name: 'Time Warp', duration: 40, icon: 'https://wow.zamimg.com/images/wow/icons/medium/ability_mage_timewarp.jpg', glow: '#69CCF0', type: 'external' },
+  { id: 'icyveins', name: 'Icy Veins', duration: 25, icon: 'https://wow.zamimg.com/images/wow/icons/medium/spell_frost_coldhearted.jpg', glow: '#69CCF0', type: 'self', selfClasses: ['Mage'] },
+  { id: 'combustion', name: 'Combustion', duration: 12, icon: 'https://wow.zamimg.com/images/wow/icons/medium/spell_fire_sealoffire.jpg', glow: '#ff6600', type: 'self', selfClasses: ['Mage'] },
+  { id: 'metamorphosis', name: 'Metamorphosis', duration: 24, icon: 'https://wow.zamimg.com/images/wow/icons/medium/ability_demonhunter_metamorphasisdps.jpg', glow: '#00ff00', type: 'self', selfClasses: ['Demon Hunter'] },
+  { id: 'avenging', name: 'Avenging Wrath', duration: 20, icon: 'https://wow.zamimg.com/images/wow/icons/medium/spell_holy_avenginewrath.jpg', glow: '#F58CBA', type: 'self', selfClasses: ['Paladin'] },
+  { id: 'recklessness', name: 'Recklessness', duration: 12, icon: 'https://wow.zamimg.com/images/wow/icons/medium/warrior_talent_icon_innerrage.jpg', glow: '#C79C6E', type: 'self', selfClasses: ['Warrior'] },
+  { id: 'shadowdance', name: 'Shadow Dance', duration: 8, icon: 'https://wow.zamimg.com/images/wow/icons/medium/ability_rogue_shadowdance.jpg', glow: '#FFF569', type: 'self', selfClasses: ['Rogue'] },
+  { id: 'berserk', name: 'Berserk', duration: 15, icon: 'https://wow.zamimg.com/images/wow/icons/medium/ability_druid_berserk.jpg', glow: '#FF7D0A', type: 'self', selfClasses: ['Druid'] },
+  // External buffs (can be cast on anyone)
+  { id: 'powerinfusion', name: 'Power Infusion', duration: 15, icon: 'https://wow.zamimg.com/images/wow/icons/medium/spell_holy_powerinfusion.jpg', glow: '#ffff00', type: 'external' },
+  { id: 'innervate', name: 'Innervate', duration: 10, icon: 'https://wow.zamimg.com/images/wow/icons/medium/spell_nature_lightning.jpg', glow: '#00ff00', type: 'external' },
+  { id: 'arcaneintellect', name: 'Arcane Intellect', duration: 60, icon: 'https://wow.zamimg.com/images/wow/icons/medium/spell_holy_magicalsentry.jpg', glow: '#69CCF0', type: 'external' },
+  { id: 'markofthewild', name: 'Mark of the Wild', duration: 60, icon: 'https://wow.zamimg.com/images/wow/icons/medium/spell_nature_regeneration.jpg', glow: '#FF7D0A', type: 'external' },
+  { id: 'fortitude', name: 'Power Word: Fortitude', duration: 60, icon: 'https://wow.zamimg.com/images/wow/icons/medium/spell_holy_wordfortitude.jpg', glow: '#ffffff', type: 'external' },
+  { id: 'battleshout', name: 'Battle Shout', duration: 60, icon: 'https://wow.zamimg.com/images/wow/icons/medium/ability_warrior_battleshout.jpg', glow: '#C79C6E', type: 'external' },
+  { id: 'windfury', name: 'Windfury Totem', duration: 20, icon: 'https://wow.zamimg.com/images/wow/icons/medium/spell_nature_windfury.jpg', glow: '#0070DE', type: 'external', targetRoles: ['DPS', 'Tank'] },
+  { id: 'blessing', name: 'Blessing of Kings', duration: 60, icon: 'https://wow.zamimg.com/images/wow/icons/medium/spell_magic_magearmor.jpg', glow: '#F58CBA', type: 'external' },
 ]
+
+// Get valid buffs for a member based on their class and role
+function getValidBuffsForMember(member) {
+  const memberClass = member.characterClass
+  const memberRole = member.raidRole || 'DPS'
+
+  return BUFFS.filter(buff => {
+    if (buff.type === 'self') {
+      // Self-buffs only for the specific class
+      return buff.selfClasses?.includes(memberClass)
+    } else {
+      // External buffs: check role restrictions if any
+      if (buff.targetRoles) {
+        return buff.targetRoles.includes(memberRole)
+      }
+      return true // No restrictions
+    }
+  })
+}
 
 // Spec icons from Wowhead (WoW Classic/Retail icons)
 const SPEC_ICONS = {
@@ -112,8 +144,17 @@ const MembersTab = () => {
     }
   }
 
+  // Debounced refresh to prevent multiple calls from duplicate socket events
+  const refreshTimeoutRef = useRef(null)
+  const debouncedRefresh = useCallback(() => {
+    if (refreshTimeoutRef.current) clearTimeout(refreshTimeoutRef.current)
+    refreshTimeoutRef.current = setTimeout(() => {
+      loadMembers()
+    }, 100) // 100ms debounce
+  }, [])
+
   useEffect(() => { loadMembers() }, [])
-  useSocket({ dkp_updated: loadMembers, dkp_bulk_updated: loadMembers, member_updated: loadMembers })
+  useSocket({ dkp_updated: debouncedRefresh, dkp_bulk_updated: debouncedRefresh, member_updated: debouncedRefresh })
 
   // Also listen for roster-refresh (fired when primary character changes in modal)
   useEffect(() => {
@@ -126,7 +167,10 @@ const MembersTab = () => {
   const applyRandomBuff = useCallback(() => {
     if (members.length === 0) return
     const randomMember = members[Math.floor(Math.random() * members.length)]
-    const randomBuff = BUFFS[Math.floor(Math.random() * BUFFS.length)]
+    // Get only valid buffs for this member's class/role
+    const validBuffs = getValidBuffsForMember(randomMember)
+    if (validBuffs.length === 0) return // No valid buffs for this member
+    const randomBuff = validBuffs[Math.floor(Math.random() * validBuffs.length)]
     const expiresAt = Date.now() + randomBuff.duration * 1000
     setActiveBuffs(prev => ({ ...prev, [randomMember.id]: { buff: randomBuff, expiresAt } }))
   }, [members])
@@ -235,12 +279,28 @@ const MembersTab = () => {
 
   const handleToggleVault = async (memberId) => {
     if (!canManageVault) return
+
+    // Find current member state for optimistic update
+    const member = members.find(m => m.id === memberId)
+    if (!member) return
+
+    const previousState = member.weeklyVaultCompleted
+
+    // Optimistic update - immediately toggle UI
+    setMembers(prev => prev.map(m =>
+      m.id === memberId ? { ...m, weeklyVaultCompleted: !previousState } : m
+    ))
     setVaultLoading(memberId)
+
     try {
       await membersAPI.toggleVault(memberId)
-      loadMembers()
+      // Don't call loadMembers() - socket will handle sync if needed
     } catch (error) {
       console.error('Error toggling vault:', error)
+      // Revert optimistic update on error
+      setMembers(prev => prev.map(m =>
+        m.id === memberId ? { ...m, weeklyVaultCompleted: previousState } : m
+      ))
     } finally {
       setVaultLoading(null)
     }
@@ -305,7 +365,9 @@ const MembersTab = () => {
                 DKP<SortIcon field="currentDkp" />
               </th>
               <th className="text-center py-3 px-4 text-midnight-glow" title={t('weekly_vault')}>
-                <VaultIcon completed={true} size={24} />
+                <div className="flex items-center justify-center">
+                  <VaultIcon completed={true} size={28} />
+                </div>
               </th>
               {isAdmin && <th className="text-left py-3 px-4 text-midnight-glow">{t('actions')}</th>}
             </tr>
@@ -352,20 +414,22 @@ const MembersTab = () => {
                     >
                       {m.characterName}
                     </strong>
-                    {/* Buff icon (Easter egg) */}
-                    {activeBuffs[m.id] && (
-                      <div
-                        className="ml-2 relative inline-flex animate-pulse"
-                        title={activeBuffs[m.id].buff.name}
-                      >
-                        <img
-                          src={activeBuffs[m.id].buff.icon}
-                          alt={activeBuffs[m.id].buff.name}
-                          className="w-5 h-5 rounded border border-yellow-400"
-                          style={{ boxShadow: `0 0 8px ${activeBuffs[m.id].buff.glow}` }}
-                        />
-                      </div>
-                    )}
+                    {/* Buff icon slot (fixed width to prevent layout shift) */}
+                    <div className="w-6 h-5 flex-shrink-0 flex items-center justify-center">
+                      {activeBuffs[m.id] && (
+                        <div
+                          className="animate-pulse"
+                          title={activeBuffs[m.id].buff.name}
+                        >
+                          <img
+                            src={activeBuffs[m.id].buff.icon}
+                            alt={activeBuffs[m.id].buff.name}
+                            className="w-5 h-5 rounded border border-yellow-400"
+                            style={{ boxShadow: `0 0 8px ${activeBuffs[m.id].buff.glow}` }}
+                          />
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </td>
                 <td className="py-3 px-4">
@@ -397,28 +461,30 @@ const MembersTab = () => {
                     )}
                   </div>
                 </td>
-                <td className="py-3 px-4 text-center">
-                  {canManageVault ? (
-                    <button
-                      onClick={() => handleToggleVault(m.id)}
-                      disabled={vaultLoading === m.id}
-                      className="w-8 h-8 rounded flex items-center justify-center transition-all hover:scale-110"
-                      title={m.weeklyVaultCompleted ? t('vault_completed') : t('vault_not_completed')}
-                    >
-                      {vaultLoading === m.id ? (
-                        <i className="fas fa-circle-notch fa-spin text-sm text-midnight-glow"></i>
-                      ) : (
+                <td className="py-3 px-4">
+                  <div className="flex items-center justify-center">
+                    {canManageVault ? (
+                      <button
+                        onClick={() => handleToggleVault(m.id)}
+                        disabled={vaultLoading === m.id}
+                        className="w-8 h-8 flex items-center justify-center transition-all hover:scale-110"
+                        title={m.weeklyVaultCompleted ? t('vault_completed') : t('vault_not_completed')}
+                      >
+                        {vaultLoading === m.id ? (
+                          <i className="fas fa-circle-notch fa-spin text-sm text-midnight-glow"></i>
+                        ) : (
+                          <VaultIcon completed={m.weeklyVaultCompleted} size={28} />
+                        )}
+                      </button>
+                    ) : (
+                      <div
+                        className="w-8 h-8 flex items-center justify-center"
+                        title={m.weeklyVaultCompleted ? t('vault_completed') : t('vault_not_completed')}
+                      >
                         <VaultIcon completed={m.weeklyVaultCompleted} size={28} />
-                      )}
-                    </button>
-                  ) : (
-                    <div
-                      className="w-8 h-8 rounded flex items-center justify-center mx-auto"
-                      title={m.weeklyVaultCompleted ? t('vault_completed') : t('vault_not_completed')}
-                    >
-                      <VaultIcon completed={m.weeklyVaultCompleted} size={28} />
-                    </div>
-                  )}
+                      </div>
+                    )}
+                  </div>
                 </td>
                 {isAdmin && (
                   <td className="py-3 px-4">
