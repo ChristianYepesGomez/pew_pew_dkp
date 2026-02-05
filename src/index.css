@@ -60,7 +60,7 @@ body::after {
   background-image:
     radial-gradient(2px 2px at 20% 30%, white, transparent),
     radial-gradient(2px 2px at 60% 70%, white, transparent),
-    radial-gradient(1px 1px at 50% 50%, white, transparent),
+    radial-gradient(1px 1px at 35% 85%, white, transparent),
     radial-gradient(1px 1px at 80% 10%, white, transparent);
   background-size: 200% 200%;
   animation: starsTwinkle 10s ease-in-out infinite;
