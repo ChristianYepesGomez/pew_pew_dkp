@@ -294,6 +294,12 @@ async function initDatabase() {
     'ALTER TABLE auctions ADD COLUMN farewell_data TEXT',
     'ALTER TABLE auctions ADD COLUMN item_id INTEGER',
     "ALTER TABLE member_dkp ADD COLUMN role TEXT DEFAULT 'DPS'",
+    // WCL + Calendar integration migrations
+    'ALTER TABLE warcraft_logs_processed ADD COLUMN raid_date DATE',
+    'ALTER TABLE warcraft_logs_processed ADD COLUMN is_reverted INTEGER DEFAULT 0',
+    'ALTER TABLE warcraft_logs_processed ADD COLUMN reverted_by INTEGER',
+    'ALTER TABLE warcraft_logs_processed ADD COLUMN reverted_at DATETIME',
+    'ALTER TABLE dkp_transactions ADD COLUMN wcl_report_id INTEGER',
   ];
 
   for (const sql of columnMigrations) {
@@ -340,6 +346,8 @@ async function initDatabase() {
     'CREATE INDEX IF NOT EXISTS idx_member_availability_user ON member_availability(user_id)',
     'CREATE INDEX IF NOT EXISTS idx_member_availability_date ON member_availability(raid_date)',
     'CREATE INDEX IF NOT EXISTS idx_characters_user ON characters(user_id)',
+    'CREATE INDEX IF NOT EXISTS idx_dkp_transactions_wcl_report ON dkp_transactions(wcl_report_id)',
+    'CREATE INDEX IF NOT EXISTS idx_warcraftlogs_raid_date ON warcraft_logs_processed(raid_date)',
   ];
 
   for (const sql of indexes) {

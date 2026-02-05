@@ -244,6 +244,81 @@ export async function processWarcraftLog(urlOrCode) {
 }
 
 /**
+ * Get guild reports from WCL within a time window
+ * Used to auto-detect logs for a specific raid date
+ */
+export async function getGuildReports(guildId, startTime, endTime) {
+  const query = `
+    query GetGuildReports($guildID: Int!, $startTime: Float!, $endTime: Float!) {
+      reportData {
+        reports(guildID: $guildID, startTime: $startTime, endTime: $endTime) {
+          data {
+            code
+            title
+            startTime
+            endTime
+            zone {
+              id
+              name
+            }
+            owner {
+              name
+            }
+          }
+        }
+      }
+    }
+  `;
+
+  const data = await executeGraphQL(query, {
+    guildID: guildId,
+    startTime,
+    endTime,
+  });
+
+  if (!data.reportData?.reports?.data) {
+    return [];
+  }
+
+  return data.reportData.reports.data.map(r => ({
+    code: r.code,
+    title: r.title,
+    startTime: r.startTime,
+    endTime: r.endTime,
+    zone: r.zone?.name || 'Unknown',
+    owner: r.owner?.name || 'Unknown',
+  }));
+}
+
+/**
+ * Resolve guild name/server to WCL numeric guild ID
+ */
+export async function getGuildId(guildName, serverSlug, serverRegion) {
+  const query = `
+    query GetGuildID($name: String!, $serverSlug: String!, $serverRegion: String!) {
+      guildData {
+        guild(name: $name, serverSlug: $serverSlug, serverRegion: $serverRegion) {
+          id
+          name
+        }
+      }
+    }
+  `;
+
+  const data = await executeGraphQL(query, {
+    name: guildName,
+    serverSlug,
+    serverRegion,
+  });
+
+  if (!data.guildData?.guild) {
+    throw new Error(`Guild not found: ${guildName} on ${serverSlug}-${serverRegion}`);
+  }
+
+  return data.guildData.guild.id;
+}
+
+/**
  * Test if Warcraft Logs credentials are configured
  */
 export function isConfigured() {
