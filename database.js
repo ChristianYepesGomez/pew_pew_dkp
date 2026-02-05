@@ -172,6 +172,21 @@ async function initDatabase() {
     )
   `);
 
+  // Auction tie-breaking rolls
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS auction_rolls (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      auction_id INTEGER NOT NULL,
+      user_id INTEGER NOT NULL,
+      bid_amount INTEGER NOT NULL,
+      roll_result INTEGER NOT NULL,
+      is_winner INTEGER DEFAULT 0,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (auction_id) REFERENCES auctions(id) ON DELETE CASCADE,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    )
+  `);
+
   await db.exec(`
     CREATE TABLE IF NOT EXISTS raids (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -280,6 +295,145 @@ async function initDatabase() {
     )
   `);
 
+  // ── Boss Statistics Feature Tables ──────────────────────────────────
+
+  // WCL Zones (Raids) - persistent historical data
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS wcl_zones (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      wcl_zone_id INTEGER NOT NULL UNIQUE,
+      name TEXT NOT NULL,
+      slug TEXT NOT NULL,
+      expansion TEXT,
+      tier INTEGER,
+      is_current INTEGER DEFAULT 1,
+      boss_count INTEGER DEFAULT 0,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  // Bosses per zone
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS wcl_bosses (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      zone_id INTEGER NOT NULL,
+      wcl_encounter_id INTEGER NOT NULL UNIQUE,
+      name TEXT NOT NULL,
+      slug TEXT NOT NULL,
+      boss_order INTEGER DEFAULT 0,
+      mythic_trap_url TEXT,
+      image_url TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (zone_id) REFERENCES wcl_zones(id) ON DELETE CASCADE
+    )
+  `);
+
+  // Boss statistics (aggregated per difficulty)
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS boss_statistics (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      boss_id INTEGER NOT NULL,
+      difficulty TEXT NOT NULL,
+      total_kills INTEGER DEFAULT 0,
+      total_wipes INTEGER DEFAULT 0,
+      fastest_kill_ms INTEGER,
+      avg_kill_time_ms INTEGER,
+      total_kill_time_ms INTEGER DEFAULT 0,
+      last_kill_date DATE,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(boss_id, difficulty),
+      FOREIGN KEY (boss_id) REFERENCES wcl_bosses(id) ON DELETE CASCADE
+    )
+  `);
+
+  // Player deaths per boss (the "shame board")
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS player_boss_deaths (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      boss_id INTEGER NOT NULL,
+      difficulty TEXT NOT NULL,
+      total_deaths INTEGER DEFAULT 0,
+      total_fights INTEGER DEFAULT 0,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(user_id, boss_id, difficulty),
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+      FOREIGN KEY (boss_id) REFERENCES wcl_bosses(id) ON DELETE CASCADE
+    )
+  `);
+
+  // Track processed fights for deduplication
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS boss_stats_processed (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      report_code TEXT NOT NULL,
+      encounter_id INTEGER NOT NULL,
+      fight_id INTEGER NOT NULL,
+      difficulty TEXT,
+      kill INTEGER DEFAULT 0,
+      fight_time_ms INTEGER,
+      processed_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(report_code, encounter_id, fight_id)
+    )
+  `);
+
+  // Recent kills log for display
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS boss_kill_log (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      boss_id INTEGER NOT NULL,
+      difficulty TEXT NOT NULL,
+      report_code TEXT NOT NULL,
+      fight_id INTEGER NOT NULL,
+      kill_time_ms INTEGER,
+      kill_date DATE NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (boss_id) REFERENCES wcl_bosses(id) ON DELETE CASCADE
+    )
+  `);
+
+  // Player performance per boss (damage, healing, damage taken)
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS player_boss_performance (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      boss_id INTEGER NOT NULL,
+      difficulty TEXT NOT NULL,
+      total_damage INTEGER DEFAULT 0,
+      total_healing INTEGER DEFAULT 0,
+      total_damage_taken INTEGER DEFAULT 0,
+      total_potions_used INTEGER DEFAULT 0,
+      fights_participated INTEGER DEFAULT 0,
+      best_dps REAL DEFAULT 0,
+      best_hps REAL DEFAULT 0,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(user_id, boss_id, difficulty),
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+      FOREIGN KEY (boss_id) REFERENCES wcl_bosses(id) ON DELETE CASCADE
+    )
+  `);
+
+  // Boss all-time records (top performers)
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS boss_records (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      boss_id INTEGER NOT NULL,
+      difficulty TEXT NOT NULL,
+      record_type TEXT NOT NULL,
+      user_id INTEGER NOT NULL,
+      value REAL NOT NULL,
+      character_name TEXT NOT NULL,
+      character_class TEXT,
+      report_code TEXT,
+      fight_id INTEGER,
+      recorded_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(boss_id, difficulty, record_type),
+      FOREIGN KEY (boss_id) REFERENCES wcl_bosses(id) ON DELETE CASCADE,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    )
+  `);
+
   // ── Column migrations (for databases created before these columns) ──
 
   const columnMigrations = [
@@ -300,6 +454,18 @@ async function initDatabase() {
     'ALTER TABLE warcraft_logs_processed ADD COLUMN reverted_by INTEGER',
     'ALTER TABLE warcraft_logs_processed ADD COLUMN reverted_at DATETIME',
     'ALTER TABLE dkp_transactions ADD COLUMN wcl_report_id INTEGER',
+    'ALTER TABLE dkp_transactions ADD COLUMN auction_id INTEGER',
+    // Profile pictures
+    'ALTER TABLE users ADD COLUMN avatar TEXT',
+    // Auction tie-breaking
+    'ALTER TABLE auctions ADD COLUMN was_tie INTEGER DEFAULT 0',
+    'ALTER TABLE auctions ADD COLUMN winning_roll INTEGER',
+    // Weekly Vault badge system
+    'ALTER TABLE member_dkp ADD COLUMN weekly_vault_completed INTEGER DEFAULT 0',
+    'ALTER TABLE member_dkp ADD COLUMN vault_completed_at DATETIME',
+    'ALTER TABLE member_dkp ADD COLUMN vault_week TEXT',
+    // Boss images
+    'ALTER TABLE wcl_bosses ADD COLUMN image_url TEXT',
   ];
 
   for (const sql of columnMigrations) {
@@ -348,6 +514,19 @@ async function initDatabase() {
     'CREATE INDEX IF NOT EXISTS idx_characters_user ON characters(user_id)',
     'CREATE INDEX IF NOT EXISTS idx_dkp_transactions_wcl_report ON dkp_transactions(wcl_report_id)',
     'CREATE INDEX IF NOT EXISTS idx_warcraftlogs_raid_date ON warcraft_logs_processed(raid_date)',
+    // Boss Statistics indexes
+    'CREATE INDEX IF NOT EXISTS idx_wcl_bosses_zone ON wcl_bosses(zone_id)',
+    'CREATE INDEX IF NOT EXISTS idx_wcl_bosses_encounter ON wcl_bosses(wcl_encounter_id)',
+    'CREATE INDEX IF NOT EXISTS idx_boss_statistics_boss ON boss_statistics(boss_id)',
+    'CREATE INDEX IF NOT EXISTS idx_player_boss_deaths_user ON player_boss_deaths(user_id)',
+    'CREATE INDEX IF NOT EXISTS idx_player_boss_deaths_boss ON player_boss_deaths(boss_id)',
+    'CREATE INDEX IF NOT EXISTS idx_boss_stats_processed_report ON boss_stats_processed(report_code)',
+    'CREATE INDEX IF NOT EXISTS idx_boss_kill_log_boss ON boss_kill_log(boss_id)',
+    'CREATE INDEX IF NOT EXISTS idx_boss_kill_log_date ON boss_kill_log(kill_date)',
+    'CREATE INDEX IF NOT EXISTS idx_player_boss_performance_user ON player_boss_performance(user_id)',
+    'CREATE INDEX IF NOT EXISTS idx_player_boss_performance_boss ON player_boss_performance(boss_id)',
+    'CREATE INDEX IF NOT EXISTS idx_boss_records_boss ON boss_records(boss_id)',
+    'CREATE INDEX IF NOT EXISTS idx_boss_records_type ON boss_records(record_type)',
   ];
 
   for (const sql of indexes) {
@@ -360,11 +539,13 @@ async function initDatabase() {
   if (configCount.count === 0) {
     console.log('📝 Creating default DKP configuration...');
     const configs = [
-      ['raid_attendance_dkp', '50', 'DKP base por asistencia a raid'],
+      ['raid_attendance_dkp', '5', 'DKP por asistencia a raid (por día)'],
       ['boss_kill_bonus', '10', 'DKP bonus adicional por cada boss derrotado'],
       ['default_server', 'Ragnaros', 'Servidor por defecto de la guild'],
       ['auto_assign_enabled', 'false', 'Asignar DKP automáticamente (sin confirmación)'],
       ['calendar_dkp_per_day', '1', 'DKP otorgado por cada día de calendario completado'],
+      ['weekly_vault_dkp', '10', 'DKP otorgado por completar el vault semanal'],
+      ['dkp_cap', '250', 'Máximo de DKP que puede acumular un jugador'],
     ];
     for (const [key, value, desc] of configs) {
       await db.run('INSERT INTO dkp_config (config_key, config_value, description) VALUES (?, ?, ?)', key, value, desc);
@@ -421,6 +602,27 @@ async function initDatabase() {
   if (calDkp && calDkp.config_value !== '1') {
     await db.run("UPDATE dkp_config SET config_value = '1' WHERE config_key = 'calendar_dkp_per_day'");
     console.log('✅ Calendar DKP reward updated to +1');
+  }
+
+  // Ensure DKP economy configs exist
+  const newConfigs = [
+    ['weekly_vault_dkp', '10', 'DKP otorgado por completar el vault semanal'],
+    ['dkp_cap', '250', 'Máximo de DKP que puede acumular un jugador'],
+    ['raid_attendance_dkp', '5', 'DKP por asistencia a raid (por día)'],
+  ];
+  for (const [key, value, desc] of newConfigs) {
+    const exists = await db.get('SELECT 1 FROM dkp_config WHERE config_key = ?', key);
+    if (!exists) {
+      await db.run('INSERT INTO dkp_config (config_key, config_value, description) VALUES (?, ?, ?)', key, value, desc);
+      console.log(`✅ Added config: ${key} = ${value}`);
+    }
+  }
+
+  // Update raid_attendance_dkp to new value if it's the old 50
+  const raidDkp = await db.get("SELECT config_value FROM dkp_config WHERE config_key = 'raid_attendance_dkp'");
+  if (raidDkp && raidDkp.config_value === '50') {
+    await db.run("UPDATE dkp_config SET config_value = '5', description = 'DKP por asistencia a raid (por día)' WHERE config_key = 'raid_attendance_dkp'");
+    console.log('✅ Raid attendance DKP updated to +5 per day');
   }
 
   console.log('✅ Database initialized successfully');
