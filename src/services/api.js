@@ -26,6 +26,7 @@ api.interceptors.response.use(
 
 export const authAPI = {
   login: (username, password) => api.post('/auth/login', { username, password }),
+  register: (data) => api.post('/auth/register', data),
   me: () => api.get('/auth/me'),
   updateProfile: (data) => api.put('/auth/profile', data),
   forgotPassword: (usernameOrEmail) => api.post('/auth/forgot-password', { usernameOrEmail }),
@@ -42,6 +43,7 @@ export const membersAPI = {
   getAll: () => api.get('/members'),
   create: (data) => api.post('/members', data),
   remove: (id) => api.delete(`/members/${id}`),
+  toggleVault: (id) => api.put(`/members/${id}/vault`),
 }
 
 export const auctionsAPI = {
@@ -85,6 +87,7 @@ export const blizzardAPI = {
 
 export const calendarAPI = {
   getRaidDays: () => api.get('/calendar/raid-days'),
+  getAllRaidDays: () => api.get('/calendar/raid-days?all=true'),
   updateRaidDays: (days) => api.put('/calendar/raid-days', { days }),
   getDates: (weeks = 2) => api.get(`/calendar/dates?weeks=${weeks}`),
   getMySignups: (weeks = 2) => api.get(`/calendar/my-signups?weeks=${weeks}`),
@@ -92,6 +95,14 @@ export const calendarAPI = {
   getSummary: (date) => api.get(`/calendar/summary/${date}`),
   getOverview: (weeks = 2) => api.get(`/calendar/overview?weeks=${weeks}`),
   getDatesWithLogs: (weeks = 4) => api.get(`/calendar/dates-with-logs?weeks=${weeks}`),
+  getHistory: (weeks = 8) => api.get(`/calendar/history?weeks=${weeks}`),
+}
+
+export const bossesAPI = {
+  getAll: () => api.get('/bosses'),
+  getDetails: (bossId) => api.get(`/bosses/${bossId}`),
+  sync: () => api.post('/bosses/sync'),
+  setZoneLegacy: (zoneId, isLegacy) => api.put(`/bosses/zones/${zoneId}/legacy`, { isLegacy }),
 }
 
 export default api
