@@ -366,7 +366,7 @@ const MembersTab = () => {
               </th>
               <th className="text-center py-3 px-4 text-midnight-glow" title={t('weekly_vault')}>
                 <div className="flex items-center justify-center">
-                  <VaultIcon completed={true} size={24} />
+                  <VaultIcon completed={true} size={28} />
                 </div>
               </th>
               {isAdmin && <th className="text-left py-3 px-4 text-midnight-glow">{t('actions')}</th>}
@@ -467,21 +467,21 @@ const MembersTab = () => {
                       <button
                         onClick={() => handleToggleVault(m.id)}
                         disabled={vaultLoading === m.id}
-                        className="w-7 h-7 flex items-center justify-center transition-all hover:scale-110"
+                        className="w-8 h-8 flex items-center justify-center transition-all hover:scale-110"
                         title={m.weeklyVaultCompleted ? t('vault_completed') : t('vault_not_completed')}
                       >
                         {vaultLoading === m.id ? (
                           <i className="fas fa-circle-notch fa-spin text-sm text-midnight-glow"></i>
                         ) : (
-                          <VaultIcon completed={m.weeklyVaultCompleted} size={24} />
+                          <VaultIcon completed={m.weeklyVaultCompleted} size={28} />
                         )}
                       </button>
                     ) : (
                       <div
-                        className="w-7 h-7 flex items-center justify-center"
+                        className="w-8 h-8 flex items-center justify-center"
                         title={m.weeklyVaultCompleted ? t('vault_completed') : t('vault_not_completed')}
                       >
-                        <VaultIcon completed={m.weeklyVaultCompleted} size={24} />
+                        <VaultIcon completed={m.weeklyVaultCompleted} size={28} />
                       </div>
                     )}
                   </div>
