@@ -585,6 +585,29 @@ export async function getUserToken(code, redirectUri) {
   return response.data.access_token;
 }
 
+// Fetch detailed character profile to get accurate active spec
+async function getCharacterProfile(userToken, realmSlug, characterName) {
+  const region = CONFIG.region;
+  try {
+    const response = await axios.get(
+      `${getApiUrl(region)}/profile/wow/character/${realmSlug}/${characterName.toLowerCase()}`,
+      {
+        params: {
+          namespace: `profile-${region}`,
+          locale: CONFIG.locale,
+        },
+        headers: {
+          Authorization: `Bearer ${userToken}`,
+        },
+      }
+    );
+    return response.data;
+  } catch (error) {
+    console.warn(`Failed to fetch profile for ${characterName}-${realmSlug}: ${error.message}`);
+    return null;
+  }
+}
+
 export async function getUserCharacters(userToken) {
   const region = CONFIG.region;
   const response = await axios.get(
@@ -606,31 +629,67 @@ export async function getUserCharacters(userToken) {
     return undefined;
   };
 
-  const characters = [];
+  // First pass: collect basic character info
+  const basicCharacters = [];
   for (const account of response.data.wow_accounts || []) {
     for (const char of account.characters || []) {
-      const specInfo = BLIZZARD_SPEC_MAP[char.active_spec?.id];
-      characters.push({
+      basicCharacters.push({
         name: locStr(char.name) || char.name,
         realm: locStr(char.realm?.name) || char.realm?.slug || 'Unknown',
         realmSlug: char.realm?.slug || '',
         className: BLIZZARD_CLASS_MAP[char.playable_class?.id] || `Class ${char.playable_class?.id}`,
         classId: char.playable_class?.id,
-        spec: specInfo?.spec || null,
-        raidRole: specInfo?.role || null,
         level: char.level || 0,
         faction: char.faction?.type || 'Unknown',
+        // Spec from summary (may be inaccurate)
+        summarySpecId: char.active_spec?.id,
       });
     }
   }
 
-  // Filter: only max-level characters with valid names
-  const maxLevel = characters.reduce((max, c) => Math.max(max, c.level), 0);
-  const filtered = characters
-    .filter(c => c.name && c.level >= maxLevel && maxLevel > 0)
-    .sort((a, b) => a.name.localeCompare(b.name));
+  // Filter to max-level characters only (to reduce API calls)
+  const maxLevel = basicCharacters.reduce((max, c) => Math.max(max, c.level), 0);
+  const eligibleCharacters = basicCharacters
+    .filter(c => c.name && c.level >= maxLevel && maxLevel > 0);
 
-  return filtered;
+  // Second pass: fetch detailed profile for each eligible character to get accurate spec
+  const characters = [];
+  for (const char of eligibleCharacters) {
+    // Fetch detailed profile for accurate spec info
+    const profile = await getCharacterProfile(userToken, char.realmSlug, char.name);
+
+    let spec = null;
+    let raidRole = null;
+
+    if (profile?.active_spec?.id) {
+      // Use spec from detailed profile (more accurate)
+      const specInfo = BLIZZARD_SPEC_MAP[profile.active_spec.id];
+      spec = specInfo?.spec || null;
+      raidRole = specInfo?.role || null;
+    } else if (char.summarySpecId) {
+      // Fallback to summary spec if profile fetch failed
+      const specInfo = BLIZZARD_SPEC_MAP[char.summarySpecId];
+      spec = specInfo?.spec || null;
+      raidRole = specInfo?.role || null;
+    }
+
+    characters.push({
+      name: char.name,
+      realm: char.realm,
+      realmSlug: char.realmSlug,
+      className: char.className,
+      classId: char.classId,
+      spec,
+      raidRole,
+      level: char.level,
+      faction: char.faction,
+    });
+
+    // Small delay to avoid rate limiting
+    await new Promise(resolve => setTimeout(resolve, 100));
+  }
+
+  return characters.sort((a, b) => a.name.localeCompare(b.name));
 }
 
 export default {
