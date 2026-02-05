@@ -6,20 +6,8 @@ import { auctionsAPI } from '../../services/api'
 import CreateAuctionModal from './CreateAuctionModal'
 import BidModal from './BidModal'
 import WowheadTooltip from '../Common/WowheadTooltip'
-
-const RARITY_COLORS = {
-  common: '#C0C0C0',
-  uncommon: '#5BFF3B',
-  rare: '#5EB5FF',
-  epic: '#C680FF',
-  legendary: '#FFa040',
-}
-
-const CLASS_COLORS = {
-  Warrior: '#C79C6E', Paladin: '#F58CBA', Hunter: '#ABD473', Rogue: '#FFF569', Priest: '#FFFFFF',
-  Shaman: '#0070DE', Mage: '#40C7EB', Warlock: '#8788EE', Druid: '#FF7D0A', 'Death Knight': '#C41F3B',
-  DeathKnight: '#C41F3B', DemonHunter: '#A330C9', Monk: '#00FF96', Evoker: '#33937F',
-}
+import CLASS_COLORS from '../../utils/classColors'
+import RARITY_COLORS from '../../utils/rarityColors'
 
 const AuctionTab = () => {
   const { user } = useAuth()
@@ -173,10 +161,18 @@ const AuctionTab = () => {
                     </h4>
                   </div>
 
-                  {/* Highest Bidder */}
+                  {/* Highest Bidder / Tie Info */}
                   <div className="text-center min-w-[120px]">
-                    <p className="text-xs text-midnight-silver m-0 mb-1">{t('highest_bidder')}</p>
-                    {auction.highestBidder ? (
+                    <p className="text-xs text-midnight-silver m-0 mb-1">
+                      {auction.hasTie ? t('tied_bidders') : t('highest_bidder')}
+                    </p>
+                    {auction.hasTie ? (
+                      <div className="flex items-center justify-center gap-1">
+                        <i className="fas fa-dice text-yellow-400 animate-pulse"></i>
+                        <span className="text-yellow-400 font-bold">{auction.tiedBidders?.length || 0}</span>
+                        <span className="text-xs text-midnight-silver">{t('players_tied')}</span>
+                      </div>
+                    ) : auction.highestBidder ? (
                       <p
                         className="font-bold m-0 truncate"
                         style={{ color: CLASS_COLORS[auction.highestBidder.characterClass] || '#FFF' }}
