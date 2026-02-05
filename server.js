@@ -832,7 +832,92 @@ app.put('/api/members/:id/vault', adminLimiter, authenticateToken, authorizeRole
   }
 });
 
-// Process weekly vault rewards and reset (admin only)
+// Cron endpoint for processing weekly vault (called by external scheduler like cron-job.org)
+// Secured by CRON_SECRET header - no user auth needed
+// Schedule: Wednesdays at 8:00 AM Madrid time
+app.post('/api/cron/process-vault', async (req, res) => {
+  try {
+    const cronSecret = process.env.CRON_SECRET;
+    const providedSecret = req.headers['x-cron-secret'] || req.query.secret;
+
+    if (!cronSecret || providedSecret !== cronSecret) {
+      console.log('⚠️ Cron vault: Invalid or missing secret');
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    console.log('⏰ Cron: Processing weekly vault rewards...');
+
+    const currentWeek = getCurrentRaidWeek();
+    const vaultDkp = parseInt(await getCachedConfig('weekly_vault_dkp', '10'), 10);
+    const dkpCap = parseInt(await getCachedConfig('dkp_cap', '250'), 10);
+
+    // Get all members with vault completed for current week
+    const completedMembers = await db.all(`
+      SELECT md.user_id, u.character_name
+      FROM member_dkp md
+      JOIN users u ON md.user_id = u.id
+      WHERE md.weekly_vault_completed = 1 AND md.vault_week = ?
+    `, currentWeek);
+
+    if (completedMembers.length === 0) {
+      console.log('⏰ Cron: No vault completions to process');
+      return res.json({
+        message: 'No vault completions to process',
+        processed: 0,
+        totalDkpAwarded: 0
+      });
+    }
+
+    let totalDkpAwarded = 0;
+    const processedMembers = [];
+
+    await db.transaction(async (tx) => {
+      for (const member of completedMembers) {
+        // Award DKP with cap
+        const result = await addDkpWithCap(tx, member.user_id, vaultDkp, dkpCap);
+        totalDkpAwarded += result.actualGain;
+
+        // Log transaction (performed_by = null for cron)
+        await tx.run(`
+          INSERT INTO dkp_transactions (user_id, amount, reason, performed_by)
+          VALUES (?, ?, ?, ?)
+        `, member.user_id, result.actualGain, `Weekly Vault reward (+${vaultDkp} DKP${result.wasCapped ? ', capped' : ''})`, null);
+
+        processedMembers.push({
+          userId: member.user_id,
+          characterName: member.character_name,
+          dkpAwarded: result.actualGain,
+          wasCapped: result.wasCapped
+        });
+
+        // Emit update for this member
+        io.emit('member_updated', { memberId: member.user_id });
+        io.emit('dkp_updated', { userId: member.user_id });
+      }
+
+      // Reset all vault completions for the current week
+      await tx.run(`
+        UPDATE member_dkp
+        SET weekly_vault_completed = 0
+        WHERE vault_week = ?
+      `, currentWeek);
+    });
+
+    console.log(`✅ Cron: Processed ${completedMembers.length} vault completions, awarded ${totalDkpAwarded} DKP`);
+
+    res.json({
+      message: `Processed ${completedMembers.length} vault completions`,
+      processed: completedMembers.length,
+      totalDkpAwarded,
+      members: processedMembers
+    });
+  } catch (error) {
+    console.error('Cron process vault error:', error);
+    res.status(500).json({ error: 'Failed to process weekly vault' });
+  }
+});
+
+// Process weekly vault rewards and reset (admin only) - DEPRECATED: Use cron endpoint instead
 // This should be called on Wednesdays to award DKP to all marked members and reset the vault
 app.post('/api/admin/vault/process-weekly', adminLimiter, authenticateToken, authorizeRole(['admin']), async (req, res) => {
   try {
