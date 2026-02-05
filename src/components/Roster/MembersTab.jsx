@@ -112,8 +112,17 @@ const MembersTab = () => {
     }
   }
 
+  // Debounced refresh to prevent multiple calls from duplicate socket events
+  const refreshTimeoutRef = useRef(null)
+  const debouncedRefresh = useCallback(() => {
+    if (refreshTimeoutRef.current) clearTimeout(refreshTimeoutRef.current)
+    refreshTimeoutRef.current = setTimeout(() => {
+      loadMembers()
+    }, 100) // 100ms debounce
+  }, [])
+
   useEffect(() => { loadMembers() }, [])
-  useSocket({ dkp_updated: loadMembers, dkp_bulk_updated: loadMembers, member_updated: loadMembers })
+  useSocket({ dkp_updated: debouncedRefresh, dkp_bulk_updated: debouncedRefresh, member_updated: debouncedRefresh })
 
   // Also listen for roster-refresh (fired when primary character changes in modal)
   useEffect(() => {
@@ -235,12 +244,28 @@ const MembersTab = () => {
 
   const handleToggleVault = async (memberId) => {
     if (!canManageVault) return
+
+    // Find current member state for optimistic update
+    const member = members.find(m => m.id === memberId)
+    if (!member) return
+
+    const previousState = member.weeklyVaultCompleted
+
+    // Optimistic update - immediately toggle UI
+    setMembers(prev => prev.map(m =>
+      m.id === memberId ? { ...m, weeklyVaultCompleted: !previousState } : m
+    ))
     setVaultLoading(memberId)
+
     try {
       await membersAPI.toggleVault(memberId)
-      loadMembers()
+      // Don't call loadMembers() - socket will handle sync if needed
     } catch (error) {
       console.error('Error toggling vault:', error)
+      // Revert optimistic update on error
+      setMembers(prev => prev.map(m =>
+        m.id === memberId ? { ...m, weeklyVaultCompleted: previousState } : m
+      ))
     } finally {
       setVaultLoading(null)
     }
