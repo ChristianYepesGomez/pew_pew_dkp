@@ -23,74 +23,100 @@ const Login = () => {
   }
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center px-4">
+    <div className="min-h-screen flex items-center justify-center px-4 py-8">
       <div className="w-full max-w-md">
-        <div className="bg-white bg-opacity-95 backdrop-blur-lg rounded-2xl shadow-2xl p-8">
-          <div className="text-center mb-8">
-            <div className="mb-4 flex justify-center"><CatLogo size={80} /></div>
-            <h2 className="text-2xl font-cinzel font-bold text-midnight-purple mb-2">{t('guild_name')}</h2>
-            <p className="text-gray-600">{t('login_title')}</p>
+        {/* Language toggle */}
+        <div className="flex justify-end mb-4">
+          <button
+            onClick={() => changeLanguage(language === 'es' ? 'en' : 'es')}
+            className="px-3 py-1 rounded-lg border border-midnight-bright-purple text-midnight-silver hover:bg-midnight-bright-purple hover:bg-opacity-20 transition-all"
+          >
+            {language === 'es' ? '🇪🇸' : '🇬🇧'}
+          </button>
+        </div>
+
+        {/* Main card */}
+        <div className="bg-midnight-deepblue bg-opacity-95 backdrop-blur-lg rounded-2xl shadow-2xl border border-midnight-bright-purple overflow-hidden">
+          {/* Header */}
+          <div className="p-8 text-center border-b border-midnight-bright-purple border-opacity-30 bg-gradient-to-b from-midnight-purple/20 to-transparent">
+            <div className="mb-4 flex justify-center">
+              <CatLogo size={70} />
+            </div>
+            <h2 className="text-2xl font-cinzel font-bold text-midnight-glow mb-1">{t('guild_name')}</h2>
+            <p className="text-midnight-silver text-sm">{t('login_title')}</p>
           </div>
 
-          {error && (
-            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg mb-4">
-              <i className="fas fa-exclamation-circle mr-2"></i>{error}
+          {/* Form */}
+          <div className="p-6">
+            {error && (
+              <div className="bg-red-500 bg-opacity-20 border border-red-500 text-red-400 px-4 py-3 rounded-lg mb-6 flex items-center gap-2">
+                <i className="fas fa-exclamation-circle"></i>
+                <span>{error}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleSubmit} className="space-y-4">
+              {/* Username */}
+              <div>
+                <label className="block text-midnight-silver text-sm font-semibold mb-2">
+                  <i className="fas fa-user mr-2 text-midnight-glow"></i>{t('username')}
+                </label>
+                <input
+                  type="text"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  className="w-full px-4 py-3 rounded-lg bg-midnight-purple bg-opacity-30 border border-midnight-bright-purple border-opacity-30 text-white placeholder-gray-500 focus:outline-none focus:border-midnight-glow transition-all"
+                  placeholder={t('enter_username')}
+                  required
+                />
+              </div>
+
+              {/* Password */}
+              <div>
+                <label className="block text-midnight-silver text-sm font-semibold mb-2">
+                  <i className="fas fa-lock mr-2 text-midnight-glow"></i>{t('password')}
+                </label>
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full px-4 py-3 rounded-lg bg-midnight-purple bg-opacity-30 border border-midnight-bright-purple border-opacity-30 text-white placeholder-gray-500 focus:outline-none focus:border-midnight-glow transition-all"
+                  placeholder={t('enter_password')}
+                  required
+                />
+              </div>
+
+              {/* Submit */}
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full bg-gradient-to-r from-midnight-purple to-midnight-bright-purple text-white font-bold py-4 px-4 rounded-lg hover:shadow-lg hover:shadow-midnight-glow/30 transform hover:-translate-y-0.5 transition-all disabled:opacity-50 disabled:transform-none"
+              >
+                {loading ? (
+                  <><i className="fas fa-circle-notch fa-spin mr-2"></i>{t('loading')}...</>
+                ) : (
+                  <><i className="fas fa-sign-in-alt mr-2"></i>{t('login')}</>
+                )}
+              </button>
+            </form>
+
+            {/* Links */}
+            <div className="text-center mt-6 pt-6 border-t border-midnight-bright-purple border-opacity-20 space-y-3">
+              <Link
+                to="/forgot-password"
+                className="text-midnight-silver hover:text-midnight-glow transition-colors block text-sm"
+              >
+                <i className="fas fa-key mr-2"></i>{t('forgot_password')}
+              </Link>
+              <p className="text-midnight-silver">
+                {t('no_account')}{' '}
+                <Link to="/register" className="text-midnight-glow font-semibold hover:underline">
+                  {t('register')}
+                </Link>
+              </p>
             </div>
-          )}
-
-          <form onSubmit={handleSubmit}>
-            <div className="mb-4">
-              <label className="block text-gray-700 font-semibold mb-2">
-                <i className="fas fa-user mr-2"></i>{t('username')}
-              </label>
-              <input
-                type="text"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:border-midnight-purple focus:ring-2 focus:ring-midnight-purple focus:outline-none bg-white text-gray-900"
-                required
-              />
-            </div>
-
-            <div className="mb-6">
-              <label className="block text-gray-700 font-semibold mb-2">
-                <i className="fas fa-lock mr-2"></i>{t('password')}
-              </label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:border-midnight-purple focus:ring-2 focus:ring-midnight-purple focus:outline-none bg-white text-gray-900"
-                required
-              />
-            </div>
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-gradient-to-r from-midnight-purple to-midnight-bright-purple text-white font-bold py-3 px-4 rounded-lg hover:shadow-lg transform hover:-translate-y-0.5 transition-all disabled:opacity-50"
-            >
-              {loading ? <><i className="fas fa-circle-notch fa-spin mr-2"></i>{t('loading')}...</> : <><i className="fas fa-sign-in-alt mr-2"></i>{t('login')}</>}
-            </button>
-          </form>
-
-          <div className="text-center mt-6">
-            <Link to="/forgot-password" className="text-midnight-purple font-semibold hover:text-midnight-bright-purple">
-              <i className="fas fa-key mr-2"></i>{t('forgot_password')}
-            </Link>
           </div>
         </div>
-      </div>
-
-      {/* Language selector at bottom - standard position like Google/Microsoft login pages */}
-      <div className="mt-6">
-        <button
-          onClick={() => changeLanguage(language === 'es' ? 'en' : 'es')}
-          className="text-gray-400 hover:text-white text-sm flex items-center gap-2 transition-colors"
-        >
-          <i className="fas fa-globe"></i>
-          {language === 'es' ? 'English' : 'Español'}
-        </button>
       </div>
     </div>
   )
