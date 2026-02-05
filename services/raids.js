@@ -306,6 +306,9 @@ export async function getBossDetails(bossId) {
     };
   }
 
+  // Get the player with most deaths (for highlight)
+  const mostDeaths = deathLeaderboard.length > 0 ? deathLeaderboard[0] : null;
+
   return {
     boss: {
       id: boss.id,
@@ -323,11 +326,21 @@ export async function getBossDetails(bossId) {
       fastestKill: formatDuration(stats.fastest_kill_ms),
       avgKillTime: formatDuration(stats.avg_kill_time_ms),
       lastKill: stats.last_kill_date,
+      wipesToFirstKill: stats.wipes_to_first_kill,
+      firstKillDate: stats.first_kill_date,
     } : null,
     records: {
       topDamage: recordsMap['top_damage'] || null,
       topHealing: recordsMap['top_healing'] || null,
       mostDamageTaken: recordsMap['most_damage_taken'] || null,
+      mostDeaths: mostDeaths ? {
+        userId: mostDeaths.user_id,
+        characterName: mostDeaths.character_name,
+        characterClass: mostDeaths.character_class,
+        value: mostDeaths.total_deaths,
+        valueFormatted: String(mostDeaths.total_deaths),
+        fights: mostDeaths.total_fights,
+      } : null,
     },
     deathLeaderboard: deathLeaderboard.map((d, i) => ({
       rank: i + 1,
@@ -406,13 +419,31 @@ export async function processFightStats(reportCode, fight, difficulty) {
         ? Math.min(existingStats.fastest_kill_ms, fightDuration)
         : fightDuration;
 
-      await db.run(
-        `UPDATE boss_statistics SET
-          total_kills = ?, total_kill_time_ms = ?, avg_kill_time_ms = ?,
-          fastest_kill_ms = ?, last_kill_date = date('now'), updated_at = CURRENT_TIMESTAMP
-         WHERE id = ?`,
-        newKills, newTotalKillTime, newAvgKillTime, newFastest, existingStats.id
-      );
+      // Check if this is the first kill - track wipes to first kill
+      const isFirstKill = existingStats.total_kills === 0;
+
+      if (isFirstKill) {
+        // First kill! Record how many wipes it took
+        await db.run(
+          `UPDATE boss_statistics SET
+            total_kills = ?, total_kill_time_ms = ?, avg_kill_time_ms = ?,
+            fastest_kill_ms = ?, last_kill_date = date('now'),
+            wipes_to_first_kill = ?, first_kill_date = date('now'),
+            updated_at = CURRENT_TIMESTAMP
+           WHERE id = ?`,
+          newKills, newTotalKillTime, newAvgKillTime, newFastest,
+          existingStats.total_wipes, existingStats.id
+        );
+        console.log(`🎉 First kill on boss ${boss.id} (${normalizedDifficulty})! Took ${existingStats.total_wipes} wipes.`);
+      } else {
+        await db.run(
+          `UPDATE boss_statistics SET
+            total_kills = ?, total_kill_time_ms = ?, avg_kill_time_ms = ?,
+            fastest_kill_ms = ?, last_kill_date = date('now'), updated_at = CURRENT_TIMESTAMP
+           WHERE id = ?`,
+          newKills, newTotalKillTime, newAvgKillTime, newFastest, existingStats.id
+        );
+      }
 
       // Log the kill
       await db.run(
@@ -430,16 +461,19 @@ export async function processFightStats(reportCode, fight, difficulty) {
     }
   } else {
     // Create new statistics entry
+    const today = new Date().toISOString().split('T')[0];
     await db.run(
-      `INSERT INTO boss_statistics (boss_id, difficulty, total_kills, total_wipes, fastest_kill_ms, avg_kill_time_ms, total_kill_time_ms, last_kill_date)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO boss_statistics (boss_id, difficulty, total_kills, total_wipes, fastest_kill_ms, avg_kill_time_ms, total_kill_time_ms, last_kill_date, wipes_to_first_kill, first_kill_date)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       boss.id, normalizedDifficulty,
       fight.kill ? 1 : 0,
       fight.kill ? 0 : 1,
       fight.kill ? fightDuration : null,
       fight.kill ? fightDuration : null,
       fight.kill ? fightDuration : 0,
-      fight.kill ? new Date().toISOString().split('T')[0] : null
+      fight.kill ? today : null,
+      fight.kill ? 0 : null, // wipes_to_first_kill is 0 if killed on first try
+      fight.kill ? today : null
     );
 
     if (fight.kill) {

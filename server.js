@@ -782,6 +782,7 @@ app.put('/api/members/:id/role', adminLimiter, authenticateToken, authorizeRole(
 });
 
 // Toggle weekly vault completion (admin/officer only)
+// This only marks/unmarks the check - DKP is awarded when the week is processed
 app.put('/api/members/:id/vault', adminLimiter, authenticateToken, authorizeRole(['admin', 'officer']), async (req, res) => {
   try {
     const { id } = req.params;
@@ -803,67 +804,146 @@ app.put('/api/members/:id/vault', adminLimiter, authenticateToken, authorizeRole
     const wasCompleted = member.vault_week === currentWeek && member.weekly_vault_completed === 1;
 
     if (wasCompleted) {
-      // Remove vault completion AND remove the DKP that was awarded
-      const vaultDkp = parseInt(await getCachedConfig('weekly_vault_dkp', '10'), 10);
-
-      await db.transaction(async (tx) => {
-        // Remove vault status
-        await tx.run(`
-          UPDATE member_dkp
-          SET weekly_vault_completed = 0
-          WHERE user_id = ?
-        `, id);
-
-        // Remove the DKP that was awarded
-        await tx.run(`
-          UPDATE member_dkp
-          SET current_dkp = MAX(0, current_dkp - ?),
-              lifetime_gained = MAX(0, lifetime_gained - ?)
-          WHERE user_id = ?
-        `, vaultDkp, vaultDkp, id);
-
-        // Log the reversal transaction
-        await tx.run(`
-          INSERT INTO dkp_transactions (user_id, amount, reason, performed_by)
-          VALUES (?, ?, ?, ?)
-        `, id, -vaultDkp, 'Weekly Vault unmarked (DKP removed)', req.user.userId);
-      });
+      // Remove vault mark (no DKP changes - DKP is processed at week end)
+      await db.run(`
+        UPDATE member_dkp
+        SET weekly_vault_completed = 0
+        WHERE user_id = ?
+      `, id);
 
       io.emit('member_updated', { memberId: parseInt(id) });
-      io.emit('dkp_updated', { userId: parseInt(id) });
-      res.json({ message: 'Vault completion removed, DKP deducted', completed: false, dkpRemoved: vaultDkp });
+      res.json({ message: 'Vault unmarked', completed: false });
     } else {
-      // Mark as completed and award DKP
-      const vaultDkp = parseInt(await getCachedConfig('weekly_vault_dkp', '10'), 10);
-      const dkpCap = parseInt(await getCachedConfig('dkp_cap', '250'), 10);
+      // Mark as completed (no DKP yet - will be awarded when week is processed)
+      await db.run(`
+        UPDATE member_dkp
+        SET weekly_vault_completed = 1,
+            vault_completed_at = CURRENT_TIMESTAMP,
+            vault_week = ?
+        WHERE user_id = ?
+      `, currentWeek, id);
 
-      await db.transaction(async (tx) => {
-        // Update vault status
-        await tx.run(`
-          UPDATE member_dkp
-          SET weekly_vault_completed = 1,
-              vault_completed_at = CURRENT_TIMESTAMP,
-              vault_week = ?
-          WHERE user_id = ?
-        `, currentWeek, id);
+      io.emit('member_updated', { memberId: parseInt(id) });
+      res.json({ message: 'Vault marked as completed', completed: true });
+    }
+  } catch (error) {
+    console.error('Toggle vault error:', error);
+    res.status(500).json({ error: 'Failed to toggle vault status' });
+  }
+});
 
+// Process weekly vault rewards and reset (admin only)
+// This should be called on Wednesdays to award DKP to all marked members and reset the vault
+app.post('/api/admin/vault/process-weekly', adminLimiter, authenticateToken, authorizeRole(['admin']), async (req, res) => {
+  try {
+    const currentWeek = getCurrentRaidWeek();
+    const vaultDkp = parseInt(await getCachedConfig('weekly_vault_dkp', '10'), 10);
+    const dkpCap = parseInt(await getCachedConfig('dkp_cap', '250'), 10);
+
+    // Get all members with vault completed for current week
+    const completedMembers = await db.all(`
+      SELECT md.user_id, u.character_name
+      FROM member_dkp md
+      JOIN users u ON md.user_id = u.id
+      WHERE md.weekly_vault_completed = 1 AND md.vault_week = ?
+    `, currentWeek);
+
+    if (completedMembers.length === 0) {
+      return res.json({
+        message: 'No vault completions to process',
+        processed: 0,
+        totalDkpAwarded: 0
+      });
+    }
+
+    let totalDkpAwarded = 0;
+    const processedMembers = [];
+
+    await db.transaction(async (tx) => {
+      for (const member of completedMembers) {
         // Award DKP with cap
-        const result = await addDkpWithCap(tx, id, vaultDkp, dkpCap);
+        const result = await addDkpWithCap(tx, member.user_id, vaultDkp, dkpCap);
+        totalDkpAwarded += result.actualGain;
 
         // Log transaction
         await tx.run(`
           INSERT INTO dkp_transactions (user_id, amount, reason, performed_by)
           VALUES (?, ?, ?, ?)
-        `, id, result.actualGain, `Weekly Vault completed (+${vaultDkp} DKP${result.wasCapped ? ', capped' : ''})`, req.user.userId);
-      });
+        `, member.user_id, result.actualGain, `Weekly Vault reward (+${vaultDkp} DKP${result.wasCapped ? ', capped' : ''})`, req.user.userId);
 
-      io.emit('member_updated', { memberId: parseInt(id) });
-      io.emit('dkp_updated', { userId: parseInt(id) });
-      res.json({ message: 'Vault completed! DKP awarded.', completed: true, dkpAwarded: vaultDkp });
-    }
+        processedMembers.push({
+          userId: member.user_id,
+          characterName: member.character_name,
+          dkpAwarded: result.actualGain,
+          wasCapped: result.wasCapped
+        });
+
+        // Emit update for this member
+        io.emit('member_updated', { memberId: member.user_id });
+        io.emit('dkp_updated', { userId: member.user_id });
+      }
+
+      // Reset all vault completions for the current week
+      await tx.run(`
+        UPDATE member_dkp
+        SET weekly_vault_completed = 0
+        WHERE vault_week = ?
+      `, currentWeek);
+    });
+
+    res.json({
+      message: `Processed ${completedMembers.length} vault completions`,
+      processed: completedMembers.length,
+      totalDkpAwarded,
+      members: processedMembers
+    });
   } catch (error) {
-    console.error('Toggle vault error:', error);
-    res.status(500).json({ error: 'Failed to toggle vault status' });
+    console.error('Process weekly vault error:', error);
+    res.status(500).json({ error: 'Failed to process weekly vault' });
+  }
+});
+
+// Get vault status summary (admin only)
+app.get('/api/admin/vault/status', adminLimiter, authenticateToken, authorizeRole(['admin', 'officer']), async (req, res) => {
+  try {
+    const currentWeek = getCurrentRaidWeek();
+    const vaultDkp = parseInt(await getCachedConfig('weekly_vault_dkp', '10'), 10);
+
+    // Get counts
+    const stats = await db.get(`
+      SELECT
+        COUNT(*) as totalMembers,
+        SUM(CASE WHEN md.weekly_vault_completed = 1 AND md.vault_week = ? THEN 1 ELSE 0 END) as completedCount
+      FROM member_dkp md
+      JOIN users u ON md.user_id = u.id
+      WHERE u.is_active = 1
+    `, currentWeek);
+
+    // Get list of completed members
+    const completedMembers = await db.all(`
+      SELECT u.id, u.character_name, u.character_class, md.vault_completed_at
+      FROM member_dkp md
+      JOIN users u ON md.user_id = u.id
+      WHERE md.weekly_vault_completed = 1 AND md.vault_week = ? AND u.is_active = 1
+      ORDER BY md.vault_completed_at DESC
+    `, currentWeek);
+
+    res.json({
+      currentWeek,
+      vaultDkp,
+      totalMembers: stats.totalMembers || 0,
+      completedCount: stats.completedCount || 0,
+      pendingDkp: (stats.completedCount || 0) * vaultDkp,
+      completedMembers: completedMembers.map(m => ({
+        id: m.id,
+        characterName: m.character_name,
+        characterClass: m.character_class,
+        completedAt: m.vault_completed_at
+      }))
+    });
+  } catch (error) {
+    console.error('Get vault status error:', error);
+    res.status(500).json({ error: 'Failed to get vault status' });
   }
 });
 
@@ -2846,6 +2926,67 @@ app.get('/api/warcraftlogs/guild-reports', authenticateToken, authorizeRole(['ad
   } catch (error) {
     console.error('Guild reports error:', error);
     res.status(500).json({ error: 'Failed to fetch guild reports' });
+  }
+});
+
+// Import boss statistics from a WCL report (without DKP/member matching)
+// This is for importing historical data or data from other guilds for testing
+app.post('/api/warcraftlogs/import-boss-stats', adminLimiter, authenticateToken, authorizeRole(['admin']), async (req, res) => {
+  try {
+    const { url } = req.body;
+    if (!url) {
+      return res.status(400).json({ error: 'WCL URL required' });
+    }
+
+    // Process the WCL log to get report data
+    const reportData = await processWarcraftLog(url);
+
+    // Ensure raid data is seeded
+    await seedRaidData();
+
+    let statsProcessed = 0;
+    let statsSkipped = 0;
+    const bossResults = [];
+
+    // Process each fight for boss statistics (kills, wipes, times)
+    for (const fight of reportData.fights) {
+      const result = await processFightStats(reportData.code, fight, fight.difficulty);
+
+      if (result.skipped) {
+        statsSkipped++;
+      } else {
+        statsProcessed++;
+        bossResults.push({
+          bossId: result.bossId,
+          fightId: fight.id,
+          name: fight.name,
+          difficulty: fight.difficulty,
+          kill: result.kill,
+          duration: fight.duration
+        });
+      }
+    }
+
+    console.log(`📊 Boss stats imported from ${reportData.code}: ${statsProcessed} processed, ${statsSkipped} skipped`);
+
+    res.json({
+      message: 'Boss statistics imported successfully',
+      report: {
+        code: reportData.code,
+        title: reportData.title,
+        totalFights: reportData.fights.length,
+        bossesKilled: reportData.bossesKilled,
+        totalBosses: reportData.totalBosses
+      },
+      stats: {
+        processed: statsProcessed,
+        skipped: statsSkipped
+      },
+      bosses: bossResults
+    });
+  } catch (error) {
+    console.error('Import boss stats error:', error);
+    res.status(500).json({ error: error.message || 'Failed to import boss statistics' });
   }
 });
 

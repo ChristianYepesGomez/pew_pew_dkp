@@ -466,6 +466,9 @@ async function initDatabase() {
     'ALTER TABLE member_dkp ADD COLUMN vault_week TEXT',
     // Boss images
     'ALTER TABLE wcl_bosses ADD COLUMN image_url TEXT',
+    // Boss statistics enhancements
+    'ALTER TABLE boss_statistics ADD COLUMN wipes_to_first_kill INTEGER',
+    'ALTER TABLE boss_statistics ADD COLUMN first_kill_date DATE',
   ];
 
   for (const sql of columnMigrations) {
