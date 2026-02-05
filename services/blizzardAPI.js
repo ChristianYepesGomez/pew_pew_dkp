@@ -543,12 +543,19 @@ export async function getUserCharacters(userToken) {
     }
   );
 
+  // Blizzard API returns some fields as localized objects: {en_US: "...", es_ES: "...", ...}
+  const locStr = (val) => {
+    if (typeof val === 'string') return val;
+    if (val && typeof val === 'object') return val[CONFIG.locale] || val.en_US || val.en_GB || Object.values(val)[0];
+    return undefined;
+  };
+
   const characters = [];
   for (const account of response.data.wow_accounts || []) {
     for (const char of account.characters || []) {
       characters.push({
-        name: char.name,
-        realm: char.realm?.name || char.realm?.slug || 'Unknown',
+        name: locStr(char.name) || char.name,
+        realm: locStr(char.realm?.name) || char.realm?.slug || 'Unknown',
         realmSlug: char.realm?.slug || '',
         className: BLIZZARD_CLASS_MAP[char.playable_class?.id] || `Class ${char.playable_class?.id}`,
         classId: char.playable_class?.id,
