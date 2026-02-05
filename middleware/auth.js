@@ -36,7 +36,7 @@ export function authorizeRole(allowedRoles) {
     }
 
     if (!allowedRoles.includes(req.user.role)) {
-      return res.status(403).json({ 
+      return res.status(403).json({
         error: 'Insufficient permissions',
         required: allowedRoles,
         current: req.user.role
@@ -45,47 +45,4 @@ export function authorizeRole(allowedRoles) {
 
     next();
   };
-}
-
-/**
- * Middleware to check if user is accessing their own resource or is admin/officer
- */
-export function authorizeOwnerOrRole(allowedRoles = ['admin', 'officer']) {
-  return (req, res, next) => {
-    if (!req.user) {
-      return res.status(401).json({ error: 'Authentication required' });
-    }
-
-    const resourceUserId = parseInt(req.params.userId || req.params.id);
-    const isOwner = req.user.userId === resourceUserId;
-    const hasRole = allowedRoles.includes(req.user.role);
-
-    if (!isOwner && !hasRole) {
-      return res.status(403).json({ error: 'Access denied' });
-    }
-
-    next();
-  };
-}
-
-/**
- * Optional authentication - continues even without token
- */
-export function optionalAuth(req, res, next) {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1];
-
-  if (token) {
-    try {
-      const decoded = jwt.verify(token, JWT_SECRET);
-      req.user = decoded;
-    } catch (error) {
-      // Token invalid, but we continue anyway
-      req.user = null;
-    }
-  } else {
-    req.user = null;
-  }
-
-  next();
 }
