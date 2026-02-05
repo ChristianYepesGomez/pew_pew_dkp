@@ -27,18 +27,25 @@
         if (spinner) spinner.style.display = 'none';
       }
 
+      // Decode base64url (URL-safe base64: - instead of +, _ instead of /, no padding)
+      function fromBase64Url(str) {
+        var b64 = str.replace(/-/g, '+').replace(/_/g, '/');
+        while (b64.length % 4) b64 += '=';
+        return atob(b64);
+      }
+
       try {
-        // Read data from URL hash
+        // Read data from URL hash: #data=base64urlstring
         var hash = window.location.hash.substring(1);
-        var params = new URLSearchParams(hash);
-        var encoded = params.get('data');
+        var eqIndex = hash.indexOf('=');
+        var encoded = eqIndex !== -1 ? hash.substring(eqIndex + 1) : '';
 
         if (!encoded) {
           showError('No character data received.');
           return;
         }
 
-        var data = JSON.parse(atob(encoded));
+        var data = JSON.parse(fromBase64Url(encoded));
 
         if (data.error) {
           showError(data.error);
@@ -53,7 +60,7 @@
           showError('Could not communicate with parent window. Please close this window and try again.');
         }
       } catch(e) {
-        showError('Error processing character data.');
+        showError('Error: ' + e.message);
       }
     })();
   </script>
