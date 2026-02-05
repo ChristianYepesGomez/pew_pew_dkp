@@ -149,6 +149,7 @@ const MembersTab = () => {
                   buff: data.buff,
                   expiresAt: data.expiresAt,
                   casterName: data.casterName,
+                  isSelfCast: data.isSelfCast,
                 }
               }
               return newBuffs
@@ -406,7 +407,7 @@ const MembersTab = () => {
                       {activeBuffs[m.id] && (
                         <div
                           className="animate-pulse"
-                          title={`${activeBuffs[m.id].buff.name}${activeBuffs[m.id].casterName ? ` (${activeBuffs[m.id].casterName})` : ''}`}
+                          title={`${activeBuffs[m.id].buff.name}${!activeBuffs[m.id].isSelfCast && activeBuffs[m.id].casterName ? ` (${activeBuffs[m.id].casterName})` : ''}`}
                         >
                           <img
                             src={activeBuffs[m.id].buff.icon}
