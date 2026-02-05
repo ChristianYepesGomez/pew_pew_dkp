@@ -449,30 +449,30 @@ app.get('/api/auth/blizzard/url', authenticateToken, (req, res) => {
 });
 
 // Blizzard OAuth callback - redirects popup to frontend for same-origin postMessage
+function toBase64Url(data) {
+  return Buffer.from(JSON.stringify(data)).toString('base64url');
+}
+
 app.get('/api/auth/blizzard/callback', async (req, res) => {
   const { code, state, error: authError } = req.query;
   const frontendUrl = (process.env.FRONTEND_URL || 'http://localhost:5173').split(',')[0].trim().replace(/\/+$/, '');
 
   if (authError) {
-    const encoded = Buffer.from(JSON.stringify({ error: 'Authorization denied by user' })).toString('base64');
-    return res.redirect(`${frontendUrl}/blizzard-callback.html#data=${encoded}`);
+    return res.redirect(`${frontendUrl}/blizzard-callback.html#data=${toBase64Url({ error: 'Authorization denied by user' })}`);
   }
 
   if (!code || !state) {
-    const encoded = Buffer.from(JSON.stringify({ error: 'Missing authorization code' })).toString('base64');
-    return res.redirect(`${frontendUrl}/blizzard-callback.html#data=${encoded}`);
+    return res.redirect(`${frontendUrl}/blizzard-callback.html#data=${toBase64Url({ error: 'Missing authorization code' })}`);
   }
 
   let decoded;
   try {
     decoded = jwt.verify(state, JWT_SECRET);
     if (decoded.type !== 'blizzard_oauth') {
-      const encoded = Buffer.from(JSON.stringify({ error: 'Invalid state parameter' })).toString('base64');
-      return res.redirect(`${frontendUrl}/blizzard-callback.html#data=${encoded}`);
+      return res.redirect(`${frontendUrl}/blizzard-callback.html#data=${toBase64Url({ error: 'Invalid state parameter' })}`);
     }
   } catch {
-    const encoded = Buffer.from(JSON.stringify({ error: 'Expired or invalid state. Please try again.' })).toString('base64');
-    return res.redirect(`${frontendUrl}/blizzard-callback.html#data=${encoded}`);
+    return res.redirect(`${frontendUrl}/blizzard-callback.html#data=${toBase64Url({ error: 'Expired or invalid state. Please try again.' })}`);
   }
 
   try {
@@ -484,12 +484,10 @@ app.get('/api/auth/blizzard/callback', async (req, res) => {
     const characters = await getUserCharacters(userToken);
 
     console.log(`Blizzard OAuth: fetched ${characters.length} characters for user ${decoded.userId}`);
-    const encoded = Buffer.from(JSON.stringify({ characters })).toString('base64');
-    res.redirect(`${frontendUrl}/blizzard-callback.html#data=${encoded}`);
+    res.redirect(`${frontendUrl}/blizzard-callback.html#data=${toBase64Url({ characters })}`);
   } catch (err) {
     console.error('Blizzard OAuth callback error:', err.message);
-    const encoded = Buffer.from(JSON.stringify({ error: 'Failed to fetch characters from Blizzard. Please try again.' })).toString('base64');
-    res.redirect(`${frontendUrl}/blizzard-callback.html#data=${encoded}`);
+    res.redirect(`${frontendUrl}/blizzard-callback.html#data=${toBase64Url({ error: 'Failed to fetch characters from Blizzard. Please try again.' })}`);
   }
 });
 
