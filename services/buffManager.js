@@ -38,7 +38,7 @@ const BUFFS = [
   { id: 'berserk', name: 'Berserk', duration: 15, icon: 'https://wow.zamimg.com/images/wow/icons/large/ability_druid_berserk.jpg', classes: ['Druid'], type: 'self' },
   { id: 'incarnation', name: 'Incarnation', duration: 30, icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_druid_incarnation.jpg', classes: ['Druid'], type: 'self' },
   { id: 'recklessness', name: 'Recklessness', duration: 12, icon: 'https://wow.zamimg.com/images/wow/icons/large/ability_criticalstrike.jpg', classes: ['Warrior'], type: 'self' },
-  { id: 'avatar', name: 'Avatar', duration: 20, icon: 'https://wow.zamimg.com/images/wow/icons/large/ability_warrior_avatar.jpg', classes: ['Warrior'], type: 'self' },
+  { id: 'avatar', name: 'Avatar', duration: 20, icon: 'https://wow.zamimg.com/images/wow/icons/large/warrior_talent_icon_avatar.jpg', classes: ['Warrior'], type: 'self' },
   { id: 'pillarofFrost', name: 'Pillar of Frost', duration: 12, icon: 'https://wow.zamimg.com/images/wow/icons/large/ability_deathknight_pillaroffrost.jpg', classes: ['Death Knight'], type: 'self' },
   { id: 'unholyAssault', name: 'Unholy Assault', duration: 20, icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_shadow_unholyfrenzy.jpg', classes: ['Death Knight'], type: 'self' },
   { id: 'aspectoftheWild', name: 'Aspect of the Wild', duration: 20, icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_nature_protectionformnature.jpg', classes: ['Hunter'], type: 'self' },
@@ -46,7 +46,7 @@ const BUFFS = [
   { id: 'coordinated', name: 'Coordinated Assault', duration: 20, icon: 'https://wow.zamimg.com/images/wow/icons/large/inv_coordinatedassault.jpg', classes: ['Hunter'], type: 'self' },
   { id: 'avengingWrath', name: 'Avenging Wrath', duration: 20, icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_holy_avenginewrath.jpg', classes: ['Paladin'], type: 'self' },
   { id: 'seraphim', name: 'Seraphim', duration: 15, icon: 'https://wow.zamimg.com/images/wow/icons/large/ability_paladin_seraphim.jpg', classes: ['Paladin'], type: 'self' },
-  { id: 'darkSoul', name: 'Dark Soul', duration: 20, icon: 'https://wow.zamimg.com/images/wow/icons/large/warlock_dark soul.jpg', classes: ['Warlock'], type: 'self' },
+  { id: 'darkSoul', name: 'Dark Soul', duration: 20, icon: 'https://wow.zamimg.com/images/wow/icons/large/warlock_darksoultorment.jpg', classes: ['Warlock'], type: 'self' },
   { id: 'summonDarkglare', name: 'Summon Darkglare', duration: 20, icon: 'https://wow.zamimg.com/images/wow/icons/large/inv_beholderwarlock.jpg', classes: ['Warlock'], type: 'self' },
   { id: 'stormEarthFire', name: 'Storm, Earth, and Fire', duration: 15, icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_nature_giftofthewild.jpg', classes: ['Monk'], type: 'self' },
   { id: 'invokeXuen', name: 'Invoke Xuen', duration: 20, icon: 'https://wow.zamimg.com/images/wow/icons/large/ability_monk_summontigerstatue.jpg', classes: ['Monk'], type: 'self' },
@@ -163,6 +163,8 @@ function applyRandomBuff() {
 
   const expiresAt = Date.now() + buff.duration * 1000;
 
+  const isSelfCast = buff.type === 'self' && !buff.raidWide;
+
   // Store active buffs
   for (const targetId of targets) {
     activeBuffs.set(targetId, {
@@ -175,6 +177,8 @@ function applyRandomBuff() {
       },
       expiresAt,
       casterName: caster.character_name,
+      casterId: caster.id,
+      isSelfCast,
     });
   }
 
@@ -190,6 +194,8 @@ function applyRandomBuff() {
       raidWide: buff.raidWide,
     },
     casterName: caster.character_name,
+    casterId: caster.id,
+    isSelfCast,
     expiresAt,
   };
 
