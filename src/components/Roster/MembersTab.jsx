@@ -1,17 +1,27 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { useAuth } from '../../hooks/useAuth'
 import { useSocket } from '../../hooks/useSocket'
 import { useLanguage } from '../../hooks/useLanguage'
 import { membersAPI, dkpAPI } from '../../services/api'
 import DKPAdjustModal from './DKPAdjustModal'
-import CreateMemberModal from './CreateMemberModal'
+import VaultIcon from '../Common/VaultIcon'
+import CLASS_COLORS from '../../utils/classColors'
 
-const CLASS_COLORS = {
-  Warrior: '#C79C6E', Paladin: '#F58CBA', Hunter: '#ABD473', Rogue: '#FFF569', Priest: '#FFFFFF',
-  Shaman: '#0070DE', Mage: '#40C7EB', Warlock: '#8788EE', Druid: '#FF7D0A', 'Death Knight': '#C41F3B',
-  DeathKnight: '#C41F3B', 'Demon Hunter': '#A330C9', DemonHunter: '#A330C9', Monk: '#00FF96', Evoker: '#33937F',
-}
+// WoW Buffs for Easter egg system
+const BUFFS = [
+  { id: 'bloodlust', name: 'Bloodlust', duration: 40, icon: 'https://wow.zamimg.com/images/wow/icons/medium/spell_nature_bloodlust.jpg', glow: '#ff4444' },
+  { id: 'heroism', name: 'Heroism', duration: 40, icon: 'https://wow.zamimg.com/images/wow/icons/medium/ability_shaman_heroism.jpg', glow: '#4444ff' },
+  { id: 'powerinfusion', name: 'Power Infusion', duration: 15, icon: 'https://wow.zamimg.com/images/wow/icons/medium/spell_holy_powerinfusion.jpg', glow: '#ffff00' },
+  { id: 'icyveins', name: 'Icy Veins', duration: 25, icon: 'https://wow.zamimg.com/images/wow/icons/medium/spell_frost_coldhearted.jpg', glow: '#69CCF0' },
+  { id: 'innervate', name: 'Innervate', duration: 10, icon: 'https://wow.zamimg.com/images/wow/icons/medium/spell_nature_lightning.jpg', glow: '#00ff00' },
+  { id: 'arcaneintellect', name: 'Arcane Intellect', duration: 60, icon: 'https://wow.zamimg.com/images/wow/icons/medium/spell_holy_magicalsentry.jpg', glow: '#69CCF0' },
+  { id: 'markofthewild', name: 'Mark of the Wild', duration: 60, icon: 'https://wow.zamimg.com/images/wow/icons/medium/spell_nature_regeneration.jpg', glow: '#FF7D0A' },
+  { id: 'fortitude', name: 'Power Word: Fortitude', duration: 60, icon: 'https://wow.zamimg.com/images/wow/icons/medium/spell_holy_wordfortitude.jpg', glow: '#ffffff' },
+  { id: 'battleshout', name: 'Battle Shout', duration: 60, icon: 'https://wow.zamimg.com/images/wow/icons/medium/ability_warrior_battleshout.jpg', glow: '#C79C6E' },
+  { id: 'windfury', name: 'Windfury', duration: 12, icon: 'https://wow.zamimg.com/images/wow/icons/medium/spell_nature_cyclone.jpg', glow: '#0070DE' },
+  { id: 'blessing', name: 'Blessing of Kings', duration: 60, icon: 'https://wow.zamimg.com/images/wow/icons/medium/spell_magic_magearmor.jpg', glow: '#F58CBA' },
+]
 
 // Spec icons from Wowhead (WoW Classic/Retail icons)
 const SPEC_ICONS = {
@@ -75,14 +85,21 @@ const MembersTab = () => {
   const [members, setMembers] = useState([])
   const [loading, setLoading] = useState(true)
   const [adjustModal, setAdjustModal] = useState({ open: false, member: null })
-  const [createModal, setCreateModal] = useState(false)
   const [deleteModal, setDeleteModal] = useState({ open: false, member: null })
   const [deleteLoading, setDeleteLoading] = useState(false)
+  const [vaultLoading, setVaultLoading] = useState(null) // Track which member's vault is being toggled
   const [sortField, setSortField] = useState('currentDkp')
   const [sortDir, setSortDir] = useState('desc')
   const [filterText, setFilterText] = useState('')
   const [filterRole, setFilterRole] = useState('all')
   const isAdmin = user?.role === 'admin'
+  const isOfficer = user?.role === 'officer'
+  const canManageVault = isAdmin || isOfficer
+  const [avatarPreview, setAvatarPreview] = useState(null) // { avatar, name, class }
+
+  // Buff system state (Easter egg)
+  const [activeBuffs, setActiveBuffs] = useState({}) // { memberId: { buff, expiresAt } }
+  const buffTimerRef = useRef(null)
 
   const loadMembers = async () => {
     try {
@@ -104,6 +121,47 @@ const MembersTab = () => {
     window.addEventListener('roster-refresh', refresh)
     return () => window.removeEventListener('roster-refresh', refresh)
   }, [])
+
+  // Buff system: randomly apply buffs to members (Easter egg)
+  const applyRandomBuff = useCallback(() => {
+    if (members.length === 0) return
+    const randomMember = members[Math.floor(Math.random() * members.length)]
+    const randomBuff = BUFFS[Math.floor(Math.random() * BUFFS.length)]
+    const expiresAt = Date.now() + randomBuff.duration * 1000
+    setActiveBuffs(prev => ({ ...prev, [randomMember.id]: { buff: randomBuff, expiresAt } }))
+  }, [members])
+
+  // Clear expired buffs
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setActiveBuffs(prev => {
+        const now = Date.now()
+        const updated = {}
+        for (const [id, data] of Object.entries(prev)) {
+          if (data.expiresAt > now) updated[id] = data
+        }
+        return updated
+      })
+    }, 1000)
+    return () => clearInterval(interval)
+  }, [])
+
+  // Schedule random buff every 30-90 seconds
+  useEffect(() => {
+    const scheduleNextBuff = () => {
+      const delay = 30000 + Math.random() * 60000 // 30-90 seconds
+      buffTimerRef.current = setTimeout(() => {
+        applyRandomBuff()
+        scheduleNextBuff()
+      }, delay)
+    }
+    // Initial buff after 10-20 seconds
+    buffTimerRef.current = setTimeout(() => {
+      applyRandomBuff()
+      scheduleNextBuff()
+    }, 10000 + Math.random() * 10000)
+    return () => clearTimeout(buffTimerRef.current)
+  }, [applyRandomBuff])
 
   const handleSort = (field) => {
     if (sortField === field) {
@@ -161,11 +219,6 @@ const MembersTab = () => {
     }
   }
 
-  const handleCreateMember = () => {
-    loadMembers()
-    setCreateModal(false)
-  }
-
   const handleDeleteMember = async () => {
     if (!deleteModal.member) return
     setDeleteLoading(true)
@@ -177,6 +230,19 @@ const MembersTab = () => {
       console.error('Error removing member:', error)
     } finally {
       setDeleteLoading(false)
+    }
+  }
+
+  const handleToggleVault = async (memberId) => {
+    if (!canManageVault) return
+    setVaultLoading(memberId)
+    try {
+      await membersAPI.toggleVault(memberId)
+      loadMembers()
+    } catch (error) {
+      console.error('Error toggling vault:', error)
+    } finally {
+      setVaultLoading(null)
     }
   }
 
@@ -213,15 +279,6 @@ const MembersTab = () => {
             <option value="Healer">{t('healer')}</option>
             <option value="DPS">{t('dps')}</option>
           </select>
-          {isAdmin && (
-            <button
-              onClick={() => setCreateModal(true)}
-              className="px-4 py-2 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-lg hover:shadow-lg transition-all flex items-center gap-2"
-            >
-              <i className="fas fa-user-plus"></i>
-              {t('create_member')}
-            </button>
-          )}
         </div>
       </div>
       <div className="overflow-auto flex-1">
@@ -247,6 +304,9 @@ const MembersTab = () => {
               >
                 DKP<SortIcon field="currentDkp" />
               </th>
+              <th className="text-center py-3 px-4 text-midnight-glow" title={t('weekly_vault')}>
+                <VaultIcon completed={true} size={24} />
+              </th>
               {isAdmin && <th className="text-left py-3 px-4 text-midnight-glow">{t('actions')}</th>}
             </tr>
           </thead>
@@ -265,7 +325,47 @@ const MembersTab = () => {
                         <i className="fas fa-times"></i>
                       </button>
                     )}
-                    <strong style={{ color: CLASS_COLORS[m.characterClass] || '#FFF' }}>{m.characterName}</strong>
+                    {/* Avatar */}
+                    {m.avatar ? (
+                      <img
+                        src={m.avatar}
+                        alt={m.characterName}
+                        className="w-8 h-8 rounded-full object-cover border-2 flex-shrink-0 cursor-pointer hover:scale-110 transition-transform"
+                        style={{ borderColor: CLASS_COLORS[m.characterClass] || '#6B21A8' }}
+                        onClick={(e) => { e.stopPropagation(); setAvatarPreview({ avatar: m.avatar, name: m.characterName, characterClass: m.characterClass }) }}
+                      />
+                    ) : (
+                      <div
+                        className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold border-2 flex-shrink-0"
+                        style={{
+                          borderColor: CLASS_COLORS[m.characterClass] || '#6B21A8',
+                          backgroundColor: `${CLASS_COLORS[m.characterClass] || '#6B21A8'}20`,
+                          color: CLASS_COLORS[m.characterClass] || '#FFF'
+                        }}
+                      >
+                        {m.characterName?.charAt(0).toUpperCase()}
+                      </div>
+                    )}
+                    <strong
+                      className="cursor-default"
+                      style={{ color: CLASS_COLORS[m.characterClass] || '#FFF' }}
+                    >
+                      {m.characterName}
+                    </strong>
+                    {/* Buff icon (Easter egg) */}
+                    {activeBuffs[m.id] && (
+                      <div
+                        className="ml-2 relative inline-flex animate-pulse"
+                        title={activeBuffs[m.id].buff.name}
+                      >
+                        <img
+                          src={activeBuffs[m.id].buff.icon}
+                          alt={activeBuffs[m.id].buff.name}
+                          className="w-5 h-5 rounded border border-yellow-400"
+                          style={{ boxShadow: `0 0 8px ${activeBuffs[m.id].buff.glow}` }}
+                        />
+                      </div>
+                    )}
                   </div>
                 </td>
                 <td className="py-3 px-4">
@@ -287,7 +387,39 @@ const MembersTab = () => {
                     {m.raidRole || 'DPS'}
                   </span>
                 </td>
-                <td className="py-3 px-4"><strong className="text-midnight-glow text-lg">{m.currentDkp || 0}</strong></td>
+                <td className="py-3 px-4">
+                  <div className="flex items-center gap-1">
+                    <strong className="text-midnight-glow text-lg">{m.currentDkp || 0}</strong>
+                    {m.dkpCap && m.currentDkp >= m.dkpCap && (
+                      <span className="text-xs text-yellow-400" title={t('dkp_cap_reached')}>
+                        <i className="fas fa-crown"></i>
+                      </span>
+                    )}
+                  </div>
+                </td>
+                <td className="py-3 px-4 text-center">
+                  {canManageVault ? (
+                    <button
+                      onClick={() => handleToggleVault(m.id)}
+                      disabled={vaultLoading === m.id}
+                      className="w-8 h-8 rounded flex items-center justify-center transition-all hover:scale-110"
+                      title={m.weeklyVaultCompleted ? t('vault_completed') : t('vault_not_completed')}
+                    >
+                      {vaultLoading === m.id ? (
+                        <i className="fas fa-circle-notch fa-spin text-sm text-midnight-glow"></i>
+                      ) : (
+                        <VaultIcon completed={m.weeklyVaultCompleted} size={28} />
+                      )}
+                    </button>
+                  ) : (
+                    <div
+                      className="w-8 h-8 rounded flex items-center justify-center mx-auto"
+                      title={m.weeklyVaultCompleted ? t('vault_completed') : t('vault_not_completed')}
+                    >
+                      <VaultIcon completed={m.weeklyVaultCompleted} size={28} />
+                    </div>
+                  )}
+                </td>
                 {isAdmin && (
                   <td className="py-3 px-4">
                     <button
@@ -312,14 +444,6 @@ const MembersTab = () => {
           member={adjustModal.member}
           onClose={() => setAdjustModal({ open: false, member: null })}
           onSubmit={handleAdjustSubmit}
-        />
-      )}
-
-      {/* Create Member Modal */}
-      {createModal && (
-        <CreateMemberModal
-          onClose={() => setCreateModal(false)}
-          onSuccess={handleCreateMember}
         />
       )}
 
@@ -354,6 +478,28 @@ const MembersTab = () => {
               </button>
             </div>
           </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Avatar Preview Modal */}
+      {avatarPreview && createPortal(
+        <div
+          className="fixed inset-0 bg-black bg-opacity-90 flex items-center justify-center z-[100] cursor-pointer"
+          onClick={() => setAvatarPreview(null)}
+        >
+          <img
+            src={avatarPreview.avatar}
+            alt=""
+            className="rounded-lg shadow-2xl border-2 border-white border-opacity-20"
+            style={{ maxWidth: '90vw', maxHeight: '90vh', imageRendering: 'auto' }}
+          />
+          <button
+            onClick={() => setAvatarPreview(null)}
+            className="absolute top-4 right-4 w-10 h-10 rounded-full text-white text-opacity-50 hover:text-opacity-100 transition-all flex items-center justify-center text-2xl"
+          >
+            <i className="fas fa-times"></i>
+          </button>
         </div>,
         document.body
       )}

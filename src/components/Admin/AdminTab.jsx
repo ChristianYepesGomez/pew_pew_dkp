@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useLanguage } from '../../hooks/useLanguage'
-import { membersAPI, dkpAPI, warcraftLogsAPI } from '../../services/api'
+import { membersAPI, dkpAPI, warcraftLogsAPI, calendarAPI } from '../../services/api'
+
+const WCL_ICON = 'https://assets.rpglogs.com/img/warcraft/favicon.png'
 
 const CLASS_COLORS = {
   Warrior: '#C79C6E', Paladin: '#F58CBA', Hunter: '#ABD473', Rogue: '#FFF569', Priest: '#FFFFFF',
@@ -23,6 +25,20 @@ const AdminTab = () => {
   const [reportTransactions, setReportTransactions] = useState({})
   const [revertConfirm, setRevertConfirm] = useState(null)
   const [reverting, setReverting] = useState(false)
+  // Raid days state
+  const [raidDays, setRaidDays] = useState([])
+  const [raidDaysLoading, setRaidDaysLoading] = useState(true)
+  const [raidDaysSaving, setRaidDaysSaving] = useState(false)
+
+  const DAY_NAMES = {
+    1: { es: 'Lunes', en: 'Monday' },
+    2: { es: 'Martes', en: 'Tuesday' },
+    3: { es: 'Miércoles', en: 'Wednesday' },
+    4: { es: 'Jueves', en: 'Thursday' },
+    5: { es: 'Viernes', en: 'Friday' },
+    6: { es: 'Sábado', en: 'Saturday' },
+    7: { es: 'Domingo', en: 'Sunday' },
+  }
 
   const showNotification = (type, message) => {
     setNotification({ type, message })
@@ -77,6 +93,7 @@ const AdminTab = () => {
         region: wclPreview.report.region,
         guildName: wclPreview.report.guildName,
         participants: wclPreview.participants,
+        fights: wclPreview.report.fights || [],
       })
       showNotification('success', t('dkp_applied_from_wcl'))
       setWclUrl('')
@@ -91,7 +108,63 @@ const AdminTab = () => {
 
   useEffect(() => {
     loadWclHistory()
+    loadRaidDays()
   }, [])
+
+  const loadRaidDays = async () => {
+    setRaidDaysLoading(true)
+    try {
+      const res = await calendarAPI.getAllRaidDays()
+      // Create all 7 days with their current status
+      const allDays = [1, 2, 3, 4, 5, 6, 7].map(dayOfWeek => {
+        const existing = res.data.find(d => d.day_of_week === dayOfWeek)
+        return {
+          dayOfWeek,
+          isActive: existing?.is_active === 1,
+          raidTime: existing?.raid_time || '20:00',
+        }
+      })
+      setRaidDays(allDays)
+    } catch (error) {
+      console.error('Error loading raid days:', error)
+    } finally {
+      setRaidDaysLoading(false)
+    }
+  }
+
+  const toggleRaidDay = (dayOfWeek) => {
+    setRaidDays(prev =>
+      prev.map(day =>
+        day.dayOfWeek === dayOfWeek ? { ...day, isActive: !day.isActive } : day
+      )
+    )
+  }
+
+  const updateRaidTime = (dayOfWeek, time) => {
+    setRaidDays(prev =>
+      prev.map(day =>
+        day.dayOfWeek === dayOfWeek ? { ...day, raidTime: time } : day
+      )
+    )
+  }
+
+  const saveRaidDays = async () => {
+    setRaidDaysSaving(true)
+    try {
+      const activeDays = raidDays
+        .filter(d => d.isActive)
+        .map(d => ({
+          dayOfWeek: d.dayOfWeek,
+          raidTime: d.raidTime,
+        }))
+      await calendarAPI.updateRaidDays(activeDays)
+      showNotification('success', t('raid_days_saved'))
+    } catch (error) {
+      showNotification('error', error.response?.data?.error || 'Error')
+    } finally {
+      setRaidDaysSaving(false)
+    }
+  }
 
   const loadWclHistory = async () => {
     try {
@@ -170,7 +243,7 @@ const AdminTab = () => {
 
       {/* Warcraft Logs */}
       <div className="info-card">
-        <h3><i className="fas fa-scroll mr-3"></i>{t('wcl_integration')}</h3>
+        <h3><img src={WCL_ICON} alt="WCL" className="inline-block mr-3 w-6 h-6" />{t('wcl_integration')}</h3>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-4">
           <input type="text" value={wclUrl} onChange={(e) => setWclUrl(e.target.value)} placeholder={t('wcl_url')} className="md:col-span-3 px-4 py-3 rounded-lg bg-midnight-spaceblue border border-midnight-bright-purple text-midnight-silver focus:outline-none focus:ring-2 focus:ring-midnight-glow" />
           <button onClick={handleWclPreview} disabled={loading} className="px-6 py-3 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg font-bold disabled:opacity-50">
@@ -181,7 +254,7 @@ const AdminTab = () => {
         {wclPreview && (
           <div className="mt-6 space-y-4">
             <div className="bg-blue-900 bg-opacity-50 rounded-lg p-4">
-              <h6 className="font-bold mb-2"><i className="fas fa-scroll mr-2"></i>{wclPreview.report.title}</h6>
+              <h6 className="font-bold mb-2"><img src={WCL_ICON} alt="WCL" className="inline-block mr-2 w-5 h-5" />{wclPreview.report.title}</h6>
               <p>{t('bosses')}: {wclPreview.report.bossesKilled}/{wclPreview.report.totalBosses} | {t('participants')}: {wclPreview.report.participantCount} | {t('dkp_per_player')}: {dkpPerPlayer}</p>
             </div>
 
@@ -249,7 +322,7 @@ const AdminTab = () => {
                   className="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-midnight-purple hover:bg-opacity-20 transition-all"
                   onClick={() => handleExpandReport(report.report_code)}
                 >
-                  <i className={`fas fa-scroll ${report.is_reverted ? 'text-red-400' : 'text-orange-400'}`}></i>
+                  <img src={WCL_ICON} alt="WCL" className={`inline-block w-5 h-5 ${report.is_reverted ? 'opacity-40 grayscale' : ''}`} />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <span className="font-semibold text-white text-sm truncate">{report.report_title}</span>
@@ -306,6 +379,64 @@ const AdminTab = () => {
           </div>
         )}
       </div>
+
+      {/* Raid Days Configuration - Hidden for now, keeping code for future use */}
+      {false && (
+      <div className="info-card">
+        <h3><i className="fas fa-calendar-alt mr-3"></i>{t('raid_schedule')}</h3>
+        {raidDaysLoading ? (
+          <div className="text-center py-8"><i className="fas fa-circle-notch fa-spin text-2xl text-midnight-glow"></i></div>
+        ) : (
+          <div className="mt-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              {raidDays.map(day => (
+                <div
+                  key={day.dayOfWeek}
+                  className={`rounded-lg border p-4 transition-all cursor-pointer ${
+                    day.isActive
+                      ? 'border-midnight-glow bg-midnight-glow bg-opacity-10'
+                      : 'border-midnight-bright-purple border-opacity-30 bg-midnight-purple bg-opacity-10'
+                  }`}
+                  onClick={() => toggleRaidDay(day.dayOfWeek)}
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <span className={`font-bold ${day.isActive ? 'text-midnight-glow' : 'text-midnight-silver'}`}>
+                      {DAY_NAMES[day.dayOfWeek]?.[t('lang_code') || 'en'] || DAY_NAMES[day.dayOfWeek]?.en}
+                    </span>
+                    <div className={`w-5 h-5 rounded-full flex items-center justify-center ${
+                      day.isActive ? 'bg-midnight-glow' : 'bg-gray-600'
+                    }`}>
+                      {day.isActive && <i className="fas fa-check text-white text-xs"></i>}
+                    </div>
+                  </div>
+                  {day.isActive && (
+                    <div onClick={(e) => e.stopPropagation()}>
+                      <input
+                        type="time"
+                        value={day.raidTime}
+                        onChange={(e) => updateRaidTime(day.dayOfWeek, e.target.value)}
+                        className="w-full px-3 py-2 rounded-lg bg-midnight-spaceblue border border-midnight-bright-purple border-opacity-30 text-white text-sm focus:outline-none focus:border-midnight-glow"
+                      />
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+            <button
+              onClick={saveRaidDays}
+              disabled={raidDaysSaving}
+              className="mt-4 px-6 py-3 bg-midnight-bright-purple hover:bg-opacity-80 text-white rounded-lg font-bold disabled:opacity-50 transition-all"
+            >
+              {raidDaysSaving ? (
+                <><i className="fas fa-circle-notch fa-spin mr-2"></i>{t('loading')}...</>
+              ) : (
+                <><i className="fas fa-save mr-2"></i>{t('save_raid_days')}</>
+              )}
+            </button>
+          </div>
+        )}
+      </div>
+      )}
 
       {/* Revert Confirmation Dialog */}
       {revertConfirm && (

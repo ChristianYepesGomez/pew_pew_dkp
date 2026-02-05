@@ -3,6 +3,9 @@ import { createPortal } from 'react-dom'
 import { useAuth } from '../../hooks/useAuth'
 import { useLanguage } from '../../hooks/useLanguage'
 import { dkpAPI, authAPI, charactersAPI, blizzardAPI } from '../../services/api'
+import WowheadTooltip from '../Common/WowheadTooltip'
+
+const TABS = ['profile', 'characters', 'dkp']
 
 const CLASS_COLORS = {
   Warrior: '#C79C6E', Paladin: '#F58CBA', Hunter: '#ABD473', Rogue: '#FFF569', Priest: '#FFFFFF',
@@ -68,31 +71,77 @@ const CLASS_SPECS = {
   Evoker: { specs: ['Devastation', 'Preservation', 'Augmentation'], defaultRoles: ['DPS', 'Healer', 'DPS'] },
 }
 
-const CLASSES = Object.keys(CLASS_SPECS)
+const RARITY_COLORS = {
+  common: '#9d9d9d', uncommon: '#1eff00', rare: '#0070dd',
+  epic: '#a335ee', legendary: '#ff8000',
+}
+
+// CLASSES removed - manual character creation disabled, only Blizzard import allowed
+
+// Compress and resize image to reduce DB storage (max 50KB, 150x150px)
+const compressImage = (file, maxSize = 150, maxBytes = 50 * 1024) => {
+  return new Promise((resolve, reject) => {
+    const img = new Image()
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      img.src = e.target.result
+      img.onload = () => {
+        const canvas = document.createElement('canvas')
+        let width = img.width
+        let height = img.height
+        // Resize to fit within maxSize x maxSize
+        if (width > height) {
+          if (width > maxSize) { height = Math.round(height * maxSize / width); width = maxSize }
+        } else {
+          if (height > maxSize) { width = Math.round(width * maxSize / height); height = maxSize }
+        }
+        canvas.width = width
+        canvas.height = height
+        const ctx = canvas.getContext('2d')
+        ctx.drawImage(img, 0, 0, width, height)
+        // Start with high quality and reduce until under maxBytes
+        let quality = 0.9
+        let dataUrl = canvas.toDataURL('image/jpeg', quality)
+        while (dataUrl.length > maxBytes && quality > 0.1) {
+          quality -= 0.1
+          dataUrl = canvas.toDataURL('image/jpeg', quality)
+        }
+        resolve(dataUrl)
+      }
+      img.onerror = reject
+    }
+    reader.onerror = reject
+    reader.readAsDataURL(file)
+  })
+}
 
 const MyCharacterModal = ({ onClose }) => {
   const { user, refreshUser } = useAuth()
   const { t, language } = useLanguage()
+  const [activeTab, setActiveTab] = useState('profile')
   const [history, setHistory] = useState([])
   const [characters, setCharacters] = useState([])
   const [loading, setLoading] = useState(true)
   const [email, setEmail] = useState(user?.email || '')
   const [emailSaving, setEmailSaving] = useState(false)
   const [emailMsg, setEmailMsg] = useState('')
-  const [showAddForm, setShowAddForm] = useState(false)
-  const [newChar, setNewChar] = useState({
-    characterName: '',
-    characterClass: 'Warrior',
-    spec: 'Arms',
-    raidRole: 'DPS',
-  })
   const [charError, setCharError] = useState('')
-  const [showHistory, setShowHistory] = useState(false)
   const [blizzardChars, setBlizzardChars] = useState([])
   const [blizzardLoading, setBlizzardLoading] = useState(false)
   const [blizzardError, setBlizzardError] = useState('')
   const [selectedChars, setSelectedChars] = useState(new Set())
   const [importing, setImporting] = useState(false)
+  // Password change state
+  const [currentPassword, setCurrentPassword] = useState('')
+  const [newPassword, setNewPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [passwordMsg, setPasswordMsg] = useState('')
+  const [passwordSaving, setPasswordSaving] = useState(false)
+  // Avatar state
+  const [avatarMsg, setAvatarMsg] = useState('')
+  const [avatarSaving, setAvatarSaving] = useState(false)
+  const [avatarHover, setAvatarHover] = useState(false)
+  const avatarInputRef = useCallback(node => { if (node) window._avatarInput = node }, [])
 
   const handleKeyDown = useCallback((e) => {
     if (e.key === 'Escape') onClose()
@@ -137,37 +186,72 @@ const MyCharacterModal = ({ onClose }) => {
     }
   }
 
-  const handleClassChange = (cls) => {
-    const classData = CLASS_SPECS[cls]
-    setNewChar({
-      ...newChar,
-      characterClass: cls,
-      spec: classData.specs[0],
-      raidRole: classData.defaultRoles[0],
-    })
-  }
-
-  const handleSpecChange = (spec) => {
-    const classData = CLASS_SPECS[newChar.characterClass]
-    const idx = classData.specs.indexOf(spec)
-    setNewChar({
-      ...newChar,
-      spec,
-      raidRole: classData.defaultRoles[idx] || 'DPS',
-    })
-  }
-
-  const handleAddCharacter = async () => {
-    if (!newChar.characterName.trim()) return
-    setCharError('')
+  const handleChangePassword = async () => {
+    if (newPassword.length < 6) {
+      setPasswordMsg(t('password_min_length'))
+      return
+    }
+    if (newPassword !== confirmPassword) {
+      setPasswordMsg(t('passwords_dont_match'))
+      return
+    }
+    setPasswordSaving(true)
+    setPasswordMsg('')
     try {
-      await charactersAPI.create(newChar)
-      setShowAddForm(false)
-      setNewChar({ characterName: '', characterClass: 'Warrior', spec: 'Arms', raidRole: 'DPS' })
-      const res = await charactersAPI.getAll()
-      setCharacters(res.data || [])
+      await authAPI.updateProfile({ currentPassword, newPassword })
+      setPasswordMsg(t('password_changed'))
+      setCurrentPassword('')
+      setNewPassword('')
+      setConfirmPassword('')
+      setTimeout(() => setPasswordMsg(''), 3000)
     } catch (error) {
-      setCharError(error.response?.data?.error || 'Error')
+      setPasswordMsg(error.response?.data?.error || 'Error')
+    } finally {
+      setPasswordSaving(false)
+    }
+  }
+
+  const handleAvatarUpload = async (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    // Validate file type
+    const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif']
+    if (!validTypes.includes(file.type)) {
+      setAvatarMsg(t('avatar_invalid_type'))
+      setTimeout(() => setAvatarMsg(''), 3000)
+      return
+    }
+
+    setAvatarSaving(true)
+    setAvatarMsg('')
+
+    try {
+      // Compress and resize image to reduce DB storage (300px max, 100KB max)
+      const compressedDataUrl = await compressImage(file, 300, 100 * 1024)
+      await authAPI.updateProfile({ avatar: compressedDataUrl })
+      await refreshUser()
+      setAvatarMsg(t('avatar_saved'))
+      setTimeout(() => setAvatarMsg(''), 3000)
+    } catch (error) {
+      setAvatarMsg(error.response?.data?.error || 'Error uploading avatar')
+    } finally {
+      setAvatarSaving(false)
+    }
+  }
+
+  const handleRemoveAvatar = async () => {
+    setAvatarSaving(true)
+    setAvatarMsg('')
+    try {
+      await authAPI.updateProfile({ avatar: null })
+      await refreshUser()
+      setAvatarMsg(t('avatar_removed'))
+      setTimeout(() => setAvatarMsg(''), 3000)
+    } catch (error) {
+      setAvatarMsg(error.response?.data?.error || 'Error')
+    } finally {
+      setAvatarSaving(false)
     }
   }
 
@@ -333,14 +417,68 @@ const MyCharacterModal = ({ onClose }) => {
         <div className="p-6 border-b border-midnight-bright-purple border-opacity-30 flex-shrink-0">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <div className="w-16 h-16 rounded-full bg-midnight-purple flex items-center justify-center overflow-hidden border-2" style={{ borderColor: CLASS_COLORS[user?.characterClass] || '#A78BFA' }}>
-                <img src="/logo.png" alt="Profile" className="w-full h-full object-cover" />
+              {/* Editable Avatar */}
+              <div
+                className="relative cursor-pointer group"
+                onMouseEnter={() => setAvatarHover(true)}
+                onMouseLeave={() => setAvatarHover(false)}
+              >
+                <div
+                  className="w-16 h-16 rounded-full bg-midnight-purple flex items-center justify-center overflow-hidden border-2 transition-all group-hover:border-midnight-glow"
+                  style={{ borderColor: avatarHover ? undefined : (CLASS_COLORS[user?.characterClass] || '#A78BFA') }}
+                  onClick={() => window._avatarInput?.click()}
+                >
+                  {user?.avatar ? (
+                    <img src={user.avatar} alt="Avatar" className="w-full h-full object-cover" />
+                  ) : (
+                    <img src="/logo.png" alt="Default" className="w-full h-full object-cover" />
+                  )}
+                </div>
+                {/* Hover overlay with pencil */}
+                <div
+                  className={`absolute inset-0 rounded-full bg-black bg-opacity-50 flex items-center justify-center transition-opacity ${avatarHover ? 'opacity-100' : 'opacity-0'}`}
+                  onClick={() => window._avatarInput?.click()}
+                >
+                  {avatarSaving ? (
+                    <i className="fas fa-spinner fa-spin text-white text-lg"></i>
+                  ) : (
+                    <i className="fas fa-pencil-alt text-white text-lg"></i>
+                  )}
+                </div>
+                {/* Delete button on hover (only if avatar exists) */}
+                {user?.avatar && !avatarSaving && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); handleRemoveAvatar() }}
+                    className={`absolute -top-1 -right-1 w-5 h-5 rounded-full bg-red-500 hover:bg-red-400 flex items-center justify-center transition-all ${avatarHover ? 'opacity-100 scale-100' : 'opacity-0 scale-75'}`}
+                    title={t('remove_avatar')}
+                  >
+                    <i className="fas fa-times text-white text-xs"></i>
+                  </button>
+                )}
+                {/* Hidden file input */}
+                <input
+                  ref={avatarInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/gif"
+                  onChange={handleAvatarUpload}
+                  disabled={avatarSaving}
+                  className="hidden"
+                />
               </div>
               <div>
-                <h3 className="text-2xl font-cinzel font-bold m-0" style={{ color: CLASS_COLORS[user?.characterClass] || '#FFF' }}>
-                  {user?.characterName}
+                <h3 className="text-2xl font-cinzel font-bold m-0" style={{ color: user?.characterClass ? (CLASS_COLORS[user.characterClass] || '#A78BFA') : '#A78BFA' }}>
+                  {user?.characterName || user?.username}
                 </h3>
-                <p className="text-midnight-silver m-0">{user?.characterClass} - {user?.spec || '-'}</p>
+                {user?.characterClass ? (
+                  <p className="text-midnight-silver m-0">{user?.characterClass} - {user?.spec || '-'}</p>
+                ) : (
+                  <p className="text-midnight-silver m-0">{t('no_character')}</p>
+                )}
+                {avatarMsg && (
+                  <p className={`text-xs m-0 ${avatarMsg === t('avatar_saved') || avatarMsg === t('avatar_removed') ? 'text-green-400' : 'text-red-400'}`}>
+                    {avatarMsg}
+                  </p>
+                )}
               </div>
             </div>
             <button onClick={onClose} className="text-gray-400 hover:text-white text-2xl">
@@ -349,61 +487,109 @@ const MyCharacterModal = ({ onClose }) => {
           </div>
         </div>
 
+        {/* Tab Navigation */}
+        <div className="flex border-b border-midnight-bright-purple border-opacity-30 flex-shrink-0">
+          {TABS.map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={`flex-1 py-3 px-4 text-sm font-semibold transition-all ${
+                activeTab === tab
+                  ? 'text-midnight-glow border-b-2 border-midnight-glow bg-midnight-purple bg-opacity-20'
+                  : 'text-midnight-silver hover:text-white hover:bg-midnight-purple hover:bg-opacity-10'
+              }`}
+            >
+              <i className={`fas ${tab === 'profile' ? 'fa-user' : tab === 'characters' ? 'fa-users' : 'fa-coins'} mr-2`}></i>
+              {t(`tab_${tab}`)}
+            </button>
+          ))}
+        </div>
+
         {/* Scrollable content */}
         <div className="flex-1 overflow-auto">
-          {/* Stats */}
-          <div className="p-6 border-b border-midnight-bright-purple border-opacity-30">
-            <div className="grid grid-cols-3 gap-4">
-              <div className="bg-midnight-purple bg-opacity-30 rounded-xl p-4 text-center">
-                <p className="text-xs text-midnight-silver m-0 mb-1">{t('current_dkp')}</p>
-                <p className="text-3xl font-bold text-midnight-glow m-0">{user?.currentDkp || 0}</p>
+          {/* ========== PROFILE TAB ========== */}
+          {activeTab === 'profile' && (
+            <>
+              {/* Email Section */}
+              <div className="p-6 border-b border-midnight-bright-purple border-opacity-30">
+                <h4 className="text-sm font-cinzel text-midnight-glow mb-3">
+                  <i className="fas fa-envelope mr-2"></i>{t('email')}
+                </h4>
+                <div className="flex gap-2">
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder={t('email_placeholder')}
+                    className="flex-1 bg-midnight-purple bg-opacity-30 border border-midnight-bright-purple border-opacity-30 rounded-lg px-3 py-2 text-white text-sm placeholder-gray-500 focus:outline-none focus:border-midnight-glow"
+                  />
+                  <button
+                    onClick={handleSaveEmail}
+                    disabled={emailSaving}
+                    className="px-4 py-2 rounded-lg bg-midnight-bright-purple text-white text-sm font-bold hover:bg-opacity-80 transition-all disabled:opacity-50"
+                  >
+                    {emailSaving ? <i className="fas fa-spinner fa-spin"></i> : t('save')}
+                  </button>
+                </div>
+                {emailMsg && (
+                  <p className={`text-xs mt-2 ${emailMsg === t('email_saved') ? 'text-green-400' : 'text-red-400'}`}>
+                    {emailMsg}
+                  </p>
+                )}
               </div>
-              <div className="bg-midnight-purple bg-opacity-30 rounded-xl p-4 text-center">
-                <p className="text-xs text-midnight-silver m-0 mb-1">{t('total_gained')}</p>
-                <p className="text-2xl font-bold text-green-400 m-0">+{user?.lifetimeGained || 0}</p>
-              </div>
-              <div className="bg-midnight-purple bg-opacity-30 rounded-xl p-4 text-center">
-                <p className="text-xs text-midnight-silver m-0 mb-1">{t('total_spent')}</p>
-                <p className="text-2xl font-bold text-red-400 m-0">-{user?.lifetimeSpent || 0}</p>
-              </div>
-            </div>
-          </div>
 
-          {/* Email Section */}
-          <div className="p-6 border-b border-midnight-bright-purple border-opacity-30">
-            <h4 className="text-sm font-cinzel text-midnight-glow mb-3">
-              <i className="fas fa-envelope mr-2"></i>{t('email')}
-            </h4>
-            <div className="flex gap-2">
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder={t('email_placeholder')}
-                className="flex-1 bg-midnight-purple bg-opacity-30 border border-midnight-bright-purple border-opacity-30 rounded-lg px-3 py-2 text-white text-sm placeholder-gray-500 focus:outline-none focus:border-midnight-glow"
-              />
-              <button
-                onClick={handleSaveEmail}
-                disabled={emailSaving}
-                className="px-4 py-2 rounded-lg bg-midnight-bright-purple text-white text-sm font-bold hover:bg-opacity-80 transition-all disabled:opacity-50"
-              >
-                {emailSaving ? <i className="fas fa-spinner fa-spin"></i> : t('save')}
-              </button>
-            </div>
-            {emailMsg && (
-              <p className={`text-xs mt-2 ${emailMsg === t('email_saved') ? 'text-green-400' : 'text-red-400'}`}>
-                {emailMsg}
-              </p>
-            )}
-          </div>
+              {/* Password Change Section */}
+              <div className="p-6">
+                <h4 className="text-sm font-cinzel text-midnight-glow mb-3">
+                  <i className="fas fa-key mr-2"></i>{t('change_password')}
+                </h4>
+                <div className="space-y-3">
+                  <input
+                    type="password"
+                    value={currentPassword}
+                    onChange={(e) => setCurrentPassword(e.target.value)}
+                    placeholder={t('current_password')}
+                    className="w-full bg-midnight-purple bg-opacity-30 border border-midnight-bright-purple border-opacity-30 rounded-lg px-3 py-2 text-white text-sm placeholder-gray-500 focus:outline-none focus:border-midnight-glow"
+                  />
+                  <input
+                    type="password"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    placeholder={t('new_password')}
+                    className="w-full bg-midnight-purple bg-opacity-30 border border-midnight-bright-purple border-opacity-30 rounded-lg px-3 py-2 text-white text-sm placeholder-gray-500 focus:outline-none focus:border-midnight-glow"
+                  />
+                  <input
+                    type="password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    placeholder={t('confirm_password')}
+                    className="w-full bg-midnight-purple bg-opacity-30 border border-midnight-bright-purple border-opacity-30 rounded-lg px-3 py-2 text-white text-sm placeholder-gray-500 focus:outline-none focus:border-midnight-glow"
+                  />
+                  <button
+                    onClick={handleChangePassword}
+                    disabled={passwordSaving || !currentPassword || !newPassword || !confirmPassword}
+                    className="w-full py-2 rounded-lg bg-gradient-to-r from-midnight-purple to-midnight-bright-purple text-white text-sm font-bold hover:shadow-lg transition-all disabled:opacity-50"
+                  >
+                    {passwordSaving ? <i className="fas fa-spinner fa-spin mr-2"></i> : <i className="fas fa-save mr-2"></i>}
+                    {t('change_password')}
+                  </button>
+                </div>
+                {passwordMsg && (
+                  <p className={`text-xs mt-2 ${passwordMsg === t('password_changed') ? 'text-green-400' : 'text-red-400'}`}>
+                    {passwordMsg}
+                  </p>
+                )}
+              </div>
+            </>
+          )}
 
-          {/* Characters Section */}
-          <div className="p-6 border-b border-midnight-bright-purple border-opacity-30">
-            <div className="flex items-center justify-between mb-3">
-              <h4 className="text-sm font-cinzel text-midnight-glow m-0">
-                <i className="fas fa-users mr-2"></i>{t('my_characters')}
-              </h4>
-              <div className="flex gap-2">
+          {/* ========== CHARACTERS TAB ========== */}
+          {activeTab === 'characters' && (
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-3">
+                <h4 className="text-sm font-cinzel text-midnight-glow m-0">
+                  <i className="fas fa-users mr-2"></i>{t('my_characters')}
+                </h4>
                 <button
                   onClick={handleBlizzardImport}
                   disabled={blizzardLoading}
@@ -416,15 +602,7 @@ const MyCharacterModal = ({ onClose }) => {
                     <><i className="fas fa-download mr-1"></i>{t('import_from_blizzard')}</>
                   )}
                 </button>
-                <button
-                  onClick={() => setShowAddForm(!showAddForm)}
-                  className="text-xs px-3 py-1 rounded-lg bg-midnight-purple bg-opacity-50 text-midnight-glow hover:bg-opacity-70 transition-all"
-                >
-                  <i className={`fas ${showAddForm ? 'fa-minus' : 'fa-plus'} mr-1`}></i>
-                  {t('add_character')}
-                </button>
               </div>
-            </div>
 
             {charError && (
               <p className={`text-xs mb-2 ${charError.includes(t('characters_imported')) ? 'text-green-400' : 'text-red-400'}`}>{charError}</p>
@@ -486,52 +664,11 @@ const MyCharacterModal = ({ onClose }) => {
               </div>
             )}
 
-            {/* Add Character Form */}
-            {showAddForm && (
-              <div className="bg-midnight-purple bg-opacity-20 rounded-lg p-3 mb-3 space-y-2">
-                <input
-                  type="text"
-                  value={newChar.characterName}
-                  onChange={(e) => setNewChar({ ...newChar, characterName: e.target.value })}
-                  placeholder={t('character_name')}
-                  className="w-full bg-midnight-purple bg-opacity-30 border border-midnight-bright-purple border-opacity-30 rounded-lg px-3 py-2 text-white text-sm placeholder-gray-500 focus:outline-none focus:border-midnight-glow"
-                />
-                <div className="grid grid-cols-3 gap-2">
-                  <select
-                    value={newChar.characterClass}
-                    onChange={(e) => handleClassChange(e.target.value)}
-                    className="bg-midnight-purple border border-midnight-bright-purple border-opacity-30 rounded-lg px-2 py-2 text-white text-sm focus:outline-none"
-                  >
-                    {CLASSES.map(cls => (
-                      <option key={cls} value={cls} style={{ color: CLASS_COLORS[cls] }}>{cls}</option>
-                    ))}
-                  </select>
-                  <select
-                    value={newChar.spec}
-                    onChange={(e) => handleSpecChange(e.target.value)}
-                    className="bg-midnight-purple border border-midnight-bright-purple border-opacity-30 rounded-lg px-2 py-2 text-white text-sm focus:outline-none"
-                  >
-                    {CLASS_SPECS[newChar.characterClass].specs.map(spec => (
-                      <option key={spec} value={spec}>{spec}</option>
-                    ))}
-                  </select>
-                  <select
-                    value={newChar.raidRole}
-                    onChange={(e) => setNewChar({ ...newChar, raidRole: e.target.value })}
-                    className="bg-midnight-purple border border-midnight-bright-purple border-opacity-30 rounded-lg px-2 py-2 text-white text-sm focus:outline-none"
-                  >
-                    <option value="Tank">Tank</option>
-                    <option value="Healer">Healer</option>
-                    <option value="DPS">DPS</option>
-                  </select>
-                </div>
-                <button
-                  onClick={handleAddCharacter}
-                  disabled={!newChar.characterName.trim()}
-                  className="w-full py-2 rounded-lg bg-gradient-to-r from-midnight-purple to-midnight-bright-purple text-white text-sm font-bold hover:shadow-lg transition-all disabled:opacity-50"
-                >
-                  <i className="fas fa-plus mr-1"></i>{t('create')}
-                </button>
+            {/* Blizzard import hint when no characters */}
+            {characters.length === 0 && !blizzardLoading && blizzardChars.length === 0 && (
+              <div className="bg-blue-900 bg-opacity-10 border border-blue-700 border-opacity-20 rounded-lg p-4 mb-3 text-center">
+                <i className="fas fa-info-circle text-blue-400 text-lg mb-2"></i>
+                <p className="text-sm text-midnight-silver m-0">{t('blizzard_import_hint')}</p>
               </div>
             )}
 
@@ -599,44 +736,84 @@ const MyCharacterModal = ({ onClose }) => {
               </div>
             )}
           </div>
+          )}
 
-          {/* DKP History (collapsible) */}
-          <div className="p-6">
-            <button
-              onClick={() => setShowHistory(!showHistory)}
-              className="flex items-center gap-2 text-sm font-cinzel text-midnight-glow mb-3 hover:text-white transition-all"
-            >
-              <i className={`fas fa-chevron-${showHistory ? 'down' : 'right'} text-xs`}></i>
-              <i className="fas fa-history"></i>
-              {t('my_dkp_history')}
-              <span className="text-xs text-midnight-silver font-sans">({history.length})</span>
-            </button>
-            {showHistory && (
-              loading ? (
-                <div className="text-center py-4">
-                  <i className="fas fa-circle-notch fa-spin text-2xl text-midnight-glow"></i>
+          {/* ========== DKP TAB ========== */}
+          {activeTab === 'dkp' && (
+            <>
+              {/* Stats */}
+              <div className="p-6 border-b border-midnight-bright-purple border-opacity-30">
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="bg-midnight-purple bg-opacity-30 rounded-xl p-4 text-center">
+                    <p className="text-xs text-midnight-silver m-0 mb-1">{t('current_dkp')}</p>
+                    <p className="text-3xl font-bold text-midnight-glow m-0">{user?.currentDkp || 0}</p>
+                  </div>
+                  <div className="bg-midnight-purple bg-opacity-30 rounded-xl p-4 text-center">
+                    <p className="text-xs text-midnight-silver m-0 mb-1">{t('total_gained')}</p>
+                    <p className="text-2xl font-bold text-green-400 m-0">+{user?.lifetimeGained || 0}</p>
+                  </div>
+                  <div className="bg-midnight-purple bg-opacity-30 rounded-xl p-4 text-center">
+                    <p className="text-xs text-midnight-silver m-0 mb-1">{t('total_spent')}</p>
+                    <p className="text-2xl font-bold text-red-400 m-0">-{user?.lifetimeSpent || 0}</p>
+                  </div>
                 </div>
-              ) : history.length === 0 ? (
-                <p className="text-center text-gray-400 py-4 text-sm">{t('no_transactions')}</p>
-              ) : (
-                <div className="space-y-2 max-h-60 overflow-auto">
-                  {history.map((tx) => (
-                    <div key={tx.id} className="bg-midnight-purple bg-opacity-20 rounded-lg p-3 flex items-center justify-between">
-                      <div className="flex-1 min-w-0">
-                        <p className="text-white text-sm m-0 truncate">{tx.reason}</p>
-                        <p className="text-xs text-midnight-silver m-0">
-                          {formatDate(tx.createdAt || tx.created_at)}
-                        </p>
+              </div>
+
+              {/* DKP History */}
+              <div className="p-6">
+                <h4 className="text-sm font-cinzel text-midnight-glow mb-3">
+                  <i className="fas fa-history mr-2"></i>{t('my_dkp_history')}
+                  <span className="text-xs text-midnight-silver font-sans ml-2">({history.length})</span>
+                </h4>
+                {loading ? (
+                  <div className="text-center py-4">
+                    <i className="fas fa-circle-notch fa-spin text-2xl text-midnight-glow"></i>
+                  </div>
+                ) : history.length === 0 ? (
+                  <p className="text-center text-gray-400 py-4 text-sm">{t('no_transactions')}</p>
+                ) : (
+                  <div className="space-y-2 max-h-80 overflow-auto">
+                    {history.map((tx) => (
+                      <div key={tx.id} className="bg-midnight-purple bg-opacity-20 rounded-lg p-3 flex items-center gap-3">
+                        {/* Item icon (if auction transaction) with Wowhead tooltip */}
+                        {tx.auctionItem ? (
+                          <WowheadTooltip itemId={tx.auctionItem.itemId}>
+                            <div
+                              className="w-9 h-9 rounded-lg bg-midnight-purple flex items-center justify-center flex-shrink-0 border overflow-hidden cursor-help"
+                              style={{ borderColor: RARITY_COLORS[tx.auctionItem.rarity] || RARITY_COLORS.epic }}
+                            >
+                              {tx.auctionItem.image && tx.auctionItem.image !== '🎁' ? (
+                                <img src={tx.auctionItem.image} alt="" className="w-full h-full object-cover" />
+                              ) : (
+                                <i className="fas fa-gavel text-sm" style={{ color: RARITY_COLORS[tx.auctionItem.rarity] || RARITY_COLORS.epic }}></i>
+                              )}
+                            </div>
+                          </WowheadTooltip>
+                        ) : null}
+                        <div className="flex-1 min-w-0">
+                          {tx.auctionItem ? (
+                            <WowheadTooltip itemId={tx.auctionItem.itemId}>
+                              <p className="text-sm font-bold m-0 truncate cursor-help" style={{ color: RARITY_COLORS[tx.auctionItem.rarity] || '#fff' }}>
+                                {tx.auctionItem.name}
+                              </p>
+                            </WowheadTooltip>
+                          ) : (
+                            <p className="text-white text-sm m-0 truncate">{tx.reason}</p>
+                          )}
+                          <p className="text-xs text-midnight-silver m-0">
+                            {formatDate(tx.createdAt || tx.created_at)}
+                          </p>
+                        </div>
+                        <span className={`font-bold text-lg flex-shrink-0 ml-2 ${tx.amount >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                          {tx.amount >= 0 ? '+' : ''}{tx.amount}
+                        </span>
                       </div>
-                      <span className={`font-bold text-lg flex-shrink-0 ml-2 ${tx.amount >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                        {tx.amount >= 0 ? '+' : ''}{tx.amount}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              )
-            )}
-          </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </>
+          )}
         </div>
 
         {/* Footer */}

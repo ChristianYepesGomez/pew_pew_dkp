@@ -3,12 +3,13 @@ import { createPortal } from 'react-dom'
 import { useAuth } from '../../hooks/useAuth'
 import { useLanguage } from '../../hooks/useLanguage'
 import { calendarAPI, warcraftLogsAPI } from '../../services/api'
+import CLASS_COLORS from '../../utils/classColors'
 
-const CLASS_COLORS = {
-  Warrior: '#C79C6E', Paladin: '#F58CBA', Hunter: '#ABD473', Rogue: '#FFF569', Priest: '#FFFFFF',
-  Shaman: '#0070DE', Mage: '#40C7EB', Warlock: '#8788EE', Druid: '#FF7D0A', 'Death Knight': '#C41F3B',
-  DeathKnight: '#C41F3B', DemonHunter: '#A330C9', Monk: '#00FF96', Evoker: '#33937F',
-}
+const WCL_ICON = 'https://assets.rpglogs.com/img/warcraft/favicon.png'
+
+const WclIcon = ({ size = 16, className = '', opacity = '' }) => (
+  <img src={WCL_ICON} alt="WCL" width={size} height={size} className={`inline-block ${opacity} ${className}`} style={{ imageRendering: 'auto' }} />
+)
 
 const STATUS_CONFIG = {
   confirmed: {
@@ -49,8 +50,51 @@ const CalendarTab = () => {
   const [overview, setOverview] = useState(null)
   const [wclData, setWclData] = useState({})
   const [wclModal, setWclModal] = useState(null)
+  const [showHistory, setShowHistory] = useState(false)
+  const [raidHistory, setRaidHistory] = useState([])
+  const [loadingHistory, setLoadingHistory] = useState(false)
+  const [inlineAttendance, setInlineAttendance] = useState({}) // For full-size card inline display
+  const [bannerDismissed, setBannerDismissed] = useState(false)
+  const [cutoffBannerDismissed, setCutoffBannerDismissed] = useState(false)
 
   const isAdmin = user?.role === 'admin' || user?.role === 'officer'
+
+  // Get current raid week key (Wednesday-based reset)
+  const getCurrentRaidWeek = () => {
+    const now = new Date()
+    const dayOfWeek = now.getDay() // 0=Sun, 3=Wed
+    const daysToLastWednesday = (dayOfWeek + 4) % 7 // Days since last Wednesday
+    const lastWednesday = new Date(now)
+    lastWednesday.setDate(now.getDate() - daysToLastWednesday)
+    lastWednesday.setHours(0, 0, 0, 0)
+    return lastWednesday.toISOString().split('T')[0]
+  }
+
+  // Check if banner was dismissed this week
+  useEffect(() => {
+    const raidWeek = getCurrentRaidWeek()
+    const dismissedWeek = localStorage.getItem('unconfirmed_banner_dismissed')
+    if (dismissedWeek === raidWeek) {
+      setBannerDismissed(true)
+    }
+    // Check if cutoff banner was dismissed permanently
+    if (localStorage.getItem('cutoff_banner_dismissed') === 'true') {
+      setCutoffBannerDismissed(true)
+    }
+  }, [])
+
+  const dismissBanner = (e) => {
+    e.stopPropagation()
+    const raidWeek = getCurrentRaidWeek()
+    localStorage.setItem('unconfirmed_banner_dismissed', raidWeek)
+    setBannerDismissed(true)
+  }
+
+  const dismissCutoffBanner = (e) => {
+    e.stopPropagation()
+    localStorage.setItem('cutoff_banner_dismissed', 'true')
+    setCutoffBannerDismissed(true)
+  }
 
   useEffect(() => {
     loadSignups()
@@ -58,7 +102,7 @@ const CalendarTab = () => {
   }, [])
 
   useEffect(() => {
-    if (adminView && isAdmin) {
+    if (adminView) {
       loadOverview()
     }
   }, [adminView])
@@ -107,6 +151,47 @@ const CalendarTab = () => {
       console.error('Error loading WCL data:', error)
     }
   }
+
+  const loadRaidHistory = async () => {
+    try {
+      setLoadingHistory(true)
+      const response = await calendarAPI.getHistory(8)
+      setRaidHistory(response.data || [])
+    } catch (error) {
+      console.error('Error loading raid history:', error)
+    } finally {
+      setLoadingHistory(false)
+    }
+  }
+
+  useEffect(() => {
+    if (showHistory && raidHistory.length === 0) {
+      loadRaidHistory()
+    }
+  }, [showHistory])
+
+  // Auto-load attendance for full-size cards (single day in week)
+  useEffect(() => {
+    const loadInlineAttendance = async () => {
+      // Find weeks with only 1 day (full-size cards)
+      for (const [weekKey, weekSignups] of groupedSignups) {
+        if (weekSignups.length === 1) {
+          const date = weekSignups[0].date
+          if (!inlineAttendance[date]) {
+            try {
+              const response = await calendarAPI.getSummary(date)
+              setInlineAttendance(prev => ({ ...prev, [date]: response.data }))
+            } catch (error) {
+              console.error('Error loading inline attendance:', error)
+            }
+          }
+        }
+      }
+    }
+    if (!loading && signups.length > 0) {
+      loadInlineAttendance()
+    }
+  }, [signups, loading])
 
   const openSummary = async (date) => {
     try {
@@ -183,19 +268,62 @@ const CalendarTab = () => {
     }
   }
 
-  // Group signups by week
-  const groupedSignups = signups.reduce((acc, signup) => {
-    const date = new Date(signup.date + 'T00:00:00')
+  // Group signups by raid week: Mon → Wed → Thu (week ENDS on Thursday)
+  // Only show 2 raid weeks maximum
+  const groupedSignups = (() => {
+    // Sort all signups by date first
+    const sortedSignups = [...signups].sort((a, b) => a.date.localeCompare(b.date))
+
+    // Helper: get the Thursday that ends this raid week
+    const getRaidWeekEndThursday = (dateStr) => {
+      const d = new Date(dateStr + 'T00:00:00')
+      const dayOfWeek = d.getDay() // 0=Sun, 1=Mon, 3=Wed, 4=Thu
+      const thursdayDate = new Date(d)
+
+      if (dayOfWeek === 1) {
+        // Monday -> Thursday is +3 days
+        thursdayDate.setDate(thursdayDate.getDate() + 3)
+      } else if (dayOfWeek === 3) {
+        // Wednesday -> Thursday is +1 day
+        thursdayDate.setDate(thursdayDate.getDate() + 1)
+      }
+      // Thursday (4) stays as-is
+
+      return thursdayDate.toISOString().split('T')[0]
+    }
+
+    // Group by raid week (keyed by the Thursday that ends the week)
+    const weekMap = new Map()
+    for (const signup of sortedSignups) {
+      const weekKey = getRaidWeekEndThursday(signup.date)
+      if (!weekMap.has(weekKey)) {
+        weekMap.set(weekKey, [])
+      }
+      weekMap.get(weekKey).push(signup)
+    }
+
+    // Convert to array, sorted by week key, limit to 2 weeks
+    const weeks = Array.from(weekMap.entries())
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .slice(0, 2)
+
+    return weeks
+  })()
+
+  // Count unconfirmed days from DISPLAYED signups only (not all signups)
+  // Also exclude past days even if not marked as locked
+  const unconfirmedCount = (() => {
     const today = new Date()
     today.setHours(0, 0, 0, 0)
 
-    const daysDiff = Math.floor((date - today) / (1000 * 60 * 60 * 24))
-    const weekNum = daysDiff < 7 ? 0 : 1
-
-    if (!acc[weekNum]) acc[weekNum] = []
-    acc[weekNum].push(signup)
-    return acc
-  }, {})
+    return groupedSignups.reduce((count, [, weekSignups]) => {
+      return count + weekSignups.filter(s => {
+        const signupDate = new Date(s.date + 'T00:00:00')
+        const isPast = signupDate < today
+        return !s.status && !s.isLocked && !isPast
+      }).length
+    }, 0)
+  })()
 
   if (loading) {
     return (
@@ -209,29 +337,35 @@ const CalendarTab = () => {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <div className="w-14 h-14 rounded-full bg-gradient-to-br from-midnight-purple to-midnight-bright-purple flex items-center justify-center">
-            <i className="fas fa-calendar-alt text-2xl text-white"></i>
-          </div>
-          <div>
-            <h2 className="text-2xl font-cinzel font-bold text-white">{t('raid_calendar')}</h2>
-            <p className="text-midnight-silver">{t('raid_signup')}</p>
-          </div>
+        <div>
+          <h2 className="text-2xl font-cinzel font-bold text-white">{t('raid_calendar')}</h2>
+          <p className="text-midnight-silver">{t('raid_signup')}</p>
         </div>
 
-        {isAdmin && (
+        <div className="flex items-center gap-2">
           <button
-            onClick={() => setAdminView(!adminView)}
+            onClick={() => { setShowHistory(!showHistory); setAdminView(false) }}
+            className={`px-4 py-2 rounded-lg transition-all ${
+              showHistory
+                ? 'bg-orange-500 bg-opacity-80 text-white'
+                : 'bg-midnight-purple bg-opacity-30 text-white hover:bg-opacity-50'
+            }`}
+          >
+            <i className="fas fa-history mr-2"></i>
+            {t('raid_history')}
+          </button>
+          <button
+            onClick={() => { setAdminView(!adminView); setShowHistory(false) }}
             className={`px-4 py-2 rounded-lg transition-all ${
               adminView
                 ? 'bg-midnight-glow text-midnight-deepblue'
                 : 'bg-midnight-purple bg-opacity-30 text-white hover:bg-opacity-50'
             }`}
           >
-            <i className={`fas ${adminView ? 'fa-user' : 'fa-users-cog'} mr-2`}></i>
-            {adminView ? t('my_character') : t('admin')}
+            <i className={`fas ${adminView ? 'fa-calendar-alt' : 'fa-users'} mr-2`}></i>
+            {adminView ? t('raid_calendar') : t('team_overview')}
           </button>
-        )}
+        </div>
       </div>
 
       {/* Notification */}
@@ -246,36 +380,106 @@ const CalendarTab = () => {
         </div>
       )}
 
-      {/* Admin Overview */}
-      {adminView && isAdmin && overview ? (
-        <AdminOverview overview={overview} t={t} language={language} />
+      {/* Team Overview */}
+      {adminView && overview ? (
+        <AdminOverview overview={overview} t={t} language={language} isAdmin={isAdmin} />
+      ) : showHistory ? (
+        <RaidHistory history={raidHistory} loading={loadingHistory} t={t} language={language} isAdmin={isAdmin} onLinkWcl={setWclModal} />
       ) : (
         <>
+          {/* Unconfirmed days alert */}
+          {unconfirmedCount > 0 && !bannerDismissed && (
+            <div className="flex items-center gap-3 px-4 py-3 bg-orange-500 bg-opacity-15 border border-orange-500 border-opacity-40 rounded-xl text-sm animate-pulse-subtle">
+              <div className="w-8 h-8 rounded-full bg-orange-500 bg-opacity-20 flex items-center justify-center flex-shrink-0">
+                <i className="fas fa-exclamation text-orange-400"></i>
+              </div>
+              <span className="flex-1 text-orange-200 font-medium">
+                {t('unconfirmed_days_alert').replace('{count}', unconfirmedCount)}
+              </span>
+              <button
+                onClick={dismissBanner}
+                className="text-orange-400 hover:text-orange-200 transition-colors p-1"
+                title={t('dismiss')}
+              >
+                <i className="fas fa-times"></i>
+              </button>
+            </div>
+          )}
+
           {/* Signup cutoff info banner */}
-          <div className="flex items-center gap-3 px-4 py-3 bg-yellow-500 bg-opacity-10 border border-yellow-500 border-opacity-30 rounded-xl text-sm">
-            <i className="fas fa-clock text-yellow-400 flex-shrink-0"></i>
-            <span className="text-yellow-200">{t('signup_cutoff_info')}</span>
-          </div>
+          {!cutoffBannerDismissed && (
+            <div className="flex items-center gap-3 px-4 py-3 bg-yellow-500 bg-opacity-10 border border-yellow-500 border-opacity-30 rounded-xl text-sm">
+              <i className="fas fa-clock text-yellow-400 flex-shrink-0"></i>
+              <span className="flex-1 text-yellow-200">{t('signup_cutoff_info')}</span>
+              <button
+                onClick={dismissCutoffBanner}
+                className="text-yellow-400 hover:text-yellow-200 transition-colors p-1"
+                title={t('dismiss')}
+              >
+                <i className="fas fa-times"></i>
+              </button>
+            </div>
+          )}
 
           {/* User Calendar View */}
-          {Object.entries(groupedSignups).map(([weekNum, weekSignups]) => (
-            <div key={weekNum} className="space-y-4">
+          {groupedSignups.map(([weekKey, weekSignups], weekIdx) => {
+            const firstDate = new Date(weekSignups[0].date + 'T00:00:00')
+            const today = new Date()
+            today.setHours(0, 0, 0, 0)
+
+            // Check if this group contains today
+            const hasToday = weekSignups.some(s => {
+              const d = new Date(s.date + 'T00:00:00')
+              return d.getTime() === today.getTime()
+            })
+
+            // Simple label: first group with today = "Esta Semana", next = "Próxima Semana", etc.
+            const fmtShort = (d) => d.toLocaleDateString(language === 'es' ? 'es-ES' : 'en-US', { day: 'numeric', month: 'short' })
+            let weekLabel
+            if (hasToday) {
+              weekLabel = t('this_week')
+            } else if (weekIdx === 0 || weekIdx === 1) {
+              // If first group doesn't have today, still call it "this week" or "next week"
+              weekLabel = weekIdx === 0 ? t('this_week') : t('next_week')
+            } else {
+              const lastDate = new Date(weekSignups[weekSignups.length - 1].date + 'T00:00:00')
+              weekLabel = `${fmtShort(firstDate)} - ${fmtShort(lastDate)}`
+            }
+
+            // Adaptive grid: 1 day = full, 2 = half, 3 = thirds
+            const count = weekSignups.length
+            const gridClass = count === 1
+              ? 'grid grid-cols-1 gap-4'
+              : count === 2
+                ? 'grid grid-cols-1 md:grid-cols-2 gap-4'
+                : 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4'
+
+            return (
+            <div key={weekKey} className="space-y-4">
               <h3 className="text-lg font-cinzel text-midnight-glow flex items-center gap-2">
                 <i className="fas fa-calendar-week"></i>
-                {weekNum === '0' ? t('this_week') : t('next_week')}
+                {weekLabel}
               </h3>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className={gridClass}>
                 {weekSignups.map((signup) => {
                   const dateInfo = formatDate(signup.date)
                   const currentStatus = signup.status
                   const isSaving = saving === signup.date
                   const isLocked = signup.isLocked
+                  // Adaptive card size: full (1 day), medium (2 days), compact (3 days)
+                  const cardSize = count === 1 ? 'full' : count === 2 ? 'medium' : 'compact'
+
+                  // Get inline attendance for full cards
+                  const attendance = cardSize === 'full' ? inlineAttendance[signup.date] : null
 
                   return (
                     <div
                       key={signup.date}
+                      onClick={cardSize === 'compact' ? () => openSummary(signup.date) : undefined}
                       className={`bg-midnight-purple bg-opacity-20 rounded-xl border-2 overflow-hidden transition-all ${
+                        cardSize === 'compact' ? 'cursor-pointer hover:bg-opacity-30' : ''
+                      } ${
                         isLocked
                           ? 'border-red-500 border-opacity-30 opacity-75'
                           : dateInfo.isToday
@@ -284,16 +488,16 @@ const CalendarTab = () => {
                       }`}
                     >
                       {/* Date Header */}
-                      <div className={`px-4 py-3 ${isLocked ? 'bg-red-900 bg-opacity-20' : dateInfo.isToday ? 'bg-midnight-glow bg-opacity-20' : 'bg-midnight-purple bg-opacity-30'}`}>
+                      <div className={`${cardSize === 'full' ? 'px-6 py-5' : cardSize === 'medium' ? 'px-5 py-4' : 'px-4 py-3'} ${isLocked ? 'bg-red-900 bg-opacity-20' : dateInfo.isToday ? 'bg-midnight-glow bg-opacity-20' : 'bg-midnight-purple bg-opacity-30'}`}>
                         <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-3">
+                          <div className={`flex items-center ${cardSize === 'full' ? 'gap-5' : cardSize === 'medium' ? 'gap-4' : 'gap-3'}`}>
                             <div className="text-center">
-                              <div className="text-2xl font-bold text-white">{dateInfo.dayNum}</div>
-                              <div className="text-xs text-midnight-silver uppercase">{dateInfo.month}</div>
+                              <div className={`${cardSize === 'full' ? 'text-4xl' : cardSize === 'medium' ? 'text-3xl' : 'text-2xl'} font-bold text-white`}>{dateInfo.dayNum}</div>
+                              <div className={`${cardSize === 'full' ? 'text-sm' : 'text-xs'} text-midnight-silver uppercase`}>{dateInfo.month}</div>
                             </div>
                             <div>
-                              <div className="font-semibold text-white">{dateInfo.dayName}</div>
-                              <div className="text-sm text-midnight-silver">
+                              <div className={`font-semibold text-white ${cardSize === 'full' ? 'text-xl' : cardSize === 'medium' ? 'text-lg' : ''}`}>{dateInfo.dayName}</div>
+                              <div className={`${cardSize === 'full' ? 'text-base' : 'text-sm'} text-midnight-silver`}>
                                 {signup.raidTime || '21:00'}
                                 {dateInfo.isToday && !isLocked && (
                                   <span className="ml-2 px-2 py-0.5 bg-midnight-glow text-midnight-deepblue text-xs rounded-full font-bold">
@@ -310,30 +514,31 @@ const CalendarTab = () => {
                                 href={`https://www.warcraftlogs.com/reports/${wclData[signup.date].code}`}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="flex items-center gap-1 text-orange-400 text-sm hover:text-orange-300 transition-colors"
+                                className="flex items-center gap-1.5 text-sm hover:opacity-80 transition-opacity"
                                 title={`${wclData[signup.date].title} (${wclData[signup.date].dkpAssigned} DKP)`}
                                 onClick={(e) => e.stopPropagation()}
                               >
-                                <i className="fas fa-scroll"></i>
-                                <span className="text-xs">{wclData[signup.date].dkpAssigned}</span>
+                                <WclIcon size={18} />
+                                <span className="text-xs text-orange-400">{wclData[signup.date].dkpAssigned}</span>
                               </a>
                             ) : isAdmin ? (
                               <button
                                 onClick={(e) => { e.stopPropagation(); setWclModal(signup.date) }}
-                                className="flex items-center gap-1 text-gray-600 text-sm hover:text-orange-400 transition-colors"
+                                className="flex items-center gap-1 hover:opacity-100 transition-opacity"
                                 title={t('link_wcl_report')}
                               >
-                                <i className="fas fa-scroll"></i>
+                                <WclIcon size={18} opacity="opacity-30" />
                               </button>
                             ) : (
-                              <div className="text-gray-700 text-sm" title={t('no_wcl_report')}>
-                                <i className="fas fa-scroll"></i>
+                              <div title={t('no_wcl_report')}>
+                                <WclIcon size={18} opacity="opacity-20" />
                               </div>
                             )}
-                            {signup.dkpAwarded > 0 && (
-                              <div className="flex items-center gap-1 text-yellow-400 text-sm">
+                            {/* DKP Bonus indicator: show when NOT yet awarded (incentive), hide when received */}
+                            {!isLocked && !signup.dkpAwarded && (
+                              <div className="flex items-center gap-1 text-yellow-400 text-sm opacity-60 animate-pulse" title={t('signup_dkp_hint')}>
                                 <i className="fas fa-coins"></i>
-                                <span>+{signup.dkpAwarded}</span>
+                                <span>+1</span>
                               </div>
                             )}
                             {isLocked && (
@@ -345,100 +550,184 @@ const CalendarTab = () => {
                         </div>
                       </div>
 
-                      {/* Status Selection */}
-                      <div className="p-4 space-y-4">
-                        {/* Locked message */}
-                        {isLocked ? (
-                          <>
-                            {currentStatus ? (
-                              <div className={`flex items-center gap-2 text-sm ${STATUS_CONFIG[currentStatus]?.color}`}>
-                                <i className={`fas ${STATUS_CONFIG[currentStatus]?.icon}`}></i>
-                                <span>{t('your_status')}: <strong>{t(currentStatus)}</strong></span>
-                              </div>
-                            ) : (
-                              <div className="flex items-center gap-2 text-sm text-red-400">
-                                <i className="fas fa-times-circle"></i>
-                                <span>{t('no_signup')}</span>
-                              </div>
-                            )}
-                            <div className="bg-red-900 bg-opacity-20 border border-red-500 border-opacity-30 rounded-lg p-3 text-center">
-                              <i className="fas fa-lock mr-2 text-red-400"></i>
-                              <span className="text-red-300 text-sm">{t('signup_locked')}</span>
-                            </div>
-                          </>
-                        ) : (
-                          <>
-                            {/* Current Status Display */}
-                            {currentStatus && (
-                              <div className={`flex items-center gap-2 text-sm ${STATUS_CONFIG[currentStatus]?.color}`}>
-                                <i className={`fas ${STATUS_CONFIG[currentStatus]?.icon}`}></i>
-                                <span>{t('your_status')}: <strong>{t(currentStatus)}</strong></span>
-                              </div>
-                            )}
-
-                            {/* Status Buttons */}
-                            <div className="flex gap-2">
-                              {Object.entries(STATUS_CONFIG).map(([status, config]) => (
-                                <button
-                                  key={status}
-                                  onClick={() => handleStatusChange(signup.date, status)}
-                                  disabled={isSaving}
-                                  className={`flex-1 py-2 px-3 rounded-lg transition-all flex items-center justify-center gap-2 ${
-                                    currentStatus === status
-                                      ? `${config.bg} text-white`
-                                      : `bg-midnight-purple bg-opacity-30 ${config.color} ${config.bgHover} hover:text-white`
-                                  } ${isSaving ? 'opacity-50 cursor-not-allowed' : ''}`}
-                                >
-                                  {isSaving && saving === signup.date ? (
-                                    <i className="fas fa-circle-notch fa-spin"></i>
-                                  ) : (
-                                    <i className={`fas ${config.icon}`}></i>
-                                  )}
-                                  <span className="hidden sm:inline text-sm">{t(status)}</span>
-                                </button>
-                              ))}
-                            </div>
-
-                            {/* Note Input (for tentative) */}
-                            {currentStatus === 'tentative' && (
-                              <div className="space-y-2">
-                                <input
-                                  type="text"
-                                  value={notes[signup.date] || ''}
-                                  onChange={(e) => setNotes(prev => ({ ...prev, [signup.date]: e.target.value }))}
-                                  placeholder={t('note_placeholder')}
-                                  className="w-full px-3 py-2 bg-midnight-deepblue border border-midnight-bright-purple rounded-lg text-white text-sm placeholder-gray-500 focus:outline-none focus:border-midnight-glow"
-                                />
-                                {notes[signup.date] !== signup.notes && (
-                                  <button
-                                    onClick={() => handleStatusChange(signup.date, 'tentative')}
-                                    disabled={isSaving}
-                                    className="w-full py-1 px-3 bg-midnight-glow bg-opacity-20 text-midnight-glow text-sm rounded-lg hover:bg-opacity-30 transition-all"
-                                  >
-                                    <i className="fas fa-save mr-2"></i>
-                                    {t('save_status')}
-                                  </button>
+                      {/* Card Body - Different layout for full vs compact/medium */}
+                      {cardSize === 'full' ? (
+                        /* FULL CARD: Two-column layout with inline attendance */
+                        <div className="p-5 flex flex-col lg:flex-row gap-5">
+                          {/* Left: Status controls */}
+                          <div className="flex-1 space-y-4">
+                            {isLocked ? (
+                              <>
+                                {currentStatus ? (
+                                  <div className={`flex items-center gap-2 text-base ${STATUS_CONFIG[currentStatus]?.color}`}>
+                                    <i className={`fas ${STATUS_CONFIG[currentStatus]?.icon}`}></i>
+                                    <span>{t('your_status')}: <strong>{t(currentStatus)}</strong></span>
+                                  </div>
+                                ) : (
+                                  <div className="flex items-center gap-2 text-base text-red-400">
+                                    <i className="fas fa-times-circle"></i>
+                                    <span>{t('no_signup')}</span>
+                                  </div>
                                 )}
+                                <div className="bg-red-900 bg-opacity-20 border border-red-500 border-opacity-30 rounded-lg p-3 text-center">
+                                  <i className="fas fa-lock mr-2 text-red-400"></i>
+                                  <span className="text-red-300 text-sm">{t('signup_locked')}</span>
+                                </div>
+                              </>
+                            ) : (
+                              <>
+                                {currentStatus && (
+                                  <div className={`flex items-center gap-2 text-base ${STATUS_CONFIG[currentStatus]?.color}`}>
+                                    <i className={`fas ${STATUS_CONFIG[currentStatus]?.icon}`}></i>
+                                    <span>{t('your_status')}: <strong>{t(currentStatus)}</strong></span>
+                                  </div>
+                                )}
+                                <div className="flex gap-3">
+                                  {Object.entries(STATUS_CONFIG).map(([status, config]) => (
+                                    <button
+                                      key={status}
+                                      onClick={() => handleStatusChange(signup.date, status)}
+                                      disabled={isSaving}
+                                      className={`flex-1 py-3 px-4 rounded-lg transition-all flex items-center justify-center gap-2 ${
+                                        currentStatus === status
+                                          ? `${config.bg} text-white`
+                                          : `bg-midnight-purple bg-opacity-30 ${config.color} ${config.bgHover} hover:text-white`
+                                      } ${isSaving ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                    >
+                                      {isSaving && saving === signup.date ? (
+                                        <i className="fas fa-circle-notch fa-spin"></i>
+                                      ) : (
+                                        <i className={`fas ${config.icon} text-lg`}></i>
+                                      )}
+                                      <span>{t(status)}</span>
+                                    </button>
+                                  ))}
+                                </div>
+                                {currentStatus === 'tentative' && (
+                                  <div className="space-y-2">
+                                    <input
+                                      type="text"
+                                      value={notes[signup.date] || ''}
+                                      onChange={(e) => setNotes(prev => ({ ...prev, [signup.date]: e.target.value }))}
+                                      placeholder={t('note_placeholder')}
+                                      className="w-full px-3 py-2 bg-midnight-deepblue border border-midnight-bright-purple rounded-lg text-white text-sm placeholder-gray-500 focus:outline-none focus:border-midnight-glow"
+                                    />
+                                    {notes[signup.date] !== signup.notes && (
+                                      <button
+                                        onClick={() => handleStatusChange(signup.date, 'tentative')}
+                                        disabled={isSaving}
+                                        className="w-full py-1 px-3 bg-midnight-glow bg-opacity-20 text-midnight-glow text-sm rounded-lg hover:bg-opacity-30 transition-all"
+                                      >
+                                        <i className="fas fa-save mr-2"></i>{t('save_status')}
+                                      </button>
+                                    )}
+                                  </div>
+                                )}
+                              </>
+                            )}
+                          </div>
+
+                          {/* Right: Inline attendance */}
+                          <div className="lg:w-80 xl:w-96 bg-midnight-purple bg-opacity-10 rounded-xl p-4 border border-midnight-bright-purple border-opacity-20">
+                            {attendance ? (
+                              <InlineAttendance attendance={attendance} t={t} />
+                            ) : (
+                              <div className="flex items-center justify-center py-6">
+                                <i className="fas fa-circle-notch fa-spin text-midnight-glow"></i>
                               </div>
                             )}
-                          </>
-                        )}
-
-                        {/* View Summary Button */}
-                        <button
-                          onClick={() => openSummary(signup.date)}
-                          className="w-full py-2 px-3 bg-midnight-purple bg-opacity-20 text-midnight-silver text-sm rounded-lg hover:bg-opacity-40 hover:text-white transition-all flex items-center justify-center gap-2"
-                        >
-                          <i className="fas fa-users"></i>
-                          {t('view_details')}
-                        </button>
-                      </div>
+                          </div>
+                        </div>
+                      ) : (
+                        /* MEDIUM/COMPACT CARDS: Original layout */
+                        <div className={`${cardSize === 'medium' ? 'p-5 space-y-4' : 'p-4 space-y-3'}`}>
+                          {isLocked ? (
+                            <>
+                              {currentStatus ? (
+                                <div className={`flex items-center gap-2 text-sm ${STATUS_CONFIG[currentStatus]?.color}`}>
+                                  <i className={`fas ${STATUS_CONFIG[currentStatus]?.icon}`}></i>
+                                  <span>{t('your_status')}: <strong>{t(currentStatus)}</strong></span>
+                                </div>
+                              ) : (
+                                <div className="flex items-center gap-2 text-sm text-red-400">
+                                  <i className="fas fa-times-circle"></i>
+                                  <span>{t('no_signup')}</span>
+                                </div>
+                              )}
+                              <div className="bg-red-900 bg-opacity-20 border border-red-500 border-opacity-30 rounded-lg p-3 text-center">
+                                <i className="fas fa-lock mr-2 text-red-400"></i>
+                                <span className="text-red-300 text-sm">{t('signup_locked')}</span>
+                              </div>
+                            </>
+                          ) : (
+                            <>
+                              {currentStatus && cardSize === 'medium' && (
+                                <div className={`flex items-center gap-2 text-sm ${STATUS_CONFIG[currentStatus]?.color}`}>
+                                  <i className={`fas ${STATUS_CONFIG[currentStatus]?.icon}`}></i>
+                                  <span>{t('your_status')}: <strong>{t(currentStatus)}</strong></span>
+                                </div>
+                              )}
+                              <div className={`flex ${cardSize === 'medium' ? 'gap-3' : 'gap-2'}`}>
+                                {Object.entries(STATUS_CONFIG).map(([status, config]) => (
+                                  <button
+                                    key={status}
+                                    onClick={(e) => { e.stopPropagation(); handleStatusChange(signup.date, status) }}
+                                    disabled={isSaving}
+                                    className={`flex-1 ${cardSize === 'medium' ? 'py-3 px-3' : 'py-2 px-2'} rounded-lg transition-all flex items-center justify-center gap-2 ${
+                                      currentStatus === status
+                                        ? `${config.bg} text-white`
+                                        : `bg-midnight-purple bg-opacity-30 ${config.color} ${config.bgHover} hover:text-white`
+                                    } ${isSaving ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                  >
+                                    {isSaving && saving === signup.date ? (
+                                      <i className="fas fa-circle-notch fa-spin"></i>
+                                    ) : (
+                                      <i className={`fas ${config.icon} ${cardSize === 'medium' ? 'text-lg' : ''}`}></i>
+                                    )}
+                                    <span className={cardSize === 'medium' ? 'inline text-sm' : 'hidden sm:inline text-xs'}>{t(status)}</span>
+                                  </button>
+                                ))}
+                              </div>
+                              {currentStatus === 'tentative' && cardSize === 'medium' && (
+                                <div className="space-y-2" onClick={(e) => e.stopPropagation()}>
+                                  <input
+                                    type="text"
+                                    value={notes[signup.date] || ''}
+                                    onChange={(e) => setNotes(prev => ({ ...prev, [signup.date]: e.target.value }))}
+                                    placeholder={t('note_placeholder')}
+                                    className="w-full px-3 py-2 bg-midnight-deepblue border border-midnight-bright-purple rounded-lg text-white text-sm placeholder-gray-500 focus:outline-none focus:border-midnight-glow"
+                                  />
+                                  {notes[signup.date] !== signup.notes && (
+                                    <button
+                                      onClick={(e) => { e.stopPropagation(); handleStatusChange(signup.date, 'tentative') }}
+                                      disabled={isSaving}
+                                      className="w-full py-1 px-3 bg-midnight-glow bg-opacity-20 text-midnight-glow text-sm rounded-lg hover:bg-opacity-30 transition-all"
+                                    >
+                                      <i className="fas fa-save mr-2"></i>{t('save_status')}
+                                    </button>
+                                  )}
+                                </div>
+                              )}
+                            </>
+                          )}
+                          {cardSize === 'medium' && (
+                            <button
+                              onClick={(e) => { e.stopPropagation(); openSummary(signup.date) }}
+                              className="w-full py-2 px-3 bg-midnight-purple bg-opacity-20 text-midnight-silver text-sm rounded-lg hover:bg-opacity-40 hover:text-white transition-all flex items-center justify-center gap-2"
+                            >
+                              <i className="fas fa-users"></i>
+                              {t('view_details')}
+                            </button>
+                          )}
+                        </div>
+                      )}
                     </div>
                   )
                 })}
               </div>
             </div>
-          ))}
+            )
+          })}
 
           {signups.length === 0 && (
             <div className="text-center py-12 text-midnight-silver">
@@ -471,6 +760,7 @@ const CalendarTab = () => {
           language={language}
         />
       )}
+
     </div>
   )
 }
@@ -489,6 +779,85 @@ const ROLE_CONFIG = {
   Tank:   { icon: 'fa-shield-alt', color: 'text-blue-400', bgBorder: 'border-blue-500', min: 2, max: 2 },
   Healer: { icon: 'fa-heart',      color: 'text-green-400', bgBorder: 'border-green-500', min: 3, max: 5 },
   DPS:    { icon: 'fa-crosshairs',  color: 'text-red-400',   bgBorder: 'border-red-500',   min: 13, max: 15 },
+}
+
+// Inline Attendance for full-size cards
+const InlineAttendance = ({ attendance, t }) => {
+  // Group by role
+  const byRole = { Tank: [], Healer: [], DPS: [] }
+  const statusKeys = ['confirmed', 'tentative']
+
+  statusKeys.forEach(statusKey => {
+    ;(attendance[statusKey] || []).forEach(member => {
+      const role = member.raidRole || 'DPS'
+      const roleKey = role === 'Tank' ? 'Tank' : role === 'Healer' ? 'Healer' : 'DPS'
+      byRole[roleKey].push({ ...member, statusKey })
+    })
+  })
+
+  const confirmed = attendance.counts?.confirmed || 0
+  const tentative = attendance.counts?.tentative || 0
+  const total = confirmed + tentative
+
+  return (
+    <div className="space-y-3">
+      {/* Progress bar */}
+      <div className="flex items-center justify-between text-xs">
+        <span className="text-white font-semibold flex items-center gap-1.5">
+          <i className="fas fa-users text-midnight-glow"></i>
+          {t('raid_roster')}
+        </span>
+        <span className="text-midnight-silver">
+          <span className={`font-bold ${confirmed >= MYTHIC_SIZE ? 'text-green-400' : 'text-white'}`}>{confirmed}</span>
+          {tentative > 0 && <span className="text-yellow-400"> +{tentative}</span>}
+          <span> / {MYTHIC_SIZE}</span>
+        </span>
+      </div>
+      <div className="h-1.5 bg-midnight-deepblue rounded-full overflow-hidden flex">
+        <div className={`${confirmed >= MYTHIC_SIZE ? 'bg-green-500' : confirmed >= 15 ? 'bg-yellow-500' : 'bg-red-500'} transition-all`} style={{ width: `${Math.min((confirmed / MYTHIC_SIZE) * 100, 100)}%` }}></div>
+        <div className="bg-yellow-500 bg-opacity-50 transition-all" style={{ width: `${Math.min((tentative / MYTHIC_SIZE) * 100, 100 - (confirmed / MYTHIC_SIZE) * 100)}%` }}></div>
+      </div>
+
+      {/* Role columns */}
+      <div className="grid grid-cols-3 gap-3 text-xs">
+        {['Tank', 'Healer', 'DPS'].map(role => {
+          const config = ROLE_CONFIG[role]
+          const members = byRole[role]
+          const confirmedCount = members.filter(m => m.statusKey === 'confirmed').length
+
+          return (
+            <div key={role}>
+              <div className={`flex items-center gap-1.5 mb-1.5 pb-1 border-b ${config.bgBorder} border-opacity-40`}>
+                <i className={`fas ${config.icon} ${config.color} text-[10px]`}></i>
+                <span className="text-white font-medium">{t(role.toLowerCase())}</span>
+                <span className={`ml-auto ${confirmedCount >= config.min ? 'text-green-400' : 'text-red-400'}`}>{confirmedCount}</span>
+              </div>
+              <div className="space-y-0.5 max-h-24 overflow-y-auto">
+                {members.slice(0, 8).map(member => (
+                  <div
+                    key={member.id}
+                    className="flex items-center gap-1"
+                    title={member.characterClass}
+                  >
+                    <i className={`fas ${member.statusKey === 'confirmed' ? 'fa-check-circle text-green-400' : 'fa-question-circle text-yellow-400'} text-[8px]`}></i>
+                    <span className="truncate" style={{ color: CLASS_COLORS[member.characterClass] || '#fff' }}>
+                      {member.characterName}
+                    </span>
+                  </div>
+                ))}
+                {members.length > 8 && (
+                  <div className="text-midnight-silver text-[10px]">+{members.length - 8} {t('more')}</div>
+                )}
+                {members.length === 0 && (
+                  <div className="text-gray-600 italic">-</div>
+                )}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
 }
 
 // Single member entry in the roster
@@ -712,7 +1081,7 @@ const SummaryModal = ({ date, summary, loadingSummary, onClose, t, language, isA
 }
 
 // Admin Overview Component
-const AdminOverview = ({ overview, t, language }) => {
+const AdminOverview = ({ overview, t, language, isAdmin }) => {
   const [expandedMember, setExpandedMember] = useState(null)
 
   const formatDateShort = (dateStr) => {
@@ -897,7 +1266,8 @@ const WCLLinkModal = ({ date, onClose, onLinked, t, language }) => {
         region: preview.report.region,
         guildName: preview.report.guildName,
         raidDate: date,
-        participants: preview.participants
+        participants: preview.participants,
+        fights: preview.report.fights || []
       })
       onLinked()
     } catch (err) {
@@ -921,7 +1291,7 @@ const WCLLinkModal = ({ date, onClose, onLinked, t, language }) => {
         <div className="px-6 py-4 bg-midnight-purple bg-opacity-30 border-b border-midnight-bright-purple border-opacity-30 flex items-center justify-between flex-shrink-0">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-lg bg-orange-500 bg-opacity-20 flex items-center justify-center">
-              <i className="fas fa-scroll text-orange-400"></i>
+              <WclIcon size={24} />
             </div>
             <div>
               <h3 className="text-lg font-bold text-white">{t('link_wcl_report')}</h3>
@@ -1047,7 +1417,16 @@ const WCLLinkModal = ({ date, onClose, onLinked, t, language }) => {
                   <div className="max-h-48 overflow-y-auto space-y-1">
                     {preview.participants?.filter(p => p.matched).map(p => (
                       <div key={p.user_id} className="flex items-center justify-between text-sm py-1 px-2 bg-midnight-purple bg-opacity-10 rounded">
-                        <span className="text-white">{p.character_name}</span>
+                        <span className="flex items-center gap-2">
+                          <span style={{ color: CLASS_COLORS[p.character_class] || '#fff' }}>
+                            {p.character_name}
+                          </span>
+                          {p.is_alt_match && (
+                            <span className="text-xs text-yellow-400" title={`Matcheado vía alt: ${p.matched_character}`}>
+                              (vía {p.matched_character})
+                            </span>
+                          )}
+                        </span>
                         <span className="text-midnight-glow font-bold">+{p.dkp_to_assign} DKP</span>
                       </div>
                     ))}
@@ -1073,6 +1452,120 @@ const WCLLinkModal = ({ date, onClose, onLinked, t, language }) => {
       </div>
     </div>,
     document.body
+  )
+}
+
+// Raid History Component - shows past raid days with WCL logs
+const RaidHistory = ({ history, loading, t, language, isAdmin, onLinkWcl }) => {
+  const formatDateFull = (dateStr) => {
+    const d = new Date(dateStr + 'T00:00:00')
+    const dayName = d.toLocaleDateString(language === 'es' ? 'es-ES' : 'en-US', { weekday: 'long' })
+    const dayNum = d.getDate()
+    const month = d.toLocaleDateString(language === 'es' ? 'es-ES' : 'en-US', { month: 'short' })
+    return { dayName: dayName.charAt(0).toUpperCase() + dayName.slice(1), dayNum, month }
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <i className="fas fa-circle-notch fa-spin text-4xl text-midnight-glow"></i>
+      </div>
+    )
+  }
+
+  if (history.length === 0) {
+    return (
+      <div className="text-center py-12 text-midnight-silver">
+        <i className="fas fa-calendar-times text-4xl mb-4 opacity-50"></i>
+        <p>{t('no_past_raids')}</p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-3 mb-2">
+        <i className="fas fa-history text-midnight-glow"></i>
+        <h3 className="text-lg font-cinzel text-white">{t('past_raid_days')}</h3>
+      </div>
+
+      <div className="space-y-3">
+        {history.map((raid) => {
+          const dateInfo = formatDateFull(raid.date)
+          const hasLog = !!raid.wclReport
+
+          return (
+            <div
+              key={raid.date}
+              className={`bg-midnight-purple bg-opacity-20 rounded-xl border p-4 transition-all ${
+                hasLog
+                  ? 'border-orange-500 border-opacity-40'
+                  : 'border-midnight-bright-purple border-opacity-20'
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                {/* Date info */}
+                <div className="flex items-center gap-4">
+                  <div className="text-center min-w-[50px]">
+                    <div className="text-xl font-bold text-white">{dateInfo.dayNum}</div>
+                    <div className="text-xs text-midnight-silver uppercase">{dateInfo.month}</div>
+                  </div>
+                  <div>
+                    <div className="font-semibold text-white">{dateInfo.dayName}</div>
+                    <div className="text-sm text-midnight-silver">{raid.raidTime}</div>
+                  </div>
+                </div>
+
+                {/* Attendance info */}
+                {raid.attendance && (
+                  <div className="flex items-center gap-3 text-sm">
+                    <span className="text-green-400" title={t('confirmed')}>
+                      <i className="fas fa-check-circle mr-1"></i>{raid.attendance.confirmed}
+                    </span>
+                    <span className="text-yellow-400" title={t('tentative')}>
+                      <i className="fas fa-question-circle mr-1"></i>{raid.attendance.tentative}
+                    </span>
+                    <span className="text-red-400" title={t('declined')}>
+                      <i className="fas fa-times-circle mr-1"></i>{raid.attendance.declined}
+                    </span>
+                  </div>
+                )}
+
+                {/* WCL Info */}
+                <div className="flex items-center gap-3">
+                  {hasLog ? (
+                    <a
+                      href={`https://www.warcraftlogs.com/reports/${raid.wclReport.code}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-2 px-3 py-2 bg-orange-500 bg-opacity-20 rounded-lg hover:bg-opacity-30 transition-all"
+                    >
+                      <WclIcon size={18} />
+                      <span className="text-orange-400 text-sm font-semibold">{raid.wclReport.title}</span>
+                      <span className="text-xs text-midnight-silver">({raid.wclReport.dkpAssigned} DKP)</span>
+                      <i className="fas fa-external-link-alt text-xs text-midnight-silver"></i>
+                    </a>
+                  ) : isAdmin ? (
+                    <button
+                      onClick={() => onLinkWcl(raid.date)}
+                      className="flex items-center gap-2 px-3 py-2 bg-midnight-purple bg-opacity-30 rounded-lg hover:bg-opacity-50 transition-all text-midnight-silver hover:text-white"
+                    >
+                      <WclIcon size={16} opacity="opacity-50" />
+                      <span className="text-sm">{t('link_wcl_report')}</span>
+                    </button>
+                  ) : (
+                    <div className="flex items-center gap-2 text-midnight-silver opacity-50">
+                      <WclIcon size={16} opacity="opacity-30" />
+                      <span className="text-sm">{t('no_wcl_report')}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    </div>
   )
 }
 
