@@ -27,11 +27,16 @@
         if (spinner) spinner.style.display = 'none';
       }
 
-      // Decode base64url (URL-safe base64: - instead of +, _ instead of /, no padding)
+      // Decode base64url to UTF-8 string (atob only handles Latin-1, not multi-byte UTF-8)
       function fromBase64Url(str) {
         var b64 = str.replace(/-/g, '+').replace(/_/g, '/');
         while (b64.length % 4) b64 += '=';
-        return atob(b64);
+        var binary = atob(b64);
+        var bytes = new Uint8Array(binary.length);
+        for (var i = 0; i < binary.length; i++) {
+          bytes[i] = binary.charCodeAt(i);
+        }
+        return new TextDecoder().decode(bytes);
       }
 
       try {
