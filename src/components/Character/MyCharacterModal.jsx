@@ -114,7 +114,7 @@ const cropAndCompressImage = (imageSrc, cropData, outputSize = 300, maxBytes = 1
 // Avatar Crop Modal Component
 const AvatarCropModal = ({ imageSrc, onConfirm, onCancel, t }) => {
   const [position, setPosition] = useState({ x: 0, y: 0 })
-  const [scale, setScale] = useState(1)
+  const [scale, setScale] = useState(0.5)
   const [dragging, setDragging] = useState(false)
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 })
   const containerRef = useCallback(node => { if (node) window._cropContainer = node }, [])
@@ -198,7 +198,7 @@ const AvatarCropModal = ({ imageSrc, onConfirm, onCancel, t }) => {
           <i className="fas fa-search-minus text-midnight-silver"></i>
           <input
             type="range"
-            min="1"
+            min="0.5"
             max="3"
             step="0.1"
             value={scale}
@@ -262,6 +262,9 @@ const MyCharacterModal = ({ onClose }) => {
   // Crop modal state
   const [cropModalOpen, setCropModalOpen] = useState(false)
   const [cropImageSrc, setCropImageSrc] = useState(null)
+  // Edit spec state
+  const [editingCharId, setEditingCharId] = useState(null)
+  const [editingSaving, setEditingSaving] = useState(false)
 
   const handleKeyDown = useCallback((e) => {
     if (e.key === 'Escape') onClose()
@@ -424,6 +427,34 @@ const MyCharacterModal = ({ onClose }) => {
       setCharacters(res.data || [])
     } catch (error) {
       setCharError(error.response?.data?.error || 'Error')
+    }
+  }
+
+  const handleChangeSpec = async (charId, newSpec) => {
+    const char = characters.find(c => c.id === charId)
+    if (!char) return
+
+    // Get the role for this spec
+    const classData = CLASS_SPECS[char.characterClass]
+    if (!classData) return
+
+    const specIndex = classData.specs.indexOf(newSpec)
+    const newRole = specIndex >= 0 ? classData.defaultRoles[specIndex] : 'DPS'
+
+    setEditingSaving(true)
+    try {
+      await charactersAPI.update(charId, { spec: newSpec, raidRole: newRole })
+      const res = await charactersAPI.getAll()
+      setCharacters(res.data || [])
+      if (char.isPrimary) {
+        await refreshUser()
+      }
+      setEditingCharId(null)
+    } catch (error) {
+      setCharError(error.response?.data?.error || 'Error')
+      setTimeout(() => setCharError(''), 3000)
+    } finally {
+      setEditingSaving(false)
     }
   }
 
@@ -817,60 +848,101 @@ const MyCharacterModal = ({ onClose }) => {
               </div>
             ) : (
               <div className="space-y-2">
-                {characters.map((char) => (
-                  <div
-                    key={char.id}
-                    className="bg-midnight-purple bg-opacity-20 rounded-lg p-3 flex items-center gap-3"
-                  >
-                    {/* Star */}
-                    <button
-                      onClick={() => !char.isPrimary && handleSetPrimary(char.id)}
-                      className={`text-lg flex-shrink-0 transition-all ${
-                        char.isPrimary
-                          ? 'text-yellow-400 cursor-default'
-                          : 'text-gray-600 hover:text-yellow-400 cursor-pointer'
-                      }`}
-                      title={char.isPrimary ? t('primary_character') : t('set_as_primary')}
+                {characters.map((char) => {
+                  const isEditing = editingCharId === char.id
+                  const classSpecs = CLASS_SPECS[char.characterClass]
+                  return (
+                    <div
+                      key={char.id}
+                      className="bg-midnight-purple bg-opacity-20 rounded-lg p-3 flex items-center gap-3"
                     >
-                      <i className={`fas fa-star`}></i>
-                    </button>
-
-                    {/* Spec icon */}
-                    {SPEC_ICONS[char.spec] && (
-                      <img
-                        src={SPEC_ICONS[char.spec]}
-                        alt={char.spec}
-                        className="w-8 h-8 rounded-full flex-shrink-0 border border-gray-600"
-                      />
-                    )}
-
-                    {/* Info */}
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-bold m-0 truncate" style={{ color: CLASS_COLORS[char.characterClass] || '#FFF' }}>
-                        {char.characterName}
-                        {char.isPrimary && (
-                          <span className="ml-2 text-[10px] font-normal bg-yellow-400 bg-opacity-20 text-yellow-400 px-1.5 py-0.5 rounded">
-                            {t('primary_character')}
-                          </span>
-                        )}
-                      </p>
-                      <p className="text-xs text-midnight-silver m-0">
-                        {char.characterClass} - {char.spec || '-'} ({char.raidRole})
-                      </p>
-                    </div>
-
-                    {/* Delete */}
-                    {!char.isPrimary && characters.length > 1 && (
+                      {/* Star */}
                       <button
-                        onClick={() => handleDeleteCharacter(char.id)}
-                        className="text-gray-600 hover:text-red-400 text-sm flex-shrink-0 transition-all"
-                        title={t('delete_character')}
+                        onClick={() => !char.isPrimary && handleSetPrimary(char.id)}
+                        className={`text-lg flex-shrink-0 transition-all ${
+                          char.isPrimary
+                            ? 'text-yellow-400 cursor-default'
+                            : 'text-gray-600 hover:text-yellow-400 cursor-pointer'
+                        }`}
+                        title={char.isPrimary ? t('primary_character') : t('set_as_primary')}
                       >
-                        <i className="fas fa-trash-alt"></i>
+                        <i className={`fas fa-star`}></i>
                       </button>
-                    )}
-                  </div>
-                ))}
+
+                      {/* Spec icon */}
+                      {SPEC_ICONS[char.spec] && (
+                        <img
+                          src={SPEC_ICONS[char.spec]}
+                          alt={char.spec}
+                          className="w-8 h-8 rounded-full flex-shrink-0 border border-gray-600"
+                        />
+                      )}
+
+                      {/* Info */}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-bold m-0 truncate" style={{ color: CLASS_COLORS[char.characterClass] || '#FFF' }}>
+                          {char.characterName}
+                          {char.isPrimary && (
+                            <span className="ml-2 text-[10px] font-normal bg-yellow-400 bg-opacity-20 text-yellow-400 px-1.5 py-0.5 rounded">
+                              {t('primary_character')}
+                            </span>
+                          )}
+                        </p>
+                        {isEditing ? (
+                          <div className="flex items-center gap-2 mt-1">
+                            <select
+                              className="text-xs bg-midnight-deepblue border border-midnight-bright-purple rounded px-2 py-1 text-white focus:outline-none focus:border-midnight-glow"
+                              defaultValue={char.spec || ''}
+                              onChange={(e) => handleChangeSpec(char.id, e.target.value)}
+                              disabled={editingSaving}
+                              autoFocus
+                            >
+                              {classSpecs?.specs.map((spec, idx) => (
+                                <option key={spec} value={spec}>
+                                  {spec} ({classSpecs.defaultRoles[idx]})
+                                </option>
+                              ))}
+                            </select>
+                            <button
+                              onClick={() => setEditingCharId(null)}
+                              className="text-gray-400 hover:text-white text-xs"
+                              disabled={editingSaving}
+                            >
+                              <i className="fas fa-times"></i>
+                            </button>
+                            {editingSaving && <i className="fas fa-spinner fa-spin text-xs text-midnight-glow"></i>}
+                          </div>
+                        ) : (
+                          <p className="text-xs text-midnight-silver m-0">
+                            {char.characterClass} - {char.spec || '-'} ({char.raidRole})
+                          </p>
+                        )}
+                      </div>
+
+                      {/* Edit Spec Button */}
+                      {!isEditing && classSpecs && (
+                        <button
+                          onClick={() => setEditingCharId(char.id)}
+                          className="text-gray-600 hover:text-midnight-glow text-sm flex-shrink-0 transition-all"
+                          title={t('change_spec')}
+                        >
+                          <i className="fas fa-pencil-alt"></i>
+                        </button>
+                      )}
+
+                      {/* Delete */}
+                      {!char.isPrimary && characters.length > 1 && !isEditing && (
+                        <button
+                          onClick={() => handleDeleteCharacter(char.id)}
+                          className="text-gray-600 hover:text-red-400 text-sm flex-shrink-0 transition-all"
+                          title={t('delete_character')}
+                        >
+                          <i className="fas fa-trash-alt"></i>
+                        </button>
+                      )}
+                    </div>
+                  )
+                })}
               </div>
             )}
           </div>

@@ -8,16 +8,15 @@ import DKPAdjustModal from './DKPAdjustModal'
 import VaultIcon from '../Common/VaultIcon'
 import CLASS_COLORS from '../../utils/classColors'
 
-// WoW Buffs for Easter egg system
+// WoW Buffs for Easter egg system (short-duration cooldowns only)
 // type: 'self' = only the caster class can have it, 'external' = anyone can receive it
 // selfClasses: classes that can self-cast this buff
 // targetRoles: for external buffs, which roles can receive (null = any)
 const BUFFS = [
-  // Self-cast only buffs (class-specific)
-  // Raid-wide lust effects (everyone gets it)
-  { id: 'bloodlust', name: 'Bloodlust', duration: 40, icon: 'https://wow.zamimg.com/images/wow/icons/medium/spell_nature_bloodlust.jpg', glow: '#ff4444', type: 'external' },
-  { id: 'heroism', name: 'Heroism', duration: 40, icon: 'https://wow.zamimg.com/images/wow/icons/medium/ability_shaman_heroism.jpg', glow: '#4444ff', type: 'external' },
-  { id: 'timewarp', name: 'Time Warp', duration: 40, icon: 'https://wow.zamimg.com/images/wow/icons/medium/ability_mage_timewarp.jpg', glow: '#69CCF0', type: 'external' },
+  // Raid-wide lust effects (applies to ALL members when triggered) - Horde only
+  { id: 'bloodlust', name: 'Bloodlust', duration: 40, icon: 'https://wow.zamimg.com/images/wow/icons/medium/spell_nature_bloodlust.jpg', glow: '#ff4444', type: 'external', raidWide: true },
+  { id: 'timewarp', name: 'Time Warp', duration: 40, icon: 'https://wow.zamimg.com/images/wow/icons/medium/ability_mage_timewarp.jpg', glow: '#69CCF0', type: 'external', raidWide: true },
+  // Self-cast cooldowns (class-specific)
   { id: 'icyveins', name: 'Icy Veins', duration: 25, icon: 'https://wow.zamimg.com/images/wow/icons/medium/spell_frost_coldhearted.jpg', glow: '#69CCF0', type: 'self', selfClasses: ['Mage'] },
   { id: 'combustion', name: 'Combustion', duration: 12, icon: 'https://wow.zamimg.com/images/wow/icons/medium/spell_fire_sealoffire.jpg', glow: '#ff6600', type: 'self', selfClasses: ['Mage'] },
   { id: 'metamorphosis', name: 'Metamorphosis', duration: 24, icon: 'https://wow.zamimg.com/images/wow/icons/medium/ability_demonhunter_metamorphasisdps.jpg', glow: '#00ff00', type: 'self', selfClasses: ['Demon Hunter'] },
@@ -25,15 +24,18 @@ const BUFFS = [
   { id: 'recklessness', name: 'Recklessness', duration: 12, icon: 'https://wow.zamimg.com/images/wow/icons/medium/warrior_talent_icon_innerrage.jpg', glow: '#C79C6E', type: 'self', selfClasses: ['Warrior'] },
   { id: 'shadowdance', name: 'Shadow Dance', duration: 8, icon: 'https://wow.zamimg.com/images/wow/icons/medium/ability_rogue_shadowdance.jpg', glow: '#FFF569', type: 'self', selfClasses: ['Rogue'] },
   { id: 'berserk', name: 'Berserk', duration: 15, icon: 'https://wow.zamimg.com/images/wow/icons/medium/ability_druid_berserk.jpg', glow: '#FF7D0A', type: 'self', selfClasses: ['Druid'] },
-  // External buffs (can be cast on anyone)
+  { id: 'vendetta', name: 'Vendetta', duration: 20, icon: 'https://wow.zamimg.com/images/wow/icons/medium/ability_rogue_deadliness.jpg', glow: '#FFF569', type: 'self', selfClasses: ['Rogue'] },
+  { id: 'pillarofrost', name: 'Pillar of Frost', duration: 12, icon: 'https://wow.zamimg.com/images/wow/icons/medium/ability_deathknight_pillaroffrost.jpg', glow: '#C41F3B', type: 'self', selfClasses: ['Death Knight'] },
+  { id: 'celestialalignment', name: 'Celestial Alignment', duration: 20, icon: 'https://wow.zamimg.com/images/wow/icons/medium/spell_nature_natureguardian.jpg', glow: '#FF7D0A', type: 'self', selfClasses: ['Druid'] },
+  { id: 'trueshot', name: 'Trueshot', duration: 15, icon: 'https://wow.zamimg.com/images/wow/icons/medium/ability_trueshot.jpg', glow: '#ABD473', type: 'self', selfClasses: ['Hunter'] },
+  { id: 'darksoultorment', name: 'Dark Soul', duration: 20, icon: 'https://wow.zamimg.com/images/wow/icons/medium/warlock_darksoultorment.jpg', glow: '#8788EE', type: 'self', selfClasses: ['Warlock'] },
+  // External buffs (short cooldowns only - can be cast on others)
   { id: 'powerinfusion', name: 'Power Infusion', duration: 15, icon: 'https://wow.zamimg.com/images/wow/icons/medium/spell_holy_powerinfusion.jpg', glow: '#ffff00', type: 'external' },
-  { id: 'innervate', name: 'Innervate', duration: 10, icon: 'https://wow.zamimg.com/images/wow/icons/medium/spell_nature_lightning.jpg', glow: '#00ff00', type: 'external' },
-  { id: 'arcaneintellect', name: 'Arcane Intellect', duration: 60, icon: 'https://wow.zamimg.com/images/wow/icons/medium/spell_holy_magicalsentry.jpg', glow: '#69CCF0', type: 'external' },
-  { id: 'markofthewild', name: 'Mark of the Wild', duration: 60, icon: 'https://wow.zamimg.com/images/wow/icons/medium/spell_nature_regeneration.jpg', glow: '#FF7D0A', type: 'external' },
-  { id: 'fortitude', name: 'Power Word: Fortitude', duration: 60, icon: 'https://wow.zamimg.com/images/wow/icons/medium/spell_holy_wordfortitude.jpg', glow: '#ffffff', type: 'external' },
-  { id: 'battleshout', name: 'Battle Shout', duration: 60, icon: 'https://wow.zamimg.com/images/wow/icons/medium/ability_warrior_battleshout.jpg', glow: '#C79C6E', type: 'external' },
+  { id: 'innervate', name: 'Innervate', duration: 10, icon: 'https://wow.zamimg.com/images/wow/icons/medium/spell_nature_lightning.jpg', glow: '#00ff00', type: 'external', targetRoles: ['Healer'] },
   { id: 'windfury', name: 'Windfury Totem', duration: 20, icon: 'https://wow.zamimg.com/images/wow/icons/medium/spell_nature_windfury.jpg', glow: '#0070DE', type: 'external', targetRoles: ['DPS', 'Tank'] },
-  { id: 'blessing', name: 'Blessing of Kings', duration: 60, icon: 'https://wow.zamimg.com/images/wow/icons/medium/spell_magic_magearmor.jpg', glow: '#F58CBA', type: 'external' },
+  { id: 'painsuppression', name: 'Pain Suppression', duration: 8, icon: 'https://wow.zamimg.com/images/wow/icons/medium/spell_holy_painsupression.jpg', glow: '#ffffff', type: 'external', targetRoles: ['Tank'] },
+  { id: 'ironbark', name: 'Ironbark', duration: 12, icon: 'https://wow.zamimg.com/images/wow/icons/medium/spell_druid_ironbark.jpg', glow: '#FF7D0A', type: 'external', targetRoles: ['Tank'] },
+  { id: 'blessingofprotection', name: 'Blessing of Protection', duration: 10, icon: 'https://wow.zamimg.com/images/wow/icons/medium/spell_holy_sealofprotection.jpg', glow: '#F58CBA', type: 'external', targetRoles: ['Healer', 'DPS'] },
 ]
 
 // Get valid buffs for a member based on their class and role
@@ -172,7 +174,19 @@ const MembersTab = () => {
     if (validBuffs.length === 0) return // No valid buffs for this member
     const randomBuff = validBuffs[Math.floor(Math.random() * validBuffs.length)]
     const expiresAt = Date.now() + randomBuff.duration * 1000
-    setActiveBuffs(prev => ({ ...prev, [randomMember.id]: { buff: randomBuff, expiresAt } }))
+
+    // Raid-wide buffs (lust) apply to ALL members
+    if (randomBuff.raidWide) {
+      setActiveBuffs(prev => {
+        const newBuffs = { ...prev }
+        members.forEach(m => {
+          newBuffs[m.id] = { buff: randomBuff, expiresAt }
+        })
+        return newBuffs
+      })
+    } else {
+      setActiveBuffs(prev => ({ ...prev, [randomMember.id]: { buff: randomBuff, expiresAt } }))
+    }
   }, [members])
 
   // Clear expired buffs

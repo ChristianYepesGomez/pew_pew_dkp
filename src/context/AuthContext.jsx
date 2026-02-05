@@ -7,6 +7,8 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null)
   const [token, setToken] = useState(localStorage.getItem('token'))
   const [loading, setLoading] = useState(true)
+  // Dev mode: role simulation (only for admins)
+  const [simulatedRole, setSimulatedRole] = useState(localStorage.getItem('dev_simulated_role'))
 
   useEffect(() => {
     if (token) {
@@ -56,12 +58,31 @@ export const AuthProvider = ({ children }) => {
 
   const logout = () => {
     localStorage.removeItem('token')
+    localStorage.removeItem('dev_simulated_role')
     setToken(null)
     setUser(null)
+    setSimulatedRole(null)
   }
 
+  // Dev: Set simulated role (only for admins)
+  const setDevRole = (role) => {
+    if (user?.role !== 'admin') return // Only admins can use this
+    if (role) {
+      localStorage.setItem('dev_simulated_role', role)
+      setSimulatedRole(role)
+    } else {
+      localStorage.removeItem('dev_simulated_role')
+      setSimulatedRole(null)
+    }
+  }
+
+  // Return user with simulated role if active (and user is actually admin)
+  const effectiveUser = user && simulatedRole && user.role === 'admin'
+    ? { ...user, role: simulatedRole, _realRole: user.role }
+    : user
+
   const value = {
-    user,
+    user: effectiveUser,
     token,
     loading,
     isAuthenticated: !!token && !!user,
@@ -69,6 +90,10 @@ export const AuthProvider = ({ children }) => {
     register,
     logout,
     refreshUser: loadUser,
+    // Dev mode
+    isDevMode: !!simulatedRole && user?.role === 'admin',
+    realRole: user?.role,
+    setDevRole,
   }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
