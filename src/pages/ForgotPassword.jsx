@@ -32,80 +32,102 @@ const ForgotPassword = () => {
   }
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center px-4">
+    <div className="min-h-screen flex items-center justify-center px-4 py-8">
       <div className="w-full max-w-md">
-        <div className="bg-white bg-opacity-95 backdrop-blur-lg rounded-2xl shadow-2xl p-8">
-          <div className="text-center mb-8">
-            <div className="text-6xl mb-4"><i className="fas fa-key text-midnight-purple"></i></div>
-            <h2 className="text-2xl font-cinzel font-bold text-midnight-purple mb-2">{t('forgot_password')}</h2>
-            <p className="text-gray-600">{t('forgot_password_desc')}</p>
+        {/* Language toggle */}
+        <div className="flex justify-end mb-4">
+          <button
+            onClick={() => changeLanguage(language === 'es' ? 'en' : 'es')}
+            className="px-3 py-1 rounded-lg border border-midnight-bright-purple text-midnight-silver hover:bg-midnight-bright-purple hover:bg-opacity-20 transition-all"
+          >
+            {language === 'es' ? '🇪🇸' : '🇬🇧'}
+          </button>
+        </div>
+
+        {/* Main card */}
+        <div className="bg-midnight-deepblue bg-opacity-95 backdrop-blur-lg rounded-2xl shadow-2xl border border-midnight-bright-purple overflow-hidden">
+          {/* Header */}
+          <div className="p-8 text-center border-b border-midnight-bright-purple border-opacity-30 bg-gradient-to-b from-midnight-purple/20 to-transparent">
+            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-midnight-purple bg-opacity-30 flex items-center justify-center border border-midnight-bright-purple">
+              <i className="fas fa-key text-3xl text-midnight-glow"></i>
+            </div>
+            <h2 className="text-2xl font-cinzel font-bold text-midnight-glow mb-2">{t('forgot_password')}</h2>
+            <p className="text-midnight-silver text-sm">{t('forgot_password_desc')}</p>
           </div>
 
-          {error && (
-            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg mb-4">
-              <i className="fas fa-exclamation-circle mr-2"></i>{error}
-            </div>
-          )}
+          {/* Content */}
+          <div className="p-6">
+            {error && (
+              <div className="bg-red-500 bg-opacity-20 border border-red-500 text-red-400 px-4 py-3 rounded-lg mb-6 flex items-center gap-2">
+                <i className="fas fa-exclamation-circle"></i>
+                <span>{error}</span>
+              </div>
+            )}
 
-          {message && (
-            <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded-lg mb-4">
-              <i className="fas fa-check-circle mr-2"></i>{message}
-            </div>
-          )}
+            {message && (
+              <div className="bg-green-500 bg-opacity-20 border border-green-500 text-green-400 px-4 py-3 rounded-lg mb-6 flex items-center gap-2">
+                <i className="fas fa-check-circle"></i>
+                <span>{message}</span>
+              </div>
+            )}
 
-          {resetToken && (
-            <div className="bg-blue-100 border border-blue-400 text-blue-700 px-4 py-3 rounded-lg mb-4 text-sm">
-              <i className="fas fa-info-circle mr-2"></i>
-              <strong>Dev mode:</strong>{' '}
-              <Link to={`/reset-password/${resetToken}`} className="underline">
-                Click here to reset password
+            {resetToken && (
+              <div className="bg-blue-500 bg-opacity-20 border border-blue-500 text-blue-400 px-4 py-3 rounded-lg mb-6 text-sm flex items-center gap-2">
+                <i className="fas fa-info-circle"></i>
+                <span>
+                  <strong>Dev mode:</strong>{' '}
+                  <Link to={`/reset-password/${resetToken}`} className="underline hover:text-blue-300">
+                    Click here to reset password
+                  </Link>
+                </span>
+              </div>
+            )}
+
+            {!message ? (
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div>
+                  <label className="block text-midnight-silver text-sm font-semibold mb-2">
+                    <i className="fas fa-user mr-2 text-midnight-glow"></i>{t('username_or_email')}
+                  </label>
+                  <input
+                    type="text"
+                    value={usernameOrEmail}
+                    onChange={(e) => setUsernameOrEmail(e.target.value)}
+                    placeholder={t('username_or_email_placeholder')}
+                    className="w-full px-4 py-3 rounded-lg bg-midnight-purple bg-opacity-30 border border-midnight-bright-purple border-opacity-30 text-white placeholder-gray-500 focus:outline-none focus:border-midnight-glow transition-all"
+                    required
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full bg-gradient-to-r from-midnight-purple to-midnight-bright-purple text-white font-bold py-4 px-4 rounded-lg hover:shadow-lg hover:shadow-midnight-glow/30 transform hover:-translate-y-0.5 transition-all disabled:opacity-50 disabled:transform-none"
+                >
+                  {loading ? (
+                    <><i className="fas fa-circle-notch fa-spin mr-2"></i>{t('loading')}...</>
+                  ) : (
+                    <><i className="fas fa-paper-plane mr-2"></i>{t('send_reset_link')}</>
+                  )}
+                </button>
+              </form>
+            ) : (
+              <div className="text-center py-4">
+                <p className="text-midnight-silver text-sm">{t('check_email_instructions')}</p>
+              </div>
+            )}
+
+            {/* Back to login */}
+            <div className="text-center mt-6 pt-6 border-t border-midnight-bright-purple border-opacity-20">
+              <Link
+                to="/login"
+                className="text-midnight-silver hover:text-midnight-glow transition-colors text-sm"
+              >
+                <i className="fas fa-arrow-left mr-2"></i>{t('back_to_login')}
               </Link>
             </div>
-          )}
-
-          {!message && (
-            <form onSubmit={handleSubmit}>
-              <div className="mb-6">
-                <label className="block text-gray-700 font-semibold mb-2">
-                  <i className="fas fa-envelope mr-2"></i>{t('username_or_email')}
-                </label>
-                <input
-                  type="text"
-                  value={usernameOrEmail}
-                  onChange={(e) => setUsernameOrEmail(e.target.value)}
-                  placeholder={t('username_or_email_placeholder')}
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:border-midnight-purple focus:ring-2 focus:ring-midnight-purple focus:outline-none bg-white text-gray-900"
-                  required
-                />
-              </div>
-
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full bg-gradient-to-r from-midnight-purple to-midnight-bright-purple text-white font-bold py-3 px-4 rounded-lg hover:shadow-lg transform hover:-translate-y-0.5 transition-all disabled:opacity-50"
-              >
-                {loading ? <><i className="fas fa-circle-notch fa-spin mr-2"></i>{t('loading')}...</> : <><i className="fas fa-paper-plane mr-2"></i>{t('send_reset_link')}</>}
-              </button>
-            </form>
-          )}
-
-          <div className="text-center mt-6">
-            <Link to="/login" className="text-midnight-purple font-semibold hover:text-midnight-bright-purple">
-              <i className="fas fa-arrow-left mr-2"></i>{t('back_to_login')}
-            </Link>
           </div>
         </div>
-      </div>
-
-      {/* Language selector at bottom */}
-      <div className="mt-6">
-        <button
-          onClick={() => changeLanguage(language === 'es' ? 'en' : 'es')}
-          className="text-gray-400 hover:text-white text-sm flex items-center gap-2 transition-colors"
-        >
-          <i className="fas fa-globe"></i>
-          {language === 'es' ? 'English' : 'Español'}
-        </button>
       </div>
     </div>
   )

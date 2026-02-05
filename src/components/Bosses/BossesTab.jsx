@@ -391,6 +391,33 @@ const BossDetailModal = ({ boss, details, loading, onClose, t }) => {
                     <StatBox label={t('fastest_kill')} value={details.statistics.fastestKill || '-'} color="text-yellow-400" />
                     <StatBox label={t('avg_kill_time')} value={details.statistics.avgKillTime || '-'} color="text-blue-400" />
                   </div>
+
+                  {/* Progression Stats Row */}
+                  {(details.statistics.wipesToFirstKill !== null || details.statistics.firstKillDate) && (
+                    <div className="mt-4 pt-4 border-t border-white border-opacity-10">
+                      <h4 className="text-xs text-gray-400 mb-2 flex items-center gap-2">
+                        <i className="fas fa-flag-checkered text-yellow-400"></i>
+                        {t('progression_stats')}
+                      </h4>
+                      <div className="flex flex-wrap gap-4">
+                        {details.statistics.wipesToFirstKill !== null && (
+                          <div className="flex items-center gap-2 bg-red-500 bg-opacity-10 px-3 py-2 rounded-lg">
+                            <i className="fas fa-skull-crossbones text-red-400"></i>
+                            <span className="text-sm text-gray-300">{t('wipes_to_first_kill')}:</span>
+                            <span className="font-bold text-red-400">{details.statistics.wipesToFirstKill}</span>
+                          </div>
+                        )}
+                        {details.statistics.firstKillDate && (
+                          <div className="flex items-center gap-2 bg-green-500 bg-opacity-10 px-3 py-2 rounded-lg">
+                            <i className="fas fa-trophy text-green-400"></i>
+                            <span className="text-sm text-gray-300">{t('first_kill')}:</span>
+                            <span className="font-bold text-green-400">{details.statistics.firstKillDate}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
                   {details.statistics.lastKill && (
                     <p className="text-xs text-gray-400 mt-3">
                       {t('last_kill')}: {details.statistics.lastKill}
@@ -400,13 +427,13 @@ const BossDetailModal = ({ boss, details, loading, onClose, t }) => {
               )}
 
               {/* Records (Top Performers) */}
-              {details.records && (details.records.topDamage || details.records.topHealing) && (
+              {details.records && (details.records.topDamage || details.records.topHealing || details.records.mostDeaths) && (
                 <div className="bg-white bg-opacity-5 rounded-xl p-4">
                   <h3 className="font-semibold mb-3 flex items-center gap-2">
                     <i className="fas fa-trophy text-yellow-400"></i>
                     {t('records')}
                   </h3>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                     {details.records.topDamage && (
                       <RecordCard
                         icon="fa-fire"
@@ -429,6 +456,14 @@ const BossDetailModal = ({ boss, details, loading, onClose, t }) => {
                         iconColor="text-blue-400"
                         title={t('most_damage_taken')}
                         record={details.records.mostDamageTaken}
+                      />
+                    )}
+                    {details.records.mostDeaths && (
+                      <RecordCard
+                        icon="fa-skull"
+                        iconColor="text-red-400"
+                        title={t('most_deaths')}
+                        record={details.records.mostDeaths}
                       />
                     )}
                   </div>

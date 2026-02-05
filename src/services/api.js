@@ -62,6 +62,7 @@ export const warcraftLogsAPI = {
   revert: (code) => api.post(`/warcraftlogs/revert/${code}`),
   guildReports: (date) => api.get(`/warcraftlogs/guild-reports?date=${date}`),
   reportTransactions: (code) => api.get(`/warcraftlogs/report/${code}/transactions`),
+  importBossStats: (url) => api.post('/warcraftlogs/import-boss-stats', { url }),
 }
 
 export const raidItemsAPI = {
@@ -103,6 +104,11 @@ export const bossesAPI = {
   getDetails: (bossId) => api.get(`/bosses/${bossId}`),
   sync: () => api.post('/bosses/sync'),
   setZoneLegacy: (zoneId, isLegacy) => api.put(`/bosses/zones/${zoneId}/legacy`, { isLegacy }),
+}
+
+export const vaultAPI = {
+  getStatus: () => api.get('/admin/vault/status'),
+  processWeekly: () => api.post('/admin/vault/process-weekly'),
 }
 
 export default api

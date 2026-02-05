@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useLanguage } from '../../hooks/useLanguage'
-import { membersAPI, dkpAPI, warcraftLogsAPI, calendarAPI } from '../../services/api'
+import { membersAPI, dkpAPI, warcraftLogsAPI, calendarAPI, vaultAPI } from '../../services/api'
 
 const WCL_ICON = 'https://assets.rpglogs.com/img/warcraft/favicon.png'
 
@@ -29,6 +29,11 @@ const AdminTab = () => {
   const [raidDays, setRaidDays] = useState([])
   const [raidDaysLoading, setRaidDaysLoading] = useState(true)
   const [raidDaysSaving, setRaidDaysSaving] = useState(false)
+  // Vault management state
+  const [vaultStatus, setVaultStatus] = useState(null)
+  const [vaultLoading, setVaultLoading] = useState(true)
+  const [vaultProcessing, setVaultProcessing] = useState(false)
+  const [vaultConfirm, setVaultConfirm] = useState(false)
 
   const DAY_NAMES = {
     1: { es: 'Lunes', en: 'Monday' },
@@ -109,7 +114,34 @@ const AdminTab = () => {
   useEffect(() => {
     loadWclHistory()
     loadRaidDays()
+    loadVaultStatus()
   }, [])
+
+  const loadVaultStatus = async () => {
+    setVaultLoading(true)
+    try {
+      const res = await vaultAPI.getStatus()
+      setVaultStatus(res.data)
+    } catch (error) {
+      console.error('Error loading vault status:', error)
+    } finally {
+      setVaultLoading(false)
+    }
+  }
+
+  const handleProcessVault = async () => {
+    setVaultProcessing(true)
+    try {
+      const res = await vaultAPI.processWeekly()
+      showNotification('success', `${t('vault_processed')}: ${res.data.processed} ${t('players')}, ${res.data.totalDkpAwarded} DKP`)
+      setVaultConfirm(false)
+      loadVaultStatus()
+    } catch (error) {
+      showNotification('error', error.response?.data?.error || t('error_generic'))
+    } finally {
+      setVaultProcessing(false)
+    }
+  }
 
   const loadRaidDays = async () => {
     setRaidDaysLoading(true)
@@ -380,6 +412,81 @@ const AdminTab = () => {
         )}
       </div>
 
+      {/* Weekly Vault Management */}
+      <div className="info-card">
+        <h3><i className="fas fa-vault mr-3"></i>{t('weekly_vault_management')}</h3>
+        {vaultLoading ? (
+          <div className="text-center py-8"><i className="fas fa-circle-notch fa-spin text-2xl text-midnight-glow"></i></div>
+        ) : vaultStatus ? (
+          <div className="mt-4 space-y-4">
+            {/* Stats Row */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="bg-midnight-purple bg-opacity-20 rounded-xl p-4 text-center">
+                <p className="text-xs text-midnight-silver mb-1">{t('current_week')}</p>
+                <p className="text-lg font-bold text-white">{vaultStatus.currentWeek}</p>
+              </div>
+              <div className="bg-midnight-purple bg-opacity-20 rounded-xl p-4 text-center">
+                <p className="text-xs text-midnight-silver mb-1">{t('vault_completed')}</p>
+                <p className="text-2xl font-bold text-green-400">{vaultStatus.completedCount}</p>
+                <p className="text-xs text-midnight-silver">/ {vaultStatus.totalMembers}</p>
+              </div>
+              <div className="bg-midnight-purple bg-opacity-20 rounded-xl p-4 text-center">
+                <p className="text-xs text-midnight-silver mb-1">{t('dkp_per_vault')}</p>
+                <p className="text-2xl font-bold text-midnight-glow">{vaultStatus.vaultDkp}</p>
+              </div>
+              <div className="bg-midnight-purple bg-opacity-20 rounded-xl p-4 text-center">
+                <p className="text-xs text-midnight-silver mb-1">{t('pending_dkp')}</p>
+                <p className="text-2xl font-bold text-yellow-400">{vaultStatus.pendingDkp}</p>
+              </div>
+            </div>
+
+            {/* Completed Members List */}
+            {vaultStatus.completedMembers?.length > 0 ? (
+              <div className="bg-midnight-purple bg-opacity-10 rounded-xl p-4 border border-midnight-bright-purple border-opacity-20">
+                <h4 className="text-sm font-semibold text-midnight-glow mb-3">
+                  <i className="fas fa-check-circle mr-2"></i>
+                  {t('members_with_vault_completed')} ({vaultStatus.completedCount})
+                </h4>
+                <div className="flex flex-wrap gap-2">
+                  {vaultStatus.completedMembers.map(member => (
+                    <span
+                      key={member.id}
+                      className="px-3 py-1 rounded-full bg-green-500 bg-opacity-20 border border-green-500 border-opacity-30 text-sm"
+                      style={{ color: CLASS_COLORS[member.characterClass] || '#fff' }}
+                    >
+                      {member.characterName}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="bg-midnight-purple bg-opacity-10 rounded-xl p-6 text-center border border-midnight-bright-purple border-opacity-20">
+                <i className="fas fa-inbox text-3xl text-midnight-silver mb-2"></i>
+                <p className="text-midnight-silver">{t('no_vault_completions')}</p>
+              </div>
+            )}
+
+            {/* Process Button */}
+            <div className="flex items-center justify-between pt-4 border-t border-midnight-bright-purple border-opacity-20">
+              <p className="text-sm text-midnight-silver">
+                <i className="fas fa-info-circle mr-2"></i>
+                {t('vault_process_info')}
+              </p>
+              <button
+                onClick={() => setVaultConfirm(true)}
+                disabled={vaultStatus.completedCount === 0}
+                className="px-6 py-3 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white rounded-lg font-bold disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+              >
+                <i className="fas fa-gift mr-2"></i>
+                {t('process_vault_rewards')}
+              </button>
+            </div>
+          </div>
+        ) : (
+          <p className="text-midnight-silver mt-4 text-center">{t('error_loading_data')}</p>
+        )}
+      </div>
+
       {/* Raid Days Configuration - Hidden for now, keeping code for future use */}
       {false && (
       <div className="info-card">
@@ -462,6 +569,41 @@ const AdminTab = () => {
                   className="flex-1 py-2 px-4 bg-red-600 text-white rounded-lg font-bold hover:bg-red-700 transition-all disabled:opacity-50"
                 >
                   {reverting ? <i className="fas fa-circle-notch fa-spin"></i> : <><i className="fas fa-undo mr-2"></i>{t('revert_dkp')}</>}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Vault Process Confirmation Dialog */}
+      {vaultConfirm && vaultStatus && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => setVaultConfirm(false)}>
+          <div className="absolute inset-0 bg-black bg-opacity-70"></div>
+          <div className="relative bg-midnight-deepblue border border-green-500 border-opacity-40 rounded-2xl p-6 max-w-sm w-full shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="text-center space-y-4">
+              <div className="w-16 h-16 rounded-full bg-green-500 bg-opacity-20 flex items-center justify-center mx-auto">
+                <i className="fas fa-gift text-green-400 text-2xl"></i>
+              </div>
+              <h3 className="text-lg font-bold text-white">{t('process_vault_rewards')}</h3>
+              <p className="text-midnight-silver text-sm">
+                {t('confirm_vault_process')
+                  .replace('{count}', vaultStatus.completedCount)
+                  .replace('{dkp}', vaultStatus.pendingDkp)}
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setVaultConfirm(false)}
+                  className="flex-1 py-2 px-4 border border-midnight-bright-purple text-midnight-silver rounded-lg hover:bg-midnight-purple hover:bg-opacity-20 transition-all"
+                >
+                  {t('cancel')}
+                </button>
+                <button
+                  onClick={handleProcessVault}
+                  disabled={vaultProcessing}
+                  className="flex-1 py-2 px-4 bg-green-600 text-white rounded-lg font-bold hover:bg-green-700 transition-all disabled:opacity-50"
+                >
+                  {vaultProcessing ? <i className="fas fa-circle-notch fa-spin"></i> : <><i className="fas fa-check mr-2"></i>{t('confirm')}</>}
                 </button>
               </div>
             </div>

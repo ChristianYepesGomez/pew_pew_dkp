@@ -71,10 +71,10 @@ const Dashboard = () => {
 
   const tabs = [
     { id: 'members', icon: 'fa-users', label: t('members') },
-    { id: 'bosses', icon: 'fa-dragon', label: t('bosses') },
     { id: 'calendar', icon: 'fa-calendar-alt', label: t('calendar') },
     { id: 'auction', icon: 'fa-gavel', label: t('active_auction') },
     { id: 'history', icon: 'fa-history', label: t('auction_history') },
+    { id: 'bosses', icon: 'fa-dragon', label: t('bosses') },
   ]
 
   // Only admin can see Admin tab (not officers)

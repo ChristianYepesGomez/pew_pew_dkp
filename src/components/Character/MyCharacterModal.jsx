@@ -78,41 +78,158 @@ const RARITY_COLORS = {
 
 // CLASSES removed - manual character creation disabled, only Blizzard import allowed
 
-// Compress and resize image to reduce DB storage (max 50KB, 150x150px)
-const compressImage = (file, maxSize = 150, maxBytes = 50 * 1024) => {
+// Crop and compress image to a square, centered based on user selection
+const cropAndCompressImage = (imageSrc, cropData, outputSize = 300, maxBytes = 100 * 1024) => {
   return new Promise((resolve, reject) => {
     const img = new Image()
-    const reader = new FileReader()
-    reader.onload = (e) => {
-      img.src = e.target.result
-      img.onload = () => {
-        const canvas = document.createElement('canvas')
-        let width = img.width
-        let height = img.height
-        // Resize to fit within maxSize x maxSize
-        if (width > height) {
-          if (width > maxSize) { height = Math.round(height * maxSize / width); width = maxSize }
-        } else {
-          if (height > maxSize) { width = Math.round(width * maxSize / height); height = maxSize }
-        }
-        canvas.width = width
-        canvas.height = height
-        const ctx = canvas.getContext('2d')
-        ctx.drawImage(img, 0, 0, width, height)
-        // Start with high quality and reduce until under maxBytes
-        let quality = 0.9
-        let dataUrl = canvas.toDataURL('image/jpeg', quality)
-        while (dataUrl.length > maxBytes && quality > 0.1) {
-          quality -= 0.1
-          dataUrl = canvas.toDataURL('image/jpeg', quality)
-        }
-        resolve(dataUrl)
+    img.onload = () => {
+      const canvas = document.createElement('canvas')
+      canvas.width = outputSize
+      canvas.height = outputSize
+      const ctx = canvas.getContext('2d')
+
+      // Calculate the source area based on crop data
+      const { x, y, scale } = cropData
+      const cropSize = Math.min(img.width, img.height) / scale
+      const sourceX = (img.width / 2) - (cropSize / 2) - (x * cropSize / outputSize)
+      const sourceY = (img.height / 2) - (cropSize / 2) - (y * cropSize / outputSize)
+
+      // Draw the cropped and scaled image
+      ctx.drawImage(img, sourceX, sourceY, cropSize, cropSize, 0, 0, outputSize, outputSize)
+
+      // Compress with quality reduction until under maxBytes
+      let quality = 0.9
+      let dataUrl = canvas.toDataURL('image/jpeg', quality)
+      while (dataUrl.length > maxBytes && quality > 0.1) {
+        quality -= 0.1
+        dataUrl = canvas.toDataURL('image/jpeg', quality)
       }
-      img.onerror = reject
+      resolve(dataUrl)
     }
-    reader.onerror = reject
-    reader.readAsDataURL(file)
+    img.onerror = reject
+    img.src = imageSrc
   })
+}
+
+// Avatar Crop Modal Component
+const AvatarCropModal = ({ imageSrc, onConfirm, onCancel, t }) => {
+  const [position, setPosition] = useState({ x: 0, y: 0 })
+  const [scale, setScale] = useState(1)
+  const [dragging, setDragging] = useState(false)
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 })
+  const containerRef = useCallback(node => { if (node) window._cropContainer = node }, [])
+
+  const handleMouseDown = (e) => {
+    e.preventDefault()
+    setDragging(true)
+    setDragStart({ x: e.clientX - position.x, y: e.clientY - position.y })
+  }
+
+  const handleMouseMove = (e) => {
+    if (!dragging) return
+    const maxOffset = 100 * scale
+    const newX = Math.max(-maxOffset, Math.min(maxOffset, e.clientX - dragStart.x))
+    const newY = Math.max(-maxOffset, Math.min(maxOffset, e.clientY - dragStart.y))
+    setPosition({ x: newX, y: newY })
+  }
+
+  const handleMouseUp = () => setDragging(false)
+
+  const handleTouchStart = (e) => {
+    const touch = e.touches[0]
+    setDragging(true)
+    setDragStart({ x: touch.clientX - position.x, y: touch.clientY - position.y })
+  }
+
+  const handleTouchMove = (e) => {
+    if (!dragging) return
+    const touch = e.touches[0]
+    const maxOffset = 100 * scale
+    const newX = Math.max(-maxOffset, Math.min(maxOffset, touch.clientX - dragStart.x))
+    const newY = Math.max(-maxOffset, Math.min(maxOffset, touch.clientY - dragStart.y))
+    setPosition({ x: newX, y: newY })
+  }
+
+  const handleConfirm = async () => {
+    const croppedImage = await cropAndCompressImage(imageSrc, { ...position, scale })
+    onConfirm(croppedImage)
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-[110]">
+      <div className="bg-midnight-deepblue border-2 border-midnight-bright-purple rounded-2xl p-6 w-full max-w-sm">
+        <h4 className="text-lg font-cinzel text-midnight-glow mb-4 text-center">
+          <i className="fas fa-crop-alt mr-2"></i>{t('crop_avatar') || 'Ajustar foto'}
+        </h4>
+
+        {/* Crop area */}
+        <div
+          ref={containerRef}
+          className="relative w-64 h-64 mx-auto mb-4 overflow-hidden rounded-full border-4 border-midnight-bright-purple cursor-move"
+          style={{ background: 'rgba(0,0,0,0.5)' }}
+          onMouseDown={handleMouseDown}
+          onMouseMove={handleMouseMove}
+          onMouseUp={handleMouseUp}
+          onMouseLeave={handleMouseUp}
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleMouseUp}
+        >
+          <img
+            src={imageSrc}
+            alt="Crop preview"
+            className="absolute select-none pointer-events-none"
+            style={{
+              top: '50%',
+              left: '50%',
+              transform: `translate(calc(-50% + ${position.x}px), calc(-50% + ${position.y}px)) scale(${scale})`,
+              maxWidth: 'none',
+              width: 'auto',
+              height: 'auto',
+              minWidth: '100%',
+              minHeight: '100%',
+            }}
+            draggable={false}
+          />
+        </div>
+
+        {/* Zoom slider */}
+        <div className="flex items-center gap-3 mb-4 px-4">
+          <i className="fas fa-search-minus text-midnight-silver"></i>
+          <input
+            type="range"
+            min="1"
+            max="3"
+            step="0.1"
+            value={scale}
+            onChange={(e) => setScale(parseFloat(e.target.value))}
+            className="flex-1 accent-midnight-bright-purple"
+          />
+          <i className="fas fa-search-plus text-midnight-silver"></i>
+        </div>
+
+        <p className="text-xs text-midnight-silver text-center mb-4">
+          {t('drag_to_position') || 'Arrastra para posicionar'}
+        </p>
+
+        {/* Buttons */}
+        <div className="flex gap-3">
+          <button
+            onClick={onCancel}
+            className="flex-1 py-2 rounded-lg bg-gray-700 text-white hover:bg-gray-600 transition-all"
+          >
+            {t('cancel')}
+          </button>
+          <button
+            onClick={handleConfirm}
+            className="flex-1 py-2 rounded-lg bg-gradient-to-r from-midnight-purple to-midnight-bright-purple text-white font-bold hover:shadow-lg transition-all"
+          >
+            {t('confirm')}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
 }
 
 const MyCharacterModal = ({ onClose }) => {
@@ -142,6 +259,9 @@ const MyCharacterModal = ({ onClose }) => {
   const [avatarSaving, setAvatarSaving] = useState(false)
   const [avatarHover, setAvatarHover] = useState(false)
   const avatarInputRef = useCallback(node => { if (node) window._avatarInput = node }, [])
+  // Crop modal state
+  const [cropModalOpen, setCropModalOpen] = useState(false)
+  const [cropImageSrc, setCropImageSrc] = useState(null)
 
   const handleKeyDown = useCallback((e) => {
     if (e.key === 'Escape') onClose()
@@ -223,13 +343,26 @@ const MyCharacterModal = ({ onClose }) => {
       return
     }
 
+    // Read file and open crop modal
+    const reader = new FileReader()
+    reader.onload = (ev) => {
+      setCropImageSrc(ev.target.result)
+      setCropModalOpen(true)
+    }
+    reader.readAsDataURL(file)
+
+    // Clear input so same file can be selected again
+    e.target.value = ''
+  }
+
+  const handleCropConfirm = async (croppedImage) => {
+    setCropModalOpen(false)
+    setCropImageSrc(null)
     setAvatarSaving(true)
     setAvatarMsg('')
 
     try {
-      // Compress and resize image to reduce DB storage (300px max, 100KB max)
-      const compressedDataUrl = await compressImage(file, 300, 100 * 1024)
-      await authAPI.updateProfile({ avatar: compressedDataUrl })
+      await authAPI.updateProfile({ avatar: croppedImage })
       await refreshUser()
       setAvatarMsg(t('avatar_saved'))
       setTimeout(() => setAvatarMsg(''), 3000)
@@ -238,6 +371,11 @@ const MyCharacterModal = ({ onClose }) => {
     } finally {
       setAvatarSaving(false)
     }
+  }
+
+  const handleCropCancel = () => {
+    setCropModalOpen(false)
+    setCropImageSrc(null)
   }
 
   const handleRemoveAvatar = async () => {
@@ -826,6 +964,16 @@ const MyCharacterModal = ({ onClose }) => {
           </button>
         </div>
       </div>
+
+      {/* Avatar Crop Modal */}
+      {cropModalOpen && cropImageSrc && (
+        <AvatarCropModal
+          imageSrc={cropImageSrc}
+          onConfirm={handleCropConfirm}
+          onCancel={handleCropCancel}
+          t={t}
+        />
+      )}
     </div>,
     document.body
   )
