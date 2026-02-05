@@ -100,11 +100,11 @@ async function refreshMembers() {
   try {
     members = await db.all(`
       SELECT u.id, u.username, u.character_name, u.character_class,
-             md.raid_role as raidRole
+             u.raid_role as raidRole
       FROM users u
-      LEFT JOIN member_dkp md ON u.id = md.user_id
-      WHERE u.character_name IS NOT NULL
+      WHERE u.is_active = 1 AND u.character_name IS NOT NULL AND u.character_class IS NOT NULL
     `);
+    console.log(`📊 Buff manager: ${members.length} active members loaded`);
   } catch (err) {
     console.error('Error refreshing members for buff manager:', err);
     members = [];
@@ -115,15 +115,24 @@ async function refreshMembers() {
  * Apply a random buff to a random eligible member
  */
 function applyRandomBuff() {
-  if (members.length === 0) return;
+  if (members.length === 0) {
+    console.log('⚠️ Buff manager: No members available');
+    return;
+  }
 
   // Pick a random caster
   const caster = members[Math.floor(Math.random() * members.length)];
-  if (!caster.character_class) return;
+  if (!caster.character_class) {
+    console.log(`⚠️ Buff manager: Caster ${caster.character_name} has no class`);
+    return;
+  }
 
   // Find buffs this class can cast
   const availableBuffs = BUFFS.filter(b => b.classes.includes(caster.character_class));
-  if (availableBuffs.length === 0) return;
+  if (availableBuffs.length === 0) {
+    console.log(`⚠️ Buff manager: No buffs available for class ${caster.character_class}`);
+    return;
+  }
 
   // Pick a random buff
   const buff = availableBuffs[Math.floor(Math.random() * availableBuffs.length)];

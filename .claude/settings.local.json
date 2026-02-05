@@ -5,7 +5,19 @@
       "Bash(docker-compose logs:*)",
       "Bash(docker-compose down:*)",
       "Bash(docker-compose up:*)",
-      "Bash(MSYS_NO_PATHCONV=1 docker run:*)"
+      "Bash(MSYS_NO_PATHCONV=1 docker run:*)",
+      "Bash(cmd //c \"taskkill /PID 26696 /F\")",
+      "Bash(/c/Windows/System32/taskkill.exe //F //PID 29756)",
+      "Bash(/c/Windows/System32/taskkill.exe //F //PID 31548)",
+      "Bash(python -m json.tool:*)",
+      "Bash(TURSO_DATABASE_URL=libsql://dkp-christianyepesgomez.aws-eu-west-1.turso.io TURSO_AUTH_TOKEN='eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJhIjoicnciLCJpYXQiOjE3NzAxNTY2NTUsImlkIjoiYmMzNmI0ODQtMDExNy00MTkyLTkyYjMtODY0MzM4OGU5ODYzIiwicmlkIjoiNTU2ZDEwYjctMmM1My00ODBjLTk5YTEtMmM0Njk3OTlmMmFkIn0.dEZ_2bHHo18xoPhwJv6YmpNQnIcGcqrigQGKePJ5-OUSujnrYURgLiPIu5DO8X8lTgNUpmqrvY4o8rda2AuQDw' node:*)",
+      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOjEsInVzZXJuYW1lIjoiRGxlbmlhbiIsInJvbGUiOiJhZG1pbiIsImlhdCI6MTc3MDE5NTAwOCwiZXhwIjoxNzcwNzk5ODA4fQ.Vyk_5WEttaC2Jl9dkheQsu6Cqka0fk90zJhpVbfVBjU\":*)",
+      "Bash(__NEW_LINE_801adc4549fd7e72__ echo \"=== GET /api/characters ===\")",
+      "Bash(__NEW_LINE_801adc4549fd7e72__ echo \"\")",
+      "Bash(__NEW_LINE_7144a6f2b984335f__ echo \"=== SET PRIMARY \\(Nyre id=4\\) ===\")",
+      "Bash(__NEW_LINE_7144a6f2b984335f__ echo \"\")",
+      "Bash(code --list-extensions:*)",
+      "Bash(cmd //c \"taskkill /PID 48924 /F\")"
     ]
   }
 }
