@@ -132,6 +132,7 @@ async function getReportData(reportCode) {
             encounterID
             name
             kill
+            difficulty
             startTime
             endTime
           }
@@ -174,6 +175,7 @@ function parseReportData(report) {
     encounterID: fight.encounterID,
     name: fight.name,
     kill: fight.kill,
+    difficulty: fight.difficulty,
     startTime: fight.startTime,
     endTime: fight.endTime,
     duration: fight.endTime - fight.startTime
@@ -316,6 +318,208 @@ export async function getGuildId(guildName, serverSlug, serverRegion) {
   }
 
   return data.guildData.guild.id;
+}
+
+/**
+ * Get death counts per player for specific fights
+ * Uses the table API which gives us aggregated death data
+ */
+export async function getFightDeaths(reportCode, fightIds) {
+  const query = `
+    query GetDeathsTable($reportCode: String!, $fightIDs: [Int!]) {
+      reportData {
+        report(code: $reportCode) {
+          table(dataType: Deaths, fightIDs: $fightIDs, hostilityType: Friendlies)
+        }
+      }
+    }
+  `;
+
+  try {
+    const data = await executeGraphQL(query, {
+      reportCode,
+      fightIDs: fightIds,
+    });
+
+    const table = data.reportData?.report?.table?.data;
+    if (!table?.entries) {
+      return [];
+    }
+
+    // Table entries have: id, name, total (deaths)
+    return table.entries.map(entry => ({
+      name: entry.name,
+      deaths: entry.total || 0,
+    }));
+  } catch (error) {
+    console.error('Error fetching deaths table:', error.message);
+    return [];
+  }
+}
+
+/**
+ * Get damage done per player for specific fights
+ * Returns the top performers by total damage
+ */
+export async function getFightDamage(reportCode, fightIds) {
+  const query = `
+    query GetDamageTable($reportCode: String!, $fightIDs: [Int!]) {
+      reportData {
+        report(code: $reportCode) {
+          table(dataType: DamageDone, fightIDs: $fightIDs, hostilityType: Friendlies)
+        }
+      }
+    }
+  `;
+
+  try {
+    const data = await executeGraphQL(query, {
+      reportCode,
+      fightIDs: fightIds,
+    });
+
+    const table = data.reportData?.report?.table?.data;
+    if (!table?.entries) {
+      return [];
+    }
+
+    return table.entries.map(entry => ({
+      name: entry.name,
+      damage: entry.total || 0,
+      dps: entry.totalReduced ? Math.round(entry.totalReduced) : 0,
+    }));
+  } catch (error) {
+    console.error('Error fetching damage table:', error.message);
+    return [];
+  }
+}
+
+/**
+ * Get healing done per player for specific fights
+ */
+export async function getFightHealing(reportCode, fightIds) {
+  const query = `
+    query GetHealingTable($reportCode: String!, $fightIDs: [Int!]) {
+      reportData {
+        report(code: $reportCode) {
+          table(dataType: Healing, fightIDs: $fightIDs, hostilityType: Friendlies)
+        }
+      }
+    }
+  `;
+
+  try {
+    const data = await executeGraphQL(query, {
+      reportCode,
+      fightIDs: fightIds,
+    });
+
+    const table = data.reportData?.report?.table?.data;
+    if (!table?.entries) {
+      return [];
+    }
+
+    return table.entries.map(entry => ({
+      name: entry.name,
+      healing: entry.total || 0,
+      hps: entry.totalReduced ? Math.round(entry.totalReduced) : 0,
+    }));
+  } catch (error) {
+    console.error('Error fetching healing table:', error.message);
+    return [];
+  }
+}
+
+/**
+ * Get damage taken per player for specific fights
+ */
+export async function getFightDamageTaken(reportCode, fightIds) {
+  const query = `
+    query GetDamageTakenTable($reportCode: String!, $fightIDs: [Int!]) {
+      reportData {
+        report(code: $reportCode) {
+          table(dataType: DamageTaken, fightIDs: $fightIDs, hostilityType: Friendlies)
+        }
+      }
+    }
+  `;
+
+  try {
+    const data = await executeGraphQL(query, {
+      reportCode,
+      fightIDs: fightIds,
+    });
+
+    const table = data.reportData?.report?.table?.data;
+    if (!table?.entries) {
+      return [];
+    }
+
+    return table.entries.map(entry => ({
+      name: entry.name,
+      damageTaken: entry.total || 0,
+    }));
+  } catch (error) {
+    console.error('Error fetching damage taken table:', error.message);
+    return [];
+  }
+}
+
+/**
+ * Get comprehensive fight statistics (all data in one query for efficiency)
+ */
+export async function getFightStats(reportCode, fightIds) {
+  const query = `
+    query GetFightStats($reportCode: String!, $fightIDs: [Int!]) {
+      reportData {
+        report(code: $reportCode) {
+          damage: table(dataType: DamageDone, fightIDs: $fightIDs, hostilityType: Friendlies)
+          healing: table(dataType: Healing, fightIDs: $fightIDs, hostilityType: Friendlies)
+          damageTaken: table(dataType: DamageTaken, fightIDs: $fightIDs, hostilityType: Friendlies)
+          deaths: table(dataType: Deaths, fightIDs: $fightIDs, hostilityType: Friendlies)
+        }
+      }
+    }
+  `;
+
+  try {
+    const data = await executeGraphQL(query, {
+      reportCode,
+      fightIDs: fightIds,
+    });
+
+    const report = data.reportData?.report;
+    if (!report) {
+      return { damage: [], healing: [], damageTaken: [], deaths: [] };
+    }
+
+    const parseTable = (table) => {
+      if (!table?.data?.entries) return [];
+      return table.data.entries;
+    };
+
+    return {
+      damage: parseTable(report.damage).map(e => ({
+        name: e.name,
+        total: e.total || 0,
+      })),
+      healing: parseTable(report.healing).map(e => ({
+        name: e.name,
+        total: e.total || 0,
+      })),
+      damageTaken: parseTable(report.damageTaken).map(e => ({
+        name: e.name,
+        total: e.total || 0,
+      })),
+      deaths: parseTable(report.deaths).map(e => ({
+        name: e.name,
+        total: e.total || 0,
+      })),
+    };
+  } catch (error) {
+    console.error('Error fetching fight stats:', error.message);
+    return { damage: [], healing: [], damageTaken: [], deaths: [] };
+  }
 }
 
 /**

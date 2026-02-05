@@ -5,12 +5,14 @@ import { Server } from 'socket.io';
 import cors from 'cors';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import rateLimit from 'express-rate-limit';
 import { db, initDatabase } from './database.js';
 import { authenticateToken, authorizeRole } from './middleware/auth.js';
-import { processWarcraftLog, isConfigured as isWCLConfigured, getGuildReports, getGuildId } from './services/warcraftlogs.js';
+import { processWarcraftLog, isConfigured as isWCLConfigured, getGuildReports, getGuildId, getFightDeaths, getFightStats } from './services/warcraftlogs.js';
 import { getAllRaidItems, searchItems, getItemsByRaid, refreshFromAPI, getAvailableRaids, getDataSourceStatus, isAPIConfigured } from './services/raidItems.js';
 import { sendPasswordResetEmail, isEmailConfigured } from './services/email.js';
 import { getBlizzardOAuthUrl, getUserToken, getUserCharacters, isBlizzardOAuthConfigured } from './services/blizzardAPI.js';
+import { seedRaidData, getAllZonesWithBosses, getBossDetails, processFightStats, setZoneLegacy, recordPlayerDeaths, recordPlayerPerformance } from './services/raids.js';
 
 const app = express();
 const server = createServer(app);
@@ -38,6 +40,38 @@ const io = new Server(server, { cors: corsOptions });
 const PORT = process.env.PORT || 3000;
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
 
+// Security: warn if using default JWT secret
+if (JWT_SECRET === 'your-secret-key-change-in-production' && process.env.NODE_ENV === 'production') {
+  console.warn('⚠️  WARNING: Using default JWT_SECRET in production! Set a strong secret in your environment variables.');
+}
+
+// Rate limiting for auth endpoints
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 20, // max 20 attempts per window
+  message: { error: 'Too many attempts. Please try again later.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// Rate limiting for sensitive admin operations (DKP, WCL, etc.)
+const adminLimiter = rateLimit({
+  windowMs: 5 * 60 * 1000, // 5 minutes
+  max: 50, // max 50 operations per window
+  message: { error: 'Too many requests. Please slow down.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// Rate limiting for user operations (bidding, etc.)
+const userLimiter = rateLimit({
+  windowMs: 1 * 60 * 1000, // 1 minute
+  max: 30, // max 30 operations per minute
+  message: { error: 'Too many requests. Please slow down.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 app.use(cors(corsOptions));
 app.use(express.json());
 
@@ -46,6 +80,10 @@ app.use(express.json());
 
 // Make io accessible to routes
 app.set('io', io);
+
+// Email validation helper (standardized across all endpoints)
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const isValidEmail = (email) => email && EMAIL_REGEX.test(email.trim());
 
 // Auto-close auction function
 async function autoCloseAuction(auctionId) {
@@ -80,9 +118,9 @@ async function autoCloseAuction(auctionId) {
         `, winner.amount, winner.amount, winner.user_id);
 
         await tx.run(`
-          INSERT INTO dkp_transactions (user_id, amount, reason, performed_by)
-          VALUES (?, ?, ?, NULL)
-        `, winner.user_id, -winner.amount, `Won auction: ${auction.item_name} (auto-close)`);
+          INSERT INTO dkp_transactions (user_id, amount, reason, performed_by, auction_id)
+          VALUES (?, ?, ?, NULL, ?)
+        `, winner.user_id, -winner.amount, `Won auction: ${auction.item_name} (auto-close)`, auctionId);
 
         await tx.run(`
           UPDATE auctions
@@ -146,6 +184,52 @@ async function scheduleExistingAuctions() {
 }
 
 // ============================================
+// HELPER FUNCTIONS
+// ============================================
+
+// Get current raid week identifier (YYYY-WW format based on Wednesday)
+// Raid weeks run Thu-Mon-Wed, resetting each Wednesday at server reset
+// Vault is "a semana vencida" - you claim it after completing the previous week's content
+function getCurrentRaidWeek() {
+  const now = new Date();
+  const day = now.getDay(); // 0=Sun, 1=Mon, 2=Tue, 3=Wed, 4=Thu, 5=Fri, 6=Sat
+
+  // Find the Wednesday that ends this raid week
+  // Wed is day 3. If today is Thu-Sat (4-6) or Sun (0), we're past this week's reset
+  const wednesday = new Date(now);
+  if (day === 0) wednesday.setDate(wednesday.getDate() + 3); // Sun -> next Wed
+  else if (day === 4) wednesday.setDate(wednesday.getDate() + 6); // Thu -> next Wed
+  else if (day === 5) wednesday.setDate(wednesday.getDate() + 5); // Fri -> next Wed
+  else if (day === 6) wednesday.setDate(wednesday.getDate() + 4); // Sat -> next Wed
+  else if (day < 3) wednesday.setDate(wednesday.getDate() + (3 - day)); // Mon-Tue -> this Wed
+  // day === 3 (Wednesday) stays as-is
+
+  // Format as YYYY-WW (year + ISO week number)
+  const startOfYear = new Date(wednesday.getFullYear(), 0, 1);
+  const weekNumber = Math.ceil(((wednesday - startOfYear) / 86400000 + startOfYear.getDay() + 1) / 7);
+  return `${wednesday.getFullYear()}-${weekNumber.toString().padStart(2, '0')}`;
+}
+
+// Apply DKP cap when adding DKP
+async function addDkpWithCap(tx, userId, amount, capValue = 250) {
+  const current = await tx.get('SELECT current_dkp FROM member_dkp WHERE user_id = ?', userId);
+  const currentDkp = current?.current_dkp || 0;
+  const newDkp = Math.min(currentDkp + amount, capValue);
+  const actualGain = newDkp - currentDkp;
+
+  if (actualGain > 0) {
+    await tx.run(`
+      UPDATE member_dkp
+      SET current_dkp = ?,
+          lifetime_gained = lifetime_gained + ?
+      WHERE user_id = ?
+    `, newDkp, actualGain, userId);
+  }
+
+  return { newDkp, actualGain, wasCapped: actualGain < amount };
+}
+
+// ============================================
 // HEALTH CHECK (for Docker/Render)
 // ============================================
 app.get('/health', (req, res) => {
@@ -163,7 +247,7 @@ app.get('/health', (req, res) => {
 // Note: Registration is disabled - users are created by admins only
 
 // Login
-app.post('/api/auth/login', async (req, res) => {
+app.post('/api/auth/login', authLimiter, async (req, res) => {
   try {
     const { username, password } = req.body;
 
@@ -207,8 +291,71 @@ app.post('/api/auth/login', async (req, res) => {
   }
 });
 
+// Register a new account (public, rate-limited)
+app.post('/api/auth/register', authLimiter, async (req, res) => {
+  try {
+    const { username, password, email } = req.body;
+
+    // Validate required fields - only username, password, and email required
+    if (!username || !password || !email) {
+      return res.status(400).json({ error: 'Username, password, and email are required' });
+    }
+
+    if (username.length < 3) {
+      return res.status(400).json({ error: 'Username must be at least 3 characters' });
+    }
+
+    if (password.length < 6) {
+      return res.status(400).json({ error: 'Password must be at least 6 characters' });
+    }
+
+    if (!isValidEmail(email)) {
+      return res.status(400).json({ error: 'Invalid email format' });
+    }
+
+    // Check if username already exists
+    const existingUser = await db.get('SELECT id FROM users WHERE LOWER(username) = LOWER(?)', username.trim());
+    if (existingUser) {
+      return res.status(409).json({ error: 'Username already taken' });
+    }
+
+    // Check if email already exists
+    const existingEmail = await db.get('SELECT id FROM users WHERE LOWER(email) = LOWER(?)', email.trim());
+    if (existingEmail) {
+      return res.status(409).json({ error: 'Email already in use' });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    // Create user without character - character will be added later via Blizzard import
+    const userResult = await db.run(`
+      INSERT INTO users (username, password, role, email)
+      VALUES (?, ?, 'raider', ?)
+    `, username.trim(), hashedPassword, email.trim());
+
+    const userId = userResult.lastID;
+
+    // Create member_dkp entry with default DPS role
+    await db.run(`
+      INSERT INTO member_dkp (user_id, current_dkp, lifetime_gained, lifetime_spent, role)
+      VALUES (?, 0, 0, 0, 'DPS')
+    `, userId);
+
+    console.log(`✅ New user registered: ${username} (email: ${email})`);
+
+    res.status(201).json({
+      message: 'Account created successfully',
+      userId: userId
+    });
+
+  } catch (error) {
+    console.error('Registration error:', error);
+    res.status(500).json({ error: 'Registration failed' });
+  }
+});
+
 // Request password reset - searches by username or email
-app.post('/api/auth/forgot-password', async (req, res) => {
+app.post('/api/auth/forgot-password', authLimiter, async (req, res) => {
   try {
     const { usernameOrEmail } = req.body;
 
@@ -260,7 +407,7 @@ app.post('/api/auth/forgot-password', async (req, res) => {
 });
 
 // Reset password with token
-app.post('/api/auth/reset-password', async (req, res) => {
+app.post('/api/auth/reset-password', authLimiter, async (req, res) => {
   try {
     const { token, password } = req.body;
 
@@ -336,8 +483,8 @@ app.post('/api/auth/change-password', authenticateToken, async (req, res) => {
   }
 });
 
-// Reset password (Admin only)
-app.post('/api/auth/reset-password', authenticateToken, authorizeRole(['admin', 'officer']), async (req, res) => {
+// Reset password for another user (Admin/Officer only)
+app.post('/api/auth/admin-reset-password', authenticateToken, authorizeRole(['admin', 'officer']), async (req, res) => {
   try {
     const { userId, newPassword } = req.body;
 
@@ -369,7 +516,7 @@ app.post('/api/auth/reset-password', authenticateToken, authorizeRole(['admin', 
 app.get('/api/auth/me', authenticateToken, async (req, res) => {
   try {
     const user = await db.get(`
-      SELECT u.id, u.username, u.character_name, u.character_class, u.role, u.spec, u.raid_role, u.email,
+      SELECT u.id, u.username, u.character_name, u.character_class, u.role, u.spec, u.raid_role, u.email, u.avatar,
              md.current_dkp, md.lifetime_gained, md.lifetime_spent
       FROM users u
       LEFT JOIN member_dkp md ON u.id = md.user_id
@@ -389,6 +536,7 @@ app.get('/api/auth/me', authenticateToken, async (req, res) => {
       spec: user.spec,
       raidRole: user.raid_role,
       email: user.email || null,
+      avatar: user.avatar || null,
       currentDkp: user.current_dkp || 0,
       lifetimeGained: user.lifetime_gained || 0,
       lifetimeSpent: user.lifetime_spent || 0
@@ -399,23 +547,68 @@ app.get('/api/auth/me', authenticateToken, async (req, res) => {
   }
 });
 
-// Update own profile (email)
+// Update own profile (email, password, avatar)
 app.put('/api/auth/profile', authenticateToken, async (req, res) => {
   try {
-    const { email } = req.body;
+    const { email, currentPassword, newPassword, avatar } = req.body;
     const userId = req.user.userId;
 
-    if (email !== undefined && email !== null && email !== '') {
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(email)) {
+    // Handle email update
+    if (email !== undefined) {
+      if (email !== null && email !== '' && !isValidEmail(email)) {
         return res.status(400).json({ error: 'Invalid email format' });
       }
+      await db.run(
+        'UPDATE users SET email = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+        email || null, userId
+      );
     }
 
-    await db.run(
-      'UPDATE users SET email = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
-      email || null, userId
-    );
+    // Handle password change
+    if (currentPassword && newPassword) {
+      if (newPassword.length < 6) {
+        return res.status(400).json({ error: 'New password must be at least 6 characters' });
+      }
+
+      // Verify current password
+      const user = await db.get('SELECT password FROM users WHERE id = ?', userId);
+      if (!user) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+
+      const isValidPassword = await bcrypt.compare(currentPassword, user.password);
+      if (!isValidPassword) {
+        return res.status(400).json({ error: 'Current password is incorrect' });
+      }
+
+      // Hash and save new password
+      const hashedPassword = await bcrypt.hash(newPassword, 10);
+      await db.run(
+        'UPDATE users SET password = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+        hashedPassword, userId
+      );
+    }
+
+    // Handle avatar upload (Base64 image, max 500KB)
+    if (avatar !== undefined) {
+      if (avatar === null || avatar === '') {
+        // Remove avatar
+        await db.run('UPDATE users SET avatar = NULL, updated_at = CURRENT_TIMESTAMP WHERE id = ?', userId);
+      } else {
+        // Validate Base64 image
+        const base64Pattern = /^data:image\/(jpeg|jpg|png|webp|gif);base64,/i;
+        if (!base64Pattern.test(avatar)) {
+          return res.status(400).json({ error: 'Invalid image format. Use JPEG, PNG, WebP, or GIF.' });
+        }
+        // Check size (roughly 500KB limit for Base64)
+        if (avatar.length > 700000) {
+          return res.status(400).json({ error: 'Image too large. Maximum 500KB allowed.' });
+        }
+        await db.run('UPDATE users SET avatar = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', avatar, userId);
+      }
+      // Notify clients to refresh member list (avatar changed)
+      io.emit('member_updated', { memberId: userId });
+    }
 
     res.json({ message: 'Profile updated successfully' });
   } catch (error) {
@@ -499,14 +692,22 @@ app.get('/api/auth/blizzard/callback', async (req, res) => {
 // Get all members with DKP (sorted by DKP descending)
 app.get('/api/members', authenticateToken, async (req, res) => {
   try {
+    // Get current raid week (Thursday-based)
+    const currentWeek = getCurrentRaidWeek();
+
     const members = await db.all(`
-      SELECT u.id, u.username, u.character_name, u.character_class, u.role, u.raid_role, u.spec,
-             md.current_dkp, md.lifetime_gained, md.lifetime_spent
+      SELECT u.id, u.username, u.character_name, u.character_class, u.role, u.raid_role, u.spec, u.avatar,
+             md.current_dkp, md.lifetime_gained, md.lifetime_spent,
+             md.weekly_vault_completed, md.vault_week
       FROM users u
       LEFT JOIN member_dkp md ON u.id = md.user_id
       WHERE u.is_active = 1
       ORDER BY md.current_dkp DESC
     `);
+
+    // Get DKP cap from config
+    const capConfig = await db.get("SELECT config_value FROM dkp_config WHERE config_key = 'dkp_cap'");
+    const dkpCap = parseInt(capConfig?.config_value || '250', 10);
 
     res.json(members.map(m => ({
       id: m.id,
@@ -516,9 +717,12 @@ app.get('/api/members', authenticateToken, async (req, res) => {
       role: m.role,
       raidRole: m.raid_role,
       spec: m.spec,
+      avatar: m.avatar || null,
       currentDkp: m.current_dkp || 0,
       lifetimeGained: m.lifetime_gained || 0,
-      lifetimeSpent: m.lifetime_spent || 0
+      lifetimeSpent: m.lifetime_spent || 0,
+      weeklyVaultCompleted: m.vault_week === currentWeek ? (m.weekly_vault_completed === 1) : false,
+      dkpCap
     })));
   } catch (error) {
     console.error('Get members error:', error);
@@ -527,7 +731,7 @@ app.get('/api/members', authenticateToken, async (req, res) => {
 });
 
 // Update member role (admin only)
-app.put('/api/members/:id/role', authenticateToken, authorizeRole(['admin']), async (req, res) => {
+app.put('/api/members/:id/role', adminLimiter, authenticateToken, authorizeRole(['admin']), async (req, res) => {
   try {
     const { id } = req.params;
     const { role } = req.body;
@@ -546,8 +750,97 @@ app.put('/api/members/:id/role', authenticateToken, authorizeRole(['admin']), as
   }
 });
 
+// Toggle weekly vault completion (admin/officer only)
+app.put('/api/members/:id/vault', adminLimiter, authenticateToken, authorizeRole(['admin', 'officer']), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const currentWeek = getCurrentRaidWeek();
+
+    // Get current state
+    const member = await db.get(`
+      SELECT md.weekly_vault_completed, md.vault_week, u.character_name
+      FROM member_dkp md
+      JOIN users u ON md.user_id = u.id
+      WHERE md.user_id = ?
+    `, id);
+
+    if (!member) {
+      return res.status(404).json({ error: 'Member not found' });
+    }
+
+    // Check if already completed this week
+    const wasCompleted = member.vault_week === currentWeek && member.weekly_vault_completed === 1;
+
+    if (wasCompleted) {
+      // Remove vault completion AND remove the DKP that was awarded
+      const vaultDkpConfig = await db.get("SELECT config_value FROM dkp_config WHERE config_key = 'weekly_vault_dkp'");
+      const vaultDkp = parseInt(vaultDkpConfig?.config_value || '10', 10);
+
+      await db.transaction(async (tx) => {
+        // Remove vault status
+        await tx.run(`
+          UPDATE member_dkp
+          SET weekly_vault_completed = 0
+          WHERE user_id = ?
+        `, id);
+
+        // Remove the DKP that was awarded
+        await tx.run(`
+          UPDATE member_dkp
+          SET current_dkp = MAX(0, current_dkp - ?),
+              lifetime_gained = MAX(0, lifetime_gained - ?)
+          WHERE user_id = ?
+        `, vaultDkp, vaultDkp, id);
+
+        // Log the reversal transaction
+        await tx.run(`
+          INSERT INTO dkp_transactions (user_id, amount, reason, performed_by)
+          VALUES (?, ?, ?, ?)
+        `, id, -vaultDkp, 'Weekly Vault unmarked (DKP removed)', req.user.userId);
+      });
+
+      io.emit('member_updated', { memberId: parseInt(id) });
+      io.emit('dkp_updated', { userId: parseInt(id) });
+      res.json({ message: 'Vault completion removed, DKP deducted', completed: false, dkpRemoved: vaultDkp });
+    } else {
+      // Mark as completed and award DKP
+      const vaultDkpConfig = await db.get("SELECT config_value FROM dkp_config WHERE config_key = 'weekly_vault_dkp'");
+      const capConfig = await db.get("SELECT config_value FROM dkp_config WHERE config_key = 'dkp_cap'");
+      const vaultDkp = parseInt(vaultDkpConfig?.config_value || '10', 10);
+      const dkpCap = parseInt(capConfig?.config_value || '250', 10);
+
+      await db.transaction(async (tx) => {
+        // Update vault status
+        await tx.run(`
+          UPDATE member_dkp
+          SET weekly_vault_completed = 1,
+              vault_completed_at = CURRENT_TIMESTAMP,
+              vault_week = ?
+          WHERE user_id = ?
+        `, currentWeek, id);
+
+        // Award DKP with cap
+        const result = await addDkpWithCap(tx, id, vaultDkp, dkpCap);
+
+        // Log transaction
+        await tx.run(`
+          INSERT INTO dkp_transactions (user_id, amount, reason, performed_by)
+          VALUES (?, ?, ?, ?)
+        `, id, result.actualGain, `Weekly Vault completed (+${vaultDkp} DKP${result.wasCapped ? ', capped' : ''})`, req.user.userId);
+      });
+
+      io.emit('member_updated', { memberId: parseInt(id) });
+      io.emit('dkp_updated', { userId: parseInt(id) });
+      res.json({ message: 'Vault completed! DKP awarded.', completed: true, dkpAwarded: vaultDkp });
+    }
+  } catch (error) {
+    console.error('Toggle vault error:', error);
+    res.status(500).json({ error: 'Failed to toggle vault status' });
+  }
+});
+
 // Deactivate member (admin only) - creates farewell record
-app.delete('/api/members/:id', authenticateToken, authorizeRole(['admin']), async (req, res) => {
+app.delete('/api/members/:id', adminLimiter, authenticateToken, authorizeRole(['admin']), async (req, res) => {
   try {
     const { id } = req.params;
 
@@ -601,7 +894,7 @@ app.delete('/api/members/:id', authenticateToken, authorizeRole(['admin']), asyn
 });
 
 // Create new member (admin or officer)
-app.post('/api/members', authenticateToken, authorizeRole(['admin', 'officer']), async (req, res) => {
+app.post('/api/members', adminLimiter, authenticateToken, authorizeRole(['admin', 'officer']), async (req, res) => {
   try {
     const { username, password, characterName, characterClass, spec, raidRole, role, initialDkp } = req.body;
 
@@ -815,7 +1108,7 @@ app.put('/api/characters/:id/primary', authenticateToken, async (req, res) => {
 // ============================================
 
 // Adjust DKP for single member (officer+)
-app.post('/api/dkp/adjust', authenticateToken, authorizeRole(['admin', 'officer']), async (req, res) => {
+app.post('/api/dkp/adjust', adminLimiter, authenticateToken, authorizeRole(['admin', 'officer']), async (req, res) => {
   try {
     const { userId, amount, reason } = req.body;
 
@@ -828,15 +1121,26 @@ app.post('/api/dkp/adjust', authenticateToken, authorizeRole(['admin', 'officer'
       return res.status(404).json({ error: 'Member not found' });
     }
 
-    const newDkp = Math.max(0, currentDkp.current_dkp + amount);
+    // Get DKP cap
+    const capConfig = await db.get("SELECT config_value FROM dkp_config WHERE config_key = 'dkp_cap'");
+    const dkpCap = parseInt(capConfig?.config_value || '250', 10);
+
+    let newDkp;
+    let actualAmount = amount;
 
     if (amount > 0) {
+      // Apply cap when adding DKP
+      newDkp = Math.min(currentDkp.current_dkp + amount, dkpCap);
+      actualAmount = newDkp - currentDkp.current_dkp;
+
       await db.run(`
         UPDATE member_dkp
         SET current_dkp = ?, lifetime_gained = lifetime_gained + ?
         WHERE user_id = ?
-      `, newDkp, amount, userId);
+      `, newDkp, actualAmount, userId);
     } else {
+      // No cap on removal
+      newDkp = Math.max(0, currentDkp.current_dkp + amount);
       await db.run(`
         UPDATE member_dkp SET current_dkp = ? WHERE user_id = ?
       `, newDkp, userId);
@@ -856,7 +1160,7 @@ app.post('/api/dkp/adjust', authenticateToken, authorizeRole(['admin', 'officer'
 });
 
 // Bulk DKP adjustment (raid attendance, etc.)
-app.post('/api/dkp/bulk-adjust', authenticateToken, authorizeRole(['admin', 'officer']), async (req, res) => {
+app.post('/api/dkp/bulk-adjust', adminLimiter, authenticateToken, authorizeRole(['admin', 'officer']), async (req, res) => {
   try {
     const { userIds, amount, reason } = req.body;
 
@@ -864,14 +1168,23 @@ app.post('/api/dkp/bulk-adjust', authenticateToken, authorizeRole(['admin', 'off
       return res.status(400).json({ error: 'Invalid request' });
     }
 
+    // Get DKP cap
+    const capConfig = await db.get("SELECT config_value FROM dkp_config WHERE config_key = 'dkp_cap'");
+    const dkpCap = parseInt(capConfig?.config_value || '250', 10);
+
     await db.transaction(async (tx) => {
       for (const userId of userIds) {
-        await tx.run(`
-          UPDATE member_dkp
-          SET current_dkp = MAX(0, current_dkp + ?),
-              lifetime_gained = CASE WHEN ? > 0 THEN lifetime_gained + ? ELSE lifetime_gained END
-          WHERE user_id = ?
-        `, amount, amount, amount, userId);
+        if (amount > 0) {
+          // Use cap-aware function for positive amounts
+          await addDkpWithCap(tx, userId, amount, dkpCap);
+        } else {
+          // No cap for negative amounts
+          await tx.run(`
+            UPDATE member_dkp
+            SET current_dkp = MAX(0, current_dkp + ?)
+            WHERE user_id = ?
+          `, amount, userId);
+        }
 
         await tx.run(`
           INSERT INTO dkp_transactions (user_id, amount, reason, performed_by)
@@ -889,7 +1202,7 @@ app.post('/api/dkp/bulk-adjust', authenticateToken, authorizeRole(['admin', 'off
 });
 
 // Apply DKP decay (admin only)
-app.post('/api/dkp/decay', authenticateToken, authorizeRole(['admin']), async (req, res) => {
+app.post('/api/dkp/decay', adminLimiter, authenticateToken, authorizeRole(['admin']), async (req, res) => {
   try {
     const { percentage } = req.body;
 
@@ -931,9 +1244,12 @@ app.get('/api/dkp/history/:userId', authenticateToken, async (req, res) => {
     `, userId);
 
     const history = await db.all(`
-      SELECT dt.*, u.character_name, u.username
+      SELECT dt.*, u.character_name, u.username,
+             a.item_name AS auction_item_name, a.item_image AS auction_item_image,
+             a.item_rarity AS auction_item_rarity, a.item_id AS auction_item_id
       FROM dkp_transactions dt
       LEFT JOIN users u ON dt.performed_by = u.id
+      LEFT JOIN auctions a ON dt.auction_id = a.id
       WHERE dt.user_id = ?
       ORDER BY dt.created_at DESC
       LIMIT ?
@@ -952,7 +1268,13 @@ app.get('/api/dkp/history/:userId', authenticateToken, async (req, res) => {
         performedBy: h.performed_by,
         characterName: h.character_name,
         username: h.username,
-        createdAt: h.created_at
+        createdAt: h.created_at,
+        auctionItem: h.auction_item_name ? {
+          name: h.auction_item_name,
+          image: h.auction_item_image,
+          rarity: h.auction_item_rarity,
+          itemId: h.auction_item_id
+        } : null
       }))
     });
   } catch (error) {
@@ -1017,10 +1339,11 @@ async function getRaidDates(weeks = 2) {
 // Get configured raid days
 app.get('/api/calendar/raid-days', authenticateToken, async (req, res) => {
   try {
+    const includeInactive = req.query.all === 'true';
     const raidDays = await db.all(`
       SELECT day_of_week, day_name, is_active, raid_time
       FROM raid_days
-      WHERE is_active = 1
+      ${includeInactive ? '' : 'WHERE is_active = 1'}
       ORDER BY day_of_week
     `);
 
@@ -1157,28 +1480,36 @@ app.post('/api/calendar/signup', authenticateToken, async (req, res) => {
 
     if (isFirstSignup) {
       const dkpConfig = await db.get("SELECT config_value FROM dkp_config WHERE config_key = 'calendar_dkp_per_day'");
-      const dkpPerDay = parseInt(dkpConfig?.config_value || 2);
+      const capConfig = await db.get("SELECT config_value FROM dkp_config WHERE config_key = 'dkp_cap'");
+      const dkpPerDay = parseInt(dkpConfig?.config_value || '1', 10);
+      const dkpCap = parseInt(capConfig?.config_value || '250', 10);
 
-      dkpAwarded = dkpPerDay;
+      // Get current DKP to check cap
+      const currentMember = await db.get('SELECT current_dkp FROM member_dkp WHERE user_id = ?', userId);
+      const currentDkp = currentMember?.current_dkp || 0;
+      dkpAwarded = Math.min(dkpPerDay, dkpCap - currentDkp);
+      dkpAwarded = Math.max(0, dkpAwarded); // Ensure non-negative
 
       await db.run(`
         INSERT INTO member_availability (user_id, raid_date, status, notes, dkp_awarded)
         VALUES (?, ?, ?, ?, ?)
       `, userId, date, status, notes || null, dkpAwarded);
 
-      await db.run(`
-        UPDATE member_dkp
-        SET current_dkp = current_dkp + ?,
-            lifetime_gained = lifetime_gained + ?
-        WHERE user_id = ?
-      `, dkpAwarded, dkpAwarded, userId);
+      if (dkpAwarded > 0) {
+        await db.run(`
+          UPDATE member_dkp
+          SET current_dkp = current_dkp + ?,
+              lifetime_gained = lifetime_gained + ?
+          WHERE user_id = ?
+        `, dkpAwarded, dkpAwarded, userId);
 
-      await db.run(`
-        INSERT INTO dkp_transactions (user_id, amount, reason, performed_by)
-        VALUES (?, ?, ?, ?)
-      `, userId, dkpAwarded, `Calendario: registro para ${date}`, userId);
+        await db.run(`
+          INSERT INTO dkp_transactions (user_id, amount, reason, performed_by)
+          VALUES (?, ?, ?, ?)
+        `, userId, dkpAwarded, `Calendario: registro para ${date}`, userId);
 
-      io.emit('dkp_updated', { userId, amount: dkpAwarded, reason: 'calendar_signup' });
+        io.emit('dkp_updated', { userId, amount: dkpAwarded, reason: 'calendar_signup' });
+      }
     } else {
       await db.run(`
         UPDATE member_availability
@@ -1266,8 +1597,8 @@ app.get('/api/calendar/summary/:date', authenticateToken, async (req, res) => {
   }
 });
 
-// Get all signups overview (admin/officer only)
-app.get('/api/calendar/overview', authenticateToken, authorizeRole(['admin', 'officer']), async (req, res) => {
+// Get all signups overview (all authenticated users)
+app.get('/api/calendar/overview', authenticateToken, async (req, res) => {
   try {
     const weeks = parseInt(req.query.weeks) || 2;
     const raidDates = await getRaidDates(weeks);
@@ -1365,6 +1696,10 @@ app.get('/api/auctions/active', authenticateToken, async (req, res) => {
       const highestBid = bids.length > 0 ? bids[0].amount : 0;
       const highestBidder = bids.length > 0 ? bids[0] : null;
 
+      // Check for ties at highest bid
+      const tiedBidders = bids.filter(b => b.amount === highestBid);
+      const hasTie = tiedBidders.length > 1;
+
       let endsAt = auction.ends_at;
       if (!endsAt && auction.created_at) {
         const duration = auction.duration_minutes || 5;
@@ -1390,6 +1725,13 @@ app.get('/api/auctions/active', authenticateToken, async (req, res) => {
         endsAt: endsAt,
         durationMinutes: auction.duration_minutes || 5,
         bidsCount: bids.length,
+        hasTie: hasTie,
+        tiedBidders: hasTie ? tiedBidders.map(b => ({
+          userId: b.user_id,
+          characterName: b.character_name,
+          characterClass: b.character_class,
+          amount: b.amount
+        })) : [],
         highestBidder: highestBidder ? {
           characterName: highestBidder.character_name,
           characterClass: highestBidder.character_class,
@@ -1401,7 +1743,8 @@ app.get('/api/auctions/active', authenticateToken, async (req, res) => {
           characterName: b.character_name,
           characterClass: b.character_class,
           amount: b.amount,
-          createdAt: b.created_at
+          createdAt: b.created_at,
+          isTied: b.amount === highestBid && hasTie
         }))
       };
     }));
@@ -1429,7 +1772,7 @@ app.get('/api/auctions/active', authenticateToken, async (req, res) => {
 });
 
 // Create new auction (officer+)
-app.post('/api/auctions', authenticateToken, authorizeRole(['admin', 'officer']), async (req, res) => {
+app.post('/api/auctions', adminLimiter, authenticateToken, authorizeRole(['admin', 'officer']), async (req, res) => {
   try {
     const { itemName, itemNameEN, itemImage, minBid, itemRarity, itemId, durationMinutes } = req.body;
 
@@ -1460,7 +1803,7 @@ app.post('/api/auctions', authenticateToken, authorizeRole(['admin', 'officer'])
 });
 
 // Place bid
-app.post('/api/auctions/:auctionId/bid', authenticateToken, async (req, res) => {
+app.post('/api/auctions/:auctionId/bid', userLimiter, authenticateToken, async (req, res) => {
   try {
     const { auctionId } = req.params;
     const { amount } = req.body;
@@ -1528,8 +1871,8 @@ app.post('/api/auctions/:auctionId/bid', authenticateToken, async (req, res) => 
   }
 });
 
-// End auction (officer+)
-app.post('/api/auctions/:auctionId/end', authenticateToken, authorizeRole(['admin', 'officer']), async (req, res) => {
+// End auction (officer+) - with tie-breaking rolls
+app.post('/api/auctions/:auctionId/end', adminLimiter, authenticateToken, authorizeRole(['admin', 'officer']), async (req, res) => {
   try {
     const { auctionId } = req.params;
 
@@ -1546,56 +1889,115 @@ app.post('/api/auctions/:auctionId/end', authenticateToken, authorizeRole(['admi
       ORDER BY ab.amount DESC
     `, auctionId);
 
-    const winningBid = await db.transaction(async (tx) => {
-      let winner = null;
+    const result = await db.transaction(async (tx) => {
+      // Find valid bids (bidders with enough DKP)
+      const validBids = [];
       for (const bid of allBids) {
         const bidderDkp = await tx.get('SELECT current_dkp FROM member_dkp WHERE user_id = ?', bid.user_id);
         if (bidderDkp && bidderDkp.current_dkp >= bid.amount) {
-          winner = bid;
-          break;
+          validBids.push({ ...bid, currentDkp: bidderDkp.current_dkp });
         }
       }
 
-      if (winner) {
-        await tx.run(`
-          UPDATE member_dkp
-          SET current_dkp = current_dkp - ?,
-              lifetime_spent = lifetime_spent + ?
-          WHERE user_id = ?
-        `, winner.amount, winner.amount, winner.user_id);
-
-        await tx.run(`
-          INSERT INTO dkp_transactions (user_id, amount, reason, performed_by)
-          VALUES (?, ?, ?, ?)
-        `, winner.user_id, -winner.amount, `Won auction: ${auction.item_name}`, req.user.userId);
-
-        await tx.run(`
-          UPDATE auctions
-          SET status = 'completed', winner_id = ?, winning_bid = ?, ended_at = CURRENT_TIMESTAMP
-          WHERE id = ?
-        `, winner.user_id, winner.amount, auctionId);
-      } else {
-        await tx.run(`
-          UPDATE auctions SET status = 'cancelled', ended_at = CURRENT_TIMESTAMP WHERE id = ?
-        `, auctionId);
+      if (validBids.length === 0) {
+        // No valid bids - cancel auction
+        await tx.run('UPDATE auctions SET status = ?, ended_at = CURRENT_TIMESTAMP WHERE id = ?', 'cancelled', auctionId);
+        return { winner: null, wasTie: false, rolls: [] };
       }
 
-      return winner;
+      // Find highest bid amount among valid bids
+      const highestAmount = validBids[0].amount;
+      const topBidders = validBids.filter(b => b.amount === highestAmount);
+
+      let winner;
+      let wasTie = false;
+      let winningRoll = null;
+      const rolls = [];
+
+      if (topBidders.length === 1) {
+        // Single highest bidder - no tie
+        winner = topBidders[0];
+      } else {
+        // TIE! Generate rolls for each tied bidder
+        wasTie = true;
+        console.log(`🎲 Tie detected for auction ${auctionId}: ${topBidders.length} bidders at ${highestAmount} DKP`);
+
+        for (const bidder of topBidders) {
+          const roll = Math.floor(Math.random() * 100) + 1; // 1-100
+          rolls.push({
+            userId: bidder.user_id,
+            characterName: bidder.character_name,
+            characterClass: bidder.character_class,
+            bidAmount: bidder.amount,
+            roll
+          });
+        }
+
+        // Sort by roll DESC, highest wins
+        rolls.sort((a, b) => b.roll - a.roll);
+        const winnerRollData = rolls[0];
+        winner = topBidders.find(b => b.user_id === winnerRollData.userId);
+        winningRoll = winnerRollData.roll;
+
+        // Record all rolls in auction_rolls table
+        for (const rollData of rolls) {
+          const isWinner = rollData.userId === winner.user_id ? 1 : 0;
+          await tx.run(
+            'INSERT INTO auction_rolls (auction_id, user_id, bid_amount, roll_result, is_winner) VALUES (?, ?, ?, ?, ?)',
+            auctionId, rollData.userId, rollData.bidAmount, rollData.roll, isWinner
+          );
+        }
+
+        console.log(`🏆 Tie resolved: ${winner.character_name} wins with roll ${winningRoll}`);
+      }
+
+      // Deduct DKP from winner
+      await tx.run(`
+        UPDATE member_dkp
+        SET current_dkp = current_dkp - ?,
+            lifetime_spent = lifetime_spent + ?
+        WHERE user_id = ?
+      `, winner.amount, winner.amount, winner.user_id);
+
+      // Record transaction
+      const reason = wasTie
+        ? `Won auction (roll ${winningRoll}): ${auction.item_name}`
+        : `Won auction: ${auction.item_name}`;
+
+      await tx.run(`
+        INSERT INTO dkp_transactions (user_id, amount, reason, performed_by, auction_id)
+        VALUES (?, ?, ?, ?, ?)
+      `, winner.user_id, -winner.amount, reason, req.user.userId, auctionId);
+
+      // Update auction
+      await tx.run(`
+        UPDATE auctions
+        SET status = 'completed', winner_id = ?, winning_bid = ?, ended_at = CURRENT_TIMESTAMP,
+            was_tie = ?, winning_roll = ?
+        WHERE id = ?
+      `, winner.user_id, winner.amount, wasTie ? 1 : 0, winningRoll, auctionId);
+
+      return {
+        winner: {
+          userId: winner.user_id,
+          characterName: winner.character_name,
+          characterClass: winner.character_class,
+          amount: winner.amount
+        },
+        wasTie,
+        winningRoll,
+        rolls: wasTie ? rolls : []
+      };
     });
 
-    const result = {
+    const eventData = {
       auctionId,
       itemName: auction.item_name,
-      winner: winningBid ? {
-        userId: winningBid.user_id,
-        characterName: winningBid.character_name,
-        characterClass: winningBid.character_class,
-        amount: winningBid.amount
-      } : null
+      ...result
     };
 
-    io.emit('auction_ended', result);
-    res.json(result);
+    io.emit('auction_ended', eventData);
+    res.json(eventData);
   } catch (error) {
     console.error('End auction error:', error);
     res.status(500).json({ error: 'Failed to end auction' });
@@ -1603,7 +2005,7 @@ app.post('/api/auctions/:auctionId/end', authenticateToken, authorizeRole(['admi
 });
 
 // Cancel auction (officer+)
-app.post('/api/auctions/:auctionId/cancel', authenticateToken, authorizeRole(['admin', 'officer']), async (req, res) => {
+app.post('/api/auctions/:auctionId/cancel', adminLimiter, authenticateToken, authorizeRole(['admin', 'officer']), async (req, res) => {
   try {
     const { auctionId } = req.params;
 
@@ -1620,7 +2022,7 @@ app.post('/api/auctions/:auctionId/cancel', authenticateToken, authorizeRole(['a
 });
 
 // Cancel ALL active auctions (admin only) - for cleanup
-app.post('/api/auctions/cancel-all', authenticateToken, authorizeRole(['admin']), async (req, res) => {
+app.post('/api/auctions/cancel-all', adminLimiter, authenticateToken, authorizeRole(['admin']), async (req, res) => {
   try {
     const result = await db.run(`
       UPDATE auctions SET status = 'cancelled', ended_at = CURRENT_TIMESTAMP WHERE status = 'active'
@@ -1724,7 +2126,7 @@ app.get('/api/auctions/history', authenticateToken, async (req, res) => {
       LIMIT ?
     `, limit);
 
-    const formatted = auctions.map(a => {
+    const formatted = await Promise.all(auctions.map(async a => {
       const entry = {
         id: a.id,
         item_name: a.item_name,
@@ -1735,21 +2137,70 @@ app.get('/api/auctions/history', authenticateToken, async (req, res) => {
         winning_bid: a.winning_bid,
         created_at: a.created_at,
         ended_at: a.ended_at,
+        was_tie: a.was_tie === 1,
+        winning_roll: a.winning_roll,
         winner: a.winner_name ? {
           characterName: a.winner_name,
           characterClass: a.winner_class
         } : null
       };
+
+      // If it was a tie, include the rolls
+      if (a.was_tie === 1) {
+        const rolls = await db.all(`
+          SELECT ar.*, u.character_name, u.character_class
+          FROM auction_rolls ar
+          JOIN users u ON ar.user_id = u.id
+          WHERE ar.auction_id = ?
+          ORDER BY ar.roll_result DESC
+        `, a.id);
+
+        entry.rolls = rolls.map(r => ({
+          characterName: r.character_name,
+          characterClass: r.character_class,
+          bidAmount: r.bid_amount,
+          roll: r.roll_result,
+          isWinner: r.is_winner === 1
+        }));
+      }
+
       if (a.farewell_data) {
         try { entry.farewell = JSON.parse(a.farewell_data); } catch (e) {}
       }
       return entry;
-    });
+    }));
 
     res.json(formatted);
   } catch (error) {
     console.error('Auction history error:', error);
     res.status(500).json({ error: 'Failed to get auction history' });
+  }
+});
+
+// Get rolls for a specific auction
+app.get('/api/auctions/:auctionId/rolls', authenticateToken, async (req, res) => {
+  try {
+    const { auctionId } = req.params;
+
+    const rolls = await db.all(`
+      SELECT ar.*, u.character_name, u.character_class
+      FROM auction_rolls ar
+      JOIN users u ON ar.user_id = u.id
+      WHERE ar.auction_id = ?
+      ORDER BY ar.roll_result DESC
+    `, auctionId);
+
+    res.json(rolls.map(r => ({
+      characterName: r.character_name,
+      characterClass: r.character_class,
+      bidAmount: r.bid_amount,
+      roll: r.roll_result,
+      isWinner: r.is_winner === 1,
+      createdAt: r.created_at
+    })));
+  } catch (error) {
+    console.error('Get auction rolls error:', error);
+    res.status(500).json({ error: 'Failed to get auction rolls' });
   }
 });
 
@@ -1880,7 +2331,7 @@ app.get('/api/warcraftlogs/config', authenticateToken, authorizeRole(['admin', '
 });
 
 // Update DKP configuration
-app.put('/api/warcraftlogs/config', authenticateToken, authorizeRole(['admin']), async (req, res) => {
+app.put('/api/warcraftlogs/config', adminLimiter, authenticateToken, authorizeRole(['admin']), async (req, res) => {
   try {
     const { config_key, config_value } = req.body;
 
@@ -1902,7 +2353,7 @@ app.put('/api/warcraftlogs/config', authenticateToken, authorizeRole(['admin']),
 });
 
 // Preview Warcraft Logs report (before confirming DKP assignment)
-app.post('/api/warcraftlogs/preview', authenticateToken, authorizeRole(['admin', 'officer']), async (req, res) => {
+app.post('/api/warcraftlogs/preview', adminLimiter, authenticateToken, authorizeRole(['admin', 'officer']), async (req, res) => {
   try {
     const { url } = req.body;
 
@@ -1927,17 +2378,28 @@ app.post('/api/warcraftlogs/preview', authenticateToken, authorizeRole(['admin',
     const anomalies = [];
 
     for (const participant of reportData.participants) {
+      // Check ALL characters (main + alts) for matching
+      // First check characters table, then fallback to users.character_name (main)
       const user = await db.get(`
-        SELECT u.id, u.username, u.character_name, u.server, md.current_dkp
+        SELECT DISTINCT u.id, u.username, u.character_name, u.character_class, u.server, md.current_dkp,
+               COALESCE(c.character_name, u.character_name) as matched_character
         FROM users u
         LEFT JOIN member_dkp md ON u.id = md.user_id
-        WHERE LOWER(u.character_name) = LOWER(?) AND u.is_active = 1
-      `, participant.name);
+        LEFT JOIN characters c ON u.id = c.user_id AND LOWER(c.character_name) = LOWER(?)
+        WHERE u.is_active = 1 AND (
+          LOWER(u.character_name) = LOWER(?) OR
+          c.id IS NOT NULL
+        )
+        LIMIT 1
+      `, participant.name, participant.name);
 
       if (user) {
         const serverMatch = !user.server ||
                            user.server.toLowerCase() === participant.server.toLowerCase() ||
                            participant.server === 'Unknown';
+
+        const isAltMatch = user.matched_character &&
+                           user.matched_character.toLowerCase() !== user.character_name.toLowerCase();
 
         matchResults.push({
           wcl_name: participant.name,
@@ -1947,6 +2409,9 @@ app.post('/api/warcraftlogs/preview', authenticateToken, authorizeRole(['admin',
           user_id: user.id,
           username: user.username,
           character_name: user.character_name,
+          character_class: user.character_class,
+          matched_character: user.matched_character || user.character_name,
+          is_alt_match: isAltMatch,
           current_dkp: user.current_dkp,
           server_match: serverMatch,
           dkp_to_assign: raidDKP
@@ -1997,7 +2462,8 @@ app.post('/api/warcraftlogs/preview', authenticateToken, authorizeRole(['admin',
         bossesKilled: reportData.bossesKilled,
         totalBosses: reportData.totalBosses,
         totalAttempts: reportData.totalAttempts,
-        bosses: reportData.bosses
+        bosses: reportData.bosses,
+        fights: reportData.fights
       },
       dkp_calculation: {
         base_dkp: raidDKP,
@@ -2018,14 +2484,13 @@ app.post('/api/warcraftlogs/preview', authenticateToken, authorizeRole(['admin',
   } catch (error) {
     console.error('Error previewing Warcraft Log:', error);
     res.status(500).json({
-      error: 'Failed to process Warcraft Log',
-      message: error.message
+      error: 'Failed to process Warcraft Log'
     });
   }
 });
 
 // Confirm and assign DKP from Warcraft Logs report
-app.post('/api/warcraftlogs/confirm', authenticateToken, authorizeRole(['admin', 'officer']), async (req, res) => {
+app.post('/api/warcraftlogs/confirm', adminLimiter, authenticateToken, authorizeRole(['admin', 'officer']), async (req, res) => {
   try {
     const { reportCode, participants } = req.body;
 
@@ -2054,6 +2519,10 @@ app.post('/api/warcraftlogs/confirm', authenticateToken, authorizeRole(['admin',
     const endTime = req.body.endTime || Date.now();
     const raidDate = req.body.raidDate || null;
 
+    // Get DKP cap
+    const capConfig = await db.get("SELECT config_value FROM dkp_config WHERE config_key = 'dkp_cap'");
+    const dkpCap = parseInt(capConfig?.config_value || '250', 10);
+
     const totalDKP = await db.transaction(async (tx) => {
       // Insert the processed report first so we can get its ID for transactions
       const reportResult = await tx.run(`
@@ -2068,19 +2537,15 @@ app.post('/api/warcraftlogs/confirm', authenticateToken, authorizeRole(['admin',
       for (const participant of matchedParticipants) {
         const dkpAmount = participant.dkp_to_assign;
 
-        await tx.run(`
-          UPDATE member_dkp
-          SET current_dkp = current_dkp + ?,
-              lifetime_gained = lifetime_gained + ?
-          WHERE user_id = ?
-        `, dkpAmount, dkpAmount, participant.user_id);
+        // Use cap-aware DKP addition
+        const result = await addDkpWithCap(tx, participant.user_id, dkpAmount, dkpCap);
 
         await tx.run(`
           INSERT INTO dkp_transactions (user_id, amount, reason, performed_by, wcl_report_id)
           VALUES (?, ?, ?, ?, ?)
-        `, participant.user_id, dkpAmount, `Warcraft Logs: ${reportTitle}`, req.user.userId, wclReportId);
+        `, participant.user_id, result.actualGain, `Warcraft Logs: ${reportTitle}${result.wasCapped ? ' (capped)' : ''}`, req.user.userId, wclReportId);
 
-        totalAssigned += dkpAmount;
+        totalAssigned += result.actualGain;
 
         const newDkpRow = await tx.get('SELECT current_dkp FROM member_dkp WHERE user_id = ?', participant.user_id);
 
@@ -2097,6 +2562,79 @@ app.post('/api/warcraftlogs/confirm', authenticateToken, authorizeRole(['admin',
       return totalAssigned;
     });
 
+    // Process fight statistics for boss tracking (non-blocking)
+    const fights = req.body.fights || [];
+    if (fights.length > 0) {
+      // Build participant map: lowercase character name -> user_id
+      const participantUserMap = {};
+      for (const p of matchedParticipants) {
+        const wclName = p.wcl_name?.toLowerCase();
+        const matchedName = p.matched_character?.toLowerCase();
+        if (wclName) participantUserMap[wclName] = p.user_id;
+        if (matchedName) participantUserMap[matchedName] = p.user_id;
+      }
+
+      // Process in background to not delay response
+      (async () => {
+        try {
+          let statsProcessed = 0;
+          const processedBosses = [];
+
+          for (const fight of fights) {
+            const result = await processFightStats(reportCode, fight, fight.difficulty);
+            if (!result.skipped) {
+              statsProcessed++;
+              processedBosses.push({ bossId: result.bossId, fightId: fight.id, difficulty: fight.difficulty });
+            }
+          }
+
+          // Fetch and record deaths + performance stats for each boss fight
+          if (processedBosses.length > 0) {
+            let totalDeathsRecorded = 0;
+            let performanceRecorded = 0;
+
+            for (const bossInfo of processedBosses) {
+              // Get comprehensive fight stats (damage, healing, damage taken, deaths)
+              const fightStats = await getFightStats(reportCode, [bossInfo.fightId]);
+
+              // Record deaths
+              if (fightStats.deaths.length > 0) {
+                const deathsFormatted = fightStats.deaths.map(d => ({ name: d.name, deaths: d.total }));
+                await recordPlayerDeaths(bossInfo.bossId, bossInfo.difficulty, deathsFormatted, participantUserMap);
+                totalDeathsRecorded += fightStats.deaths.reduce((sum, d) => sum + d.total, 0);
+              }
+
+              // Record performance (damage, healing, damage taken) and update records
+              if (fightStats.damage.length > 0 || fightStats.healing.length > 0) {
+                await recordPlayerPerformance(
+                  bossInfo.bossId,
+                  bossInfo.difficulty,
+                  fightStats,
+                  participantUserMap,
+                  reportCode,
+                  bossInfo.fightId
+                );
+                performanceRecorded++;
+              }
+            }
+
+            if (totalDeathsRecorded > 0) {
+              console.log(`💀 Recorded ${totalDeathsRecorded} deaths from ${reportCode}`);
+            }
+            if (performanceRecorded > 0) {
+              console.log(`📈 Recorded performance for ${performanceRecorded} fights from ${reportCode}`);
+            }
+          }
+
+          if (statsProcessed > 0) {
+            console.log(`📊 Boss stats updated: ${statsProcessed} fights from ${reportCode}`);
+          }
+        } catch (err) {
+          console.error('Error processing fight stats:', err);
+        }
+      })();
+    }
+
     res.json({
       message: 'DKP assigned successfully from Warcraft Logs',
       report_code: reportCode,
@@ -2107,8 +2645,7 @@ app.post('/api/warcraftlogs/confirm', authenticateToken, authorizeRole(['admin',
   } catch (error) {
     console.error('Error confirming Warcraft Log:', error);
     res.status(500).json({
-      error: 'Failed to assign DKP',
-      message: error.message
+      error: 'Failed to assign DKP'
     });
   }
 });
@@ -2172,7 +2709,7 @@ app.get('/api/warcraftlogs/report/:code/transactions', authenticateToken, async 
 });
 
 // Revert all DKP from a WCL report (atomic)
-app.post('/api/warcraftlogs/revert/:reportCode', authenticateToken, authorizeRole(['admin']), async (req, res) => {
+app.post('/api/warcraftlogs/revert/:reportCode', adminLimiter, authenticateToken, authorizeRole(['admin']), async (req, res) => {
   try {
     const { reportCode } = req.params;
 
@@ -2281,6 +2818,82 @@ app.get('/api/warcraftlogs/guild-reports', authenticateToken, authorizeRole(['ad
   }
 });
 
+// Get past raid history with WCL logs
+app.get('/api/calendar/history', authenticateToken, async (req, res) => {
+  try {
+    const weeks = Math.min(parseInt(req.query.weeks) || 8, 12); // Max 12 weeks of history
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const raidDays = await db.all('SELECT day_of_week, day_name, raid_time FROM raid_days WHERE is_active = 1 ORDER BY day_of_week');
+
+    // Collect past raid dates
+    const pastDates = [];
+    for (let i = 1; i <= weeks * 7; i++) {
+      const d = new Date(today);
+      d.setDate(today.getDate() - i);
+      const jsDay = d.getDay();
+      const dbDay = jsDay === 0 ? 7 : jsDay;
+      const raidDay = raidDays.find(rd => rd.day_of_week === dbDay);
+      if (raidDay) {
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        pastDates.push({ date: `${year}-${month}-${day}`, dayName: raidDay.day_name, raidTime: raidDay.raid_time || '21:00' });
+      }
+    }
+
+    if (pastDates.length === 0) {
+      return res.json([]);
+    }
+
+    // Get WCL reports linked to these dates
+    const dateStrings = pastDates.map(d => d.date);
+    const placeholders = dateStrings.map(() => '?').join(',');
+
+    const linkedReports = await db.all(`
+      SELECT report_code, report_title, raid_date, dkp_assigned, participants_count, is_reverted
+      FROM warcraft_logs_processed
+      WHERE raid_date IN (${placeholders})
+    `, ...dateStrings);
+
+    // Get attendance counts for each date
+    const attendanceCounts = await db.all(`
+      SELECT raid_date,
+             SUM(CASE WHEN status = 'confirmed' THEN 1 ELSE 0 END) as confirmed,
+             SUM(CASE WHEN status = 'tentative' THEN 1 ELSE 0 END) as tentative,
+             SUM(CASE WHEN status = 'declined' THEN 1 ELSE 0 END) as declined
+      FROM member_availability
+      WHERE raid_date IN (${placeholders})
+      GROUP BY raid_date
+    `, ...dateStrings);
+
+    const enriched = pastDates.map(d => {
+      const report = linkedReports.find(r => r.raid_date === d.date && !r.is_reverted);
+      const attendance = attendanceCounts.find(a => a.raid_date === d.date);
+      return {
+        ...d,
+        wclReport: report ? {
+          code: report.report_code,
+          title: report.report_title,
+          dkpAssigned: report.dkp_assigned,
+          participantsCount: report.participants_count,
+        } : null,
+        attendance: attendance ? {
+          confirmed: attendance.confirmed,
+          tentative: attendance.tentative,
+          declined: attendance.declined,
+        } : null,
+      };
+    });
+
+    res.json(enriched);
+  } catch (error) {
+    console.error('Calendar history error:', error);
+    res.status(500).json({ error: 'Failed to get raid history' });
+  }
+});
+
 // Get raid dates enriched with WCL report info
 app.get('/api/calendar/dates-with-logs', authenticateToken, async (req, res) => {
   try {
@@ -2344,6 +2957,63 @@ app.get('/api/calendar/dates-with-logs', authenticateToken, async (req, res) => 
 });
 
 // ============================================
+// BOSS STATISTICS ENDPOINTS
+// ============================================
+
+// Get all zones with bosses (current + legacy)
+app.get('/api/bosses', authenticateToken, async (req, res) => {
+  try {
+    const data = await getAllZonesWithBosses();
+    res.json(data);
+  } catch (error) {
+    console.error('Get bosses error:', error);
+    res.status(500).json({ error: 'Failed to get boss data' });
+  }
+});
+
+// Get detailed stats for a specific boss
+app.get('/api/bosses/:bossId', authenticateToken, async (req, res) => {
+  try {
+    const { bossId } = req.params;
+    const data = await getBossDetails(parseInt(bossId));
+
+    if (!data) {
+      return res.status(404).json({ error: 'Boss not found' });
+    }
+
+    res.json(data);
+  } catch (error) {
+    console.error('Get boss details error:', error);
+    res.status(500).json({ error: 'Failed to get boss details' });
+  }
+});
+
+// Reseed raid data from static definitions (admin only)
+app.post('/api/bosses/sync', adminLimiter, authenticateToken, authorizeRole(['admin']), async (req, res) => {
+  try {
+    await seedRaidData();
+    res.json({ message: 'Raid data synced successfully' });
+  } catch (error) {
+    console.error('Sync raid data error:', error);
+    res.status(500).json({ error: 'Failed to sync raid data' });
+  }
+});
+
+// Mark a zone as legacy or current (admin only)
+app.put('/api/bosses/zones/:zoneId/legacy', adminLimiter, authenticateToken, authorizeRole(['admin']), async (req, res) => {
+  try {
+    const { zoneId } = req.params;
+    const { isLegacy } = req.body;
+
+    await setZoneLegacy(parseInt(zoneId), isLegacy);
+    res.json({ message: `Zone marked as ${isLegacy ? 'legacy' : 'current'}` });
+  } catch (error) {
+    console.error('Set zone legacy error:', error);
+    res.status(500).json({ error: 'Failed to update zone status' });
+  }
+});
+
+// ============================================
 // WEBSOCKET HANDLING
 // ============================================
 
@@ -2365,6 +3035,7 @@ io.on('connection', (socket) => {
 
 (async () => {
   await initDatabase();
+  await seedRaidData();
   await scheduleExistingAuctions();
 
   server.listen(PORT, () => {
@@ -2375,5 +3046,15 @@ io.on('connection', (socket) => {
     console.log(`📡 WebSocket ready for real-time updates`);
   });
 })();
+
+// Global error handlers
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('❌ Unhandled Rejection at:', promise, 'reason:', reason);
+});
+
+process.on('uncaughtException', (error) => {
+  console.error('❌ Uncaught Exception:', error);
+  process.exit(1);
+});
 
 export { app, io };

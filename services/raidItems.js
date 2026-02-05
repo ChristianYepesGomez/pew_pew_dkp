@@ -141,14 +141,6 @@ export async function getAllRaidItems() {
   return STATIC_FALLBACK_ITEMS;
 }
 
-// Synchronous version for backwards compatibility
-export function getAllRaidItemsSync() {
-  if (cachedApiItems && cachedApiItems.length > 0) {
-    return cachedApiItems;
-  }
-  return STATIC_FALLBACK_ITEMS;
-}
-
 // Search items
 export async function searchItems(query) {
   const allItems = await getAllRaidItems();
@@ -166,12 +158,6 @@ export async function searchItems(query) {
 export async function getItemsByRaid(raidName) {
   const allItems = await getAllRaidItems();
   return allItems.filter(item => item.raid === raidName);
-}
-
-// Get items by boss
-export async function getItemsByBoss(bossName) {
-  const allItems = await getAllRaidItems();
-  return allItems.filter(item => item.boss === bossName);
 }
 
 // Force refresh from API
@@ -222,10 +208,8 @@ export function getDataSourceStatus() {
 
 export default {
   getAllRaidItems,
-  getAllRaidItemsSync,
   searchItems,
   getItemsByRaid,
-  getItemsByBoss,
   refreshFromAPI,
   getAvailableRaids,
   setCurrentRaids,
