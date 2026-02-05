@@ -177,6 +177,7 @@ const MyCharacterModal = ({ onClose }) => {
       await refreshUser()
       const res = await charactersAPI.getAll()
       setCharacters(res.data || [])
+      window.dispatchEvent(new Event('roster-refresh'))
     } catch (error) {
       console.error('Error setting primary:', error)
     }

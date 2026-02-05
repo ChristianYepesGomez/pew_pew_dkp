@@ -10,7 +10,7 @@ import CreateMemberModal from './CreateMemberModal'
 const CLASS_COLORS = {
   Warrior: '#C79C6E', Paladin: '#F58CBA', Hunter: '#ABD473', Rogue: '#FFF569', Priest: '#FFFFFF',
   Shaman: '#0070DE', Mage: '#40C7EB', Warlock: '#8788EE', Druid: '#FF7D0A', 'Death Knight': '#C41F3B',
-  DeathKnight: '#C41F3B', DemonHunter: '#A330C9', Monk: '#00FF96', Evoker: '#33937F',
+  DeathKnight: '#C41F3B', 'Demon Hunter': '#A330C9', DemonHunter: '#A330C9', Monk: '#00FF96', Evoker: '#33937F',
 }
 
 // Spec icons from Wowhead (WoW Classic/Retail icons)
@@ -97,6 +97,13 @@ const MembersTab = () => {
 
   useEffect(() => { loadMembers() }, [])
   useSocket({ dkp_updated: loadMembers, dkp_bulk_updated: loadMembers, member_updated: loadMembers })
+
+  // Also listen for roster-refresh (fired when primary character changes in modal)
+  useEffect(() => {
+    const refresh = () => loadMembers()
+    window.addEventListener('roster-refresh', refresh)
+    return () => window.removeEventListener('roster-refresh', refresh)
+  }, [])
 
   const handleSort = (field) => {
     if (sortField === field) {
@@ -248,11 +255,12 @@ const MembersTab = () => {
               <tr key={m.id} className="group border-b border-midnight-bright-purple border-opacity-20 hover:bg-midnight-bright-purple hover:bg-opacity-10">
                 <td className="py-3 px-4">
                   <div className="flex items-center gap-2">
-                    {isAdmin && m.id !== user?.id && (
+                    {isAdmin && (
                       <button
                         onClick={(e) => { e.stopPropagation(); setDeleteModal({ open: true, member: m }) }}
-                        className="text-red-500 opacity-0 group-hover:opacity-40 hover:!opacity-100 transition-opacity text-xs"
+                        className={`text-red-500 transition-opacity text-xs ${m.id === user?.id ? 'invisible' : 'opacity-0 group-hover:opacity-40 hover:!opacity-100'}`}
                         title={t('remove_member')}
+                        disabled={m.id === user?.id}
                       >
                         <i className="fas fa-times"></i>
                       </button>
