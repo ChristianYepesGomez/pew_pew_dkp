@@ -41,8 +41,9 @@ const SPEC_ROLES = {
   'Devastation': 'DPS', 'Preservation': 'Healer', 'Augmentation': 'DPS',
 };
 
-// Buff definitions - using role-based filtering for reliability
-// casterRole: required role to cast this buff
+// Buff definitions - using role + spec filtering for accuracy
+// casterRole: required role to cast this buff (null = any role)
+// casterSpecs: if set, caster's spec must be one of these (overrides casterRole for multi-spec classes)
 const BUFFS = [
   // Raid-wide lust effects (any role can cast)
   { id: 'bloodlust', name: 'Bloodlust', duration: 40, icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_nature_bloodlust.jpg', classes: ['Shaman'], casterRole: null, type: 'self', raidWide: true },
@@ -50,57 +51,58 @@ const BUFFS = [
 
   // Healer externals (Healer role required)
   { id: 'powerinfusion', name: 'Power Infusion', duration: 15, icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_holy_powerinfusion.jpg', classes: ['Priest'], casterRole: 'Healer', type: 'external' },
-  { id: 'innervate', name: 'Innervate', duration: 8, icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_nature_lightning.jpg', classes: ['Druid'], casterRole: 'Healer', type: 'external', targetRoles: ['Healer'] },
-  { id: 'painsuppression', name: 'Pain Suppression', duration: 8, icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_holy_painsupression.jpg', classes: ['Priest'], casterRole: 'Healer', type: 'external', targetRoles: ['Tank'] },
-  { id: 'ironbark', name: 'Ironbark', duration: 12, icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_druid_ironbark.jpg', classes: ['Druid'], casterRole: 'Healer', type: 'external', targetRoles: ['Tank'] },
-  { id: 'guardiansSpirit', name: "Guardian Spirit", duration: 10, icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_holy_guardianspirit.jpg', classes: ['Priest'], casterRole: 'Healer', type: 'external', targetRoles: ['Tank'] },
-  { id: 'lifeCocoon', name: 'Life Cocoon', duration: 12, icon: 'https://wow.zamimg.com/images/wow/icons/large/ability_monk_chicocoon.jpg', classes: ['Monk'], casterRole: 'Healer', type: 'external', targetRoles: ['Tank'] },
+  { id: 'innervate', name: 'Innervate', duration: 8, icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_nature_lightning.jpg', classes: ['Druid'], casterSpecs: ['Restoration Druid'], type: 'external', targetRoles: ['Healer'] },
+  { id: 'painsuppression', name: 'Pain Suppression', duration: 8, icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_holy_painsupression.jpg', classes: ['Priest'], casterSpecs: ['Discipline'], type: 'external', targetRoles: ['Tank'] },
+  { id: 'ironbark', name: 'Ironbark', duration: 12, icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_druid_ironbark.jpg', classes: ['Druid'], casterSpecs: ['Restoration Druid'], type: 'external', targetRoles: ['Tank'] },
+  { id: 'guardiansSpirit', name: "Guardian Spirit", duration: 10, icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_holy_guardianspirit.jpg', classes: ['Priest'], casterSpecs: ['Holy Priest'], type: 'external', targetRoles: ['Tank'] },
+  { id: 'lifeCocoon', name: 'Life Cocoon', duration: 12, icon: 'https://wow.zamimg.com/images/wow/icons/large/ability_monk_chicocoon.jpg', classes: ['Monk'], casterSpecs: ['Mistweaver'], type: 'external', targetRoles: ['Tank'] },
 
   // Paladin externals (any Paladin can cast)
   { id: 'blessingofprotection', name: 'Blessing of Protection', duration: 10, icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_holy_sealofprotection.jpg', classes: ['Paladin'], casterRole: null, type: 'external' },
   { id: 'blessingofsacrifice', name: 'Blessing of Sacrifice', duration: 12, icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_holy_sealofsacrifice.jpg', classes: ['Paladin'], casterRole: null, type: 'external', targetRoles: ['Tank'] },
 
-  // Tank cooldowns (Tank role required)
-  { id: 'dancingRuneWeapon', name: 'Dancing Rune Weapon', duration: 16, icon: 'https://wow.zamimg.com/images/wow/icons/large/inv_sword_07.jpg', classes: ['Death Knight'], casterRole: 'Tank', type: 'self' },
-  { id: 'seraphim', name: 'Seraphim', duration: 15, icon: 'https://wow.zamimg.com/images/wow/icons/large/ability_paladin_seraphim.jpg', classes: ['Paladin'], casterRole: 'Tank', type: 'self' },
+  // Tank cooldowns
+  { id: 'dancingRuneWeapon', name: 'Dancing Rune Weapon', duration: 16, icon: 'https://wow.zamimg.com/images/wow/icons/large/inv_sword_07.jpg', classes: ['Death Knight'], casterSpecs: ['Blood'], type: 'self' },
+  { id: 'seraphim', name: 'Seraphim', duration: 15, icon: 'https://wow.zamimg.com/images/wow/icons/large/ability_paladin_seraphim.jpg', classes: ['Paladin'], casterSpecs: ['Protection Paladin'], type: 'self' },
 
-  // DPS cooldowns (DPS role required)
-  // Mage
-  { id: 'icyveins', name: 'Icy Veins', duration: 20, icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_frost_coldhearted.jpg', classes: ['Mage'], casterRole: 'DPS', type: 'self' },
-  { id: 'combustion', name: 'Combustion', duration: 12, icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_fire_sealoffire.jpg', classes: ['Mage'], casterRole: 'DPS', type: 'self' },
-  { id: 'arcanePower', name: 'Arcane Power', duration: 15, icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_nature_lightning.jpg', classes: ['Mage'], casterRole: 'DPS', type: 'self' },
-  // Rogue
-  { id: 'adrenalineRush', name: 'Adrenaline Rush', duration: 20, icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_shadow_shadowworddominate.jpg', classes: ['Rogue'], casterRole: 'DPS', type: 'self' },
-  { id: 'vendetta', name: 'Vendetta', duration: 20, icon: 'https://wow.zamimg.com/images/wow/icons/large/ability_rogue_deadliness.jpg', classes: ['Rogue'], casterRole: 'DPS', type: 'self' },
-  { id: 'shadowBlades', name: 'Shadow Blades', duration: 20, icon: 'https://wow.zamimg.com/images/wow/icons/large/inv_knife_1h_grimbatolraid_d_03.jpg', classes: ['Rogue'], casterRole: 'DPS', type: 'self' },
-  // Druid DPS
-  { id: 'berserk', name: 'Berserk', duration: 15, icon: 'https://wow.zamimg.com/images/wow/icons/large/ability_druid_berserk.jpg', classes: ['Druid'], casterRole: 'DPS', type: 'self' },
-  { id: 'incarnation', name: 'Incarnation', duration: 30, icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_druid_incarnation.jpg', classes: ['Druid'], casterRole: null, type: 'self' },
-  // Warrior DPS
-  { id: 'recklessness', name: 'Recklessness', duration: 12, icon: 'https://wow.zamimg.com/images/wow/icons/large/ability_criticalstrike.jpg', classes: ['Warrior'], casterRole: 'DPS', type: 'self' },
+  // DPS cooldowns - spec-specific
+  // Mage (each spec has its own CD)
+  { id: 'icyveins', name: 'Icy Veins', duration: 20, icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_frost_coldhearted.jpg', classes: ['Mage'], casterSpecs: ['Frost Mage'], type: 'self' },
+  { id: 'combustion', name: 'Combustion', duration: 12, icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_fire_sealoffire.jpg', classes: ['Mage'], casterSpecs: ['Fire'], type: 'self' },
+  { id: 'arcanePower', name: 'Arcane Power', duration: 15, icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_nature_lightning.jpg', classes: ['Mage'], casterSpecs: ['Arcane'], type: 'self' },
+  // Rogue (each spec has its own CD)
+  { id: 'adrenalineRush', name: 'Adrenaline Rush', duration: 20, icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_shadow_shadowworddominate.jpg', classes: ['Rogue'], casterSpecs: ['Outlaw'], type: 'self' },
+  { id: 'vendetta', name: 'Vendetta', duration: 20, icon: 'https://wow.zamimg.com/images/wow/icons/large/ability_rogue_deadliness.jpg', classes: ['Rogue'], casterSpecs: ['Assassination'], type: 'self' },
+  { id: 'shadowBlades', name: 'Shadow Blades', duration: 20, icon: 'https://wow.zamimg.com/images/wow/icons/large/inv_knife_1h_grimbatolraid_d_03.jpg', classes: ['Rogue'], casterSpecs: ['Subtlety'], type: 'self' },
+  // Druid DPS (spec-specific)
+  { id: 'berserk', name: 'Berserk', duration: 15, icon: 'https://wow.zamimg.com/images/wow/icons/large/ability_druid_berserk.jpg', classes: ['Druid'], casterSpecs: ['Feral'], type: 'self' },
+  { id: 'celestialAlignment', name: 'Celestial Alignment', duration: 20, icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_nature_natureguardian.jpg', classes: ['Druid'], casterSpecs: ['Balance'], type: 'self' },
+  { id: 'incarnation', name: 'Incarnation', duration: 30, icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_druid_incarnation.jpg', classes: ['Druid'], casterSpecs: ['Balance', 'Feral', 'Guardian', 'Restoration Druid'], type: 'self' },
+  // Warrior DPS (shared across Arms/Fury)
+  { id: 'recklessness', name: 'Recklessness', duration: 12, icon: 'https://wow.zamimg.com/images/wow/icons/large/ability_criticalstrike.jpg', classes: ['Warrior'], casterSpecs: ['Arms', 'Fury'], type: 'self' },
   { id: 'avatar', name: 'Avatar', duration: 20, icon: 'https://wow.zamimg.com/images/wow/icons/large/warrior_talent_icon_avatar.jpg', classes: ['Warrior'], casterRole: null, type: 'self' },
-  // Death Knight DPS
-  { id: 'pillarofFrost', name: 'Pillar of Frost', duration: 12, icon: 'https://wow.zamimg.com/images/wow/icons/large/ability_deathknight_pillaroffrost.jpg', classes: ['Death Knight'], casterRole: 'DPS', type: 'self' },
-  { id: 'unholyAssault', name: 'Unholy Assault', duration: 20, icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_shadow_unholyfrenzy.jpg', classes: ['Death Knight'], casterRole: 'DPS', type: 'self' },
-  // Hunter
-  { id: 'aspectoftheWild', name: 'Aspect of the Wild', duration: 20, icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_nature_protectionformnature.jpg', classes: ['Hunter'], casterRole: 'DPS', type: 'self' },
-  { id: 'trueshot', name: 'Trueshot', duration: 15, icon: 'https://wow.zamimg.com/images/wow/icons/large/ability_trueshot.jpg', classes: ['Hunter'], casterRole: 'DPS', type: 'self' },
-  { id: 'coordinated', name: 'Coordinated Assault', duration: 20, icon: 'https://wow.zamimg.com/images/wow/icons/large/inv_coordinatedassault.jpg', classes: ['Hunter'], casterRole: 'DPS', type: 'self' },
-  // Paladin DPS
+  // Death Knight DPS (spec-specific)
+  { id: 'pillarofFrost', name: 'Pillar of Frost', duration: 12, icon: 'https://wow.zamimg.com/images/wow/icons/large/ability_deathknight_pillaroffrost.jpg', classes: ['Death Knight'], casterSpecs: ['Frost DK'], type: 'self' },
+  { id: 'unholyAssault', name: 'Unholy Assault', duration: 20, icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_shadow_unholyfrenzy.jpg', classes: ['Death Knight'], casterSpecs: ['Unholy'], type: 'self' },
+  // Hunter (spec-specific)
+  { id: 'aspectoftheWild', name: 'Aspect of the Wild', duration: 20, icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_nature_protectionformnature.jpg', classes: ['Hunter'], casterSpecs: ['Beast Mastery'], type: 'self' },
+  { id: 'trueshot', name: 'Trueshot', duration: 15, icon: 'https://wow.zamimg.com/images/wow/icons/large/ability_trueshot.jpg', classes: ['Hunter'], casterSpecs: ['Marksmanship'], type: 'self' },
+  { id: 'coordinated', name: 'Coordinated Assault', duration: 20, icon: 'https://wow.zamimg.com/images/wow/icons/large/inv_coordinatedassault.jpg', classes: ['Hunter'], casterSpecs: ['Survival'], type: 'self' },
+  // Paladin (Avenging Wrath is shared across all specs)
   { id: 'avengingWrath', name: 'Avenging Wrath', duration: 20, icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_holy_avenginewrath.jpg', classes: ['Paladin'], casterRole: null, type: 'self' },
-  // Warlock
+  // Warlock (spec-specific summons)
   { id: 'darkSoul', name: 'Dark Soul', duration: 20, icon: 'https://wow.zamimg.com/images/wow/icons/large/warlock_darksoultorment.jpg', classes: ['Warlock'], casterRole: 'DPS', type: 'self' },
-  { id: 'summonDarkglare', name: 'Summon Darkglare', duration: 20, icon: 'https://wow.zamimg.com/images/wow/icons/large/inv_beholderwarlock.jpg', classes: ['Warlock'], casterRole: 'DPS', type: 'self' },
-  { id: 'summonInfernal', name: 'Summon Infernal', duration: 30, icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_shadow_summoninfernal.jpg', classes: ['Warlock'], casterRole: 'DPS', type: 'self' },
-  { id: 'summonDemonic', name: 'Demonic Tyrant', duration: 15, icon: 'https://wow.zamimg.com/images/wow/icons/large/inv_demonictyrant.jpg', classes: ['Warlock'], casterRole: 'DPS', type: 'self' },
-  // Monk DPS (Windwalker only - DPS role)
-  { id: 'stormEarthFire', name: 'Storm, Earth, and Fire', duration: 15, icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_nature_giftofthewild.jpg', classes: ['Monk'], casterRole: 'DPS', type: 'self' },
-  { id: 'invokeXuen', name: 'Invoke Xuen', duration: 20, icon: 'https://wow.zamimg.com/images/wow/icons/large/ability_monk_summontigerstatue.jpg', classes: ['Monk'], casterRole: 'DPS', type: 'self' },
+  { id: 'summonDarkglare', name: 'Summon Darkglare', duration: 20, icon: 'https://wow.zamimg.com/images/wow/icons/large/inv_beholderwarlock.jpg', classes: ['Warlock'], casterSpecs: ['Affliction'], type: 'self' },
+  { id: 'summonInfernal', name: 'Summon Infernal', duration: 30, icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_shadow_summoninfernal.jpg', classes: ['Warlock'], casterSpecs: ['Destruction'], type: 'self' },
+  { id: 'summonDemonic', name: 'Demonic Tyrant', duration: 15, icon: 'https://wow.zamimg.com/images/wow/icons/large/inv_demonictyrant.jpg', classes: ['Warlock'], casterSpecs: ['Demonology'], type: 'self' },
+  // Monk DPS (Windwalker only)
+  { id: 'stormEarthFire', name: 'Storm, Earth, and Fire', duration: 15, icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_nature_giftofthewild.jpg', classes: ['Monk'], casterSpecs: ['Windwalker'], type: 'self' },
+  { id: 'invokeXuen', name: 'Invoke Xuen', duration: 20, icon: 'https://wow.zamimg.com/images/wow/icons/large/ability_monk_summontigerstatue.jpg', classes: ['Monk'], casterSpecs: ['Windwalker'], type: 'self' },
   // Demon Hunter DPS
-  { id: 'metamorphosis', name: 'Metamorphosis', duration: 24, icon: 'https://wow.zamimg.com/images/wow/icons/large/ability_demonhunter_metamorphasisdps.jpg', classes: ['Demon Hunter'], casterRole: 'DPS', type: 'self' },
+  { id: 'metamorphosis', name: 'Metamorphosis', duration: 24, icon: 'https://wow.zamimg.com/images/wow/icons/large/ability_demonhunter_metamorphasisdps.jpg', classes: ['Demon Hunter'], casterSpecs: ['Havoc'], type: 'self' },
   { id: 'theHunt', name: 'The Hunt', duration: 30, icon: 'https://wow.zamimg.com/images/wow/icons/large/ability_ardenweald_demonhunter.jpg', classes: ['Demon Hunter'], casterRole: 'DPS', type: 'self' },
   // Evoker DPS
-  { id: 'dragonrage', name: 'Dragonrage', duration: 18, icon: 'https://wow.zamimg.com/images/wow/icons/large/ability_evoker_dragonrage.jpg', classes: ['Evoker'], casterRole: 'DPS', type: 'self' },
+  { id: 'dragonrage', name: 'Dragonrage', duration: 18, icon: 'https://wow.zamimg.com/images/wow/icons/large/ability_evoker_dragonrage.jpg', classes: ['Evoker'], casterSpecs: ['Devastation'], type: 'self' },
 ];
 
 // Buff interval timer
@@ -182,12 +184,16 @@ function applyRandomBuff() {
     return;
   }
 
-  // Find buffs this class AND role can cast
+  // Find buffs this class, role, AND spec can cast
   const availableBuffs = BUFFS.filter(b => {
     // Must match class
     if (!b.classes.includes(caster.character_class)) return false;
-    // If casterRole is specified, must match the caster's raid role
-    if (b.casterRole !== null) {
+    // If casterSpecs is specified, must match the caster's spec (most precise filter)
+    if (b.casterSpecs) {
+      if (!caster.spec || !b.casterSpecs.includes(caster.spec)) return false;
+    }
+    // Otherwise fall back to role check: if casterRole is specified, must match
+    else if (b.casterRole !== null) {
       if (!caster.raidRole || caster.raidRole !== b.casterRole) return false;
     }
     return true;

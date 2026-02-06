@@ -712,21 +712,19 @@ export async function getCharacterEquipment(realmSlug, characterName) {
     );
 
     // Map equipment to a simpler format
-    const items = [];
-    for (const equipped of response.data.equipped_items || []) {
-      const slot = equipped.slot?.type || 'UNKNOWN';
-      const item = {
-        slot,
-        slotName: equipped.slot?.name || slot,
-        itemId: equipped.item?.id,
-        name: equipped.name,
-        quality: equipped.quality?.type || 'COMMON',
-        rarity: mapQuality(equipped.quality),
-        itemLevel: equipped.level?.value,
-        icon: null, // Will be fetched if needed
-      };
+    const items = (response.data.equipped_items || []).map(equipped => ({
+      slot: equipped.slot?.type || 'UNKNOWN',
+      slotName: equipped.slot?.name || equipped.slot?.type || 'UNKNOWN',
+      itemId: equipped.item?.id,
+      name: equipped.name,
+      quality: equipped.quality?.type || 'COMMON',
+      rarity: mapQuality(equipped.quality),
+      itemLevel: equipped.level?.value,
+      icon: null,
+    }));
 
-      // Try to get icon
+    // Fetch all icons in parallel (much faster than sequential)
+    await Promise.all(items.map(async (item) => {
       if (item.itemId) {
         try {
           item.icon = await getItemMedia(item.itemId);
@@ -734,9 +732,7 @@ export async function getCharacterEquipment(realmSlug, characterName) {
           // Icon fetch failed, leave as null
         }
       }
-
-      items.push(item);
-    }
+    }));
 
     return {
       character: response.data.character?.name,
