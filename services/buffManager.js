@@ -115,9 +115,16 @@ export function startBuffManager() {
 
   console.log('🎮 Starting global buff manager...');
 
+  let lastMemberRefresh = 0;
+  const MEMBER_REFRESH_INTERVAL = 5 * 60 * 1000; // Refresh members every 5 minutes
+
   // Apply a random buff every 30-90 seconds
   const applyNextBuff = async () => {
-    await refreshMembers();
+    // Only refresh members periodically, not every buff
+    if (Date.now() - lastMemberRefresh > MEMBER_REFRESH_INTERVAL) {
+      await refreshMembers();
+      lastMemberRefresh = Date.now();
+    }
     if (members.length > 0) {
       applyRandomBuff();
     }

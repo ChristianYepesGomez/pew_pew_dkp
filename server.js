@@ -3290,7 +3290,7 @@ app.get('/api/warcraftlogs/guild-reports', authenticateToken, authorizeRole(['ad
 });
 
 // Import boss statistics from a WCL report (without DKP/member matching)
-// This is for importing historical data or data from other guilds for testing
+// Also records player performance (damage, healing, deaths) by matching WCL names to known users
 app.post('/api/warcraftlogs/import-boss-stats', adminLimiter, authenticateToken, authorizeRole(['admin']), async (req, res) => {
   try {
     const { url } = req.body;
@@ -3304,9 +3304,20 @@ app.post('/api/warcraftlogs/import-boss-stats', adminLimiter, authenticateToken,
     // Ensure raid data is seeded
     await seedRaidData();
 
+    // Build participant map from known users/characters in database
+    const allUsers = await db.all('SELECT id, character_name FROM users WHERE is_active = 1');
+    const allCharacters = await db.all('SELECT user_id, character_name FROM characters');
+    const participantUserMap = {};
+    for (const u of allUsers) {
+      if (u.character_name) participantUserMap[u.character_name.toLowerCase()] = u.id;
+    }
+    for (const c of allCharacters) {
+      if (c.character_name) participantUserMap[c.character_name.toLowerCase()] = c.user_id;
+    }
+
     let statsProcessed = 0;
     let statsSkipped = 0;
-    const bossResults = [];
+    const processedBosses = [];
 
     // Process each fight for boss statistics (kills, wipes, times)
     for (const fight of reportData.fights) {
@@ -3316,18 +3327,65 @@ app.post('/api/warcraftlogs/import-boss-stats', adminLimiter, authenticateToken,
         statsSkipped++;
       } else {
         statsProcessed++;
-        bossResults.push({
+        processedBosses.push({
           bossId: result.bossId,
           fightId: fight.id,
           name: fight.name,
           difficulty: fight.difficulty,
           kill: result.kill,
-          duration: fight.duration
+          duration: fight.duration,
+          startTime: fight.startTime,
+          endTime: fight.endTime,
         });
       }
     }
 
     console.log(`📊 Boss stats imported from ${reportData.code}: ${statsProcessed} processed, ${statsSkipped} skipped`);
+
+    // Record player performance (damage, healing, deaths) in background
+    if (processedBosses.length > 0 && Object.keys(participantUserMap).length > 0) {
+      (async () => {
+        try {
+          let performanceRecorded = 0;
+          let deathsRecorded = 0;
+
+          for (const bossInfo of processedBosses) {
+            const fightStats = await getFightStatsWithDeathEvents(reportData.code, {
+              id: bossInfo.fightId,
+              startTime: bossInfo.startTime,
+              endTime: bossInfo.endTime,
+              kill: bossInfo.kill,
+            });
+
+            // Record deaths
+            if (fightStats.deaths && fightStats.deaths.length > 0) {
+              const deathsFormatted = fightStats.deaths.map(d => ({ name: d.name, deaths: d.total }));
+              await recordPlayerDeaths(bossInfo.bossId, bossInfo.difficulty, deathsFormatted, participantUserMap);
+              deathsRecorded += fightStats.deaths.reduce((sum, d) => sum + d.total, 0);
+            }
+
+            // Record performance (damage, healing, damage taken)
+            if (fightStats.damage.length > 0 || fightStats.healing.length > 0) {
+              await recordPlayerPerformance(
+                bossInfo.bossId,
+                bossInfo.difficulty,
+                fightStats,
+                participantUserMap,
+                reportData.code,
+                bossInfo.fightId
+              );
+              performanceRecorded++;
+            }
+          }
+
+          if (performanceRecorded > 0 || deathsRecorded > 0) {
+            console.log(`📈 Import performance: ${performanceRecorded} fights, ${deathsRecorded} deaths from ${reportData.code}`);
+          }
+        } catch (err) {
+          console.error('Error recording import performance:', err);
+        }
+      })();
+    }
 
     res.json({
       message: 'Boss statistics imported successfully',
@@ -3340,9 +3398,17 @@ app.post('/api/warcraftlogs/import-boss-stats', adminLimiter, authenticateToken,
       },
       stats: {
         processed: statsProcessed,
-        skipped: statsSkipped
+        skipped: statsSkipped,
+        matchedUsers: Object.keys(participantUserMap).length
       },
-      bosses: bossResults
+      bosses: processedBosses.map(b => ({
+        bossId: b.bossId,
+        fightId: b.fightId,
+        name: b.name,
+        difficulty: b.difficulty,
+        kill: b.kill,
+        duration: b.duration
+      }))
     });
   } catch (error) {
     console.error('Import boss stats error:', error);
@@ -3671,7 +3737,8 @@ app.get('/api/bosses/debug/stats', authenticateToken, authorizeRole(['admin']), 
 app.get('/api/bosses/:bossId', authenticateToken, async (req, res) => {
   try {
     const { bossId } = req.params;
-    const data = await getBossDetails(parseInt(bossId));
+    const { difficulty } = req.query;
+    const data = await getBossDetails(parseInt(bossId), difficulty || null);
 
     if (!data) {
       return res.status(404).json({ error: 'Boss not found' });

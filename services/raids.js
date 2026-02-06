@@ -204,9 +204,15 @@ export async function getAllZonesWithBosses() {
       ORDER BY b.boss_order
     `, zone.id);
 
-    // Calculate progress (kills at highest difficulty)
-    const highestDiff = bosses.find(b => b.kills > 0)?.highest_difficulty || null;
-    const bossesKilled = bosses.filter(b => b.kills > 0 && b.highest_difficulty === highestDiff).length;
+    // Calculate progress - find ACTUAL highest difficulty across all bosses with kills
+    const DIFF_PRIORITY = { 'Mythic': 3, 'Heroic': 2, 'Normal': 1, 'LFR': 0 };
+    const bossesWithKills = bosses.filter(b => b.kills > 0);
+    const highestDiff = bossesWithKills.length > 0
+      ? bossesWithKills.reduce((best, b) =>
+          (DIFF_PRIORITY[b.highest_difficulty] || 0) > (DIFF_PRIORITY[best] || 0) ? b.highest_difficulty : best
+        , bossesWithKills[0].highest_difficulty)
+      : null;
+    const bossesKilled = bossesWithKills.filter(b => b.highest_difficulty === highestDiff).length;
     const diffShort = highestDiff ? highestDiff.charAt(0) : '';
     const progress = highestDiff ? `${bossesKilled}/${zone.boss_count} ${diffShort}` : null;
 
@@ -248,8 +254,10 @@ export async function getAllZonesWithBosses() {
 
 /**
  * Get detailed stats for a specific boss
+ * @param {number} bossId
+ * @param {string|null} requestedDifficulty - Optional: 'Mythic', 'Heroic', 'Normal', 'LFR'. Defaults to highest available.
  */
-export async function getBossDetails(bossId) {
+export async function getBossDetails(bossId, requestedDifficulty = null) {
   const boss = await db.get(`
     SELECT b.*, z.name as raid_name, z.slug as raid_slug
     FROM wcl_bosses b
@@ -259,9 +267,10 @@ export async function getBossDetails(bossId) {
 
   if (!boss) return null;
 
-  // Get statistics for highest difficulty
-  const stats = await db.get(`
-    SELECT * FROM boss_statistics
+  // Get all available difficulties for this boss
+  const availableDifficulties = await db.all(`
+    SELECT difficulty, total_kills, total_wipes
+    FROM boss_statistics
     WHERE boss_id = ?
     ORDER BY CASE difficulty
       WHEN 'Mythic' THEN 3
@@ -269,8 +278,19 @@ export async function getBossDetails(bossId) {
       WHEN 'Normal' THEN 1
       ELSE 0
     END DESC
-    LIMIT 1
   `, bossId);
+
+  // Determine which difficulty to show
+  let selectedDifficulty = requestedDifficulty;
+  if (!selectedDifficulty || !availableDifficulties.find(d => d.difficulty === selectedDifficulty)) {
+    selectedDifficulty = availableDifficulties.length > 0 ? availableDifficulties[0].difficulty : 'Heroic';
+  }
+
+  // Get statistics for selected difficulty
+  const stats = await db.get(`
+    SELECT * FROM boss_statistics
+    WHERE boss_id = ? AND difficulty = ?
+  `, bossId, selectedDifficulty);
 
   // Get death leaderboard
   const deathLeaderboard = await db.all(`
@@ -280,7 +300,7 @@ export async function getBossDetails(bossId) {
     WHERE pbd.boss_id = ? AND pbd.difficulty = ?
     ORDER BY pbd.total_deaths DESC
     LIMIT 20
-  `, bossId, stats?.difficulty || 'Heroic');
+  `, bossId, selectedDifficulty);
 
   // Get recent kills
   const recentKills = await db.all(`
@@ -288,13 +308,13 @@ export async function getBossDetails(bossId) {
     WHERE boss_id = ? AND difficulty = ?
     ORDER BY kill_date DESC, created_at DESC
     LIMIT 10
-  `, bossId, stats?.difficulty || 'Heroic');
+  `, bossId, selectedDifficulty);
 
   // Get boss records (top performers)
   const records = await db.all(`
     SELECT * FROM boss_records
     WHERE boss_id = ? AND difficulty = ?
-  `, bossId, stats?.difficulty || 'Heroic');
+  `, bossId, selectedDifficulty);
 
   // Format records by type
   const recordsMap = {};
@@ -323,9 +343,15 @@ export async function getBossDetails(bossId) {
       mythicTrapUrl: boss.mythic_trap_url,
       imageUrl: boss.image_url,
     },
-    // Always return statistics, even if boss hasn't been tracked yet
+    // Available difficulties for the selector
+    availableDifficulties: availableDifficulties.map(d => ({
+      difficulty: d.difficulty,
+      kills: d.total_kills,
+      wipes: d.total_wipes,
+    })),
+    // Statistics for the selected difficulty
     statistics: {
-      difficulty: stats?.difficulty || 'Heroic',
+      difficulty: stats?.difficulty || selectedDifficulty,
       kills: stats?.total_kills || 0,
       wipes: stats?.total_wipes || 0,
       fastestKill: stats?.fastest_kill_ms ? formatDuration(stats.fastest_kill_ms) : null,
