@@ -399,9 +399,6 @@ const BossDetailModal = ({ boss, details, loading, onClose, onChangeDifficulty, 
                         }}
                       >
                         {d.difficulty}
-                        <span className="text-xs opacity-70">
-                          {d.kills > 0 ? `${d.kills}K` : ''}{d.kills > 0 && d.wipes > 0 ? '/' : ''}{d.wipes > 0 ? `${d.wipes}W` : ''}
-                        </span>
                       </button>
                     )
                   })}
