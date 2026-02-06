@@ -29,6 +29,10 @@ const AdminTab = () => {
   const [raidDays, setRaidDays] = useState([])
   const [raidDaysLoading, setRaidDaysLoading] = useState(true)
   const [raidDaysSaving, setRaidDaysSaving] = useState(false)
+  // Pending WCL reports state
+  const [pendingReports, setPendingReports] = useState([])
+  const [pendingLoading, setPendingLoading] = useState(false)
+  const [pendingUploaderName, setPendingUploaderName] = useState('')
 
   const DAY_NAMES = {
     1: { es: 'Lunes', en: 'Monday' },
@@ -109,7 +113,33 @@ const AdminTab = () => {
   useEffect(() => {
     loadWclHistory()
     loadRaidDays()
+    checkPendingReports()
   }, [])
+
+  const checkPendingReports = async () => {
+    setPendingLoading(true)
+    try {
+      const res = await warcraftLogsAPI.pendingReports()
+      setPendingReports(res.data.pending || [])
+      setPendingUploaderName(res.data.uploaderName || '')
+    } catch (error) {
+      console.error('Error checking pending reports:', error)
+      setPendingReports([])
+    } finally {
+      setPendingLoading(false)
+    }
+  }
+
+  const handleAutoProcess = async (code) => {
+    try {
+      const res = await warcraftLogsAPI.autoProcess(code)
+      // Set the preview data and open it
+      setWclPreview(res.data)
+      showNotification('info', t('auto_process_preview') || 'Log previewed. Confirm to apply DKP.')
+    } catch (error) {
+      showNotification('error', error.response?.data?.error || 'Failed to process report')
+    }
+  }
 
   const loadRaidDays = async () => {
     setRaidDaysLoading(true)
@@ -244,6 +274,66 @@ const AdminTab = () => {
       {/* Warcraft Logs */}
       <div className="info-card">
         <h3><img src={WCL_ICON} alt="WCL" className="inline-block mr-3 w-6 h-6" />{t('wcl_integration')}</h3>
+
+        {/* Pending Reports - Auto-detected */}
+        {pendingReports.length > 0 && (
+          <div className="mb-6 bg-yellow-600 bg-opacity-10 border border-yellow-500 border-opacity-30 rounded-xl p-4">
+            <div className="flex items-center justify-between mb-3">
+              <h4 className="text-yellow-400 font-bold flex items-center gap-2 m-0">
+                <i className="fas fa-bell animate-pulse"></i>
+                {t('pending_wcl_reports') || 'Logs Pendientes'}
+                <span className="bg-yellow-500 text-white text-xs px-2 py-0.5 rounded-full">{pendingReports.length}</span>
+              </h4>
+              <button
+                onClick={checkPendingReports}
+                disabled={pendingLoading}
+                className="text-sm text-yellow-400 hover:text-yellow-300"
+              >
+                <i className={`fas ${pendingLoading ? 'fa-spinner fa-spin' : 'fa-sync-alt'} mr-1`}></i>
+                {t('refresh')}
+              </button>
+            </div>
+            <p className="text-xs text-gray-400 mb-3">
+              {t('logs_from') || 'Logs de'}: <span className="text-yellow-400">{pendingUploaderName}</span>
+            </p>
+            <div className="space-y-2">
+              {pendingReports.map(report => (
+                <div
+                  key={report.code}
+                  className="flex items-center justify-between bg-midnight-deepblue bg-opacity-50 rounded-lg px-4 py-3"
+                >
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-white truncate">{report.title}</p>
+                    <p className="text-xs text-gray-400 flex items-center gap-3">
+                      <span><i className="fas fa-calendar-day mr-1"></i>{report.raidDate}</span>
+                      <span><i className="fas fa-dungeon mr-1"></i>{report.zone}</span>
+                    </p>
+                  </div>
+                  <div className="flex gap-2">
+                    <a
+                      href={`https://www.warcraftlogs.com/reports/${report.code}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-3 py-2 bg-blue-600 bg-opacity-30 hover:bg-opacity-50 text-blue-400 rounded-lg text-sm transition-all"
+                      title={t('view_on_wcl') || 'Ver en WCL'}
+                    >
+                      <i className="fas fa-external-link-alt"></i>
+                    </a>
+                    <button
+                      onClick={() => handleAutoProcess(report.code)}
+                      className="px-4 py-2 bg-green-600 bg-opacity-30 hover:bg-opacity-50 text-green-400 rounded-lg text-sm font-semibold transition-all flex items-center gap-2"
+                    >
+                      <i className="fas fa-bolt"></i>
+                      {t('process') || 'Procesar'}
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Manual URL Input */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-4">
           <input type="text" value={wclUrl} onChange={(e) => setWclUrl(e.target.value)} placeholder={t('wcl_url')} className="md:col-span-3 px-4 py-3 rounded-lg bg-midnight-spaceblue border border-midnight-bright-purple text-midnight-silver focus:outline-none focus:ring-2 focus:ring-midnight-glow" />
           <button onClick={handleWclPreview} disabled={loading} className="px-6 py-3 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg font-bold disabled:opacity-50">

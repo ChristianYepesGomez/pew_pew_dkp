@@ -49,6 +49,7 @@ export const membersAPI = {
 export const auctionsAPI = {
   getActive: () => api.get('/auctions/active'),
   getHistory: () => api.get('/auctions/history'),
+  getBids: (auctionId) => api.get(`/auctions/${auctionId}/bids`),
   create: (data) => api.post('/auctions', data),
   bid: (auctionId, amount) => api.post(`/auctions/${auctionId}/bid`, { amount }),
   end: (auctionId) => api.post(`/auctions/${auctionId}/end`),
@@ -63,6 +64,8 @@ export const warcraftLogsAPI = {
   guildReports: (date) => api.get(`/warcraftlogs/guild-reports?date=${date}`),
   reportTransactions: (code) => api.get(`/warcraftlogs/report/${code}/transactions`),
   importBossStats: (url) => api.post('/warcraftlogs/import-boss-stats', { url }),
+  pendingReports: () => api.get('/warcraftlogs/pending-reports'),
+  autoProcess: (code) => api.post(`/warcraftlogs/auto-process/${code}`),
 }
 
 export const raidItemsAPI = {
@@ -118,6 +121,13 @@ export const buffsAPI = {
     const baseUrl = API_URL.replace('/api', '')
     return `${baseUrl}/api/buffs/stream`
   },
+}
+
+export const armoryAPI = {
+  getProfile: (userId) => api.get(`/armory/${userId}/profile`),
+  getLoot: (userId) => api.get(`/armory/${userId}/loot`),
+  getEquipment: (realm, character) => api.get(`/armory/equipment/${encodeURIComponent(realm)}/${encodeURIComponent(character)}`),
+  getMedia: (realm, character) => api.get(`/armory/media/${encodeURIComponent(realm)}/${encodeURIComponent(character)}`),
 }
 
 export default api

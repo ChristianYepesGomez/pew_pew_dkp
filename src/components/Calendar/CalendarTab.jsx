@@ -48,7 +48,6 @@ const CalendarTab = () => {
   const [notification, setNotification] = useState(null)
   const [adminView, setAdminView] = useState(false)
   const [overview, setOverview] = useState(null)
-  const [wclData, setWclData] = useState({})
   const [wclModal, setWclModal] = useState(null)
   const [showHistory, setShowHistory] = useState(false)
   const [raidHistory, setRaidHistory] = useState([])
@@ -98,7 +97,6 @@ const CalendarTab = () => {
 
   useEffect(() => {
     loadSignups()
-    loadWclData()
   }, [])
 
   useEffect(() => {
@@ -134,21 +132,6 @@ const CalendarTab = () => {
       setOverview(response.data)
     } catch (error) {
       console.error('Error loading overview:', error)
-    }
-  }
-
-  const loadWclData = async () => {
-    try {
-      const response = await calendarAPI.getDatesWithLogs(4)
-      const map = {}
-      for (const d of response.data || []) {
-        if (d.wclReport) {
-          map[d.date] = d.wclReport
-        }
-      }
-      setWclData(map)
-    } catch (error) {
-      console.error('Error loading WCL data:', error)
     }
   }
 
@@ -508,32 +491,6 @@ const CalendarTab = () => {
                             </div>
                           </div>
                           <div className="flex items-center gap-2">
-                            {/* WCL Icon */}
-                            {wclData[signup.date] ? (
-                              <a
-                                href={`https://www.warcraftlogs.com/reports/${wclData[signup.date].code}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="flex items-center gap-1.5 text-sm hover:opacity-80 transition-opacity"
-                                title={`${wclData[signup.date].title} (${wclData[signup.date].dkpAssigned} DKP)`}
-                                onClick={(e) => e.stopPropagation()}
-                              >
-                                <WclIcon size={18} />
-                                <span className="text-xs text-orange-400">{wclData[signup.date].dkpAssigned}</span>
-                              </a>
-                            ) : isAdmin ? (
-                              <button
-                                onClick={(e) => { e.stopPropagation(); setWclModal(signup.date) }}
-                                className="flex items-center gap-1 hover:opacity-100 transition-opacity"
-                                title={t('link_wcl_report')}
-                              >
-                                <WclIcon size={18} opacity="opacity-30" />
-                              </button>
-                            ) : (
-                              <div title={t('no_wcl_report')}>
-                                <WclIcon size={18} opacity="opacity-20" />
-                              </div>
-                            )}
                             {/* DKP Bonus indicator: show when NOT yet awarded (incentive), hide when received */}
                             {!isLocked && !signup.dkpAwarded && (
                               <div className="flex items-center gap-1 text-yellow-400 text-sm opacity-60 animate-pulse" title={t('signup_dkp_hint')}>
@@ -755,7 +712,7 @@ const CalendarTab = () => {
         <WCLLinkModal
           date={wclModal}
           onClose={() => setWclModal(null)}
-          onLinked={() => { setWclModal(null); loadWclData() }}
+          onLinked={() => { setWclModal(null); loadRaidHistory() }}
           t={t}
           language={language}
         />

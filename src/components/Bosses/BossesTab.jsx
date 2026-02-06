@@ -239,7 +239,7 @@ const BossesTab = () => {
 // Boss Card Component - Cinematic design with full artwork
 const BossCard = ({ boss, onClick, t }) => {
   const diffColor = DIFFICULTY_COLORS[boss.highestDifficulty] || '#888'
-  const hasStats = boss.kills > 0 || boss.wipes > 0
+  const hasKillsOrWipes = boss.kills > 0 || boss.wipes > 0
 
   return (
     <div
@@ -280,29 +280,25 @@ const BossCard = ({ boss, onClick, t }) => {
           {boss.name}
         </h4>
 
-        {/* Stats Row */}
-        {hasStats ? (
-          <div className="flex items-center gap-4 text-sm">
-            <div className="flex items-center gap-1">
-              <i className="fas fa-check-circle text-green-400 text-xs"></i>
-              <span className="text-green-400 font-semibold">{boss.kills}</span>
-              <span className="text-gray-400 text-xs">{t('kills')}</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <i className="fas fa-times-circle text-red-400 text-xs"></i>
-              <span className="text-red-400 font-semibold">{boss.wipes}</span>
-              <span className="text-gray-400 text-xs">{t('wipes')}</span>
-            </div>
-            {boss.fastestKill && (
-              <div className="flex items-center gap-1">
-                <i className="fas fa-bolt text-yellow-400 text-xs"></i>
-                <span className="text-yellow-400 font-semibold">{boss.fastestKill}</span>
-              </div>
-            )}
+        {/* Stats Row - Always show, even with 0 values */}
+        <div className="flex items-center gap-4 text-sm">
+          <div className="flex items-center gap-1">
+            <i className={`fas fa-check-circle text-xs ${boss.kills > 0 ? 'text-green-400' : 'text-gray-500'}`}></i>
+            <span className={`font-semibold ${boss.kills > 0 ? 'text-green-400' : 'text-gray-500'}`}>{boss.kills || 0}</span>
+            <span className="text-gray-400 text-xs">{t('kills')}</span>
           </div>
-        ) : (
-          <p className="text-gray-400 text-sm italic">{t('no_stats_yet')}</p>
-        )}
+          <div className="flex items-center gap-1">
+            <i className={`fas fa-times-circle text-xs ${boss.wipes > 0 ? 'text-red-400' : 'text-gray-500'}`}></i>
+            <span className={`font-semibold ${boss.wipes > 0 ? 'text-red-400' : 'text-gray-500'}`}>{boss.wipes || 0}</span>
+            <span className="text-gray-400 text-xs">{t('wipes')}</span>
+          </div>
+          {boss.fastestKill && (
+            <div className="flex items-center gap-1">
+              <i className="fas fa-bolt text-yellow-400 text-xs"></i>
+              <span className="text-yellow-400 font-semibold">{boss.fastestKill}</span>
+            </div>
+          )}
+        </div>
 
         {/* Guide Link - appears on hover */}
         {boss.mythicTrapUrl && (

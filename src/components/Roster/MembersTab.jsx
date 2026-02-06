@@ -5,6 +5,7 @@ import { useSocket } from '../../hooks/useSocket'
 import { useLanguage } from '../../hooks/useLanguage'
 import { membersAPI, dkpAPI, buffsAPI } from '../../services/api'
 import DKPAdjustModal from './DKPAdjustModal'
+import ArmoryModal from './ArmoryModal'
 import VaultIcon from '../Common/VaultIcon'
 import CLASS_COLORS from '../../utils/classColors'
 
@@ -81,6 +82,7 @@ const MembersTab = () => {
   const isOfficer = user?.role === 'officer'
   const canManageVault = isAdmin || isOfficer
   const [avatarPreview, setAvatarPreview] = useState(null) // { avatar, name, class }
+  const [armoryMemberId, setArmoryMemberId] = useState(null) // ID of member whose armory is open
 
   // Global buff system state (synchronized via SSE)
   const [activeBuffs, setActiveBuffs] = useState({}) // { memberId: { buff, expiresAt, casterName } }
@@ -149,6 +151,7 @@ const MembersTab = () => {
                   buff: data.buff,
                   expiresAt: data.expiresAt,
                   casterName: data.casterName,
+                  casterId: data.casterId,
                   isSelfCast: data.isSelfCast,
                 }
               }
@@ -305,22 +308,22 @@ const MembersTab = () => {
 
   return (
     <div className="info-card flex flex-col" style={{ maxHeight: 'calc(100vh - 200px)' }}>
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4 flex-shrink-0">
-        <h3 className="m-0"><i className="fas fa-users mr-3"></i>{t('members_list')}</h3>
-        <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-4 mb-4 flex-shrink-0">
+        <h3 className="m-0 text-base sm:text-lg"><i className="fas fa-users mr-2 sm:mr-3"></i>{t('members_list')}</h3>
+        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
           {/* Filter by name */}
           <input
             type="text"
             value={filterText}
             onChange={(e) => setFilterText(e.target.value)}
             placeholder={t('search_name')}
-            className="px-3 py-2 rounded-lg bg-midnight-purple bg-opacity-30 border border-midnight-bright-purple text-white placeholder-gray-500 focus:outline-none focus:border-midnight-glow text-sm"
+            className="flex-1 sm:flex-none min-w-0 px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg bg-midnight-purple bg-opacity-30 border border-midnight-bright-purple text-white placeholder-gray-500 focus:outline-none focus:border-midnight-glow text-sm"
           />
           {/* Filter by role */}
           <select
             value={filterRole}
             onChange={(e) => setFilterRole(e.target.value)}
-            className="px-3 py-2 rounded-lg bg-midnight-purple bg-opacity-30 border border-midnight-bright-purple text-white focus:outline-none focus:border-midnight-glow text-sm"
+            className="px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg bg-midnight-purple bg-opacity-30 border border-midnight-bright-purple text-white focus:outline-none focus:border-midnight-glow text-sm"
           >
             <option value="all">{t('all_roles')}</option>
             <option value="Tank">{t('tank')}</option>
@@ -330,41 +333,41 @@ const MembersTab = () => {
         </div>
       </div>
       <div className="overflow-auto flex-1">
-        <table className="w-full">
+        <table className="w-full table-auto">
           <thead className="sticky top-0 bg-midnight-deepblue">
             <tr className="border-b-2 border-midnight-bright-purple">
               <th
-                className="text-left py-3 px-4 text-midnight-glow cursor-pointer hover:text-white"
+                className="text-left py-3 px-2 sm:px-4 text-midnight-glow cursor-pointer hover:text-white"
                 onClick={() => handleSort('characterName')}
               >
                 {t('character')}<SortIcon field="characterName" />
               </th>
-              <th className="text-left py-3 px-4 text-midnight-glow">{t('spec')}</th>
+              <th className="text-center py-3 px-2 sm:px-4 text-midnight-glow hidden sm:table-cell whitespace-nowrap">{t('spec')}</th>
               <th
-                className="text-left py-3 px-4 text-midnight-glow cursor-pointer hover:text-white"
+                className="text-center py-3 px-2 sm:px-4 text-midnight-glow cursor-pointer hover:text-white hidden md:table-cell whitespace-nowrap"
                 onClick={() => handleSort('raidRole')}
               >
                 {t('role')}<SortIcon field="raidRole" />
               </th>
               <th
-                className="text-left py-3 px-4 text-midnight-glow cursor-pointer hover:text-white"
+                className="text-center py-3 px-2 sm:px-4 text-midnight-glow cursor-pointer hover:text-white whitespace-nowrap"
                 onClick={() => handleSort('currentDkp')}
               >
                 DKP<SortIcon field="currentDkp" />
               </th>
-              <th className="text-center py-3 px-4 text-midnight-glow" title={t('weekly_vault')}>
+              <th className="text-center py-3 px-2 sm:px-4 text-midnight-glow whitespace-nowrap" title={t('weekly_vault')}>
                 <div className="flex items-center justify-center">
-                  <VaultIcon completed={true} size={28} />
+                  <VaultIcon completed={true} size={24} />
                 </div>
               </th>
-              {isAdmin && <th className="text-left py-3 px-4 text-midnight-glow">{t('actions')}</th>}
+              {isAdmin && <th className="text-center py-3 px-2 sm:px-4 text-midnight-glow whitespace-nowrap">{t('actions')}</th>}
             </tr>
           </thead>
           <tbody>
             {filteredAndSortedMembers.map((m) => (
               <tr key={m.id} className="group border-b border-midnight-bright-purple border-opacity-20 hover:bg-midnight-bright-purple hover:bg-opacity-10">
-                <td className="py-3 px-4">
-                  <div className="flex items-center gap-2">
+                <td className="py-2 sm:py-3 px-2 sm:px-4">
+                  <div className="flex items-center gap-1 sm:gap-2">
                     {isAdmin && (
                       <button
                         onClick={(e) => { e.stopPropagation(); setDeleteModal({ open: true, member: m }) }}
@@ -397,8 +400,10 @@ const MembersTab = () => {
                       </div>
                     )}
                     <strong
-                      className="cursor-default"
+                      className="cursor-pointer hover:underline"
                       style={{ color: CLASS_COLORS[m.characterClass] || '#FFF' }}
+                      onClick={(e) => { e.stopPropagation(); setArmoryMemberId(m.id) }}
+                      title={t('view_armory')}
                     >
                       {m.characterName}
                     </strong>
@@ -407,7 +412,7 @@ const MembersTab = () => {
                       {activeBuffs[m.id] && (
                         <div
                           className="animate-pulse"
-                          title={`${activeBuffs[m.id].buff.name}${!activeBuffs[m.id].isSelfCast && activeBuffs[m.id].casterName ? ` (${activeBuffs[m.id].casterName})` : ''}`}
+                          title={`${activeBuffs[m.id].buff.name}${!activeBuffs[m.id].isSelfCast && activeBuffs[m.id].casterName && activeBuffs[m.id].casterId !== m.id ? ` (${activeBuffs[m.id].casterName})` : ''}`}
                         >
                           <img
                             src={activeBuffs[m.id].buff.icon}
@@ -420,13 +425,13 @@ const MembersTab = () => {
                     </div>
                   </div>
                 </td>
-                <td className="py-3 px-4">
+                <td className="py-2 sm:py-3 px-2 sm:px-4 text-center hidden sm:table-cell">
                   {m.spec && SPEC_ICONS[m.spec] ? (
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center justify-center">
                       <img
                         src={SPEC_ICONS[m.spec]}
                         alt={m.spec}
-                        className="w-6 h-6 rounded"
+                        className="w-5 h-5 sm:w-6 sm:h-6 rounded"
                         title={m.spec}
                       />
                     </div>
@@ -434,22 +439,22 @@ const MembersTab = () => {
                     <span className="text-midnight-silver">-</span>
                   )}
                 </td>
-                <td className="py-3 px-4">
-                  <span className={`px-3 py-1 rounded-lg text-xs font-bold ${m.raidRole === 'Tank' ? 'bg-blue-500' : m.raidRole === 'Healer' ? 'bg-green-500' : 'bg-red-500'} text-white`}>
+                <td className="py-2 sm:py-3 px-2 sm:px-4 text-center hidden md:table-cell">
+                  <span className={`px-2 sm:px-3 py-1 rounded-lg text-xs font-bold ${m.raidRole === 'Tank' ? 'bg-blue-500' : m.raidRole === 'Healer' ? 'bg-green-500' : 'bg-red-500'} text-white`}>
                     {m.raidRole || 'DPS'}
                   </span>
                 </td>
-                <td className="py-3 px-4">
-                  <div className="flex items-center gap-1">
-                    <strong className="text-midnight-glow text-lg">{m.currentDkp || 0}</strong>
+                <td className="py-2 sm:py-3 px-2 sm:px-4 text-center">
+                  <div className="flex items-center justify-center gap-1">
+                    <strong className="text-midnight-glow text-base sm:text-lg">{m.currentDkp || 0}</strong>
                     {m.dkpCap && m.currentDkp >= m.dkpCap && (
-                      <span className="text-xs text-yellow-400" title={t('dkp_cap_reached')}>
+                      <span className="text-xs text-yellow-400 hidden sm:inline" title={t('dkp_cap_reached')}>
                         <i className="fas fa-crown"></i>
                       </span>
                     )}
                   </div>
                 </td>
-                <td className="py-3 px-4">
+                <td className="py-2 sm:py-3 px-2 sm:px-4">
                   <div className="flex items-center justify-center">
                     {canManageVault ? (
                       <button
@@ -475,13 +480,13 @@ const MembersTab = () => {
                   </div>
                 </td>
                 {isAdmin && (
-                  <td className="py-3 px-4">
+                  <td className="py-2 sm:py-3 px-2 sm:px-4 text-center">
                     <button
                       onClick={() => handleOpenAdjust(m)}
-                      className="px-4 py-2 bg-gradient-to-r from-midnight-purple to-midnight-bright-purple text-white rounded-lg hover:shadow-lg transition-all flex items-center gap-2"
+                      className="px-2 sm:px-4 py-1.5 sm:py-2 bg-gradient-to-r from-midnight-purple to-midnight-bright-purple text-white rounded-lg hover:shadow-lg transition-all inline-flex items-center gap-1 sm:gap-2 text-sm"
                     >
                       <i className="fas fa-coins"></i>
-                      {t('adjust_dkp')}
+                      <span className="hidden sm:inline">{t('adjust_dkp')}</span>
                     </button>
                   </td>
                 )}
@@ -556,6 +561,14 @@ const MembersTab = () => {
           </button>
         </div>,
         document.body
+      )}
+
+      {/* Armory Modal */}
+      {armoryMemberId && (
+        <ArmoryModal
+          memberId={armoryMemberId}
+          onClose={() => setArmoryMemberId(null)}
+        />
       )}
     </div>
   )

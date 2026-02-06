@@ -2,7 +2,9 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
+/* Dark theme (default) */
+:root,
+[data-theme="dark"] {
   --midnight-deepblue: #0a0e27;
   --midnight-spaceblue: #1a1d3a;
   --midnight-purple: #4a1a8f;
@@ -10,6 +12,29 @@
   --midnight-glow: #a78bfa;
   --midnight-silver: #e0e7ff;
   --midnight-accent: #6d28d9;
+  --bg-body: radial-gradient(ellipse at top, #1e1b4b 0%, #0f0a1e 50%, #000000 100%);
+  --card-bg: rgba(10, 14, 39, 0.7);
+  --card-border: rgba(139, 92, 246, 0.3);
+  --input-bg: rgba(74, 26, 143, 0.3);
+  --input-border: rgba(139, 92, 246, 0.5);
+  --nebula-opacity: 1;
+}
+
+/* Light theme */
+[data-theme="light"] {
+  --midnight-deepblue: #ffffff;
+  --midnight-spaceblue: #f8fafc;
+  --midnight-purple: #6d28d9;
+  --midnight-bright-purple: #7c3aed;
+  --midnight-glow: #5b21b6;
+  --midnight-silver: #1e293b;
+  --midnight-accent: #7c3aed;
+  --bg-body: linear-gradient(135deg, #f1f5f9 0%, #e0e7ff 50%, #ede9fe 100%);
+  --card-bg: rgba(255, 255, 255, 0.95);
+  --card-border: rgba(109, 40, 217, 0.2);
+  --input-bg: rgba(255, 255, 255, 0.9);
+  --input-border: rgba(109, 40, 217, 0.3);
+  --nebula-opacity: 0.15;
 }
 
 * {
@@ -19,12 +44,13 @@
 }
 
 body {
-  background: radial-gradient(ellipse at top, #1e1b4b 0%, #0f0a1e 50%, #000000 100%);
+  background: var(--bg-body);
   background-attachment: fixed;
   min-height: 100vh;
   font-family: 'Arial', sans-serif;
   color: var(--midnight-silver);
   overflow-x: hidden;
+  transition: background 0.3s ease, color 0.3s ease;
 }
 
 /* Nebula effect */
@@ -45,8 +71,8 @@ body::before {
 }
 
 @keyframes nebula {
-  0%, 100% { transform: translate(0, 0) scale(1); opacity: 0.5; }
-  50% { transform: translate(-5%, 5%) scale(1.1); opacity: 0.7; }
+  0%, 100% { transform: translate(0, 0) scale(1); opacity: calc(0.5 * var(--nebula-opacity)); }
+  50% { transform: translate(-5%, 5%) scale(1.1); opacity: calc(0.7 * var(--nebula-opacity)); }
 }
 
 /* Stars effect removed - caused visible dots during loading */
@@ -58,11 +84,11 @@ body::before {
 
 /* Info Card */
 .info-card {
-  background: rgba(10, 14, 39, 0.7);
+  background: var(--card-bg);
   backdrop-filter: blur(20px);
   border-radius: 20px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), 0 0 40px rgba(139, 92, 246, 0.15);
-  border: 1px solid rgba(139, 92, 246, 0.3);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2), 0 0 40px rgba(139, 92, 246, 0.1);
+  border: 1px solid var(--card-border);
   padding: 30px;
   margin-bottom: 25px;
   transition: all 0.4s ease;

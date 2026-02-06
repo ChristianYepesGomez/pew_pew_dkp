@@ -81,6 +81,16 @@ const DKPInfoModal = ({ onClose }) => {
             </ul>
           </div>
 
+          {/* Anti-Snipe Rule */}
+          <div className="bg-orange-500 bg-opacity-10 border border-orange-500 border-opacity-30 rounded-xl p-4">
+            <h4 className="flex items-center gap-2 text-orange-400 font-bold mb-3 text-sm uppercase">
+              <i className="fas fa-clock"></i>
+              {t('anti_snipe_title')}
+            </h4>
+            <p className="text-sm text-white">{t('anti_snipe_info')}</p>
+            <p className="text-xs text-orange-300 mt-2 italic">{t('anti_snipe_reason')}</p>
+          </div>
+
           {/* DKP Cap */}
           <div className="bg-yellow-500 bg-opacity-10 border border-yellow-500 border-opacity-30 rounded-xl p-4">
             <h4 className="flex items-center gap-2 text-yellow-400 font-bold mb-3 text-sm uppercase">

@@ -12,6 +12,24 @@ const HistoryTab = () => {
   const [auctions, setAuctions] = useState([])
   const [loading, setLoading] = useState(true)
   const [farewellModal, setFarewellModal] = useState(null)
+  const [expandedBids, setExpandedBids] = useState({}) // { auctionId: bidsArray | 'loading' | null }
+
+  const toggleBids = async (auctionId, bidCount) => {
+    if (expandedBids[auctionId]) {
+      // Collapse
+      setExpandedBids(prev => ({ ...prev, [auctionId]: null }))
+    } else if (bidCount > 0) {
+      // Expand - fetch bids
+      setExpandedBids(prev => ({ ...prev, [auctionId]: 'loading' }))
+      try {
+        const res = await auctionsAPI.getBids(auctionId)
+        setExpandedBids(prev => ({ ...prev, [auctionId]: res.data }))
+      } catch (err) {
+        console.error('Error loading bids:', err)
+        setExpandedBids(prev => ({ ...prev, [auctionId]: [] }))
+      }
+    }
+  }
 
   const loadHistory = async () => {
     try {
@@ -86,12 +104,13 @@ const HistoryTab = () => {
 
             // Normal auction entry
             const hasWinner = a.status === 'completed' && a.winner
+            const bidsData = expandedBids[a.id]
+            const isExpanded = bidsData && bidsData !== 'loading'
+            const isLoading = bidsData === 'loading'
 
             return (
-              <div
-                key={a.id}
-                className="bg-midnight-spaceblue bg-opacity-50 rounded-lg p-4 flex items-center gap-4"
-              >
+              <div key={a.id} className="bg-midnight-spaceblue bg-opacity-50 rounded-lg overflow-hidden">
+                <div className="p-4 flex items-center gap-4">
                 {/* Item Icon */}
                 <WowheadTooltip itemId={a.item_id}>
                   <div
@@ -179,6 +198,45 @@ const HistoryTab = () => {
                   </div>
                 )}
               </div>
+
+              {/* Bid count toggle button */}
+              {a.bid_count > 0 && (
+                <button
+                  onClick={() => toggleBids(a.id, a.bid_count)}
+                  className="w-full px-4 py-2 text-sm text-midnight-silver hover:text-white hover:bg-midnight-purple hover:bg-opacity-20 transition-colors border-t border-midnight-bright-purple border-opacity-10 flex items-center justify-center gap-2"
+                >
+                  {isLoading ? (
+                    <><i className="fas fa-circle-notch fa-spin"></i> {t('loading')}</>
+                  ) : isExpanded ? (
+                    <><i className="fas fa-chevron-up"></i> {t('hide_bids')}</>
+                  ) : (
+                    <><i className="fas fa-chevron-down"></i> {t('show_bids')} ({a.bid_count})</>
+                  )}
+                </button>
+              )}
+
+              {/* Expanded bids list */}
+              {isExpanded && Array.isArray(bidsData) && bidsData.length > 0 && (
+                <div className="border-t border-midnight-bright-purple border-opacity-10 bg-midnight-deepblue bg-opacity-50">
+                  <div className="px-4 py-2 space-y-1">
+                    {bidsData.map((bid, idx) => (
+                      <div
+                        key={idx}
+                        className={`flex items-center justify-between text-sm py-1 ${idx === 0 ? 'text-yellow-400' : 'text-midnight-silver'}`}
+                      >
+                        <span style={{ color: idx === 0 ? CLASS_COLORS[bid.characterClass] : undefined }}>
+                          {idx === 0 && <i className="fas fa-trophy mr-2 text-yellow-400"></i>}
+                          {bid.characterName}
+                        </span>
+                        <span className={idx === 0 ? 'text-red-400 font-bold' : ''}>
+                          {bid.amount} DKP
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
             )
           })}
         </div>

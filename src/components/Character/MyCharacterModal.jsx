@@ -79,7 +79,8 @@ const RARITY_COLORS = {
 // CLASSES removed - manual character creation disabled, only Blizzard import allowed
 
 // Crop and compress image to a square, centered based on user selection
-const cropAndCompressImage = (imageSrc, cropData, outputSize = 300, maxBytes = 100 * 1024) => {
+// Uses 400x400 for retina quality, WebP for better compression with JPEG fallback
+const cropAndCompressImage = (imageSrc, cropData, outputSize = 400, maxBytes = 150 * 1024) => {
   return new Promise((resolve, reject) => {
     const img = new Image()
     img.onload = () => {
@@ -87,6 +88,10 @@ const cropAndCompressImage = (imageSrc, cropData, outputSize = 300, maxBytes = 1
       canvas.width = outputSize
       canvas.height = outputSize
       const ctx = canvas.getContext('2d')
+
+      // Enable image smoothing for better quality
+      ctx.imageSmoothingEnabled = true
+      ctx.imageSmoothingQuality = 'high'
 
       // Calculate the source area based on crop data
       const { x, y, scale } = cropData
@@ -97,12 +102,16 @@ const cropAndCompressImage = (imageSrc, cropData, outputSize = 300, maxBytes = 1
       // Draw the cropped and scaled image
       ctx.drawImage(img, sourceX, sourceY, cropSize, cropSize, 0, 0, outputSize, outputSize)
 
+      // Try WebP first for better compression, fallback to JPEG
+      const supportsWebP = canvas.toDataURL('image/webp').startsWith('data:image/webp')
+      const format = supportsWebP ? 'image/webp' : 'image/jpeg'
+
       // Compress with quality reduction until under maxBytes
-      let quality = 0.9
-      let dataUrl = canvas.toDataURL('image/jpeg', quality)
-      while (dataUrl.length > maxBytes && quality > 0.1) {
-        quality -= 0.1
-        dataUrl = canvas.toDataURL('image/jpeg', quality)
+      let quality = 0.92
+      let dataUrl = canvas.toDataURL(format, quality)
+      while (dataUrl.length > maxBytes && quality > 0.3) {
+        quality -= 0.05
+        dataUrl = canvas.toDataURL(format, quality)
       }
       resolve(dataUrl)
     }
