@@ -75,16 +75,22 @@ const BossesTab = () => {
     setExpandedZones(prev => ({ ...prev, [zoneId]: !prev[zoneId] }))
   }
 
-  const openBossDetails = async (boss) => {
+  const openBossDetails = async (boss, difficulty = null) => {
     setSelectedBoss(boss)
     setLoadingDetails(true)
     try {
-      const response = await bossesAPI.getDetails(boss.id)
+      const response = await bossesAPI.getDetails(boss.id, difficulty)
       setBossDetails(response.data)
     } catch (err) {
       console.error('Load boss details error:', err)
     } finally {
       setLoadingDetails(false)
+    }
+  }
+
+  const changeDifficulty = (difficulty) => {
+    if (selectedBoss) {
+      openBossDetails(selectedBoss, difficulty)
     }
   }
 
@@ -229,6 +235,7 @@ const BossesTab = () => {
           details={bossDetails}
           loading={loadingDetails}
           onClose={closeBossDetails}
+          onChangeDifficulty={changeDifficulty}
           t={t}
         />
       )}
@@ -323,7 +330,10 @@ const BossCard = ({ boss, onClick, t }) => {
 }
 
 // Boss Detail Modal Component
-const BossDetailModal = ({ boss, details, loading, onClose, t }) => {
+const BossDetailModal = ({ boss, details, loading, onClose, onChangeDifficulty, t }) => {
+  const availableDiffs = details?.availableDifficulties || []
+  const currentDiff = details?.statistics?.difficulty
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
       <div className="bg-gradient-to-br from-midnight-deep to-midnight-purple rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-hidden">
@@ -365,21 +375,56 @@ const BossDetailModal = ({ boss, details, loading, onClose, t }) => {
             </div>
           ) : details ? (
             <div className="space-y-6">
+              {/* Difficulty Selector */}
+              {availableDiffs.length > 1 && (
+                <div className="flex gap-2">
+                  {availableDiffs.map(d => {
+                    const isActive = d.difficulty === currentDiff
+                    const color = DIFFICULTY_COLORS[d.difficulty] || '#888'
+                    return (
+                      <button
+                        key={d.difficulty}
+                        onClick={() => !isActive && onChangeDifficulty(d.difficulty)}
+                        className={`px-3 py-1.5 rounded-lg text-sm font-semibold transition-all flex items-center gap-2 ${
+                          isActive
+                            ? 'ring-1 ring-opacity-60'
+                            : 'opacity-50 hover:opacity-80'
+                        }`}
+                        style={{
+                          backgroundColor: isActive ? color + '25' : 'rgba(255,255,255,0.05)',
+                          color: color,
+                          ringColor: color,
+                          borderColor: isActive ? color : 'transparent',
+                          border: isActive ? `1px solid ${color}60` : '1px solid transparent',
+                        }}
+                      >
+                        {d.difficulty}
+                        <span className="text-xs opacity-70">
+                          {d.kills > 0 ? `${d.kills}K` : ''}{d.kills > 0 && d.wipes > 0 ? '/' : ''}{d.wipes > 0 ? `${d.wipes}W` : ''}
+                        </span>
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
+
               {/* Statistics */}
               {details.statistics && (
                 <div className="bg-white bg-opacity-5 rounded-xl p-4">
                   <h3 className="font-semibold mb-3 flex items-center gap-2">
                     <i className="fas fa-chart-bar text-midnight-glow"></i>
                     {t('statistics')}
-                    <span
-                      className="text-xs px-2 py-0.5 rounded"
-                      style={{
-                        backgroundColor: (DIFFICULTY_COLORS[details.statistics.difficulty] || '#888') + '30',
-                        color: DIFFICULTY_COLORS[details.statistics.difficulty] || '#888'
-                      }}
-                    >
-                      {details.statistics.difficulty}
-                    </span>
+                    {availableDiffs.length <= 1 && (
+                      <span
+                        className="text-xs px-2 py-0.5 rounded"
+                        style={{
+                          backgroundColor: (DIFFICULTY_COLORS[currentDiff] || '#888') + '30',
+                          color: DIFFICULTY_COLORS[currentDiff] || '#888'
+                        }}
+                      >
+                        {currentDiff}
+                      </span>
+                    )}
                   </h3>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                     <StatBox label={t('kills')} value={details.statistics.kills} color="text-green-400" />
