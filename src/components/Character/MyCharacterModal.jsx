@@ -811,12 +811,11 @@ const MyCharacterModal = ({ onClose }) => {
                       (c.characterName || '').toLowerCase() === (char.name || '').toLowerCase()
                     )
                     return (
-                      <label key={idx} className={`flex items-center gap-2 p-2 rounded cursor-pointer hover:bg-midnight-purple hover:bg-opacity-30 ${alreadyExists ? 'opacity-40 cursor-not-allowed' : ''}`}>
+                      <label key={idx} className={`flex items-center gap-2 p-2 rounded cursor-pointer hover:bg-midnight-purple hover:bg-opacity-30 ${alreadyExists ? 'opacity-60' : ''}`}>
                         <input
                           type="checkbox"
                           checked={selectedChars.has(idx)}
-                          onChange={() => !alreadyExists && toggleCharSelection(idx)}
-                          disabled={alreadyExists}
+                          onChange={() => toggleCharSelection(idx)}
                           className="accent-blue-500 flex-shrink-0"
                         />
                         <span className="text-sm font-bold truncate" style={{ color: CLASS_COLORS[char.className] || '#FFF' }}>
@@ -825,7 +824,7 @@ const MyCharacterModal = ({ onClose }) => {
                         <span className="text-xs text-midnight-silver flex-shrink-0">{char.className}{char.spec ? ` - ${char.spec}` : ''}</span>
                         <span className="text-xs text-gray-500 truncate hidden sm:inline">{char.realm}</span>
                         <span className="text-xs text-gray-500 ml-auto flex-shrink-0">Lv.{char.level}</span>
-                        {alreadyExists && <span className="text-[10px] text-yellow-500 flex-shrink-0">{t('already_added')}</span>}
+                        {alreadyExists && <span className="text-[10px] text-blue-400 flex-shrink-0"><i className="fas fa-sync-alt mr-0.5"></i>{t('will_update')}</span>}
                       </label>
                     )
                   })}
