@@ -119,7 +119,7 @@ const ArmoryModal = ({ memberId, onClose }) => {
     setEquipmentError(null)
     try {
       const res = await armoryAPI.getEquipment(profile.server, profile.characterName)
-      setEquipment(res.data?.equipped_items || [])
+      setEquipment(res.data?.items || res.data?.equipped_items || [])
     } catch (error) {
       console.error('Error loading equipment:', error)
       setEquipmentError(error.response?.data?.error || t('equipment_load_error'))
@@ -340,17 +340,18 @@ const ArmoryModal = ({ memberId, onClose }) => {
               ) : equipment && equipment.length > 0 ? (
                 <div className="grid grid-cols-2 gap-2">
                   {equipment.map((item) => {
-                    const quality = item.quality?.type?.toLowerCase() || 'epic'
+                    const quality = (item.rarity || item.quality || 'epic').toLowerCase()
                     const rarityColor = RARITY_COLORS[quality] || RARITY_COLORS.epic
+                    const slotName = (item.slotName || item.slot || '').replace(/_/g, ' ')
                     return (
-                      <WowheadTooltip key={item.slot.type} itemId={item.item?.id}>
+                      <WowheadTooltip key={item.slot} itemId={item.itemId}>
                         <div className="bg-midnight-purple bg-opacity-20 rounded-lg p-2 flex items-center gap-2 cursor-help hover:bg-opacity-30 transition-all">
                           <div
                             className="w-9 h-9 rounded bg-midnight-deepblue flex items-center justify-center border-2 flex-shrink-0 overflow-hidden"
                             style={{ borderColor: rarityColor }}
                           >
-                            {item.media?.value ? (
-                              <img src={item.media.value} alt="" className="w-full h-full object-cover" />
+                            {item.icon ? (
+                              <img src={item.icon} alt="" className="w-full h-full object-cover" />
                             ) : (
                               <i className="fas fa-question text-gray-500"></i>
                             )}
@@ -360,7 +361,7 @@ const ArmoryModal = ({ memberId, onClose }) => {
                               {item.name}
                             </p>
                             <p className="text-xs text-gray-500 m-0">
-                              {item.slot?.type?.replace(/_/g, ' ')} • iLvl {item.level?.value}
+                              {slotName} {item.itemLevel ? `• iLvl ${item.itemLevel}` : ''}
                             </p>
                           </div>
                         </div>
