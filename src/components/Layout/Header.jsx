@@ -6,18 +6,11 @@ import MyCharacterModal from '../Character/MyCharacterModal'
 import DKPInfoModal from '../Common/DKPInfoModal'
 import CLASS_COLORS from '../../utils/classColors'
 
-const ROLE_OPTIONS = [
-  { value: '', label: 'Admin (Real)', icon: 'fa-crown' },
-  { value: 'officer', label: 'Officer', icon: 'fa-shield-alt' },
-  { value: 'raider', label: 'Raider', icon: 'fa-user' },
-]
-
 const Header = () => {
-  const { user, logout, refreshUser, isDevMode, realRole, setDevRole } = useAuth()
+  const { user, logout, refreshUser } = useAuth()
   const { t, language, changeLanguage } = useLanguage()
   const [showCharacterModal, setShowCharacterModal] = useState(false)
   const [showDkpInfo, setShowDkpInfo] = useState(false)
-  const [showRoleMenu, setShowRoleMenu] = useState(false)
 
   // Refresh user data when DKP changes
   useSocket({
@@ -64,53 +57,6 @@ const Header = () => {
               )}
               <span className="ml-2 text-midnight-glow font-bold">({user?.currentDkp || 0} DKP)</span>
             </button>
-
-            {/* Admin Role Switcher (dev mode) */}
-            {realRole === 'admin' && (
-              <div className="relative">
-                <button
-                  onClick={() => setShowRoleMenu(!showRoleMenu)}
-                  className={`px-3 py-2 rounded-lg flex items-center gap-2 text-sm transition-all ${
-                    isDevMode
-                      ? 'bg-orange-500 bg-opacity-30 text-orange-400 border border-orange-500'
-                      : 'text-midnight-silver hover:text-midnight-glow hover:bg-midnight-bright-purple hover:bg-opacity-20'
-                  }`}
-                  title={t('view_as_role') || 'Visualizar como otro rol'}
-                >
-                  <i className="fas fa-user-secret"></i>
-                  {isDevMode && <span className="hidden sm:inline">{user?.role}</span>}
-                </button>
-                {showRoleMenu && (
-                  <>
-                    <div className="fixed inset-0 z-[9998]" onClick={() => setShowRoleMenu(false)} />
-                    <div className="absolute right-0 mt-2 w-48 bg-midnight-deepblue border border-midnight-bright-purple rounded-lg shadow-xl z-[9999] overflow-hidden">
-                      <div className="py-1">
-                        {ROLE_OPTIONS.map(option => (
-                          <button
-                            key={option.value}
-                            onClick={() => {
-                              setDevRole(option.value || null)
-                              setShowRoleMenu(false)
-                            }}
-                            className={`w-full px-4 py-2 text-left flex items-center gap-2 hover:bg-midnight-purple hover:bg-opacity-50 transition-all ${
-                              (option.value === '' && !isDevMode) || (isDevMode && user?.role === option.value)
-                                ? 'text-midnight-glow bg-midnight-purple bg-opacity-30'
-                                : 'text-gray-300'
-                            }`}
-                          >
-                            <i className={`fas ${option.icon} w-5`}></i>
-                            <span>{option.label}</span>
-                            {((option.value === '' && !isDevMode) || (isDevMode && user?.role === option.value)) && (
-                              <i className="fas fa-check ml-auto text-green-400"></i>
-                            )}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  </>
-                )}
-              </div>
-            )}
 
             {/* Logout */}
             <button
