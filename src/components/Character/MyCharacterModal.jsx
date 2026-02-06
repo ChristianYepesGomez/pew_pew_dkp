@@ -554,6 +554,8 @@ const MyCharacterModal = ({ onClose }) => {
           characterClass: char.className,
           spec: spec || '',
           raidRole,
+          realm: char.realm || null,
+          realmSlug: char.realmSlug || null,
         })
         importCount++
       } catch (error) {
