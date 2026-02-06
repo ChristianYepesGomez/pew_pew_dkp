@@ -5,70 +5,97 @@ const SOUND_STORAGE_KEY = 'dkp_notifications_sound'
 const SOUND_SELECTION_KEY = 'dkp_notifications_sound_selected'
 const CUSTOM_SOUND_KEY = 'dkp_notifications_custom_sound'
 
-// WoW-themed notification sounds
-// Using reliable CDN-hosted sounds
+// Real WoW sound effects from Wowhead CDN (wow.zamimg.com)
 export const NOTIFICATION_SOUNDS = [
   {
-    id: 'ready_check',
-    name: 'Ready Check',
-    url: 'https://assets.mixkit.co/active_storage/sfx/2571/2571-preview.mp3',
-    description: 'Raid ready check style',
-    icon: 'fa-check-circle',
+    id: 'level_up',
+    name: 'Level Up',
+    url: 'https://wow.zamimg.com/sound-ids/live/enus/249/569593/LevelUp.ogg',
+    description: 'DING!',
+    icon: 'fa-arrow-up',
   },
   {
-    id: 'heroism',
-    name: 'Heroism',
-    url: 'https://assets.mixkit.co/active_storage/sfx/2000/2000-preview.mp3',
-    description: 'Epic buff activation',
-    icon: 'fa-bolt',
+    id: 'murloc',
+    name: 'Murloc',
+    url: 'https://wow.zamimg.com/sound-ids/live/enus/224/556000/mMurlocAggroOld.ogg',
+    description: 'Mrglglgl!',
+    icon: 'fa-fish',
   },
   {
-    id: 'loot',
+    id: 'epic_loot',
     name: 'Epic Loot',
-    url: 'https://assets.mixkit.co/active_storage/sfx/2018/2018-preview.mp3',
-    description: 'Item drop fanfare',
+    url: 'https://wow.zamimg.com/sound-ids/live/enus/13/642829/UI_EpicLoot_Toast_01.ogg',
+    description: 'Epic item drop',
     icon: 'fa-gem',
   },
   {
-    id: 'gold',
-    name: 'Gold',
-    url: 'https://assets.mixkit.co/active_storage/sfx/2003/2003-preview.mp3',
-    description: 'Gold coins sound',
-    icon: 'fa-coins',
+    id: 'legendary_loot',
+    name: 'Legendary!',
+    url: 'https://wow.zamimg.com/sound-ids/live/enus/53/1489461/UI_Legendary_Item_Toast.ogg',
+    description: 'Legendary item drop',
+    icon: 'fa-star',
   },
   {
-    id: 'auction',
-    name: 'Auction',
-    url: 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3',
-    description: 'Auction House alert',
-    icon: 'fa-gavel',
+    id: 'achievement',
+    name: 'Achievement',
+    url: 'https://wow.zamimg.com/sound-ids/live/enus/55/569143/AchievmentSound1.ogg',
+    description: 'Achievement unlocked!',
+    icon: 'fa-trophy',
   },
   {
-    id: 'quest',
-    name: 'Quest',
-    url: 'https://assets.mixkit.co/active_storage/sfx/2020/2020-preview.mp3',
-    description: 'Quest notification',
+    id: 'quest_complete',
+    name: 'Quest Complete',
+    url: 'https://wow.zamimg.com/sound-ids/live/enus/143/567439/iQuestComplete.ogg',
+    description: 'Quest completed jingle',
     icon: 'fa-scroll',
+  },
+  {
+    id: 'ready_check',
+    name: 'Ready Check',
+    url: 'https://wow.zamimg.com/sound-ids/live/enus/182/567478/levelup2.ogg',
+    description: 'Raid ready check',
+    icon: 'fa-check-circle',
   },
   {
     id: 'raid_warning',
     name: 'Raid Warning',
-    url: 'https://assets.mixkit.co/active_storage/sfx/2867/2867-preview.mp3',
-    description: 'Raid alert sound',
+    url: 'https://wow.zamimg.com/sound-ids/live/enus/101/567397/RaidWarning.ogg',
+    description: 'Raid alert',
     icon: 'fa-exclamation-triangle',
   },
   {
-    id: 'spell',
-    name: 'Spell Cast',
-    url: 'https://assets.mixkit.co/active_storage/sfx/2019/2019-preview.mp3',
-    description: 'Magic spell effect',
-    icon: 'fa-magic',
+    id: 'pvp_flag',
+    name: 'Flag Captured',
+    url: 'https://wow.zamimg.com/sound-ids/live/enus/138/567434/PVPFlagCapturedmono.ogg',
+    description: 'Warsong Gulch flag',
+    icon: 'fa-flag',
+  },
+  {
+    id: 'bg_queue',
+    name: 'BG Queue Pop',
+    url: 'https://wow.zamimg.com/sound-ids/live/enus/203/568011/PVPThroughQueue.ogg',
+    description: 'Your battleground is ready',
+    icon: 'fa-shield-alt',
+  },
+  {
+    id: 'gold',
+    name: 'Gold Coins',
+    url: 'https://wow.zamimg.com/sound-ids/live/enus/132/567428/LootCoinSmall.ogg',
+    description: 'Looting gold',
+    icon: 'fa-coins',
+  },
+  {
+    id: 'pvp_victory',
+    name: 'Victory',
+    url: 'https://wow.zamimg.com/sound-ids/live/enus/78/569678/PVPVictoryAlliance.ogg',
+    description: 'BG Victory fanfare',
+    icon: 'fa-crown',
   },
   {
     id: 'custom',
     name: 'Custom',
     url: null,
-    description: 'Your custom sound',
+    description: 'Upload your own sound',
     icon: 'fa-upload',
   },
 ]
@@ -93,8 +120,11 @@ export function useNotifications() {
   const [selectedSound, setSelectedSound] = useState(() => {
     const stored = localStorage.getItem(SOUND_SELECTION_KEY)
     // Handle migration from old 'default' ID
-    if (stored === 'default') return 'ready_check'
-    return stored || 'ready_check'
+    if (stored === 'default') return 'level_up'
+    // Migrate old sound IDs that no longer exist
+    const validIds = ['level_up', 'murloc', 'epic_loot', 'legendary_loot', 'achievement', 'quest_complete', 'ready_check', 'raid_warning', 'pvp_flag', 'bg_queue', 'gold', 'pvp_victory', 'custom']
+    if (stored && !validIds.includes(stored)) return 'level_up'
+    return stored || 'level_up'
   })
   const [customSoundData, setCustomSoundData] = useState(() => {
     return localStorage.getItem(CUSTOM_SOUND_KEY) || null
@@ -108,7 +138,7 @@ export function useNotifications() {
       return customSoundData
     }
     const sound = NOTIFICATION_SOUNDS.find(s => s.id === selectedSound)
-    return sound?.url || NOTIFICATION_SOUNDS.find(s => s.id === 'ready_check')?.url || NOTIFICATION_SOUNDS[0].url
+    return sound?.url || NOTIFICATION_SOUNDS[0].url
   }, [selectedSound, customSoundData])
 
   // Initialize/update audio element when sound changes
@@ -204,7 +234,7 @@ export function useNotifications() {
     localStorage.removeItem(CUSTOM_SOUND_KEY)
     setCustomSoundData(null)
     if (selectedSound === 'custom') {
-      setSelectedSound('default')
+      setSelectedSound('level_up')
     }
   }, [selectedSound])
 
