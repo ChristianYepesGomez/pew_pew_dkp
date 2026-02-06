@@ -132,20 +132,24 @@ export async function seedRaidData() {
         for (const boss of zone.bosses) {
           // Only add Mythic Trap URL for current raids
           const mythicTrapUrl = isCurrent ? getMythicTrapUrl(zone.slug, boss.slug) : null;
-          // Boss image: Mythic Trap for current raids (high quality), null for legacy
+          // Boss image: Mythic Trap for current raids (high quality)
           const bossImage = isCurrent ? getMythicTrapBossImage(zone.slug, boss.slug) : null;
 
           const existingBoss = await db.get(
-            'SELECT id FROM wcl_bosses WHERE wcl_encounter_id = ?',
+            'SELECT id, image_url FROM wcl_bosses WHERE wcl_encounter_id = ?',
             boss.encounterID
           );
 
           if (existingBoss) {
+            // IMPORTANT: Never overwrite existing image_url with null
+            // This preserves images when raids become legacy
+            const finalImageUrl = bossImage || existingBoss.image_url;
+
             await db.run(
               `UPDATE wcl_bosses SET
                 zone_id = ?, name = ?, slug = ?, boss_order = ?, mythic_trap_url = ?, image_url = ?
                WHERE id = ?`,
-              zoneId, boss.name, boss.slug, boss.order, mythicTrapUrl, bossImage, existingBoss.id
+              zoneId, boss.name, boss.slug, boss.order, mythicTrapUrl, finalImageUrl, existingBoss.id
             );
           } else {
             await db.run(
@@ -319,16 +323,17 @@ export async function getBossDetails(bossId) {
       mythicTrapUrl: boss.mythic_trap_url,
       imageUrl: boss.image_url,
     },
-    statistics: stats ? {
-      difficulty: stats.difficulty,
-      kills: stats.total_kills,
-      wipes: stats.total_wipes,
-      fastestKill: formatDuration(stats.fastest_kill_ms),
-      avgKillTime: formatDuration(stats.avg_kill_time_ms),
-      lastKill: stats.last_kill_date,
-      wipesToFirstKill: stats.wipes_to_first_kill,
-      firstKillDate: stats.first_kill_date,
-    } : null,
+    // Always return statistics, even if boss hasn't been tracked yet
+    statistics: {
+      difficulty: stats?.difficulty || 'Heroic',
+      kills: stats?.total_kills || 0,
+      wipes: stats?.total_wipes || 0,
+      fastestKill: stats?.fastest_kill_ms ? formatDuration(stats.fastest_kill_ms) : null,
+      avgKillTime: stats?.avg_kill_time_ms ? formatDuration(stats.avg_kill_time_ms) : null,
+      lastKill: stats?.last_kill_date || null,
+      wipesToFirstKill: stats?.wipes_to_first_kill ?? null,
+      firstKillDate: stats?.first_kill_date || null,
+    },
     records: {
       topDamage: recordsMap['top_damage'] || null,
       topHealing: recordsMap['top_healing'] || null,

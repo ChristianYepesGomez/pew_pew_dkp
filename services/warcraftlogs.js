@@ -523,6 +523,200 @@ export async function getFightStats(reportCode, fightIds) {
 }
 
 /**
+ * Get individual death events with timestamps for filtering wipe deaths
+ * Returns: [{ name, timestamp, fightId }, ...]
+ * timestamp is in milliseconds relative to fight start
+ */
+export async function getDeathEventsWithTimestamps(reportCode, fightId, startTime, endTime) {
+  const query = `
+    query GetDeathEvents($reportCode: String!, $startTime: Float!, $endTime: Float!, $fightIDs: [Int!]) {
+      reportData {
+        report(code: $reportCode) {
+          events(startTime: $startTime, endTime: $endTime, fightIDs: $fightIDs, dataType: Deaths, hostilityType: Friendlies) {
+            data
+          }
+        }
+      }
+    }
+  `;
+
+  try {
+    const data = await executeGraphQL(query, {
+      reportCode,
+      startTime,
+      endTime,
+      fightIDs: [fightId],
+    });
+
+    const events = data.reportData?.report?.events?.data || [];
+
+    // Each death event has: timestamp, targetID, targetInstance, etc.
+    // We need to map targetID to player names, which requires the actors table
+    return events.map(event => ({
+      timestamp: event.timestamp,
+      targetID: event.targetID,
+      sourceID: event.sourceID,
+      killerID: event.killerID,
+    }));
+  } catch (error) {
+    console.error('Error fetching death events:', error.message);
+    return [];
+  }
+}
+
+/**
+ * Get comprehensive fight stats including death events for wipe filtering
+ * fightInfo should include: { id, startTime, endTime, kill }
+ */
+export async function getFightStatsWithDeathEvents(reportCode, fightInfo) {
+  const { id: fightId, startTime, endTime, kill } = fightInfo;
+  const fightDuration = endTime - startTime;
+
+  // Get basic stats (damage, healing, etc.)
+  const basicStats = await getFightStats(reportCode, [fightId]);
+
+  // If it's a kill, no need to filter deaths - all deaths count
+  if (kill) {
+    return {
+      ...basicStats,
+      fightDuration,
+      isKill: true,
+    };
+  }
+
+  // For wipes, get individual death events to filter those within 15 seconds of wipe end
+  const WIPE_DEATH_THRESHOLD_MS = 15000; // 15 seconds
+
+  const deathEvents = await getDeathEventsWithTimestamps(reportCode, fightId, startTime, endTime);
+
+  // Group deaths by player, filtering out wipe deaths (within 15 seconds of fight end)
+  const deathCountsByPlayer = {};
+  const wipeThresholdTime = endTime - WIPE_DEATH_THRESHOLD_MS;
+
+  for (const event of deathEvents) {
+    // Check if this death occurred within 15 seconds of the wipe
+    if (event.timestamp >= wipeThresholdTime) {
+      // This is a "wipe death" - everyone dies when the boss wipes the raid
+      // Don't count it as a real death
+      continue;
+    }
+
+    // This is a real death during the fight, count it
+    if (!deathCountsByPlayer[event.targetID]) {
+      deathCountsByPlayer[event.targetID] = 0;
+    }
+    deathCountsByPlayer[event.targetID]++;
+  }
+
+  // We need to map targetIDs back to player names
+  // Get the actors table to resolve IDs to names
+  const actorsQuery = `
+    query GetActors($reportCode: String!) {
+      reportData {
+        report(code: $reportCode) {
+          masterData {
+            actors(type: "Player") {
+              id
+              name
+            }
+          }
+        }
+      }
+    }
+  `;
+
+  let playerIdToName = {};
+  try {
+    const actorsData = await executeGraphQL(actorsQuery, { reportCode });
+    const actors = actorsData.reportData?.report?.masterData?.actors || [];
+    for (const actor of actors) {
+      playerIdToName[actor.id] = actor.name;
+    }
+  } catch (error) {
+    console.error('Error fetching actors:', error.message);
+  }
+
+  // Convert filtered death counts to the expected format
+  const filteredDeaths = [];
+  for (const [targetId, count] of Object.entries(deathCountsByPlayer)) {
+    const playerName = playerIdToName[targetId];
+    if (playerName && count > 0) {
+      filteredDeaths.push({ name: playerName, total: count });
+    }
+  }
+
+  return {
+    ...basicStats,
+    deaths: filteredDeaths, // Override with filtered deaths
+    fightDuration,
+    isKill: false,
+    wipeDeathsFiltered: deathEvents.length - filteredDeaths.reduce((sum, d) => sum + d.total, 0),
+  };
+}
+
+/**
+ * Get reports uploaded by a specific user
+ * Used for auto-detecting new logs from a designated uploader
+ */
+export async function getUserReports(userId, limit = 10) {
+  const query = `
+    query GetUserReports($userID: Int!, $limit: Int!) {
+      userData {
+        user(id: $userID) {
+          id
+          name
+          guilds {
+            id
+            name
+          }
+        }
+      }
+      reportData {
+        reports(userID: $userID, limit: $limit) {
+          data {
+            code
+            title
+            startTime
+            endTime
+            zone {
+              id
+              name
+            }
+            guild {
+              id
+              name
+            }
+          }
+        }
+      }
+    }
+  `;
+
+  const data = await executeGraphQL(query, {
+    userID: userId,
+    limit,
+  });
+
+  const userName = data.userData?.user?.name || 'Unknown';
+
+  if (!data.reportData?.reports?.data) {
+    return { userName, reports: [] };
+  }
+
+  return {
+    userName,
+    reports: data.reportData.reports.data.map(r => ({
+      code: r.code,
+      title: r.title,
+      startTime: r.startTime,
+      endTime: r.endTime,
+      zone: r.zone?.name || 'Unknown',
+      guildName: r.guild?.name || null,
+    })),
+  };
+}
+
+/**
  * Test if Warcraft Logs credentials are configured
  */
 export function isConfigured() {

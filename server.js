@@ -8,7 +8,7 @@ import jwt from 'jsonwebtoken';
 import rateLimit from 'express-rate-limit';
 import { db, initDatabase } from './database.js';
 import { authenticateToken, authorizeRole } from './middleware/auth.js';
-import { processWarcraftLog, isConfigured as isWCLConfigured, getGuildReports, getGuildId, getFightDeaths, getFightStats } from './services/warcraftlogs.js';
+import { processWarcraftLog, isConfigured as isWCLConfigured, getGuildReports, getGuildId, getFightDeaths, getFightStats, getFightStatsWithDeathEvents } from './services/warcraftlogs.js';
 import { getAllRaidItems, searchItems, getItemsByRaid, refreshFromAPI, getAvailableRaids, getDataSourceStatus, isAPIConfigured } from './services/raidItems.js';
 import { sendPasswordResetEmail, isEmailConfigured } from './services/email.js';
 import { getBlizzardOAuthUrl, getUserToken, getUserCharacters, isBlizzardOAuthConfigured } from './services/blizzardAPI.js';
@@ -117,6 +117,12 @@ app.set('io', io);
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const isValidEmail = (email) => email && EMAIL_REGEX.test(email.trim());
 
+// Anti-snipe configuration
+const SNIPE_THRESHOLD_MS = 30 * 1000; // 30 seconds - if bid placed within this time of end
+const SNIPE_EXTENSION_MS = 30 * 1000; // 30 seconds - how much to extend
+// Store auction auto-close timeouts for rescheduling
+const auctionTimeouts = new Map();
+
 // Auto-close auction function
 async function autoCloseAuction(auctionId) {
   try {
@@ -171,6 +177,9 @@ async function autoCloseAuction(auctionId) {
     const result = {
       auctionId,
       itemName: auction.item_name,
+      itemImage: auction.item_image,
+      winnerId: winningBid?.user_id || null,
+      winningBid: winningBid?.amount || null,
       winner: winningBid ? {
         userId: winningBid.user_id,
         characterName: winningBid.character_name,
@@ -183,6 +192,29 @@ async function autoCloseAuction(auctionId) {
     console.log(`🔔 Auction ${auctionId} auto-closed. Winner: ${winningBid?.character_name || 'No bids'}`);
   } catch (error) {
     console.error(`Error auto-closing auction ${auctionId}:`, error);
+  }
+}
+
+// Schedule or reschedule auction auto-close
+function scheduleAuctionClose(auctionId, endsAt) {
+  // Clear existing timeout if any
+  if (auctionTimeouts.has(auctionId)) {
+    clearTimeout(auctionTimeouts.get(auctionId));
+  }
+
+  const now = Date.now();
+  const delay = endsAt - now;
+
+  if (delay > 0) {
+    const timeout = setTimeout(() => {
+      auctionTimeouts.delete(auctionId);
+      autoCloseAuction(auctionId);
+    }, delay);
+    auctionTimeouts.set(auctionId, timeout);
+    console.log(`📅 Scheduled auto-close for auction ${auctionId} in ${Math.round(delay / 1000)}s`);
+  } else {
+    auctionTimeouts.delete(auctionId);
+    autoCloseAuction(auctionId);
   }
 }
 
@@ -203,15 +235,7 @@ async function scheduleExistingAuctions() {
       console.log(`⏰ Set default ends_at for auction ${auction.id}: ${newEndsAt}`);
     }
 
-    const now = Date.now();
-    const delay = endsAt - now;
-
-    if (delay > 0) {
-      setTimeout(() => autoCloseAuction(auction.id), delay);
-      console.log(`📅 Scheduled auto-close for auction ${auction.id} in ${Math.round(delay / 1000)}s`);
-    } else {
-      autoCloseAuction(auction.id);
-    }
+    scheduleAuctionClose(auction.id, endsAt);
   }
 }
 
@@ -678,7 +702,7 @@ function toBase64Url(data) {
   return Buffer.from(JSON.stringify(data)).toString('base64url');
 }
 
-app.get('/api/auth/blizzard/callback', async (req, res) => {
+app.get('/api/auth/blizzard/callback', authLimiter, async (req, res) => {
   const { code, state, error: authError } = req.query;
   const frontendUrl = (process.env.FRONTEND_URL || 'http://localhost:5173').split(',')[0].trim().replace(/\/+$/, '');
 
@@ -1156,6 +1180,8 @@ app.get('/api/characters', authenticateToken, async (req, res) => {
       characterClass: c.character_class,
       spec: c.spec,
       raidRole: c.raid_role,
+      realm: c.realm,
+      realmSlug: c.realm_slug,
       isPrimary: !!c.is_primary,
       createdAt: c.created_at
     })));
@@ -1168,7 +1194,7 @@ app.get('/api/characters', authenticateToken, async (req, res) => {
 // Create new character
 app.post('/api/characters', authenticateToken, async (req, res) => {
   try {
-    const { characterName, characterClass, spec, raidRole } = req.body;
+    const { characterName, characterClass, spec, raidRole, realm, realmSlug } = req.body;
     const userId = req.user.userId;
 
     if (!characterName || !characterClass) {
@@ -1180,25 +1206,48 @@ app.post('/api/characters', authenticateToken, async (req, res) => {
     const existing = await db.all('SELECT id FROM characters WHERE user_id = ?', userId);
     const isPrimary = existing.length === 0 ? 1 : 0;
 
-    const result = await db.run(
-      'INSERT INTO characters (user_id, character_name, character_class, spec, raid_role, is_primary) VALUES (?, ?, ?, ?, ?, ?)',
-      userId, characterName, characterClass, spec || null, validRaidRole, isPrimary
+    // Check if character with same name exists (for Blizzard import update)
+    const existingChar = await db.get(
+      'SELECT id FROM characters WHERE user_id = ? AND LOWER(character_name) = LOWER(?)',
+      userId, characterName
     );
 
-    if (isPrimary) {
+    let charId;
+    if (existingChar) {
+      // Update existing character with realm info
       await db.run(
-        'UPDATE users SET character_name = ?, character_class = ?, spec = ?, raid_role = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
-        characterName, characterClass, spec || null, validRaidRole, userId
+        'UPDATE characters SET character_class = ?, spec = ?, raid_role = ?, realm = ?, realm_slug = ? WHERE id = ?',
+        characterClass, spec || null, validRaidRole, realm || null, realmSlug || null, existingChar.id
       );
+      charId = existingChar.id;
+    } else {
+      const result = await db.run(
+        'INSERT INTO characters (user_id, character_name, character_class, spec, raid_role, is_primary, realm, realm_slug) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+        userId, characterName, characterClass, spec || null, validRaidRole, isPrimary, realm || null, realmSlug || null
+      );
+      charId = result.lastInsertRowid;
+    }
+
+    if (isPrimary || existingChar) {
+      // Update user's main character info including server
+      const char = await db.get('SELECT is_primary FROM characters WHERE id = ?', charId);
+      if (char?.is_primary) {
+        await db.run(
+          'UPDATE users SET character_name = ?, character_class = ?, spec = ?, raid_role = ?, server = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+          characterName, characterClass, spec || null, validRaidRole, realmSlug || null, userId
+        );
+      }
     }
 
     res.status(201).json({
-      id: result.lastInsertRowid,
+      id: charId,
       characterName,
       characterClass,
       spec: spec || null,
       raidRole: validRaidRole,
-      isPrimary: !!isPrimary
+      realm: realm || null,
+      realmSlug: realmSlug || null,
+      isPrimary: !!isPrimary || !!existingChar
     });
   } catch (error) {
     console.error('Create character error:', error);
@@ -1285,8 +1334,8 @@ app.put('/api/characters/:id/primary', authenticateToken, async (req, res) => {
     await db.run('UPDATE characters SET is_primary = 1 WHERE id = ?', id);
 
     await db.run(
-      'UPDATE users SET character_name = ?, character_class = ?, spec = ?, raid_role = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
-      character.character_name, character.character_class, character.spec, character.raid_role, userId
+      'UPDATE users SET character_name = ?, character_class = ?, spec = ?, raid_role = ?, server = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+      character.character_name, character.character_class, character.spec, character.raid_role, character.realm_slug, userId
     );
 
     io.emit('member_updated', { memberId: userId });
@@ -1294,6 +1343,122 @@ app.put('/api/characters/:id/primary', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('Set primary character error:', error);
     res.status(500).json({ error: 'Failed to set primary character' });
+  }
+});
+
+// ============================================
+// ARMORY ROUTES
+// ============================================
+
+// Get player's loot history (items won from auctions)
+app.get('/api/armory/:userId/loot', authenticateToken, async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    // Get all auctions won by this user
+    const loot = await db.all(`
+      SELECT a.id, a.item_id, a.item_name, a.item_image, a.item_rarity, a.winning_bid, a.ended_at
+      FROM auctions a
+      WHERE a.winner_id = ? AND a.status = 'completed'
+      ORDER BY a.ended_at DESC
+    `, userId);
+
+    res.json(loot.map(item => ({
+      id: item.id,
+      itemId: item.item_id,
+      itemName: item.item_name,
+      itemImage: item.item_image,
+      itemRarity: item.item_rarity,
+      dkpSpent: item.winning_bid,
+      wonAt: item.ended_at,
+    })));
+  } catch (error) {
+    console.error('Get loot history error:', error);
+    res.status(500).json({ error: 'Failed to get loot history' });
+  }
+});
+
+// Get character equipment from Blizzard API
+app.get('/api/armory/equipment/:realm/:character', authenticateToken, async (req, res) => {
+  try {
+    const { realm, character } = req.params;
+
+    if (!blizzardAPI.isBlizzardOAuthConfigured()) {
+      return res.status(503).json({ error: 'Blizzard API not configured' });
+    }
+
+    const equipment = await blizzardAPI.getCharacterEquipment(realm, character);
+    if (equipment.error) {
+      return res.status(404).json({ error: equipment.error });
+    }
+
+    res.json(equipment);
+  } catch (error) {
+    console.error('Get character equipment error:', error);
+    res.status(500).json({ error: 'Failed to get character equipment' });
+  }
+});
+
+// Get character media (avatar/render) from Blizzard API
+app.get('/api/armory/media/:realm/:character', authenticateToken, async (req, res) => {
+  try {
+    const { realm, character } = req.params;
+
+    if (!blizzardAPI.isBlizzardOAuthConfigured()) {
+      return res.status(503).json({ error: 'Blizzard API not configured' });
+    }
+
+    const media = await blizzardAPI.getCharacterMedia(realm, character);
+    if (!media) {
+      return res.status(404).json({ error: 'Character media not found' });
+    }
+
+    res.json(media);
+  } catch (error) {
+    console.error('Get character media error:', error);
+    res.status(500).json({ error: 'Failed to get character media' });
+  }
+});
+
+// Get member profile for armory view
+app.get('/api/armory/:userId/profile', authenticateToken, async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    const member = await db.get(`
+      SELECT u.id, u.character_name, u.character_class, u.spec, u.raid_role, u.avatar, u.server,
+             md.current_dkp, md.lifetime_gained, md.lifetime_spent
+      FROM users u
+      LEFT JOIN member_dkp md ON u.id = md.user_id
+      WHERE u.id = ? AND u.is_active = 1
+    `, userId);
+
+    if (!member) {
+      return res.status(404).json({ error: 'Member not found' });
+    }
+
+    // Count items won
+    const lootCount = await db.get(
+      'SELECT COUNT(*) as count FROM auctions WHERE winner_id = ? AND status = ?',
+      userId, 'completed'
+    );
+
+    res.json({
+      id: member.id,
+      characterName: member.character_name,
+      characterClass: member.character_class,
+      spec: member.spec,
+      raidRole: member.raid_role,
+      avatar: member.avatar,
+      server: member.server,
+      currentDkp: member.current_dkp || 0,
+      lifetimeGained: member.lifetime_gained || 0,
+      lifetimeSpent: member.lifetime_spent || 0,
+      itemsWon: lootCount?.count || 0,
+    });
+  } catch (error) {
+    console.error('Get armory profile error:', error);
+    res.status(500).json({ error: 'Failed to get armory profile' });
   }
 });
 
@@ -1491,7 +1656,16 @@ async function getRaidDates(weeks = 2) {
   `);
 
   const dates = [];
-  const today = new Date();
+  // Use Spain timezone to get correct "today"
+  const spainFormatter = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Europe/Madrid',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  });
+  const spainDateStr = spainFormatter.format(new Date()); // "2024-02-06" format
+  const [year, month, day] = spainDateStr.split('-').map(Number);
+  const today = new Date(year, month - 1, day);
   today.setHours(0, 0, 0, 0);
 
   for (let i = 0; i < weeks * 7; i++) {
@@ -1516,13 +1690,16 @@ async function getRaidDates(weeks = 2) {
       const cutoffH = String(cutoff.getHours()).padStart(2, '0');
       const cutoffM = String(cutoff.getMinutes()).padStart(2, '0');
 
+      // Get current time in Spain for isLocked check
+      const nowInSpain = new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/Madrid' }));
+
       dates.push({
         date: dateStr,
         dayOfWeek: dbDay,
         dayName: raidDay.day_name,
         raidTime: raidTimeStr,
         cutoffTime: `${cutoffH}:${cutoffM}`,
-        isLocked: new Date() > cutoff
+        isLocked: nowInSpain > cutoff
       });
     }
   }
@@ -1984,9 +2161,8 @@ app.post('/api/auctions', adminLimiter, authenticateToken, authorizeRole(['admin
 
     const auction = await db.get('SELECT * FROM auctions WHERE id = ?', result.lastInsertRowid);
 
-    setTimeout(() => {
-      autoCloseAuction(auction.id);
-    }, duration * 60 * 1000);
+    // Schedule auto-close using centralized function (enables anti-snipe rescheduling)
+    scheduleAuctionClose(auction.id, new Date(endsAt).getTime());
 
     io.emit('auction_started', auction);
     res.status(201).json(auction);
@@ -2041,6 +2217,16 @@ app.post('/api/auctions/:auctionId/bid', userLimiter, authenticateToken, async (
       return res.status(400).json({ error: 'Bid must be higher than current highest bid' });
     }
 
+    // Get current top bidder BEFORE placing new bid (for outbid notification)
+    const previousTopBid = await db.get(`
+      SELECT ab.user_id, ab.amount, u.character_name
+      FROM auction_bids ab
+      JOIN users u ON ab.user_id = u.id
+      WHERE ab.auction_id = ?
+      ORDER BY ab.amount DESC
+      LIMIT 1
+    `, auctionId);
+
     await db.run('DELETE FROM auction_bids WHERE auction_id = ? AND user_id = ?', auctionId, userId);
 
     await db.run(`
@@ -2050,15 +2236,43 @@ app.post('/api/auctions/:auctionId/bid', userLimiter, authenticateToken, async (
 
     const user = await db.get('SELECT character_name, character_class FROM users WHERE id = ?', userId);
 
+    // Check if this bid is a tie or outbid
+    const isTie = previousTopBid && previousTopBid.amount === amount && previousTopBid.user_id !== userId;
+    const isOutbid = previousTopBid && previousTopBid.amount < amount && previousTopBid.user_id !== userId;
+
+    // Anti-snipe: Check if bid is within last 30 seconds and extend time
+    let timeExtended = false;
+    let newEndsAt = null;
+    const endsAt = new Date(auction.ends_at).getTime();
+    const now = Date.now();
+    const timeRemaining = endsAt - now;
+
+    if (timeRemaining > 0 && timeRemaining <= SNIPE_THRESHOLD_MS) {
+      // Extend the auction by 30 seconds
+      newEndsAt = new Date(endsAt + SNIPE_EXTENSION_MS).toISOString();
+      await db.run('UPDATE auctions SET ends_at = ? WHERE id = ?', newEndsAt, auctionId);
+      scheduleAuctionClose(auctionId, new Date(newEndsAt).getTime());
+      timeExtended = true;
+      console.log(`⏰ Anti-snipe: Auction ${auctionId} extended to ${newEndsAt}`);
+    }
+
     io.emit('bid_placed', {
       auctionId,
       userId,
       characterName: user.character_name,
       characterClass: user.character_class,
-      amount
+      amount,
+      // Include outbid info for notifications
+      outbidUserId: isOutbid ? previousTopBid.user_id : null,
+      outbidCharacterName: isOutbid ? previousTopBid.character_name : null,
+      tieWithUserId: isTie ? previousTopBid.user_id : null,
+      tieWithCharacterName: isTie ? previousTopBid.character_name : null,
+      // Anti-snipe info
+      timeExtended,
+      newEndsAt,
     });
 
-    res.json({ message: 'Bid placed successfully' });
+    res.json({ message: 'Bid placed successfully', timeExtended, newEndsAt });
   } catch (error) {
     console.error('Place bid error:', error);
     res.status(500).json({ error: 'Failed to place bid' });
@@ -2187,6 +2401,9 @@ app.post('/api/auctions/:auctionId/end', adminLimiter, authenticateToken, author
     const eventData = {
       auctionId,
       itemName: auction.item_name,
+      itemImage: auction.item_image,
+      winnerId: result.winner?.userId || null,
+      winningBid: result.winner?.amount || null,
       ...result
     };
 
@@ -2321,6 +2538,9 @@ app.get('/api/auctions/history', authenticateToken, async (req, res) => {
     `, limit);
 
     const formatted = await Promise.all(auctions.map(async a => {
+      // Get bid count for expandable history
+      const bidCount = await db.get('SELECT COUNT(*) as count FROM auction_bids WHERE auction_id = ?', a.id);
+
       const entry = {
         id: a.id,
         item_name: a.item_name,
@@ -2333,6 +2553,7 @@ app.get('/api/auctions/history', authenticateToken, async (req, res) => {
         ended_at: a.ended_at,
         was_tie: a.was_tie === 1,
         winning_roll: a.winning_roll,
+        bid_count: bidCount?.count || 0,
         winner: a.winner_name ? {
           characterName: a.winner_name,
           characterClass: a.winner_class
@@ -2395,6 +2616,32 @@ app.get('/api/auctions/:auctionId/rolls', authenticateToken, async (req, res) =>
   } catch (error) {
     console.error('Get auction rolls error:', error);
     res.status(500).json({ error: 'Failed to get auction rolls' });
+  }
+});
+
+// Get all bids for a specific auction (for history expansion)
+app.get('/api/auctions/:auctionId/bids', authenticateToken, async (req, res) => {
+  try {
+    const { auctionId } = req.params;
+
+    const bids = await db.all(`
+      SELECT ab.amount, ab.created_at, u.id as user_id, u.character_name, u.character_class
+      FROM auction_bids ab
+      JOIN users u ON ab.user_id = u.id
+      WHERE ab.auction_id = ?
+      ORDER BY ab.amount DESC
+    `, auctionId);
+
+    res.json(bids.map(b => ({
+      amount: b.amount,
+      characterName: b.character_name,
+      characterClass: b.character_class,
+      userId: b.user_id,
+      createdAt: b.created_at
+    })));
+  } catch (error) {
+    console.error('Get auction bids error:', error);
+    res.status(500).json({ error: 'Failed to get auction bids' });
   }
 });
 
@@ -2714,7 +2961,14 @@ app.post('/api/warcraftlogs/confirm', adminLimiter, authenticateToken, authorize
     const reportTitle = req.body.reportTitle || `Raid ${reportCode}`;
     const startTime = req.body.startTime || Date.now();
     const endTime = req.body.endTime || Date.now();
-    const raidDate = req.body.raidDate || null;
+
+    // Auto-derive raid date from startTime if not explicitly provided
+    let raidDate = req.body.raidDate || null;
+    if (!raidDate && startTime) {
+      // Convert Unix timestamp (ms) to YYYY-MM-DD in Madrid timezone
+      const date = new Date(startTime);
+      raidDate = date.toLocaleDateString('sv-SE', { timeZone: 'Europe/Madrid' }); // sv-SE gives YYYY-MM-DD format
+    }
 
     // Get DKP cap
     const capConfig = await db.get("SELECT config_value FROM dkp_config WHERE config_key = 'dkp_cap'");
@@ -2781,20 +3035,40 @@ app.post('/api/warcraftlogs/confirm', adminLimiter, authenticateToken, authorize
             const result = await processFightStats(reportCode, fight, fight.difficulty);
             if (!result.skipped) {
               statsProcessed++;
-              processedBosses.push({ bossId: result.bossId, fightId: fight.id, difficulty: fight.difficulty });
+              // Include fight timing info for death filtering (15-second wipe threshold)
+              processedBosses.push({
+                bossId: result.bossId,
+                fightId: fight.id,
+                difficulty: fight.difficulty,
+                kill: fight.kill,
+                startTime: fight.startTime,
+                endTime: fight.endTime,
+              });
             }
           }
 
           // Fetch and record deaths + performance stats for each boss fight
           if (processedBosses.length > 0) {
             let totalDeathsRecorded = 0;
+            let wipeDeathsFiltered = 0;
             let performanceRecorded = 0;
 
             for (const bossInfo of processedBosses) {
-              // Get comprehensive fight stats (damage, healing, damage taken, deaths)
-              const fightStats = await getFightStats(reportCode, [bossInfo.fightId]);
+              // Get comprehensive fight stats with death filtering for wipes
+              // Uses 15-second threshold: deaths within 15s of wipe end are not counted
+              const fightStats = await getFightStatsWithDeathEvents(reportCode, {
+                id: bossInfo.fightId,
+                startTime: bossInfo.startTime,
+                endTime: bossInfo.endTime,
+                kill: bossInfo.kill,
+              });
 
-              // Record deaths
+              // Track filtered wipe deaths
+              if (fightStats.wipeDeathsFiltered) {
+                wipeDeathsFiltered += fightStats.wipeDeathsFiltered;
+              }
+
+              // Record deaths (already filtered if it was a wipe)
               if (fightStats.deaths.length > 0) {
                 const deathsFormatted = fightStats.deaths.map(d => ({ name: d.name, deaths: d.total }));
                 await recordPlayerDeaths(bossInfo.bossId, bossInfo.difficulty, deathsFormatted, participantUserMap);
@@ -2815,8 +3089,8 @@ app.post('/api/warcraftlogs/confirm', adminLimiter, authenticateToken, authorize
               }
             }
 
-            if (totalDeathsRecorded > 0) {
-              console.log(`💀 Recorded ${totalDeathsRecorded} deaths from ${reportCode}`);
+            if (totalDeathsRecorded > 0 || wipeDeathsFiltered > 0) {
+              console.log(`💀 Recorded ${totalDeathsRecorded} deaths from ${reportCode}${wipeDeathsFiltered > 0 ? ` (${wipeDeathsFiltered} wipe deaths filtered out)` : ''}`);
             }
             if (performanceRecorded > 0) {
               console.log(`📈 Recorded performance for ${performanceRecorded} fights from ${reportCode}`);
@@ -3073,6 +3347,148 @@ app.post('/api/warcraftlogs/import-boss-stats', adminLimiter, authenticateToken,
   } catch (error) {
     console.error('Import boss stats error:', error);
     res.status(500).json({ error: error.message || 'Failed to import boss statistics' });
+  }
+});
+
+// Get pending WCL reports from configured uploader (for auto-detection)
+app.get('/api/warcraftlogs/pending-reports', authenticateToken, authorizeRole(['admin', 'officer']), async (req, res) => {
+  try {
+    // Get the configured uploader user ID
+    const uploaderConfig = await db.get("SELECT config_value FROM dkp_config WHERE config_key = 'wcl_uploader_id'");
+    if (!uploaderConfig?.config_value) {
+      return res.status(400).json({ error: 'WCL uploader ID not configured' });
+    }
+
+    const uploaderId = parseInt(uploaderConfig.config_value);
+
+    // Import the getUserReports function
+    const { getUserReports } = await import('./services/warcraftlogs.js');
+    const { userName, reports } = await getUserReports(uploaderId, 20);
+
+    // Get already processed report codes
+    const processedReports = await db.all('SELECT report_code FROM warcraft_logs_processed');
+    const processedCodes = new Set(processedReports.map(r => r.report_code));
+
+    // Get raid days to match dates
+    const raidDays = await db.all('SELECT day_of_week FROM raid_days WHERE is_active = 1');
+    const raidDaysSet = new Set(raidDays.map(r => r.day_of_week));
+
+    // Filter to unprocessed reports that match raid days
+    const pendingReports = reports
+      .filter(r => !processedCodes.has(r.code))
+      .map(r => {
+        // Convert WCL timestamp to date in Europe/Madrid timezone
+        const date = new Date(r.startTime);
+        const dateStr = date.toLocaleDateString('sv-SE', { timeZone: 'Europe/Madrid' });
+        const jsDay = date.getDay();
+        const dbDay = jsDay === 0 ? 7 : jsDay; // Convert Sunday from 0 to 7
+
+        return {
+          ...r,
+          raidDate: dateStr,
+          dayOfWeek: dbDay,
+          isRaidDay: raidDaysSet.has(dbDay),
+        };
+      })
+      .filter(r => r.isRaidDay); // Only show reports from raid days
+
+    res.json({
+      uploaderName: userName,
+      uploaderId,
+      pending: pendingReports,
+      processed: processedCodes.size,
+    });
+  } catch (error) {
+    console.error('Get pending reports error:', error);
+    res.status(500).json({ error: error.message || 'Failed to fetch pending reports' });
+  }
+});
+
+// Auto-process a pending WCL report
+app.post('/api/warcraftlogs/auto-process/:code', adminLimiter, authenticateToken, authorizeRole(['admin', 'officer']), async (req, res) => {
+  try {
+    const { code } = req.params;
+
+    // Check if already processed
+    const existing = await db.get('SELECT id FROM warcraft_logs_processed WHERE report_code = ?', code);
+    if (existing) {
+      return res.status(400).json({ error: 'Report already processed' });
+    }
+
+    // Process the report (same as /api/warcraftlogs/preview)
+    const reportData = await processWarcraftLog(code);
+
+    // Get DKP config
+    const dkpConfig = await db.get("SELECT config_value FROM dkp_config WHERE config_key = 'raid_attendance_dkp'");
+    const dkpPerPlayer = parseInt(dkpConfig?.config_value) || 5;
+
+    // Get all members to match participants
+    const members = await db.all(`
+      SELECT m.user_id, m.current_dkp, u.character_name, u.username, u.server
+      FROM member_dkp m
+      JOIN users u ON m.user_id = u.id
+      WHERE u.role != 'inactive'
+    `);
+
+    // Get alternative character names (alts)
+    const alts = await db.all(`
+      SELECT c.user_id, c.character_name, c.realm
+      FROM characters c
+      JOIN users u ON c.user_id = u.id
+      WHERE u.role != 'inactive'
+    `);
+
+    // Build lookup maps
+    const memberByName = {};
+    const memberByCharName = {};
+    for (const m of members) {
+      if (m.username) memberByName[m.username.toLowerCase()] = m;
+      if (m.character_name) memberByCharName[m.character_name.toLowerCase()] = m;
+    }
+    for (const alt of alts) {
+      if (alt.character_name) {
+        memberByCharName[alt.character_name.toLowerCase()] = members.find(m => m.user_id === alt.user_id);
+      }
+    }
+
+    // Match participants to members
+    const matched = [];
+    const unmatched = [];
+
+    for (const p of reportData.participants) {
+      const nameKey = p.name.toLowerCase();
+      const member = memberByCharName[nameKey] || memberByName[nameKey];
+
+      if (member) {
+        matched.push({
+          userId: member.user_id,
+          characterName: member.character_name || member.username,
+          wclName: p.name,
+          wclServer: p.server,
+          currentDkp: member.current_dkp,
+        });
+      } else {
+        unmatched.push(p);
+      }
+    }
+
+    // Auto-derive raid date from report timestamp
+    const raidDate = new Date(reportData.startTime).toLocaleDateString('sv-SE', { timeZone: 'Europe/Madrid' });
+
+    res.json({
+      report: reportData,
+      matching: {
+        matched,
+        unmatched,
+        matchRate: `${Math.round((matched.length / reportData.participantCount) * 100)}%`,
+      },
+      dkpPerPlayer,
+      raidDate,
+      message: 'Report previewed. Call confirm endpoint to apply DKP.',
+    });
+  } catch (error) {
+    console.error('Auto-process report error:', error);
+    res.status(500).json({ error: error.message || 'Failed to process report' });
   }
 });
 

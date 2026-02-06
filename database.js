@@ -469,6 +469,9 @@ async function initDatabase() {
     // Boss statistics enhancements
     'ALTER TABLE boss_statistics ADD COLUMN wipes_to_first_kill INTEGER',
     'ALTER TABLE boss_statistics ADD COLUMN first_kill_date DATE',
+    // Character realm for equipment feature
+    'ALTER TABLE characters ADD COLUMN realm TEXT',
+    'ALTER TABLE characters ADD COLUMN realm_slug TEXT',
   ];
 
   for (const sql of columnMigrations) {
@@ -612,6 +615,7 @@ async function initDatabase() {
     ['weekly_vault_dkp', '10', 'DKP otorgado por completar el vault semanal'],
     ['dkp_cap', '250', 'Máximo de DKP que puede acumular un jugador'],
     ['raid_attendance_dkp', '5', 'DKP por asistencia a raid (por día)'],
+    ['wcl_uploader_id', '565362', 'Warcraft Logs user ID for auto-detecting new reports'],
   ];
   for (const [key, value, desc] of newConfigs) {
     const exists = await db.get('SELECT 1 FROM dkp_config WHERE config_key = ?', key);

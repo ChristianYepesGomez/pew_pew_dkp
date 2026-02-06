@@ -692,6 +692,99 @@ export async function getUserCharacters(userToken) {
   return characters.sort((a, b) => a.name.localeCompare(b.name));
 }
 
+// Get character equipment from public profile (uses app token)
+export async function getCharacterEquipment(realmSlug, characterName) {
+  const region = CONFIG.region;
+  const token = await getAccessToken();
+
+  try {
+    const response = await axios.get(
+      `${getApiUrl(region)}/profile/wow/character/${realmSlug}/${characterName.toLowerCase()}/equipment`,
+      {
+        params: {
+          namespace: `profile-${region}`,
+          locale: CONFIG.locale,
+        },
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+
+    // Map equipment to a simpler format
+    const items = [];
+    for (const equipped of response.data.equipped_items || []) {
+      const slot = equipped.slot?.type || 'UNKNOWN';
+      const item = {
+        slot,
+        slotName: equipped.slot?.name || slot,
+        itemId: equipped.item?.id,
+        name: equipped.name,
+        quality: equipped.quality?.type || 'COMMON',
+        rarity: mapQuality(equipped.quality),
+        itemLevel: equipped.level?.value,
+        icon: null, // Will be fetched if needed
+      };
+
+      // Try to get icon
+      if (item.itemId) {
+        try {
+          item.icon = await getItemMedia(item.itemId);
+        } catch {
+          // Icon fetch failed, leave as null
+        }
+      }
+
+      items.push(item);
+    }
+
+    return {
+      character: response.data.character?.name,
+      realm: response.data.character?.realm?.name,
+      averageItemLevel: response.data.equipped_item_level,
+      items,
+    };
+  } catch (error) {
+    if (error.response?.status === 404) {
+      return { error: 'Character not found or profile is private' };
+    }
+    console.error(`Failed to fetch equipment for ${characterName}-${realmSlug}:`, error.message);
+    throw error;
+  }
+}
+
+// Get character media (avatar/render)
+export async function getCharacterMedia(realmSlug, characterName) {
+  const region = CONFIG.region;
+  const token = await getAccessToken();
+
+  try {
+    const response = await axios.get(
+      `${getApiUrl(region)}/profile/wow/character/${realmSlug}/${characterName.toLowerCase()}/character-media`,
+      {
+        params: {
+          namespace: `profile-${region}`,
+          locale: CONFIG.locale,
+        },
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+
+    const assets = response.data.assets || [];
+    return {
+      avatar: assets.find(a => a.key === 'avatar')?.value,
+      inset: assets.find(a => a.key === 'inset')?.value,
+      main: assets.find(a => a.key === 'main')?.value,
+      mainRaw: assets.find(a => a.key === 'main-raw')?.value,
+    };
+  } catch (error) {
+    console.warn(`Failed to fetch media for ${characterName}-${realmSlug}:`, error.message);
+    return null;
+  }
+}
+
 export default {
   getCurrentRaidItems,
   getAvailableRaids,
@@ -701,4 +794,6 @@ export default {
   getBlizzardOAuthUrl,
   getUserToken,
   getUserCharacters,
+  getCharacterEquipment,
+  getCharacterMedia,
 };
