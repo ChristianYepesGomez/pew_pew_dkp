@@ -11,7 +11,7 @@ import { authenticateToken, authorizeRole } from './middleware/auth.js';
 import { processWarcraftLog, isConfigured as isWCLConfigured, getGuildReports, getGuildId, getFightDeaths, getFightStats, getFightStatsWithDeathEvents } from './services/warcraftlogs.js';
 import { getAllRaidItems, searchItems, getItemsByRaid, refreshFromAPI, getAvailableRaids, getDataSourceStatus, isAPIConfigured } from './services/raidItems.js';
 import { sendPasswordResetEmail, isEmailConfigured } from './services/email.js';
-import { getBlizzardOAuthUrl, getUserToken, getUserCharacters, isBlizzardOAuthConfigured } from './services/blizzardAPI.js';
+import { getBlizzardOAuthUrl, getUserToken, getUserCharacters, isBlizzardOAuthConfigured, getCharacterEquipment, getCharacterMedia } from './services/blizzardAPI.js';
 import { seedRaidData, getAllZonesWithBosses, getBossDetails, processFightStats, setZoneLegacy, recordPlayerDeaths, recordPlayerPerformance } from './services/raids.js';
 import { startBuffManager, registerClient, unregisterClient, getActiveBuffs } from './services/buffManager.js';
 
@@ -1383,11 +1383,11 @@ app.get('/api/armory/equipment/:realm/:character', authenticateToken, async (req
   try {
     const { realm, character } = req.params;
 
-    if (!blizzardAPI.isBlizzardOAuthConfigured()) {
+    if (!isBlizzardOAuthConfigured()) {
       return res.status(503).json({ error: 'Blizzard API not configured' });
     }
 
-    const equipment = await blizzardAPI.getCharacterEquipment(realm, character);
+    const equipment = await getCharacterEquipment(realm, character);
     if (equipment.error) {
       return res.status(404).json({ error: equipment.error });
     }
@@ -1404,11 +1404,11 @@ app.get('/api/armory/media/:realm/:character', authenticateToken, async (req, re
   try {
     const { realm, character } = req.params;
 
-    if (!blizzardAPI.isBlizzardOAuthConfigured()) {
+    if (!isBlizzardOAuthConfigured()) {
       return res.status(503).json({ error: 'Blizzard API not configured' });
     }
 
-    const media = await blizzardAPI.getCharacterMedia(realm, character);
+    const media = await getCharacterMedia(realm, character);
     if (!media) {
       return res.status(404).json({ error: 'Character media not found' });
     }

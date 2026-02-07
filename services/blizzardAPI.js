@@ -71,6 +71,9 @@ const EXCLUDED_PATTERNS = [
 let accessToken = null;
 let tokenExpiry = 0;
 
+// Icon cache - persists while server runs, avoids repeated Blizzard API calls
+const iconCache = new Map();
+
 // Get OAuth access token
 async function getAccessToken() {
   if (accessToken && Date.now() < tokenExpiry) {
@@ -143,14 +146,25 @@ async function getItem(itemId) {
   return apiRequest(`/data/wow/item/${itemId}`);
 }
 
-// Get item media (icon)
+// Get item media (icon) - with in-memory cache and timeout
 async function getItemMedia(itemId) {
+  if (iconCache.has(itemId)) return iconCache.get(itemId);
   try {
-    const response = await apiRequest(`/data/wow/media/item/${itemId}`);
-    // Find the icon asset
-    const iconAsset = response.assets?.find(a => a.key === 'icon');
-    return iconAsset?.value || null;
+    const token = await getAccessToken();
+    const response = await axios.get(
+      `${getApiUrl(CONFIG.region)}/data/wow/media/item/${itemId}`,
+      {
+        params: { namespace: `static-${CONFIG.region}`, locale: CONFIG.locale },
+        headers: { Authorization: `Bearer ${token}` },
+        timeout: 3000, // 3 second timeout per icon
+      }
+    );
+    const iconAsset = response.data.assets?.find(a => a.key === 'icon');
+    const url = iconAsset?.value || null;
+    iconCache.set(itemId, url);
+    return url;
   } catch {
+    iconCache.set(itemId, null);
     return null;
   }
 }
@@ -723,8 +737,10 @@ export async function getCharacterEquipment(realmSlug, characterName) {
       icon: null,
     }));
 
-    // Fetch all icons in parallel (much faster than sequential)
-    await Promise.all(items.map(async (item) => {
+    // Fetch all icons in parallel with 8s overall timeout
+    // Icons are cached in memory so subsequent loads are instant
+    const iconTimeout = new Promise(resolve => setTimeout(resolve, 8000, 'timeout'));
+    const iconFetch = Promise.all(items.map(async (item) => {
       if (item.itemId) {
         try {
           item.icon = await getItemMedia(item.itemId);
@@ -733,6 +749,7 @@ export async function getCharacterEquipment(realmSlug, characterName) {
         }
       }
     }));
+    await Promise.race([iconFetch, iconTimeout]);
 
     return {
       character: response.data.character?.name,
