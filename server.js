@@ -1239,6 +1239,9 @@ app.post('/api/characters', authenticateToken, async (req, res) => {
       }
     }
 
+    // Read actual is_primary from the character record for accurate response
+    const charRecord = await db.get('SELECT is_primary FROM characters WHERE id = ?', charId);
+
     res.status(201).json({
       id: charId,
       characterName,
@@ -1247,7 +1250,7 @@ app.post('/api/characters', authenticateToken, async (req, res) => {
       raidRole: validRaidRole,
       realm: realm || null,
       realmSlug: realmSlug || null,
-      isPrimary: !!isPrimary || !!existingChar
+      isPrimary: !!charRecord?.is_primary
     });
   } catch (error) {
     console.error('Create character error:', error);
@@ -1571,16 +1574,29 @@ app.post('/api/dkp/decay', adminLimiter, authenticateToken, authorizeRole(['admi
 
     const multiplier = 1 - (percentage / 100);
 
-    await db.run(`
-      UPDATE member_dkp
-      SET current_dkp = CAST(current_dkp * ? AS INTEGER)
-    `, multiplier);
+    // Atomic decay: capture amounts BEFORE update, then update + log in one transaction
+    await db.transaction(async (tx) => {
+      // 1. Capture current DKP values before decay
+      const members = await tx.all('SELECT user_id, current_dkp FROM member_dkp WHERE current_dkp > 0');
 
-    await db.run(`
-      INSERT INTO dkp_transactions (user_id, amount, reason, performed_by)
-      SELECT user_id, -CAST(current_dkp * ? AS INTEGER), ?, ?
-      FROM member_dkp
-    `, percentage / 100, `DKP Decay ${percentage}%`, req.user.userId);
+      // 2. Apply decay
+      await tx.run(`
+        UPDATE member_dkp
+        SET current_dkp = CAST(current_dkp * ? AS INTEGER),
+            last_decay_at = CURRENT_TIMESTAMP
+      `, multiplier);
+
+      // 3. Insert accurate transaction logs using pre-decay amounts
+      for (const member of members) {
+        const decayAmount = Math.floor(member.current_dkp * (percentage / 100));
+        if (decayAmount > 0) {
+          await tx.run(`
+            INSERT INTO dkp_transactions (user_id, amount, reason, performed_by)
+            VALUES (?, ?, ?, ?)
+          `, member.user_id, -decayAmount, `DKP Decay ${percentage}%`, req.user.userId);
+        }
+      }
+    });
 
     io.emit('dkp_decay_applied', { percentage });
     res.json({ message: `${percentage}% DKP decay applied` });
@@ -1595,6 +1611,11 @@ app.get('/api/dkp/history/:userId', authenticateToken, async (req, res) => {
   try {
     const { userId } = req.params;
     const limit = parseInt(req.query.limit) || 50;
+
+    // Access control: only own history, or admin/officer can view any
+    if (req.user.userId !== parseInt(userId) && !['admin', 'officer'].includes(req.user.role)) {
+      return res.status(403).json({ error: 'Unauthorized to view this history' });
+    }
 
     const dkpStats = await db.get(`
       SELECT current_dkp, lifetime_gained, lifetime_spent, last_decay_at
@@ -1734,23 +1755,26 @@ app.put('/api/calendar/raid-days', authenticateToken, authorizeRole(['admin']), 
       return res.status(400).json({ error: 'days array required' });
     }
 
-    await db.run('UPDATE raid_days SET is_active = 0');
-
     const dayNames = {
       1: 'Lunes', 2: 'Martes', 3: 'Miércoles', 4: 'Jueves',
       5: 'Viernes', 6: 'Sábado', 7: 'Domingo'
     };
 
-    for (const day of days) {
-      await db.run(`
-        INSERT INTO raid_days (day_of_week, day_name, is_active, raid_time)
-        VALUES (?, ?, 1, ?)
-        ON CONFLICT(day_of_week) DO UPDATE SET
-          day_name = excluded.day_name,
-          is_active = 1,
-          raid_time = excluded.raid_time
-      `, day.dayOfWeek, day.dayName || dayNames[day.dayOfWeek], day.raidTime || '20:00');
-    }
+    // Atomic: deactivate all + activate new ones in one transaction
+    await db.transaction(async (tx) => {
+      await tx.run('UPDATE raid_days SET is_active = 0');
+
+      for (const day of days) {
+        await tx.run(`
+          INSERT INTO raid_days (day_of_week, day_name, is_active, raid_time)
+          VALUES (?, ?, 1, ?)
+          ON CONFLICT(day_of_week) DO UPDATE SET
+            day_name = excluded.day_name,
+            is_active = 1,
+            raid_time = excluded.raid_time
+        `, day.dayOfWeek, day.dayName || dayNames[day.dayOfWeek], day.raidTime || '20:00');
+      }
+    });
 
     res.json({ message: 'Raid days updated' });
   } catch (error) {
@@ -1842,53 +1866,61 @@ app.post('/api/calendar/signup', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: 'Signup deadline has passed (8 hours before raid start)' });
     }
 
-    const existing = await db.get(`
-      SELECT id, dkp_awarded FROM member_availability WHERE user_id = ? AND raid_date = ?
-    `, userId, date);
+    // Atomic signup: check + insert/update + DKP in one transaction to prevent duplicate DKP
+    const signupResult = await db.transaction(async (tx) => {
+      const existing = await tx.get(`
+        SELECT id, dkp_awarded FROM member_availability WHERE user_id = ? AND raid_date = ?
+      `, userId, date);
 
-    let dkpAwarded = 0;
-    const isFirstSignup = !existing;
+      let dkpAwarded = 0;
+      const isFirstSignup = !existing;
 
-    if (isFirstSignup) {
-      const dkpConfig = await db.get("SELECT config_value FROM dkp_config WHERE config_key = 'calendar_dkp_per_day'");
-      const capConfig = await db.get("SELECT config_value FROM dkp_config WHERE config_key = 'dkp_cap'");
-      const dkpPerDay = parseInt(dkpConfig?.config_value || '1', 10);
-      const dkpCap = parseInt(capConfig?.config_value || '250', 10);
+      if (isFirstSignup) {
+        const dkpConfig = await tx.get("SELECT config_value FROM dkp_config WHERE config_key = 'calendar_dkp_per_day'");
+        const capConfig = await tx.get("SELECT config_value FROM dkp_config WHERE config_key = 'dkp_cap'");
+        const dkpPerDay = parseInt(dkpConfig?.config_value || '1', 10);
+        const dkpCap = parseInt(capConfig?.config_value || '250', 10);
 
-      // Get current DKP to check cap
-      const currentMember = await db.get('SELECT current_dkp FROM member_dkp WHERE user_id = ?', userId);
-      const currentDkp = currentMember?.current_dkp || 0;
-      dkpAwarded = Math.min(dkpPerDay, dkpCap - currentDkp);
-      dkpAwarded = Math.max(0, dkpAwarded); // Ensure non-negative
+        const currentMember = await tx.get('SELECT current_dkp FROM member_dkp WHERE user_id = ?', userId);
+        const currentDkp = currentMember?.current_dkp || 0;
+        dkpAwarded = Math.min(dkpPerDay, dkpCap - currentDkp);
+        dkpAwarded = Math.max(0, dkpAwarded);
 
-      await db.run(`
-        INSERT INTO member_availability (user_id, raid_date, status, notes, dkp_awarded)
-        VALUES (?, ?, ?, ?, ?)
-      `, userId, date, status, notes || null, dkpAwarded);
+        await tx.run(`
+          INSERT INTO member_availability (user_id, raid_date, status, notes, dkp_awarded)
+          VALUES (?, ?, ?, ?, ?)
+        `, userId, date, status, notes || null, dkpAwarded);
 
-      if (dkpAwarded > 0) {
-        await db.run(`
-          UPDATE member_dkp
-          SET current_dkp = current_dkp + ?,
-              lifetime_gained = lifetime_gained + ?
-          WHERE user_id = ?
-        `, dkpAwarded, dkpAwarded, userId);
+        if (dkpAwarded > 0) {
+          await tx.run(`
+            UPDATE member_dkp
+            SET current_dkp = current_dkp + ?,
+                lifetime_gained = lifetime_gained + ?
+            WHERE user_id = ?
+          `, dkpAwarded, dkpAwarded, userId);
 
-        await db.run(`
-          INSERT INTO dkp_transactions (user_id, amount, reason, performed_by)
-          VALUES (?, ?, ?, ?)
-        `, userId, dkpAwarded, `Calendario: registro para ${date}`, userId);
+          await tx.run(`
+            INSERT INTO dkp_transactions (user_id, amount, reason, performed_by)
+            VALUES (?, ?, ?, ?)
+          `, userId, dkpAwarded, `Calendario: registro para ${date}`, userId);
+        }
+      } else {
+        await tx.run(`
+          UPDATE member_availability
+          SET status = ?, notes = ?, updated_at = CURRENT_TIMESTAMP
+          WHERE user_id = ? AND raid_date = ?
+        `, status, notes || null, userId, date);
 
-        io.emit('dkp_updated', { userId, amount: dkpAwarded, reason: 'calendar_signup' });
+        dkpAwarded = existing.dkp_awarded;
       }
-    } else {
-      await db.run(`
-        UPDATE member_availability
-        SET status = ?, notes = ?, updated_at = CURRENT_TIMESTAMP
-        WHERE user_id = ? AND raid_date = ?
-      `, status, notes || null, userId, date);
 
-      dkpAwarded = existing.dkp_awarded;
+      return { isFirstSignup, dkpAwarded };
+    });
+
+    const { isFirstSignup, dkpAwarded } = signupResult;
+
+    if (isFirstSignup && dkpAwarded > 0) {
+      io.emit('dkp_updated', { userId, amount: dkpAwarded, reason: 'calendar_signup' });
     }
 
     res.json({
@@ -2209,30 +2241,37 @@ app.post('/api/auctions/:auctionId/bid', userLimiter, authenticateToken, async (
       return res.status(400).json({ error: 'Insufficient DKP (accounting for your bids on other active auctions)' });
     }
 
-    const highestBid = await db.get(`
-      SELECT MAX(amount) as max_bid FROM auction_bids WHERE auction_id = ?
-    `, auctionId);
+    // Atomic bid placement: validate + delete old + insert new in one transaction
+    const bidResult = await db.transaction(async (tx) => {
+      const highestBid = await tx.get(`
+        SELECT MAX(amount) as max_bid FROM auction_bids WHERE auction_id = ?
+      `, auctionId);
 
-    if (highestBid && highestBid.max_bid >= amount) {
-      return res.status(400).json({ error: 'Bid must be higher than current highest bid' });
-    }
+      if (highestBid && highestBid.max_bid >= amount) {
+        throw new Error('Bid must be higher than current highest bid');
+      }
 
-    // Get current top bidder BEFORE placing new bid (for outbid notification)
-    const previousTopBid = await db.get(`
-      SELECT ab.user_id, ab.amount, u.character_name
-      FROM auction_bids ab
-      JOIN users u ON ab.user_id = u.id
-      WHERE ab.auction_id = ?
-      ORDER BY ab.amount DESC
-      LIMIT 1
-    `, auctionId);
+      // Get current top bidder BEFORE placing new bid (for outbid notification)
+      const previousTopBid = await tx.get(`
+        SELECT ab.user_id, ab.amount, u.character_name
+        FROM auction_bids ab
+        JOIN users u ON ab.user_id = u.id
+        WHERE ab.auction_id = ?
+        ORDER BY ab.amount DESC
+        LIMIT 1
+      `, auctionId);
 
-    await db.run('DELETE FROM auction_bids WHERE auction_id = ? AND user_id = ?', auctionId, userId);
+      await tx.run('DELETE FROM auction_bids WHERE auction_id = ? AND user_id = ?', auctionId, userId);
 
-    await db.run(`
-      INSERT INTO auction_bids (auction_id, user_id, amount)
-      VALUES (?, ?, ?)
-    `, auctionId, userId, amount);
+      await tx.run(`
+        INSERT INTO auction_bids (auction_id, user_id, amount)
+        VALUES (?, ?, ?)
+      `, auctionId, userId, amount);
+
+      return { previousTopBid };
+    });
+
+    const { previousTopBid } = bidResult;
 
     const user = await db.get('SELECT character_name, character_class FROM users WHERE id = ?', userId);
 
@@ -2274,6 +2313,9 @@ app.post('/api/auctions/:auctionId/bid', userLimiter, authenticateToken, async (
 
     res.json({ message: 'Bid placed successfully', timeExtended, newEndsAt });
   } catch (error) {
+    if (error.message === 'Bid must be higher than current highest bid') {
+      return res.status(400).json({ error: error.message });
+    }
     console.error('Place bid error:', error);
     res.status(500).json({ error: 'Failed to place bid' });
   }
@@ -2942,16 +2984,6 @@ app.post('/api/warcraftlogs/confirm', adminLimiter, authenticateToken, authorize
       return res.status(400).json({ error: 'reportCode and participants array required' });
     }
 
-    const alreadyProcessed = await db.get(
-      'SELECT * FROM warcraft_logs_processed WHERE report_code = ? AND is_reverted = 0', reportCode
-    );
-
-    if (alreadyProcessed) {
-      return res.status(409).json({
-        error: 'This report has already been processed'
-      });
-    }
-
     const matchedParticipants = participants.filter(p => p.matched && p.user_id);
 
     if (matchedParticipants.length === 0) {
@@ -2965,17 +2997,24 @@ app.post('/api/warcraftlogs/confirm', adminLimiter, authenticateToken, authorize
     // Auto-derive raid date from startTime if not explicitly provided
     let raidDate = req.body.raidDate || null;
     if (!raidDate && startTime) {
-      // Convert Unix timestamp (ms) to YYYY-MM-DD in Madrid timezone
       const date = new Date(startTime);
-      raidDate = date.toLocaleDateString('sv-SE', { timeZone: 'Europe/Madrid' }); // sv-SE gives YYYY-MM-DD format
+      raidDate = date.toLocaleDateString('sv-SE', { timeZone: 'Europe/Madrid' });
     }
 
-    // Get DKP cap
-    const capConfig = await db.get("SELECT config_value FROM dkp_config WHERE config_key = 'dkp_cap'");
-    const dkpCap = parseInt(capConfig?.config_value || '250', 10);
-
+    // Atomic: duplicate check + DKP assignment in one transaction to prevent double processing
     const totalDKP = await db.transaction(async (tx) => {
-      // Insert the processed report first so we can get its ID for transactions
+      // Duplicate check INSIDE transaction to prevent race condition
+      const alreadyProcessed = await tx.get(
+        'SELECT * FROM warcraft_logs_processed WHERE report_code = ? AND is_reverted = 0', reportCode
+      );
+
+      if (alreadyProcessed) {
+        throw new Error('ALREADY_PROCESSED');
+      }
+
+      const capConfig = await tx.get("SELECT config_value FROM dkp_config WHERE config_key = 'dkp_cap'");
+      const dkpCap = parseInt(capConfig?.config_value || '250', 10);
+
       const reportResult = await tx.run(`
         INSERT INTO warcraft_logs_processed
         (report_code, report_title, start_time, end_time, region, guild_name, participants_count, dkp_assigned, processed_by, raid_date)
@@ -3114,6 +3153,9 @@ app.post('/api/warcraftlogs/confirm', adminLimiter, authenticateToken, authorize
     });
 
   } catch (error) {
+    if (error.message === 'ALREADY_PROCESSED') {
+      return res.status(409).json({ error: 'This report has already been processed' });
+    }
     console.error('Error confirming Warcraft Log:', error);
     res.status(500).json({
       error: 'Failed to assign DKP'
@@ -3833,8 +3875,23 @@ app.get('/api/buffs/active', authenticateToken, (req, res) => {
 // WEBSOCKET HANDLING
 // ============================================
 
+// Socket.IO authentication middleware - verify JWT on connection
+io.use((socket, next) => {
+  const token = socket.handshake.auth?.token;
+  if (!token) {
+    return next(new Error('Authentication required'));
+  }
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    socket.user = decoded;
+    next();
+  } catch (err) {
+    next(new Error('Invalid token'));
+  }
+});
+
 io.on('connection', (socket) => {
-  console.log('Client connected:', socket.id);
+  console.log('Client connected:', socket.id, '- user:', socket.user?.userId);
 
   socket.on('join_guild', (guildId) => {
     socket.join(`guild_${guildId}`);

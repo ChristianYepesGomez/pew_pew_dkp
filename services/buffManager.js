@@ -322,7 +322,12 @@ export function unregisterClient(clientId) {
 function sendToClient(clientId, data) {
   const client = clients.get(clientId);
   if (client) {
-    client.write(`data: ${JSON.stringify(data)}\n\n`);
+    try {
+      client.write(`data: ${JSON.stringify(data)}\n\n`);
+    } catch (error) {
+      console.error(`SSE write error for client ${clientId}:`, error.message);
+      clients.delete(clientId);
+    }
   }
 }
 
@@ -331,8 +336,13 @@ function sendToClient(clientId, data) {
  */
 function broadcast(data) {
   const message = `data: ${JSON.stringify(data)}\n\n`;
-  for (const [, client] of clients) {
-    client.write(message);
+  for (const [clientId, client] of clients) {
+    try {
+      client.write(message);
+    } catch (error) {
+      console.error(`SSE broadcast error for client ${clientId}:`, error.message);
+      clients.delete(clientId);
+    }
   }
 }
 
