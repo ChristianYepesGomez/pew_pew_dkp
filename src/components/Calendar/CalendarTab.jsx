@@ -58,15 +58,15 @@ const CalendarTab = () => {
 
   const isAdmin = user?.role === 'admin' || user?.role === 'officer'
 
-  // Get current raid week key (Wednesday-based reset)
+  // Get current raid week key (Thursday-based reset, matching backend convention)
   const getCurrentRaidWeek = () => {
     const now = new Date()
-    const dayOfWeek = now.getDay() // 0=Sun, 3=Wed
-    const daysToLastWednesday = (dayOfWeek + 4) % 7 // Days since last Wednesday
-    const lastWednesday = new Date(now)
-    lastWednesday.setDate(now.getDate() - daysToLastWednesday)
-    lastWednesday.setHours(0, 0, 0, 0)
-    return lastWednesday.toISOString().split('T')[0]
+    const dayOfWeek = now.getDay() // 0=Sun, 4=Thu
+    const daysToLastThursday = (dayOfWeek + 3) % 7 // Days since last Thursday
+    const lastThursday = new Date(now)
+    lastThursday.setDate(now.getDate() - daysToLastThursday)
+    lastThursday.setHours(0, 0, 0, 0)
+    return lastThursday.toISOString().split('T')[0]
   }
 
   // Check if banner was dismissed this week

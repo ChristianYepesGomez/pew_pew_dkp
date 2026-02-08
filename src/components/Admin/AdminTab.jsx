@@ -6,7 +6,7 @@ const WCL_ICON = 'https://assets.rpglogs.com/img/warcraft/favicon.png'
 
 const CLASS_COLORS = {
   Warrior: '#C79C6E', Paladin: '#F58CBA', Hunter: '#ABD473', Rogue: '#FFF569', Priest: '#FFFFFF',
-  Shaman: '#0070DE', Mage: '#40C7EB', Warlock: '#8788EE', Druid: '#FF7D0A', 'Death Knight': '#C41F3B',
+  Shaman: '#0070DE', Mage: '#3FC7EB', Warlock: '#8788EE', Druid: '#FF7D0A', 'Death Knight': '#C41F3B',
   DeathKnight: '#C41F3B', DemonHunter: '#A330C9', Monk: '#00FF96', Evoker: '#33937F',
 }
 
@@ -54,6 +54,13 @@ const AdminTab = () => {
       showNotification('error', t('please_complete_fields'))
       return
     }
+
+    // Confirmation dialog before applying bulk DKP to all members
+    const confirmed = window.confirm(
+      `${t('bulk_dkp_confirm') || `Are you sure you want to adjust DKP by ${bulkAmount} for ALL guild members?\n\nReason: ${bulkReason}\n\nThis action cannot be easily undone.`}`
+    )
+    if (!confirmed) return
+
     setBulkLoading(true)
     try {
       const members = await membersAPI.getAll()

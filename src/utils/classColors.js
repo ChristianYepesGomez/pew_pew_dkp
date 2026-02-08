@@ -6,7 +6,7 @@ export const CLASS_COLORS = {
   Rogue: '#FFF569',
   Priest: '#FFFFFF',
   Shaman: '#0070DE',
-  Mage: '#40C7EB',
+  Mage: '#3FC7EB',
   Warlock: '#8788EE',
   Druid: '#FF7D0A',
   'Death Knight': '#C41F3B',
