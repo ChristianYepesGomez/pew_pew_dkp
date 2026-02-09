@@ -272,7 +272,7 @@ const PerformanceModal = ({ onClose }) => {
                       backgroundColor: selectedBoss.dpsVsMedian >= 100 ? '#22c55e' : selectedBoss.dpsVsMedian >= 80 ? '#eab308' : '#ef4444',
                     }}
                   ></div>
-                  <span className="absolute right-2 top-0.5 text-[10px] text-white font-bold">{(selectedBoss.dpsVsMedian || 0).toFixed(0)}%</span>
+                  <span className="absolute right-2 top-0.5 text-xs text-white font-bold">{(selectedBoss.dpsVsMedian || 0).toFixed(0)}%</span>
                 </div>
               </div>
             </div>
@@ -423,7 +423,7 @@ const PerformanceModal = ({ onClose }) => {
                         <div className="flex-1 min-w-0">
                           <p className="text-sm text-white/90 m-0">{lang === 'es' ? tip.message : tip.messageEn}</p>
                         </div>
-                        <span className={`text-[10px] px-1.5 py-0.5 rounded font-semibold flex-shrink-0 ${sev.color} ${sev.bg}`}>
+                        <span className={`text-xs px-1.5 py-0.5 rounded font-semibold flex-shrink-0 ${sev.color} ${sev.bg}`}>
                           {t(`perf_severity_${tip.severity}`)}
                         </span>
                       </div>
@@ -528,7 +528,7 @@ const StatCard = ({ label, value, subValue, color }) => (
       {value}
       {subValue && <span className="text-xs font-normal text-lavender ml-1">{subValue}</span>}
     </p>
-    <p className="text-[10px] text-lavender m-0 mt-1">{label}</p>
+    <p className="text-xs text-lavender m-0 mt-1">{label}</p>
   </div>
 )
 
@@ -538,8 +538,8 @@ const ConsumableBar = ({ label, pct }) => {
   return (
     <div>
       <div className="flex items-center justify-between mb-1">
-        <span className="text-[10px] text-lavender truncate">{label}</span>
-        <span className="text-[10px] font-bold" style={{ color }}>{val}%</span>
+        <span className="text-xs text-lavender truncate">{label}</span>
+        <span className="text-xs font-bold" style={{ color }}>{val}%</span>
       </div>
       <div className="h-2 bg-lavender-12/30 rounded-full overflow-hidden">
         <div className="h-full rounded-full transition-all" style={{ width: `${Math.min(val, 100)}%`, backgroundColor: color }}></div>

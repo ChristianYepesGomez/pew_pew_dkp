@@ -804,7 +804,7 @@ const InlineAttendance = ({ attendance, t }) => {
                   </div>
                 ))}
                 {members.length > 8 && (
-                  <div className="text-lavender text-[10px]">+{members.length - 8} {t('more')}</div>
+                  <div className="text-lavender text-xs">+{members.length - 8} {t('more')}</div>
                 )}
                 {members.length === 0 && (
                   <div className="text-gray-600 italic">-</div>
@@ -941,8 +941,8 @@ const SummaryView = ({ summary, t, isAdmin }) => {
         </div>
         {/* Slot markers at key thresholds */}
         <div className="relative h-0">
-          <div className="absolute top-[-10px] text-[8px] text-gray-600" style={{ left: `${(15/MYTHIC_SIZE)*100}%`, transform: 'translateX(-50%)' }}>15</div>
-          <div className="absolute top-[-10px] text-[8px] text-gray-600" style={{ left: '100%', transform: 'translateX(-100%)' }}>20</div>
+          <div className="absolute top-[-10px] text-xs text-gray-600" style={{ left: `${(15/MYTHIC_SIZE)*100}%`, transform: 'translateX(-50%)' }}>15</div>
+          <div className="absolute top-[-10px] text-xs text-gray-600" style={{ left: '100%', transform: 'translateX(-100%)' }}>20</div>
         </div>
       </div>
 
@@ -956,7 +956,7 @@ const SummaryView = ({ summary, t, isAdmin }) => {
       </div>
 
       {/* Legend */}
-      <div className="flex justify-center gap-3 text-[10px] text-lavender pt-1 border-t border-lavender-20/20">
+      <div className="flex justify-center gap-3 text-xs text-lavender pt-1 border-t border-lavender-20/20">
         <span className="flex items-center gap-1"><CheckCircle size={10} className="text-green-400" />{t('confirmed')}</span>
         <span className="flex items-center gap-1"><Question size={10} className="text-yellow-400" />{t('tentative')}</span>
         <span className="flex items-center gap-1 opacity-50"><XCircle size={10} className="text-red-400" />{t('declined')}</span>
@@ -1006,7 +1006,7 @@ const SummaryModal = ({ date, summary, loadingSummary, onClose, t, language, isA
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 rounded-lg bg-lavender-12/40 flex flex-col items-center justify-center">
               <span className="text-lg font-bold text-white leading-none">{dateInfo.dayNum}</span>
-              <span className="text-[10px] text-lavender uppercase">{dateInfo.month}</span>
+              <span className="text-xs text-lavender uppercase">{dateInfo.month}</span>
             </div>
             <div>
               <h3 className="text-lg font-bold text-white">{t('raid_roster')}</h3>

@@ -336,7 +336,7 @@ const BISTab = () => {
             {/* Class Resources */}
             {user?.character_class && (
               <div className="mt-3 rounded-xl border border-lavender-20/15 bg-indigo/20 p-3">
-                <p className="text-[10px] text-lavender mb-2 font-semibold uppercase tracking-wider inline-flex items-center gap-1">
+                <p className="text-xs text-lavender mb-2 font-semibold uppercase tracking-wider inline-flex items-center gap-1">
                   <BookOpen size={12} className="text-coral" />{t('bis_class_resources')}
                 </p>
                 <div className="grid grid-cols-2 gap-1.5">

@@ -192,7 +192,7 @@ const SlotItemPicker = ({ slotKey, allItems = [], bisItems = [], onAdd, onRemove
                         {language === 'en' && bi.item_name_en ? bi.item_name_en : bi.item_name}
                       </p>
                     </WowheadTooltip>
-                    <p className="text-[10px] text-lavender m-0 truncate">
+                    <p className="text-xs text-lavender m-0 truncate">
                       {bi.boss_name}
                       {bi.source_type === 'mythicplus' && <span className="ml-1 text-blue-400">(M+)</span>}
                     </p>
@@ -262,14 +262,14 @@ const SlotItemPicker = ({ slotKey, allItems = [], bisItems = [], onAdd, onRemove
                         {item.name[language] || item.name.en}
                       </p>
                     </WowheadTooltip>
-                    <p className="text-[10px] text-lavender m-0 truncate">
+                    <p className="text-xs text-lavender m-0 truncate">
                       {getBossName(item)}
                       {(item.sourceType || 'raid') === 'mythicplus' && <span className="ml-1 text-blue-400">(M+)</span>}
                       {item.itemLevel > 0 && <span className="ml-1">iLvl {item.itemLevel}</span>}
                     </p>
                   </div>
                   {popularItems[item.id] && (
-                    <span className="flex-shrink-0 inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-orange-500/15 text-orange-400 text-[10px] font-bold" title={t('bis_popular')}>
+                    <span className="flex-shrink-0 inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-orange-500/15 text-orange-400 text-xs font-bold" title={t('bis_popular')}>
                       <Fire size={10} />{Math.round(popularItems[item.id])}%
                     </span>
                   )}

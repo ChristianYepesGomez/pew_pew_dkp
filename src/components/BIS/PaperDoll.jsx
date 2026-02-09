@@ -132,7 +132,7 @@ const PaperDoll = ({ bisItems = [], selectedSlot, onSlotClick, hasTwoHand = fals
 
         {/* Count badge for multiple items */}
         {items.length > 1 && (
-          <span className="absolute -top-1 -right-1 w-4 h-4 bg-coral text-black text-[10px] font-bold rounded-full flex items-center justify-center">
+          <span className="absolute -top-1 -right-1 w-4 h-4 bg-coral text-black text-xs font-bold rounded-full flex items-center justify-center">
             {items.length}
           </span>
         )}

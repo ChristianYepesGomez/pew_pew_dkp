@@ -183,7 +183,7 @@ const AnalyticsTab = () => {
                     <div key={i} className="flex items-center gap-2 p-2 rounded-lg bg-lavender-12/10">
                       <div className="flex-1 min-w-0">
                         <p className="text-xs text-white m-0 truncate">{report.title}</p>
-                        <p className="text-[10px] text-lavender m-0">{new Date(report.date).toLocaleDateString()}</p>
+                        <p className="text-xs text-lavender m-0">{new Date(report.date).toLocaleDateString()}</p>
                       </div>
                       <ReportLinks reportCode={report.code} characterName={user?.character_name} />
                     </div>
@@ -270,7 +270,7 @@ const AnalyticsTab = () => {
                     <div key={i} className="flex items-center gap-2 p-2 rounded-lg bg-lavender-12/10">
                       <div className="flex-1 min-w-0">
                         <p className="text-xs text-white m-0 truncate">{report.title}</p>
-                        <p className="text-[10px] text-lavender m-0">{new Date(report.date).toLocaleDateString()}</p>
+                        <p className="text-xs text-lavender m-0">{new Date(report.date).toLocaleDateString()}</p>
                       </div>
                       <ReportLinks reportCode={report.code} />
                     </div>

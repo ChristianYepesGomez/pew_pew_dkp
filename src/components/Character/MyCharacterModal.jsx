@@ -830,7 +830,7 @@ const MyCharacterModal = ({ onClose }) => {
                         <span className="text-xs text-lavender flex-shrink-0">{char.className}{char.spec ? ` - ${char.spec}` : ''}</span>
                         <span className="text-xs text-gray-500 truncate hidden sm:inline">{char.realm}</span>
                         <span className="text-xs text-gray-500 ml-auto flex-shrink-0">Lv.{char.level}</span>
-                        {alreadyExists && <span className="text-[10px] text-blue-400 flex-shrink-0"><ArrowsClockwise size={10} className="inline mr-0.5" />{t('will_update')}</span>}
+                        {alreadyExists && <span className="text-xs text-blue-400 flex-shrink-0"><ArrowsClockwise size={10} className="inline mr-0.5" />{t('will_update')}</span>}
                       </label>
                     )
                   })}
@@ -899,7 +899,7 @@ const MyCharacterModal = ({ onClose }) => {
                         <p className="text-sm font-bold m-0 truncate" style={{ color: CLASS_COLORS[char.characterClass] || '#FFF' }}>
                           {char.characterName}
                           {char.isPrimary && (
-                            <span className="ml-2 text-[10px] font-normal bg-yellow-400/20 text-yellow-400 px-1.5 py-0.5 rounded">
+                            <span className="ml-2 text-xs font-normal bg-yellow-400/20 text-yellow-400 px-1.5 py-0.5 rounded">
                               {t('primary_character')}
                             </span>
                           )}
