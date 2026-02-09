@@ -37,7 +37,7 @@ const Input = forwardRef(({
       ref={ref}
       aria-invalid={isInvalid || undefined}
       className={cn(
-        'border-2 border-lavender-20 text-cream placeholder:text-lavender placeholder:font-normal focus:outline-none focus:border-lavender transition-colors font-normal disabled:cursor-not-allowed disabled:opacity-60',
+        'border-2 border-lavender-20 text-cream placeholder:text-lavender placeholder:font-normal placeholder:opacity-50 focus:outline-none focus:border-lavender transition-colors font-normal disabled:cursor-not-allowed disabled:opacity-60',
         variants[variant] || variants.solid,
         sizes[size] || sizes.lg,
         radii[radius] || radii.soft,

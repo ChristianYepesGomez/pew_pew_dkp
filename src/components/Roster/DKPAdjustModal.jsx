@@ -112,7 +112,7 @@ const DKPAdjustModal = ({ member, onClose, onSubmit }) => {
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
               placeholder={t('enter_amount')}
-              className="w-full px-4 py-3 rounded-xl bg-lavender-12 border-2 border-lavender-20 text-cream placeholder:text-lavender focus:outline-none focus:border-lavender transition-colors"
+              className="w-full px-4 py-3 rounded-xl bg-lavender-12 border-2 border-lavender-20 text-cream placeholder:text-lavender placeholder:opacity-50 focus:outline-none focus:border-lavender transition-colors"
             />
           </div>
 
@@ -136,7 +136,7 @@ const DKPAdjustModal = ({ member, onClose, onSubmit }) => {
               value={reason}
               onChange={(e) => setReason(e.target.value)}
               placeholder={t('enter_reason')}
-              className="w-full px-4 py-3 rounded-xl bg-lavender-12 border-2 border-lavender-20 text-cream placeholder:text-lavender focus:outline-none focus:border-lavender transition-colors"
+              className="w-full px-4 py-3 rounded-xl bg-lavender-12 border-2 border-lavender-20 text-cream placeholder:text-lavender placeholder:opacity-50 focus:outline-none focus:border-lavender transition-colors"
             />
           </div>
 

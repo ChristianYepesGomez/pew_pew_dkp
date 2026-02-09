@@ -22,7 +22,7 @@ const CLASS_SPECS = {
 
 const CLASSES = Object.keys(CLASS_SPECS)
 
-const inputClass = 'w-full px-4 py-2 rounded-xl bg-indigo border-2 border-lavender-20 text-cream placeholder:text-lavender focus:outline-none focus:border-lavender transition-colors'
+const inputClass = 'w-full px-4 py-2 rounded-xl bg-indigo border-2 border-lavender-20 text-cream placeholder:text-lavender placeholder:opacity-50 focus:outline-none focus:border-lavender transition-colors'
 
 const CreateMemberModal = ({ onClose, onSuccess }) => {
   const { t } = useLanguage()
