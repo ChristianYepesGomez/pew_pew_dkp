@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { CircleNotch, WarningCircle, CheckCircle, Info } from '@phosphor-icons/react'
 import { useLanguage } from '../hooks/useLanguage'
 import { authAPI } from '../services/api'
-import CatLogo from '../components/Layout/CatLogo'
+import AuthFormHeader from '../components/UI/AuthFormHeader'
 import Button from '../components/UI/Button'
 import Input from '../components/UI/Input'
 
@@ -49,13 +49,12 @@ const ForgotPassword = () => {
           </Button>
         </div>
 
-        <div className="flex flex-col items-center justify-start bg-lavender-12 rounded-3xl overflow-hidden p-10 space-y-8">
-          <CatLogo size={220} />
-
-          <div className="text-center space-y-2">
-            <h2 className="text-2xl font-bold text-coral">{t('forgot_password')}</h2>
-            <p className="text-lavender text-sm">{t('forgot_password_desc')}</p>
-          </div>
+        <div className="flex flex-col justify-start bg-lavender-12 rounded-3xl overflow-hidden p-6 sm:p-10 space-y-8">
+          <AuthFormHeader
+            title={t('forgot_password')}
+            description={t('forgot_password_desc')}
+            logoVariant="cat"
+          />
 
           <div className="w-full">
             {error && (
