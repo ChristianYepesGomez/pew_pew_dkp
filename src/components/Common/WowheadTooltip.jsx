@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react'
 
 const WowheadTooltip = ({ itemId, children, className = '' }) => {
   const ref = useRef(null)
+  const combinedClassName = `link-reset ${className}`.trim()
 
   useEffect(() => {
     if (itemId && window.$WowheadPower) {
@@ -18,8 +19,7 @@ const WowheadTooltip = ({ itemId, children, className = '' }) => {
       data-wowhead={`item=${itemId}`}
       target="_blank"
       rel="noopener noreferrer"
-      className={className}
-      style={{ textDecoration: 'none', color: 'inherit' }}
+      className={combinedClassName}
       onClick={(e) => e.preventDefault()}
     >
       {children}

@@ -341,17 +341,17 @@ const BISTab = () => {
                 </p>
                 <div className="grid grid-cols-2 gap-1.5">
                   {[
-                    { name: 'Archon', Icon: ChartBar, color: 'text-purple-400', href: `https://www.archon.gg/wow/builds/${(user.character_class || '').toLowerCase()}/overview` },
-                    { name: 'Murlok', Icon: Fish, color: 'text-green-400', href: `https://murlok.io/${(user.character_class || '').toLowerCase()}` },
-                    { name: 'WoWAnalyzer', Icon: Microscope, color: 'text-blue-400', href: 'https://wowanalyzer.com/' },
-                    { name: 'Wowhead', Icon: Database, color: 'text-yellow-400', href: `https://www.wowhead.com/guide/classes/${(user.character_class || '').toLowerCase()}` },
+                    { name: 'Archon', Icon: ChartBar, href: `https://www.archon.gg/wow/builds/${(user.character_class || '').toLowerCase()}/overview` },
+                    { name: 'Murlok', Icon: Fish, href: `https://murlok.io/${(user.character_class || '').toLowerCase()}` },
+                    { name: 'WoWAnalyzer', Icon: Microscope, href: 'https://wowanalyzer.com/' },
+                    { name: 'Wowhead', Icon: Database, href: `https://www.wowhead.com/guide/classes/${(user.character_class || '').toLowerCase()}` },
                   ].map(link => (
                     <a
                       key={link.name}
                       href={link.href}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className={`flex items-center gap-1.5 px-2 py-1.5 rounded-lg bg-lavender-12/20 hover:bg-lavender-12/40 transition-all text-xs ${link.color}`}
+                      className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg bg-lavender-12/20 hover:bg-lavender-12/40 transition-all text-xs"
                     >
                       <link.Icon size={12} />
                       {link.name}

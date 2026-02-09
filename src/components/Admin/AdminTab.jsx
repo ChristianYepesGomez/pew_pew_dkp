@@ -322,7 +322,7 @@ const AdminTab = () => {
                       href={`https://www.warcraftlogs.com/reports/${report.code}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="px-3 py-2 bg-blue-600/30 hover:bg-blue-600/50 text-blue-400 rounded-lg text-sm transition-all"
+                      className="px-3 py-2 bg-blue-600/30 hover:bg-blue-600/50 rounded-lg text-sm transition-all"
                       title={t('view_on_wcl') || 'Ver en WCL'}
                     >
                       <ArrowSquareOut size={16} />

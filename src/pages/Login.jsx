@@ -40,24 +40,22 @@ const Login = () => {
           </Button>
         </div>
 
-        <div className="bg-lavender-12 rounded-3xl overflow-hidden p-10 space-y-8">
-          <div className="flex justify-center pt-4">
+        <div className="flex flex-col items-center justify-start bg-lavender-12 rounded-3xl overflow-hidden p-10 space-y-8">
             <CatLogo size={280} />
-          </div>
 
             {error && (
-              <div className="bg-red-500/20 border border-red-500 text-red-400 px-4 py-3 rounded-xl mb-6 flex items-center gap-2">
+              <div className="w-full bg-red-500/20 border border-red-500 text-red-400 px-4 py-3 rounded-xl mb-6 flex items-center gap-2">
                 <WarningCircle size={20} />
                 <span>{error}</span>
               </div>
             )}
 
-            <form onSubmit={handleSubmit} className="flex flex-col gap-6">
-                <div className="flex flex-col gap-2">
-                  <label className="block text-cream text-sm font-semibold px-2">
-                    {t('username')}
-                  </label>
-                  <Input
+            <form onSubmit={handleSubmit} className="w-full flex flex-col gap-6">
+              <div className="w-full flex flex-col gap-2">
+                <label className="block text-cream text-sm font-semibold px-2">
+                  {t('username')}
+                </label>
+                <Input
                   type="text"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
@@ -66,15 +64,15 @@ const Login = () => {
                 />
               </div>
 
-              <div className="space-y-2">
+              <div className="w-full space-y-2">
                 <div className="flex flex-col gap-2">
                   <div className="flex items-center justify-between px-2">
-                  <label className="text-cream text-sm font-semibold">
+                    <label className="text-cream text-sm font-semibold">
                       {t('password')}
                     </label>
                     <Link
                       to="/forgot-password"
-                      className="text-lavender hover:text-cream transition-colors text-sm"
+                      className="text-sm"
                     >
                       {t('forgot_password')}
                     </Link>

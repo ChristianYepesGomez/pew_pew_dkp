@@ -564,9 +564,9 @@ const BossDetailModal = ({ boss, details, loading, onClose, onChangeDifficulty, 
                         rel="noopener noreferrer"
                         className="flex items-center justify-between py-2 px-3 bg-white/5 rounded-lg hover:bg-white/10 transition-all"
                       >
-                        <span className="text-gray-300">{kill.date}</span>
-                        <span className="text-yellow-400">{kill.killTime}</span>
-                        <span className="text-coral text-sm">
+                        <span>{kill.date}</span>
+                        <span>{kill.killTime}</span>
+                        <span className="text-sm">
                           <ArrowSquareOut size={14} className="inline mr-1" />
                           WCL
                         </span>

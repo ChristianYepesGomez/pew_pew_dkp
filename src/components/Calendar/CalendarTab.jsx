@@ -1497,9 +1497,9 @@ const RaidHistory = ({ history, loading, t, language, isAdmin, onLinkWcl }) => {
                       className="flex items-center gap-2 px-3 py-2 bg-orange-500/20 rounded-lg hover:bg-orange-500/30 transition-all"
                     >
                       <WclIcon size={18} />
-                      <span className="text-orange-400 text-sm font-semibold">{raid.wclReport.title}</span>
-                      <span className="text-xs text-lavender">({raid.wclReport.dkpAssigned} DKP)</span>
-                      <ArrowSquareOut size={14} className="text-lavender" />
+                      <span className="text-sm font-semibold">{raid.wclReport.title}</span>
+                      <span className="text-xs">({raid.wclReport.dkpAssigned} DKP)</span>
+                      <ArrowSquareOut size={14} />
                     </a>
                   ) : isAdmin ? (
                     <button
