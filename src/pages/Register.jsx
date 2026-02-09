@@ -182,7 +182,7 @@ const Register = () => {
                     <CircleNotch size={20} className="animate-spin" />{t('loading')}...
                   </span>
                 ) : (
-                  <span>{t('create_account')}</span>
+                  <span>{t('register')}</span>
                 )}
               </Button>
             </form>
