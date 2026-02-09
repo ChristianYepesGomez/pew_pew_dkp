@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { User, Lock, SignIn, CircleNotch, WarningCircle, Key } from '@phosphor-icons/react'
+import { CircleNotch, WarningCircle } from '@phosphor-icons/react'
 import { useAuth } from '../hooks/useAuth'
 import { useLanguage } from '../hooks/useLanguage'
 import CatLogo from '../components/Layout/CatLogo'
@@ -49,8 +49,8 @@ const Login = () => {
 
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <label className="flex items-center gap-2 text-cream text-sm font-semibold mb-2">
-                  <User size={16} className="text-coral" />{t('username')}
+                <label className="text-cream text-sm font-semibold mb-2">
+                  {t('username')}
                 </label>
                 <input
                   type="text"
@@ -63,9 +63,17 @@ const Login = () => {
               </div>
 
               <div>
-                <label className="flex items-center gap-2 text-cream text-sm font-semibold mb-2">
-                  <Lock size={16} className="text-coral" />{t('password')}
-                </label>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-cream text-sm font-semibold">
+                    {t('password')}
+                  </label>
+                  <Link
+                    to="/forgot-password"
+                    className="text-lavender hover:text-cream transition-colors text-sm"
+                  >
+                    {t('forgot_password')}
+                  </Link>
+                </div>
                 <input
                   type="password"
                   value={password}
@@ -86,17 +94,9 @@ const Login = () => {
                     <CircleNotch size={20} className="animate-spin" />{t('loading')}...
                   </span>
                 ) : (
-                  <span className="flex items-center justify-center gap-2">
-                    <SignIn size={20} />{t('login')}
-                  </span>
+                  <span>{t('login')}</span>
                 )}
               </button>
-              <Link
-                to="/forgot-password"
-                className="text-lavender hover:text-cream transition-colors flex items-center justify-center gap-2 text-sm"
-              >
-                <Key size={16} />{t('forgot_password')}
-              </Link>
             </form>
 
             <div className="text-center mt-6 pt-6 border-t border-lavender-20 space-y-3">
