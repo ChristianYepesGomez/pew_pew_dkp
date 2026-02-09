@@ -8,8 +8,11 @@ import jwt from 'jsonwebtoken';
 import rateLimit from 'express-rate-limit';
 import { db, initDatabase } from './database.js';
 import { authenticateToken, authorizeRole } from './middleware/auth.js';
-import { processWarcraftLog, isConfigured as isWCLConfigured, getGuildReports, getGuildId, getFightDeaths, getFightStats, getFightStatsWithDeathEvents } from './services/warcraftlogs.js';
+import { processWarcraftLog, isConfigured as isWCLConfigured, getGuildReports, getGuildId, getFightDeaths, getFightStats, getFightStatsWithDeathEvents, getExtendedFightStats } from './services/warcraftlogs.js';
+import { processExtendedFightData, getPlayerDetailedPerformance } from './services/performanceAnalysis.js';
 import { getAllRaidItems, searchItems, getItemsByRaid, refreshFromAPI, getAvailableRaids, getDataSourceStatus, isAPIConfigured } from './services/raidItems.js';
+import { getAllDungeonItems } from './services/dungeonItems.js';
+import { processReportPopularity, getPopularItems } from './services/itemPopularity.js';
 import { sendPasswordResetEmail, isEmailConfigured } from './services/email.js';
 import { getBlizzardOAuthUrl, getUserToken, getUserCharacters, isBlizzardOAuthConfigured, getCharacterEquipment, getCharacterMedia } from './services/blizzardAPI.js';
 import { seedRaidData, getAllZonesWithBosses, getBossDetails, processFightStats, setZoneLegacy, recordPlayerDeaths, recordPlayerPerformance } from './services/raids.js';
@@ -2561,6 +2564,56 @@ app.post('/api/raid-items/refresh', authenticateToken, authorizeRole(['admin']),
   }
 });
 
+// Get M+ dungeon items
+app.get('/api/dungeon-items', authenticateToken, async (req, res) => {
+  try {
+    const items = await getAllDungeonItems();
+    res.json({ items, count: items.length });
+  } catch (error) {
+    console.error('Error fetching dungeon items:', error);
+    res.json({ items: [], count: 0 });
+  }
+});
+
+// Get all items (raid + M+) combined
+// Raid items load fast; dungeon items may take time on first fetch (returns empty until cached)
+app.get('/api/all-items', authenticateToken, async (req, res) => {
+  try {
+    const [raidItems, dungeonItems] = await Promise.all([
+      getAllRaidItems(),
+      getAllDungeonItems().catch(err => {
+        console.warn('Dungeon items fetch failed:', err.message);
+        return [];
+      }),
+    ]);
+
+    const tagged = [
+      ...(raidItems || []).map(i => ({ ...i, sourceType: i.sourceType || 'raid' })),
+      ...(dungeonItems || []),
+    ];
+
+    res.json({ items: tagged, count: tagged.length });
+  } catch (error) {
+    console.error('Error fetching all items:', error);
+    res.status(500).json({ error: 'Failed to fetch items' });
+  }
+});
+
+// ── Item Popularity ──
+
+// Get popular items for a class/spec/slot
+app.get('/api/item-popularity', authenticateToken, async (req, res) => {
+  try {
+    const { class: className, spec, slot, content } = req.query;
+    if (!className) return res.status(400).json({ error: 'class parameter required' });
+    const items = await getPopularItems(className, spec || null, content || 'raid', slot || null);
+    res.json(items);
+  } catch (error) {
+    console.error('Error fetching item popularity:', error);
+    res.status(500).json({ error: 'Failed to fetch item popularity' });
+  }
+});
+
 // Get auction history
 app.get('/api/auctions/history', authenticateToken, async (req, res) => {
   try {
@@ -2684,6 +2737,151 @@ app.get('/api/auctions/:auctionId/bids', authenticateToken, async (req, res) => 
   } catch (error) {
     console.error('Get auction bids error:', error);
     res.status(500).json({ error: 'Failed to get auction bids' });
+  }
+});
+
+// ============================================
+// BIS WISHLIST ROUTES
+// ============================================
+
+// Get my BIS list
+app.get('/api/bis/my', authenticateToken, async (req, res) => {
+  try {
+    const items = await db.all(
+      'SELECT * FROM bis_items WHERE user_id = ? ORDER BY priority ASC, created_at DESC',
+      req.user.userId
+    );
+    res.json(items);
+  } catch (error) {
+    console.error('Get my BIS error:', error);
+    res.status(500).json({ error: 'Failed to get BIS list' });
+  }
+});
+
+// Get another user's BIS list
+app.get('/api/bis/user/:userId', authenticateToken, async (req, res) => {
+  try {
+    const items = await db.all(
+      'SELECT * FROM bis_items WHERE user_id = ? ORDER BY priority ASC, created_at DESC',
+      req.params.userId
+    );
+    res.json(items);
+  } catch (error) {
+    console.error('Get user BIS error:', error);
+    res.status(500).json({ error: 'Failed to get BIS list' });
+  }
+});
+
+// Get all users who want a specific item (for auction integration)
+app.get('/api/bis/item/:itemId', authenticateToken, async (req, res) => {
+  try {
+    const results = await db.all(`
+      SELECT bi.user_id, bi.priority, bi.obtained,
+             u.character_name, u.character_class
+      FROM bis_items bi
+      JOIN users u ON bi.user_id = u.id
+      WHERE bi.item_id = ? AND bi.obtained = 0
+      ORDER BY bi.priority ASC
+    `, req.params.itemId);
+    res.json(results);
+  } catch (error) {
+    console.error('Get BIS item users error:', error);
+    res.status(500).json({ error: 'Failed to get BIS item data' });
+  }
+});
+
+// Add item to my BIS list
+app.post('/api/bis', authenticateToken, async (req, res) => {
+  try {
+    const { item_id, item_name, item_name_en, item_image, item_rarity, item_slot, item_level, boss_name, raid_name, priority, notes, source_type, slot_position } = req.body;
+
+    if (!item_id || !item_name) {
+      return res.status(400).json({ error: 'item_id and item_name are required' });
+    }
+
+    const result = await db.run(`
+      INSERT INTO bis_items (user_id, item_id, item_name, item_name_en, item_image, item_rarity, item_slot, item_level, boss_name, raid_name, priority, notes, source_type, slot_position)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `, req.user.userId, item_id, item_name, item_name_en || null, item_image || null, item_rarity || 'epic', item_slot || null, item_level || null, boss_name || null, raid_name || null, priority || 0, notes || null, source_type || 'raid', slot_position || null);
+
+    const newItem = await db.get('SELECT * FROM bis_items WHERE id = ?', result.lastInsertRowid);
+    res.status(201).json(newItem);
+  } catch (error) {
+    if (error.message?.includes('UNIQUE constraint')) {
+      return res.status(409).json({ error: 'Item already in your BIS list' });
+    }
+    console.error('Add BIS item error:', error);
+    res.status(500).json({ error: 'Failed to add BIS item' });
+  }
+});
+
+// Batch reorder BIS priorities (must be before :id route)
+app.put('/api/bis/reorder', authenticateToken, async (req, res) => {
+  try {
+    const { items } = req.body; // [{ id, priority }]
+    if (!Array.isArray(items)) return res.status(400).json({ error: 'items array required' });
+
+    await db.transaction(async (tx) => {
+      for (const { id, priority } of items) {
+        const item = await tx.get('SELECT user_id FROM bis_items WHERE id = ?', id);
+        if (!item || item.user_id !== req.user.userId) {
+          throw new Error('UNAUTHORIZED_ITEM');
+        }
+        await tx.run('UPDATE bis_items SET priority = ? WHERE id = ?', priority, id);
+      }
+    });
+
+    const updated = await db.all(
+      'SELECT * FROM bis_items WHERE user_id = ? ORDER BY priority ASC',
+      req.user.userId
+    );
+    res.json(updated);
+  } catch (error) {
+    if (error.message === 'UNAUTHORIZED_ITEM') {
+      return res.status(403).json({ error: 'Cannot reorder items that are not yours' });
+    }
+    console.error('Reorder BIS error:', error);
+    res.status(500).json({ error: 'Failed to reorder BIS items' });
+  }
+});
+
+// Update BIS item (priority, notes, obtained)
+app.put('/api/bis/:id', authenticateToken, async (req, res) => {
+  try {
+    const item = await db.get('SELECT * FROM bis_items WHERE id = ?', req.params.id);
+    if (!item) return res.status(404).json({ error: 'BIS item not found' });
+    if (item.user_id !== req.user.userId) return res.status(403).json({ error: 'Not your BIS item' });
+
+    const { priority, notes, obtained, slot_position } = req.body;
+    await db.run(`
+      UPDATE bis_items SET
+        priority = COALESCE(?, priority),
+        notes = COALESCE(?, notes),
+        obtained = COALESCE(?, obtained),
+        slot_position = COALESCE(?, slot_position)
+      WHERE id = ?
+    `, priority ?? null, notes ?? null, obtained ?? null, slot_position ?? null, req.params.id);
+
+    const updated = await db.get('SELECT * FROM bis_items WHERE id = ?', req.params.id);
+    res.json(updated);
+  } catch (error) {
+    console.error('Update BIS item error:', error);
+    res.status(500).json({ error: 'Failed to update BIS item' });
+  }
+});
+
+// Delete BIS item
+app.delete('/api/bis/:id', authenticateToken, async (req, res) => {
+  try {
+    const item = await db.get('SELECT * FROM bis_items WHERE id = ?', req.params.id);
+    if (!item) return res.status(404).json({ error: 'BIS item not found' });
+    if (item.user_id !== req.user.userId) return res.status(403).json({ error: 'Not your BIS item' });
+
+    await db.run('DELETE FROM bis_items WHERE id = ?', req.params.id);
+    res.json({ message: 'BIS item removed' });
+  } catch (error) {
+    console.error('Delete BIS item error:', error);
+    res.status(500).json({ error: 'Failed to delete BIS item' });
   }
 });
 
@@ -3423,6 +3621,35 @@ app.post('/api/warcraftlogs/import-boss-stats', adminLimiter, authenticateToken,
           if (performanceRecorded > 0 || deathsRecorded > 0) {
             console.log(`📈 Import performance: ${performanceRecorded} fights, ${deathsRecorded} deaths from ${reportData.code}`);
           }
+
+          // Process extended fight data for deep performance analysis
+          const reportDate = new Date(reportData.startTime).toISOString().split('T')[0];
+          let extendedRecorded = 0;
+          for (const bossInfo of processedBosses) {
+            try {
+              const extStats = await getExtendedFightStats(reportData.code, [bossInfo.fightId]);
+              const fightStats = await getFightStats(reportData.code, [bossInfo.fightId]);
+              const count = await processExtendedFightData(
+                reportData.code, bossInfo, fightStats, extStats, participantUserMap, reportDate
+              );
+              extendedRecorded += count;
+            } catch (extErr) {
+              console.warn(`Extended stats failed for fight ${bossInfo.fightId}:`, extErr.message);
+            }
+          }
+          if (extendedRecorded > 0) {
+            console.log(`🔬 Extended performance: ${extendedRecorded} player-fight records from ${reportData.code}`);
+          }
+
+          // Process item popularity from kill fights
+          const killFights = processedBosses.filter(b => b.kill);
+          if (killFights.length > 0) {
+            try {
+              await processReportPopularity(reportData.code, killFights);
+            } catch (popErr) {
+              console.warn('Item popularity processing failed:', popErr.message);
+            }
+          }
         } catch (err) {
           console.error('Error recording import performance:', err);
         }
@@ -3735,6 +3962,398 @@ app.get('/api/calendar/dates-with-logs', authenticateToken, async (req, res) => 
   } catch (error) {
     console.error('Dates with logs error:', error);
     res.status(500).json({ error: 'Failed to get dates with logs' });
+  }
+});
+
+// ============================================
+// ANALYTICS ENDPOINTS
+// ============================================
+
+// Attendance analytics
+app.get('/api/analytics/attendance', authenticateToken, async (req, res) => {
+  try {
+    const weeks = parseInt(req.query.weeks) || 8;
+    const results = await db.all(`
+      SELECT u.id, u.character_name, u.character_class,
+        COUNT(CASE WHEN ma.status = 'confirmed' THEN 1 END) as confirmed,
+        COUNT(CASE WHEN ma.status = 'tentative' THEN 1 END) as tentative,
+        COUNT(CASE WHEN ma.status = 'declined' THEN 1 END) as declined,
+        COUNT(ma.id) as total_signups
+      FROM users u
+      LEFT JOIN member_availability ma ON u.id = ma.user_id
+        AND ma.raid_date >= date('now', '-' || ? || ' days')
+      WHERE u.role IN ('admin', 'officer', 'raider')
+      GROUP BY u.id
+      ORDER BY confirmed DESC
+    `, weeks * 7);
+
+    // Get total raid days in period
+    const raidDayCount = await db.get(`
+      SELECT COUNT(DISTINCT raid_date) as total
+      FROM member_availability
+      WHERE raid_date >= date('now', '-' || ? || ' days')
+    `, weeks * 7);
+
+    res.json({
+      members: results,
+      totalRaidDays: raidDayCount?.total || 0,
+      weeks,
+    });
+  } catch (error) {
+    console.error('Analytics attendance error:', error);
+    res.status(500).json({ error: 'Failed to get attendance analytics' });
+  }
+});
+
+// DKP trends
+app.get('/api/analytics/dkp-trends', authenticateToken, async (req, res) => {
+  try {
+    const weeks = parseInt(req.query.weeks) || 12;
+    const trends = await db.all(`
+      SELECT
+        strftime('%Y-%W', created_at) as week,
+        MIN(date(created_at)) as week_start,
+        SUM(CASE WHEN amount > 0 AND reason NOT LIKE '%Decay%' THEN amount ELSE 0 END) as gained,
+        SUM(CASE WHEN amount < 0 AND reason NOT LIKE '%Decay%' THEN ABS(amount) ELSE 0 END) as spent,
+        SUM(CASE WHEN reason LIKE '%Decay%' THEN ABS(amount) ELSE 0 END) as decayed,
+        COUNT(*) as transactions
+      FROM dkp_transactions
+      WHERE created_at >= date('now', '-' || ? || ' days')
+      GROUP BY week
+      ORDER BY week ASC
+    `, weeks * 7);
+
+    res.json(trends);
+  } catch (error) {
+    console.error('Analytics DKP trends error:', error);
+    res.status(500).json({ error: 'Failed to get DKP trends' });
+  }
+});
+
+// DKP economy overview
+app.get('/api/analytics/economy', authenticateToken, async (req, res) => {
+  try {
+    const economy = await db.get(`
+      SELECT
+        COALESCE(SUM(current_dkp), 0) as total_circulation,
+        COALESCE(AVG(current_dkp), 0) as avg_dkp,
+        COALESCE(MIN(current_dkp), 0) as min_dkp,
+        COALESCE(MAX(current_dkp), 0) as max_dkp,
+        COUNT(*) as member_count
+      FROM member_dkp
+    `);
+
+    // This week's activity
+    const weekActivity = await db.get(`
+      SELECT
+        COALESCE(SUM(CASE WHEN amount > 0 THEN amount ELSE 0 END), 0) as gained_this_week,
+        COALESCE(SUM(CASE WHEN amount < 0 THEN ABS(amount) ELSE 0 END), 0) as spent_this_week
+      FROM dkp_transactions
+      WHERE created_at >= date('now', '-7 days')
+    `);
+
+    // Top 5 by DKP
+    const topMembers = await db.all(`
+      SELECT md.current_dkp, u.character_name, u.character_class
+      FROM member_dkp md
+      JOIN users u ON md.user_id = u.id
+      ORDER BY md.current_dkp DESC
+      LIMIT 5
+    `);
+
+    res.json({
+      ...economy,
+      ...weekActivity,
+      topMembers,
+    });
+  } catch (error) {
+    console.error('Analytics economy error:', error);
+    res.status(500).json({ error: 'Failed to get economy analytics' });
+  }
+});
+
+// Auction analytics
+app.get('/api/analytics/auctions', authenticateToken, async (req, res) => {
+  try {
+    const weeks = parseInt(req.query.weeks) || 8;
+    const stats = await db.get(`
+      SELECT
+        COUNT(*) as total_auctions,
+        COALESCE(AVG(winning_bid), 0) as avg_price,
+        COALESCE(MAX(winning_bid), 0) as max_price,
+        COALESCE(MIN(CASE WHEN winning_bid > 0 THEN winning_bid END), 0) as min_price
+      FROM auctions
+      WHERE status = 'completed' AND ended_at >= date('now', '-' || ? || ' days')
+    `, weeks * 7);
+
+    // By rarity
+    const byRarity = await db.all(`
+      SELECT item_rarity, COUNT(*) as count, COALESCE(AVG(winning_bid), 0) as avg_price
+      FROM auctions
+      WHERE status = 'completed' AND ended_at >= date('now', '-' || ? || ' days')
+      GROUP BY item_rarity
+      ORDER BY avg_price DESC
+    `, weeks * 7);
+
+    // Weekly trend
+    const weeklyTrend = await db.all(`
+      SELECT
+        strftime('%Y-%W', ended_at) as week,
+        MIN(date(ended_at)) as week_start,
+        COUNT(*) as count,
+        COALESCE(AVG(winning_bid), 0) as avg_price
+      FROM auctions
+      WHERE status = 'completed' AND ended_at >= date('now', '-' || ? || ' days')
+      GROUP BY week
+      ORDER BY week ASC
+    `, weeks * 7);
+
+    // Most expensive items
+    const topItems = await db.all(`
+      SELECT item_name, item_rarity, winning_bid, ended_at,
+             u.character_name as winner_name, u.character_class as winner_class
+      FROM auctions a
+      LEFT JOIN users u ON a.winner_id = u.id
+      WHERE a.status = 'completed' AND a.ended_at >= date('now', '-' || ? || ' days')
+      ORDER BY a.winning_bid DESC
+      LIMIT 5
+    `, weeks * 7);
+
+    res.json({ ...stats, byRarity, weeklyTrend, topItems, weeks });
+  } catch (error) {
+    console.error('Analytics auctions error:', error);
+    res.status(500).json({ error: 'Failed to get auction analytics' });
+  }
+});
+
+// Raid progression
+app.get('/api/analytics/progression', authenticateToken, async (req, res) => {
+  try {
+    const progression = await db.all(`
+      SELECT bs.difficulty,
+             wb.name as boss_name, wb.boss_order,
+             bs.total_kills, bs.total_wipes,
+             bs.fastest_kill_ms, bs.first_kill_date,
+             bs.wipes_to_first_kill,
+             wz.name as zone_name, wz.boss_count
+      FROM boss_statistics bs
+      JOIN wcl_bosses wb ON bs.boss_id = wb.id
+      JOIN wcl_zones wz ON wb.zone_id = wz.id
+      WHERE wz.is_current = 1
+      ORDER BY bs.difficulty DESC, wb.boss_order ASC
+    `);
+
+    // Group by difficulty
+    const byDifficulty = {}
+    for (const row of progression) {
+      if (!byDifficulty[row.difficulty]) {
+        byDifficulty[row.difficulty] = {
+          difficulty: row.difficulty,
+          zone_name: row.zone_name,
+          boss_count: row.boss_count,
+          bosses_killed: 0,
+          bosses: [],
+        }
+      }
+      if (row.total_kills > 0) byDifficulty[row.difficulty].bosses_killed++
+      byDifficulty[row.difficulty].bosses.push(row)
+    }
+
+    res.json(Object.values(byDifficulty));
+  } catch (error) {
+    console.error('Analytics progression error:', error);
+    res.status(500).json({ error: 'Failed to get progression analytics' });
+  }
+});
+
+// Guild superlatives (top performers from boss data)
+app.get('/api/analytics/superlatives', authenticateToken, async (req, res) => {
+  try {
+    const topDps = await db.get(`
+      SELECT br.value, br.character_name, br.character_class, wb.name as boss_name, br.difficulty
+      FROM boss_records br
+      JOIN wcl_bosses wb ON br.boss_id = wb.id
+      WHERE br.record_type = 'top_dps'
+      ORDER BY br.value DESC LIMIT 1
+    `);
+
+    const topHps = await db.get(`
+      SELECT br.value, br.character_name, br.character_class, wb.name as boss_name, br.difficulty
+      FROM boss_records br
+      JOIN wcl_bosses wb ON br.boss_id = wb.id
+      WHERE br.record_type = 'top_hps'
+      ORDER BY br.value DESC LIMIT 1
+    `);
+
+    const mostDeaths = await db.get(`
+      SELECT u.character_name, u.character_class, SUM(pbd.total_deaths) as total
+      FROM player_boss_deaths pbd
+      JOIN users u ON pbd.user_id = u.id
+      GROUP BY pbd.user_id ORDER BY total DESC LIMIT 1
+    `);
+
+    const mostFights = await db.get(`
+      SELECT u.character_name, u.character_class, SUM(pbp.fights_participated) as total
+      FROM player_boss_performance pbp
+      JOIN users u ON pbp.user_id = u.id
+      GROUP BY pbp.user_id ORDER BY total DESC LIMIT 1
+    `);
+
+    const mostDamageTaken = await db.get(`
+      SELECT u.character_name, u.character_class, SUM(pbp.total_damage_taken) as total
+      FROM player_boss_performance pbp
+      JOIN users u ON pbp.user_id = u.id
+      GROUP BY pbp.user_id ORDER BY total DESC LIMIT 1
+    `);
+
+    res.json({ topDps, topHps, mostDeaths, mostFights, mostDamageTaken });
+  } catch (error) {
+    console.error('Analytics superlatives error:', error);
+    res.status(500).json({ error: 'Failed to get superlatives' });
+  }
+});
+
+// My Performance — individual player stats
+app.get('/api/analytics/my-performance', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    // Per-boss performance breakdown
+    const bossBreakdown = await db.all(`
+      SELECT wb.name as bossName, pbp.difficulty, pbp.fights_participated as fights,
+             COALESCE(pbd.total_deaths, 0) as deaths,
+             CASE WHEN pbp.fights_participated > 0 THEN ROUND(CAST(pbp.total_damage AS REAL) / pbp.fights_participated) ELSE 0 END as avgDps,
+             pbp.best_dps as bestDps, pbp.best_hps as bestHps,
+             ROUND(CAST(pbp.total_healing AS REAL) / NULLIF(pbp.fights_participated, 0)) as avgHps
+      FROM player_boss_performance pbp
+      JOIN wcl_bosses wb ON pbp.boss_id = wb.id
+      LEFT JOIN player_boss_deaths pbd ON pbd.user_id = pbp.user_id AND pbd.boss_id = pbp.boss_id AND pbd.difficulty = pbp.difficulty
+      WHERE pbp.user_id = ?
+      ORDER BY pbp.difficulty DESC, wb.boss_order ASC
+    `, [userId]);
+
+    // Totals
+    const totals = await db.get(`
+      SELECT SUM(fights_participated) as totalFights, SUM(total_damage) as totalDamage, SUM(total_healing) as totalHealing
+      FROM player_boss_performance WHERE user_id = ?
+    `, [userId]);
+
+    const deathTotals = await db.get(`
+      SELECT SUM(total_deaths) as totalDeaths FROM player_boss_deaths WHERE user_id = ?
+    `, [userId]);
+
+    // Recent reports
+    const recentReports = await db.all(`
+      SELECT report_code as code, report_title as title, raid_date as date
+      FROM warcraft_logs_processed
+      WHERE is_reverted = 0
+      ORDER BY processed_at DESC LIMIT 10
+    `);
+
+    const totalFights = totals?.totalFights || 0;
+    const totalDeaths = deathTotals?.totalDeaths || 0;
+
+    res.json({
+      totalFights,
+      totalDeaths,
+      deathsPerFight: totalFights > 0 ? Math.round((totalDeaths / totalFights) * 100) / 100 : 0,
+      bossBreakdown,
+      recentReports,
+    });
+  } catch (error) {
+    console.error('My performance error:', error);
+    res.status(500).json({ error: 'Failed to get performance data' });
+  }
+});
+
+// Detailed performance analysis — per-fight data, trends, recommendations
+app.get('/api/analytics/my-performance-detail', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const weeks = parseInt(req.query.weeks) || 8;
+    const bossId = req.query.bossId ? parseInt(req.query.bossId) : undefined;
+    const difficulty = req.query.difficulty || undefined;
+
+    const data = await getPlayerDetailedPerformance(userId, { weeks, bossId, difficulty });
+    res.json(data);
+  } catch (error) {
+    console.error('Performance detail error:', error);
+    res.status(500).json({ error: 'Failed to get detailed performance' });
+  }
+});
+
+// Guild Insights — raid health, death leaders, progression blockers
+app.get('/api/analytics/guild-insights', authenticateToken, async (req, res) => {
+  try {
+    // Raid health from boss_statistics
+    const raidHealth = await db.get(`
+      SELECT SUM(total_kills) as totalKills, SUM(total_wipes) as totalWipes,
+             ROUND(AVG(fastest_kill_ms)) as avgFightTime
+      FROM boss_statistics
+    `);
+
+    const totalKills = raidHealth?.totalKills || 0;
+    const totalWipes = raidHealth?.totalWipes || 0;
+
+    // Top performers by avg DPS (across all bosses)
+    const topPerformers = await db.all(`
+      SELECT u.character_name as name, u.character_class as class,
+             ROUND(SUM(pbp.total_damage) / NULLIF(SUM(pbp.fights_participated), 0)) as avgDps,
+             SUM(pbp.fights_participated) as fights
+      FROM player_boss_performance pbp
+      JOIN users u ON pbp.user_id = u.id
+      WHERE pbp.fights_participated > 0
+      GROUP BY pbp.user_id
+      HAVING fights >= 3
+      ORDER BY avgDps DESC LIMIT 10
+    `);
+
+    // Death leaders
+    const deathLeaders = await db.all(`
+      SELECT u.character_name as name, u.character_class as class,
+             SUM(pbd.total_deaths) as totalDeaths,
+             SUM(pbd.total_fights) as totalFights,
+             ROUND(CAST(SUM(pbd.total_deaths) AS REAL) / NULLIF(SUM(pbd.total_fights), 0), 2) as deathsPerFight
+      FROM player_boss_deaths pbd
+      JOIN users u ON pbd.user_id = u.id
+      GROUP BY pbd.user_id
+      HAVING totalFights >= 3
+      ORDER BY totalDeaths DESC LIMIT 10
+    `);
+
+    // Progression blockers — bosses with most wipes and no kills on hardest difficulty
+    const blockers = await db.all(`
+      SELECT wb.name as bossName, bs.difficulty, bs.total_wipes as wipes, bs.total_kills as kills,
+             bs.fastest_kill_ms as bestTime
+      FROM boss_statistics bs
+      JOIN wcl_bosses wb ON bs.boss_id = wb.id
+      WHERE bs.total_wipes > 0
+      ORDER BY bs.total_wipes DESC LIMIT 5
+    `);
+
+    // Recent reports
+    const recentReports = await db.all(`
+      SELECT report_code as code, report_title as title, raid_date as date
+      FROM warcraft_logs_processed
+      WHERE is_reverted = 0
+      ORDER BY processed_at DESC LIMIT 10
+    `);
+
+    res.json({
+      raidHealth: {
+        totalKills,
+        totalWipes,
+        killRate: (totalKills + totalWipes) > 0 ? Math.round(totalKills / (totalKills + totalWipes) * 100) / 100 : 0,
+        avgFightTime: raidHealth?.avgFightTime || 0,
+      },
+      topPerformers,
+      deathLeaders,
+      progressionBlockers: blockers,
+      recentReports,
+    });
+  } catch (error) {
+    console.error('Guild insights error:', error);
+    res.status(500).json({ error: 'Failed to get guild insights' });
   }
 });
 

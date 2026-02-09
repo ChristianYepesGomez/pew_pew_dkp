@@ -655,6 +655,48 @@ export async function getFightStatsWithDeathEvents(reportCode, fightInfo) {
 }
 
 /**
+ * Get extended fight stats: casts, buffs, interrupts, dispels
+ * Used for deep performance analysis (consumables, utility)
+ */
+export async function getExtendedFightStats(reportCode, fightIds) {
+  const query = `
+    query GetExtendedFightStats($reportCode: String!, $fightIDs: [Int!]) {
+      reportData {
+        report(code: $reportCode) {
+          casts: table(dataType: Casts, fightIDs: $fightIDs, hostilityType: Friendlies)
+          buffs: table(dataType: Buffs, fightIDs: $fightIDs, hostilityType: Friendlies)
+          interrupts: table(dataType: Interrupts, fightIDs: $fightIDs, hostilityType: Friendlies)
+          dispels: table(dataType: Dispels, fightIDs: $fightIDs, hostilityType: Friendlies)
+        }
+      }
+    }
+  `;
+
+  try {
+    const data = await executeGraphQL(query, { reportCode, fightIDs: fightIds });
+    const report = data.reportData?.report;
+    if (!report) {
+      return { casts: [], buffs: [], interrupts: [], dispels: [] };
+    }
+
+    const parseTable = (table) => {
+      if (!table?.data?.entries) return [];
+      return table.data.entries;
+    };
+
+    return {
+      casts: parseTable(report.casts),
+      buffs: parseTable(report.buffs),
+      interrupts: parseTable(report.interrupts),
+      dispels: parseTable(report.dispels),
+    };
+  } catch (error) {
+    console.error('Error fetching extended fight stats:', error.message);
+    return { casts: [], buffs: [], interrupts: [], dispels: [] };
+  }
+}
+
+/**
  * Get reports uploaded by a specific user
  * Used for auto-detecting new logs from a designated uploader
  */
@@ -719,6 +761,57 @@ export async function getUserReports(userId, limit = 10) {
 /**
  * Test if Warcraft Logs credentials are configured
  */
+/**
+ * Get combatant info (equipped gear, class, spec) for players in fights
+ * Uses Summary table which includes gear data per player
+ */
+export async function getFightCombatantInfo(reportCode, fightIds) {
+  const query = `
+    query GetCombatantInfo($reportCode: String!, $fightIDs: [Int!]) {
+      reportData {
+        report(code: $reportCode) {
+          playerDetails(fightIDs: $fightIDs)
+        }
+      }
+    }
+  `;
+
+  try {
+    const data = await executeGraphQL(query, { reportCode, fightIDs: fightIds });
+    const details = data.reportData?.report?.playerDetails?.data?.playerDetails;
+    if (!details) return [];
+
+    // playerDetails groups by role: tanks, healers, dps
+    const allPlayers = [];
+    for (const role of ['tanks', 'healers', 'dps']) {
+      const players = details[role] || [];
+      for (const p of players) {
+        const gear = (p.combatantInfo?.gear || []).map(g => ({
+          id: g.id,
+          name: g.name,
+          quality: g.quality,
+          icon: g.icon,
+          itemLevel: g.itemLevel,
+        })).filter(g => g.id > 0);
+
+        if (gear.length > 0) {
+          allPlayers.push({
+            name: p.name,
+            type: p.type,   // class name e.g. "Mage"
+            specs: p.specs,  // array of spec objects
+            gear,
+          });
+        }
+      }
+    }
+
+    return allPlayers;
+  } catch (error) {
+    console.warn('Error fetching combatant info:', error.message);
+    return [];
+  }
+}
+
 export function isConfigured() {
   return !!(process.env.WCL_CLIENT_ID && process.env.WCL_CLIENT_SECRET);
 }

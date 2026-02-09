@@ -109,14 +109,14 @@ async function getAccessToken() {
 }
 
 // Make authenticated API request
-async function apiRequest(endpoint, params = {}) {
+async function apiRequest(endpoint, params = {}, namespace = null) {
   const token = await getAccessToken();
   const url = `${getApiUrl(CONFIG.region)}${endpoint}`;
 
   try {
     const response = await axios.get(url, {
       params: {
-        namespace: `static-${CONFIG.region}`,
+        namespace: namespace || `static-${CONFIG.region}`,
         locale: CONFIG.locale,
         ...params,
       },
@@ -339,6 +339,7 @@ async function fetchRaidItemsMultiLang(instanceId) {
       rarity: enItem.rarity,
       icon: enItem.icon,
       slot: enItem.slot, // Use English slot name
+      slotType: enItem.slotType, // Raw slot type for paper doll matching
       raid: esItem?.raid || enItem.raid, // Spanish raid name for display
       raidEn: enItem.raid, // English raid name
       boss: esItem?.boss || enItem.boss, // Spanish boss name for display
@@ -361,6 +362,7 @@ async function fetchRaidItemsMultiLang(instanceId) {
         rarity: esItem.rarity,
         icon: esItem.icon,
         slot: esItem.slot,
+        slotType: esItem.slotType,
         raid: esItem.raid,
         raidEn: esItem.raid,
         boss: esItem.boss,
@@ -798,11 +800,32 @@ export async function getCharacterMedia(realmSlug, characterName) {
   }
 }
 
+// Current M+ season dungeons — UPDATE THESE WHEN A NEW SEASON STARTS
+// journal-instance IDs used for fetching loot via journal-instance API
+const CURRENT_MYTHIC_DUNGEONS = [
+  { id: 15093, name: 'Ara-Kara, City of Echoes' },
+  { id: 14971, name: 'The Dawnbreaker' },
+  { id: 15452, name: 'Operation: Floodgate' },
+  { id: 14954, name: 'Priory of the Sacred Flame' },
+  { id: 16104, name: 'Cinderbrew Meadery' },
+  { id: 12831, name: 'Halls of Atonement' },
+  { id: 1194,  name: 'Tazavesh, the Veiled Market' },
+  // Tazavesh Streets + So'leah's Gambit share journal instance 1194
+];
+
+export async function discoverMythicDungeons() {
+  return CURRENT_MYTHIC_DUNGEONS;
+}
+
+export { fetchRaidItemsMultiLang };
+
 export default {
   getCurrentRaidItems,
   getAvailableRaids,
   refreshCache,
   setCurrentRaids,
+  discoverMythicDungeons,
+  fetchRaidItemsMultiLang,
   isBlizzardOAuthConfigured,
   getBlizzardOAuthUrl,
   getUserToken,

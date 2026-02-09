@@ -295,6 +295,30 @@ async function initDatabase() {
     )
   `);
 
+  // ── BIS (Best in Slot) Wishlist ─────────────────────────────────────
+
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS bis_items (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      item_id INTEGER NOT NULL,
+      item_name TEXT NOT NULL,
+      item_name_en TEXT,
+      item_image TEXT,
+      item_rarity TEXT DEFAULT 'epic',
+      item_slot TEXT,
+      item_level INTEGER,
+      boss_name TEXT,
+      raid_name TEXT,
+      priority INTEGER DEFAULT 0,
+      obtained INTEGER DEFAULT 0,
+      notes TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+      UNIQUE(user_id, item_id)
+    )
+  `);
+
   // ── Boss Statistics Feature Tables ──────────────────────────────────
 
   // WCL Zones (Raids) - persistent historical data
@@ -434,6 +458,59 @@ async function initDatabase() {
     )
   `);
 
+  // Item popularity — aggregated from WCL combatant info
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS item_popularity (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      item_id INTEGER NOT NULL,
+      item_name TEXT,
+      item_slot TEXT,
+      class TEXT NOT NULL,
+      spec TEXT,
+      content_type TEXT NOT NULL DEFAULT 'raid',
+      usage_count INTEGER DEFAULT 0,
+      total_players INTEGER DEFAULT 0,
+      last_updated DATETIME DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(item_id, class, spec, content_type)
+    )
+  `);
+
+  // Per-player per-fight snapshots for deep performance analysis
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS player_fight_performance (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      report_code TEXT NOT NULL,
+      fight_id INTEGER NOT NULL,
+      boss_id INTEGER NOT NULL,
+      difficulty TEXT NOT NULL,
+      damage_done INTEGER DEFAULT 0,
+      healing_done INTEGER DEFAULT 0,
+      damage_taken INTEGER DEFAULT 0,
+      deaths INTEGER DEFAULT 0,
+      fight_duration_ms INTEGER DEFAULT 0,
+      dps REAL DEFAULT 0,
+      hps REAL DEFAULT 0,
+      dtps REAL DEFAULT 0,
+      health_potions INTEGER DEFAULT 0,
+      healthstones INTEGER DEFAULT 0,
+      combat_potions INTEGER DEFAULT 0,
+      flask_uptime_pct REAL DEFAULT 0,
+      food_buff_active INTEGER DEFAULT 0,
+      augment_rune_active INTEGER DEFAULT 0,
+      interrupts INTEGER DEFAULT 0,
+      dispels INTEGER DEFAULT 0,
+      raid_median_dps REAL DEFAULT 0,
+      raid_median_dtps REAL DEFAULT 0,
+      fight_date DATE,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(user_id, report_code, fight_id),
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    )
+  `);
+  await db.exec(`CREATE INDEX IF NOT EXISTS idx_pfp_user_date ON player_fight_performance(user_id, fight_date)`);
+  await db.exec(`CREATE INDEX IF NOT EXISTS idx_pfp_user_boss ON player_fight_performance(user_id, boss_id, difficulty)`);
+
   // ── Column migrations (for databases created before these columns) ──
 
   const columnMigrations = [
@@ -472,6 +549,9 @@ async function initDatabase() {
     // Character realm for equipment feature
     'ALTER TABLE characters ADD COLUMN realm TEXT',
     'ALTER TABLE characters ADD COLUMN realm_slug TEXT',
+    // BIS paper doll: source type and slot position
+    "ALTER TABLE bis_items ADD COLUMN source_type TEXT DEFAULT 'raid'",
+    'ALTER TABLE bis_items ADD COLUMN slot_position TEXT',
   ];
 
   for (const sql of columnMigrations) {
@@ -533,6 +613,12 @@ async function initDatabase() {
     'CREATE INDEX IF NOT EXISTS idx_player_boss_performance_boss ON player_boss_performance(boss_id)',
     'CREATE INDEX IF NOT EXISTS idx_boss_records_boss ON boss_records(boss_id)',
     'CREATE INDEX IF NOT EXISTS idx_boss_records_type ON boss_records(record_type)',
+    // BIS Wishlist indexes
+    'CREATE INDEX IF NOT EXISTS idx_bis_items_user ON bis_items(user_id)',
+    'CREATE INDEX IF NOT EXISTS idx_bis_items_item ON bis_items(item_id)',
+    // Item popularity indexes
+    'CREATE INDEX IF NOT EXISTS idx_item_popularity_class ON item_popularity(class, spec, content_type)',
+    'CREATE INDEX IF NOT EXISTS idx_item_popularity_slot ON item_popularity(item_slot, class)',
   ];
 
   for (const sql of indexes) {
