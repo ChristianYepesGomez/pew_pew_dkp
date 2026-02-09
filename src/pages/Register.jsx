@@ -189,7 +189,7 @@ const Register = () => {
           </div>
         </div>
 
-        <p className="text-lavender text-center mt-6">
+        <p className="text-lavender text-center text-sm mt-6">
           {t('have_account')}{' '}
           <Link to="/login" className="text-coral font-semibold hover:underline">
             {t('login_here')}

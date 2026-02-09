@@ -131,7 +131,7 @@ const ResetPassword = () => {
           </div>
         </div>
 
-        <p className="text-lavender text-center mt-6">
+        <p className="text-lavender text-center text-sm mt-6">
           <Link to="/login" className="text-coral font-semibold hover:underline">
             {t('back_to_login')}
           </Link>

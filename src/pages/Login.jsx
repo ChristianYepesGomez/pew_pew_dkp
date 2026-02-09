@@ -106,7 +106,7 @@ const Login = () => {
             </form>
         </div>
 
-        <p className="text-lavender text-center mt-6">
+        <p className="text-lavender text-center text-sm mt-6">
           {t('no_account')}{' '}
           <Link to="/register" className="text-coral font-semibold hover:underline">
             {t('register')}
