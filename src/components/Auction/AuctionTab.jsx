@@ -4,7 +4,7 @@ import { useAuth } from '../../hooks/useAuth'
 import { useSocket } from '../../hooks/useSocket'
 import { useLanguage } from '../../hooks/useLanguage'
 import { useNotifications, NOTIFICATION_SOUNDS } from '../../hooks/useNotifications'
-import { auctionsAPI } from '../../services/api'
+import { auctionsAPI, bisAPI } from '../../services/api'
 import CreateAuctionModal from './CreateAuctionModal'
 import BidModal from './BidModal'
 import WowheadTooltip from '../Common/WowheadTooltip'
@@ -233,6 +233,7 @@ const AuctionTab = () => {
   const [bidModal, setBidModal] = useState({ open: false, auction: null })
   const [showSoundModal, setShowSoundModal] = useState(false)
   const [timeRemaining, setTimeRemaining] = useState({})
+  const [bisData, setBisData] = useState({}) // { auctionId: [{ user_id, character_name, priority }] }
   const timerRef = useRef(null)
   const auctionsRef = useRef([]) // Keep track of auctions for notifications
   const isAdmin = user?.role === 'admin' || user?.role === 'officer'
@@ -277,6 +278,23 @@ const AuctionTab = () => {
   }
 
   useEffect(() => { loadAuctions() }, [])
+
+  // Load BIS data for active auctions
+  useEffect(() => {
+    const loadBIS = async () => {
+      const data = {}
+      for (const auction of auctions) {
+        if (auction.itemId) {
+          try {
+            const res = await bisAPI.getItemUsers(auction.itemId)
+            if (res.data?.length > 0) data[auction.id] = res.data
+          } catch { /* silent */ }
+        }
+      }
+      setBisData(data)
+    }
+    if (auctions.length > 0) loadBIS()
+  }, [auctions])
 
   useEffect(() => {
     if (auctions.length > 0) {
@@ -499,7 +517,7 @@ const AuctionTab = () => {
                     </div>
                   </WowheadTooltip>
 
-                  {/* Item Name */}
+                  {/* Item Name + BIS Badge */}
                   <div className="flex-1 min-w-0">
                     <h4
                       className="text-lg font-cinzel mb-0 truncate"
@@ -507,6 +525,14 @@ const AuctionTab = () => {
                     >
                       {auction.itemName}
                     </h4>
+                    {bisData[auction.id]?.length > 0 && (
+                      <div className="flex items-center gap-1 mt-1" title={bisData[auction.id].map(b => `${b.character_name}${b.priority ? ` #${b.priority}` : ''}`).join(', ')}>
+                        <i className="fas fa-crosshairs text-xs text-yellow-400"></i>
+                        <span className="text-xs text-yellow-400">
+                          {bisData[auction.id].length} {t('bis_raiders_want')}
+                        </span>
+                      </div>
+                    )}
                   </div>
 
                   {/* Highest Bidder / Tie Info */}

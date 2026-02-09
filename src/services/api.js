@@ -75,6 +75,8 @@ export const raidItemsAPI = {
   getRaidsList: () => api.get('/raids-list'),
   getStatus: () => api.get('/raid-items/status'),
   refresh: () => api.post('/raid-items/refresh'),
+  getAllSources: () => api.get('/all-items'),
+  getDungeonItems: () => api.get('/dungeon-items'),
 }
 
 export const charactersAPI = {
@@ -120,6 +122,43 @@ export const buffsAPI = {
   getStreamUrl: () => {
     const baseUrl = API_URL.replace('/api', '')
     return `${baseUrl}/api/buffs/stream`
+  },
+}
+
+export const bisAPI = {
+  getMy: () => api.get('/bis/my'),
+  getUser: (userId) => api.get(`/bis/user/${userId}`),
+  getItemUsers: (itemId) => api.get(`/bis/item/${itemId}`),
+  add: (data) => api.post('/bis', data),
+  update: (id, data) => api.put(`/bis/${id}`, data),
+  remove: (id) => api.delete(`/bis/${id}`),
+  reorder: (items) => api.put('/bis/reorder', { items }),
+}
+
+export const analyticsAPI = {
+  getAttendance: (weeks = 8) => api.get(`/analytics/attendance?weeks=${weeks}`),
+  getDkpTrends: (weeks = 12) => api.get(`/analytics/dkp-trends?weeks=${weeks}`),
+  getEconomy: () => api.get('/analytics/economy'),
+  getAuctions: (weeks = 8) => api.get(`/analytics/auctions?weeks=${weeks}`),
+  getProgression: () => api.get('/analytics/progression'),
+  getSuperlatives: () => api.get('/analytics/superlatives'),
+  getMyPerformance: () => api.get('/analytics/my-performance'),
+  getGuildInsights: () => api.get('/analytics/guild-insights'),
+  getMyPerformanceDetail: (weeks = 8, bossId, difficulty) => {
+    const params = new URLSearchParams({ weeks });
+    if (bossId) params.append('bossId', bossId);
+    if (difficulty) params.append('difficulty', difficulty);
+    return api.get(`/analytics/my-performance-detail?${params}`);
+  },
+}
+
+export const itemPopularityAPI = {
+  get: (className, spec, slot, content = 'raid') => {
+    const params = new URLSearchParams({ class: className });
+    if (spec) params.append('spec', spec);
+    if (slot) params.append('slot', slot);
+    if (content) params.append('content', content);
+    return api.get(`/item-popularity?${params}`);
   },
 }
 

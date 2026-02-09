@@ -81,6 +81,7 @@ const ArmoryModal = ({ memberId, onClose }) => {
   const [equipment, setEquipment] = useState(null)
   const [equipmentLoading, setEquipmentLoading] = useState(false)
   const [equipmentError, setEquipmentError] = useState(null)
+  const [characterMedia, setCharacterMedia] = useState(null)
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState('loot')
 
@@ -111,15 +112,19 @@ const ArmoryModal = ({ memberId, onClose }) => {
     loadData()
   }, [memberId])
 
-  // Load equipment when switching to equipment tab
+  // Load equipment and character media when switching to equipment tab
   const loadEquipment = useCallback(async () => {
     if (!profile?.server || !profile?.characterName || equipment || equipmentLoading) return
 
     setEquipmentLoading(true)
     setEquipmentError(null)
     try {
-      const res = await armoryAPI.getEquipment(profile.server, profile.characterName)
-      setEquipment(res.data?.items || res.data?.equipped_items || [])
+      const [equipRes, mediaRes] = await Promise.all([
+        armoryAPI.getEquipment(profile.server, profile.characterName),
+        armoryAPI.getMedia(profile.server, profile.characterName).catch(() => ({ data: null })),
+      ])
+      setEquipment(equipRes.data?.items || equipRes.data?.equipped_items || [])
+      setCharacterMedia(mediaRes.data)
     } catch (error) {
       console.error('Error loading equipment:', error)
       setEquipmentError(error.response?.data?.error || t('equipment_load_error'))
@@ -170,7 +175,7 @@ const ArmoryModal = ({ memberId, onClose }) => {
   return createPortal(
     <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-[100] p-4" onClick={onClose}>
       <div
-        className="bg-midnight-deepblue border-2 border-midnight-bright-purple rounded-2xl w-full max-w-2xl shadow-2xl max-h-[90vh] flex flex-col"
+        className="bg-midnight-deepblue border-2 border-midnight-bright-purple rounded-2xl w-full max-w-3xl shadow-2xl max-h-[90vh] flex flex-col"
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
@@ -331,43 +336,59 @@ const ArmoryModal = ({ memberId, onClose }) => {
                   <i className="fas fa-exclamation-triangle text-4xl text-yellow-500 mb-4"></i>
                   <p className="text-yellow-400">{equipmentError}</p>
                   <button
-                    onClick={() => { setEquipment(null); loadEquipment() }}
+                    onClick={() => { setEquipment(null); setCharacterMedia(null); loadEquipment() }}
                     className="mt-4 px-4 py-2 rounded-lg bg-midnight-purple text-white hover:bg-midnight-bright-purple transition-all"
                   >
                     {t('retry')}
                   </button>
                 </div>
               ) : equipment && equipment.length > 0 ? (
-                <div className="grid grid-cols-2 gap-2">
-                  {equipment.map((item) => {
-                    const quality = (item.rarity || item.quality || 'epic').toLowerCase()
-                    const rarityColor = RARITY_COLORS[quality] || RARITY_COLORS.epic
-                    const slotName = (item.slotName || item.slot || '').replace(/_/g, ' ')
-                    return (
-                      <WowheadTooltip key={item.slot} itemId={item.itemId}>
-                        <div className="bg-midnight-purple bg-opacity-20 rounded-lg p-2 flex items-center gap-2 cursor-help hover:bg-opacity-30 transition-all">
-                          <div
-                            className="w-9 h-9 rounded bg-midnight-deepblue flex items-center justify-center border-2 flex-shrink-0 overflow-hidden"
-                            style={{ borderColor: rarityColor }}
-                          >
-                            {item.icon ? (
-                              <img src={item.icon} alt="" className="w-full h-full object-cover" />
-                            ) : (
-                              <i className="fas fa-question text-gray-500"></i>
-                            )}
+                <div className="flex gap-4">
+                  {/* Character render */}
+                  {characterMedia?.mainRaw && (
+                    <div className="hidden sm:flex flex-shrink-0 w-[200px] items-start justify-center">
+                      <div className="relative w-full rounded-xl overflow-hidden bg-gradient-to-b from-midnight-purple/20 via-midnight-deepblue/40 to-midnight-purple/20 border border-midnight-bright-purple border-opacity-10">
+                        <img
+                          src={characterMedia.mainRaw}
+                          alt={profile.characterName}
+                          className="w-full h-auto object-contain"
+                          style={{ filter: 'drop-shadow(0 0 12px rgba(139, 92, 246, 0.3))' }}
+                        />
+                      </div>
+                    </div>
+                  )}
+                  {/* Equipment grid */}
+                  <div className={`flex-1 grid gap-2 ${characterMedia?.mainRaw ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-2'}`}>
+                    {equipment.map((item) => {
+                      const quality = (item.rarity || item.quality || 'epic').toLowerCase()
+                      const rarityColor = RARITY_COLORS[quality] || RARITY_COLORS.epic
+                      const slotName = (item.slotName || item.slot || '').replace(/_/g, ' ')
+                      return (
+                        <WowheadTooltip key={item.slot} itemId={item.itemId}>
+                          <div className="bg-midnight-purple bg-opacity-20 rounded-lg p-2 flex items-center gap-2 cursor-help hover:bg-opacity-30 transition-all">
+                            <div
+                              className="w-9 h-9 rounded bg-midnight-deepblue flex items-center justify-center border-2 flex-shrink-0 overflow-hidden"
+                              style={{ borderColor: rarityColor }}
+                            >
+                              {item.icon ? (
+                                <img src={item.icon} alt="" className="w-full h-full object-cover" />
+                              ) : (
+                                <i className="fas fa-question text-gray-500"></i>
+                              )}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-bold m-0 truncate" style={{ color: rarityColor }}>
+                                {item.name}
+                              </p>
+                              <p className="text-xs text-gray-500 m-0">
+                                {slotName} {item.itemLevel ? `\u2022 iLvl ${item.itemLevel}` : ''}
+                              </p>
+                            </div>
                           </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-xs font-bold m-0 truncate" style={{ color: rarityColor }}>
-                              {item.name}
-                            </p>
-                            <p className="text-xs text-gray-500 m-0">
-                              {slotName} {item.itemLevel ? `• iLvl ${item.itemLevel}` : ''}
-                            </p>
-                          </div>
-                        </div>
-                      </WowheadTooltip>
-                    )
-                  })}
+                        </WowheadTooltip>
+                      )
+                    })}
+                  </div>
                 </div>
               ) : (
                 <div className="text-center py-8">

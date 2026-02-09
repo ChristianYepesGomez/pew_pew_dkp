@@ -9,6 +9,8 @@ import HistoryTab from '../components/Auction/HistoryTab'
 import CalendarTab from '../components/Calendar/CalendarTab'
 import AdminTab from '../components/Admin/AdminTab'
 import BossesTab from '../components/Bosses/BossesTab'
+import BISTab from '../components/BIS/BISTab'
+import AnalyticsTab from '../components/Analytics/AnalyticsTab'
 
 const Dashboard = () => {
   const [activeTab, setActiveTab] = useState('members')
@@ -75,6 +77,8 @@ const Dashboard = () => {
     { id: 'auction', icon: 'fa-gavel', label: t('active_auction') },
     { id: 'history', icon: 'fa-history', label: t('auction_history') },
     { id: 'bosses', icon: 'fa-dragon', label: t('bosses') },
+    { id: 'bis', icon: 'fa-scroll', label: t('bis') },
+    { id: 'stats', icon: 'fa-chart-line', label: t('stats') },
   ]
 
   // Only admin can see Admin tab (not officers)
@@ -115,6 +119,8 @@ const Dashboard = () => {
           {activeTab === 'calendar' && <CalendarTab />}
           {activeTab === 'auction' && <AuctionTab />}
           {activeTab === 'history' && <HistoryTab />}
+          {activeTab === 'bis' && <BISTab />}
+          {activeTab === 'stats' && <AnalyticsTab />}
           {activeTab === 'admin' && isAdmin && <AdminTab />}
         </div>
       </div>
