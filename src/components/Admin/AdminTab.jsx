@@ -289,7 +289,7 @@ const AdminTab = () => {
             <div className="flex items-center justify-between mb-3">
               <h4 className="text-yellow-400 font-bold flex items-center gap-2 m-0">
                 <Bell size={18} className="animate-pulse" />
-                {t('pending_wcl_reports') || 'Logs Pendientes'}
+                {t('pending_wcl_reports') || 'Logs pendientes'}
                 <span className="bg-yellow-500 text-white text-xs px-2 py-0.5 rounded-full">{pendingReports.length}</span>
               </h4>
               <button

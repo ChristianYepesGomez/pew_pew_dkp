@@ -117,7 +117,7 @@ const SoundSettingsModal = ({
                 <MusicNotes size={20} weight="fill" className="text-coral" />
               </div>
               <div>
-                <h3 className="text-lg font-bold text-cream m-0">{t('sound_settings') || 'Configuración de Sonido'}</h3>
+                <h3 className="text-lg font-bold text-cream m-0">{t('sound_settings') || 'Configuración de sonido'}</h3>
                 <p className="text-xs text-lavender m-0">{t('sound_settings_subtitle') || 'Personaliza el sonido de las notificaciones'}</p>
               </div>
             </div>
@@ -168,7 +168,7 @@ const SoundSettingsModal = ({
                   {/* Sound info */}
                   <div className="flex-1 min-w-0">
                     <p className={`font-bold m-0 ${isSelected ? 'text-coral' : 'text-cream'}`}>
-                      {isCustom ? (t('custom_sound') || 'Sonido Personalizado') : sound.name}
+                      {isCustom ? (t('custom_sound') || 'Sonido personalizado') : sound.name}
                     </p>
                     <p className="text-xs text-lavender m-0 truncate">
                       {isCustom
@@ -355,7 +355,7 @@ const AuctionTab = () => {
   const handleAuctionStarted = useCallback((auction) => {
     loadAuctions()
     if (isEnabled) {
-      showNotification(t('new_auction_notification') || 'Nueva Subasta', {
+      showNotification(t('new_auction_notification') || 'Nueva subasta', {
         body: auction.item_name || auction.itemName || 'Item',
         tag: `auction-${auction.id}`,
         icon: auction.item_image || '/favicon.ico',

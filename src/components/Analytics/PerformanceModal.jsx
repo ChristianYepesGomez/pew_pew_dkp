@@ -80,9 +80,9 @@ const PerformanceModal = ({ onClose }) => {
     const s = data.summary
     return [
       { axis: 'DPS', value: Math.min(s.dpsVsMedianPct || 0, 150), max: 150 },
-      { axis: lang === 'es' ? 'Supervivencia' : 'Survival', value: Math.max(0, 100 - (s.deathRate || 0) * 100), max: 100 },
-      { axis: lang === 'es' ? 'Consumibles' : 'Consumables', value: s.consumableScore || 0, max: 100 },
-      { axis: lang === 'es' ? 'Utilidad' : 'Utility', value: Math.min((s.avgInterrupts || 0) * 25, 100), max: 100 },
+      { axis: t('perf_category_survivability'), value: Math.max(0, 100 - (s.deathRate || 0) * 100), max: 100 },
+      { axis: t('perf_category_consumables'), value: s.consumableScore || 0, max: 100 },
+      { axis: t('perf_category_utility'), value: Math.min((s.avgInterrupts || 0) * 25, 100), max: 100 },
       { axis: lang === 'es' ? 'Consistencia' : 'Consistency', value: s.dpsVsMedianPct > 0 ? Math.min(s.dpsVsMedianPct, 100) : 50, max: 100 },
     ]
   }, [data, lang])
@@ -138,7 +138,7 @@ const PerformanceModal = ({ onClose }) => {
           {/* Radar chart */}
           <div className="rounded-xl bg-lavender-12/10 border border-lavender-20/15 p-4">
             <p className="text-xs text-lavender mb-2 font-semibold uppercase tracking-wider">
-              {lang === 'es' ? 'Perfil de Rendimiento' : 'Performance Profile'}
+              {lang === 'es' ? 'Perfil de rendimiento' : 'Performance Profile'}
             </p>
             <ResponsiveContainer width="100%" height={220}>
               <RadarChart data={radarData} cx="50%" cy="50%" outerRadius="70%">
@@ -152,7 +152,7 @@ const PerformanceModal = ({ onClose }) => {
           {/* Top 3 recommendations */}
           <div className="rounded-xl bg-lavender-12/10 border border-lavender-20/15 p-4">
             <p className="text-xs text-lavender mb-3 font-semibold uppercase tracking-wider">
-              {lang === 'es' ? 'Recomendaciones Principales' : 'Top Recommendations'}
+              {lang === 'es' ? 'Recomendaciones principales' : 'Top Recommendations'}
             </p>
             <div className="space-y-2">
               {(data.recommendations || [])
@@ -183,9 +183,9 @@ const PerformanceModal = ({ onClose }) => {
             {t('perf_category_consumables')}
           </p>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-            <ConsumableBar label={lang === 'es' ? 'Poción de vida' : 'Health Potion'} pct={s.healthPotionRate} />
+            <ConsumableBar label={lang === 'es' ? 'Poción de vida' : 'Health potion'} pct={s.healthPotionRate} />
             <ConsumableBar label="Healthstone" pct={s.healthstoneRate} />
-            <ConsumableBar label={lang === 'es' ? 'Poción de combate' : 'Combat Potion'} pct={s.combatPotionRate} />
+            <ConsumableBar label={lang === 'es' ? 'Poción de combate' : 'Combat potion'} pct={s.combatPotionRate} />
             <ConsumableBar label="Flask" pct={s.avgFlaskUptime} />
             <ConsumableBar label={lang === 'es' ? 'Comida' : 'Food'} pct={s.foodRate} />
             <ConsumableBar label="Augment Rune" pct={s.augmentRate} />
