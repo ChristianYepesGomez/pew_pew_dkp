@@ -11,7 +11,7 @@ const PillButton = ({ children, icon: Icon, active, variant, iconOnly, className
 
   return (
     <button className={`${base} ${padding} ${className}`} {...props}>
-      {Icon && <Icon size={24} weight={active ? 'bold' : 'regular'} />}
+      {Icon && <Icon size={24} />}
       {!iconOnly && children}
     </button>
   )

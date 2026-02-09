@@ -89,7 +89,7 @@ const Register = () => {
           <div className="p-6">
             {error && (
               <div className="bg-red-500/20 border border-red-500 text-red-400 px-4 py-3 rounded-xl mb-6 flex items-center gap-2">
-                <WarningCircle size={20} weight="bold" />
+                <WarningCircle size={20} />
                 <span>{error}</span>
               </div>
             )}
@@ -97,7 +97,7 @@ const Register = () => {
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <label className="flex items-center gap-2 text-cream text-sm font-semibold mb-2">
-                  <User size={16} weight="bold" className="text-coral" />{t('username')}
+                  <User size={16} className="text-coral" />{t('username')}
                 </label>
                 <input
                   type="text"
@@ -111,7 +111,7 @@ const Register = () => {
 
               <div>
                 <label className="flex items-center gap-2 text-cream text-sm font-semibold mb-2">
-                  <Envelope size={16} weight="bold" className="text-coral" />{t('email')}
+                  <Envelope size={16} className="text-coral" />{t('email')}
                 </label>
                 <input
                   type="email"
@@ -125,7 +125,7 @@ const Register = () => {
 
               <div>
                 <label className="flex items-center gap-2 text-cream text-sm font-semibold mb-2">
-                  <Lock size={16} weight="bold" className="text-coral" />{t('password')}
+                  <Lock size={16} className="text-coral" />{t('password')}
                 </label>
                 <input
                   type="password"
@@ -140,7 +140,7 @@ const Register = () => {
 
               <div>
                 <label className="flex items-center gap-2 text-cream text-sm font-semibold mb-2">
-                  <Lock size={16} weight="bold" className="text-coral" />{t('confirm_password')}
+                  <Lock size={16} className="text-coral" />{t('confirm_password')}
                 </label>
                 <input
                   type="password"
@@ -153,7 +153,7 @@ const Register = () => {
               </div>
 
               <div className="flex items-start gap-3 px-4 py-3 bg-indigo rounded-xl border-2 border-lavender-20 text-sm">
-                <Info size={18} weight="bold" className="text-coral mt-0.5 shrink-0" />
+                <Info size={18} className="text-coral mt-0.5 shrink-0" />
                 <p className="text-lavender">{t('register_info')}</p>
               </div>
 
@@ -164,11 +164,11 @@ const Register = () => {
               >
                 {loading ? (
                   <span className="flex items-center justify-center gap-2">
-                    <CircleNotch size={20} weight="bold" className="animate-spin" />{t('loading')}...
+                    <CircleNotch size={20} className="animate-spin" />{t('loading')}...
                   </span>
                 ) : (
                   <span className="flex items-center justify-center gap-2">
-                    <UserPlus size={20} weight="bold" />{t('create_account')}
+                    <UserPlus size={20} />{t('create_account')}
                   </span>
                 )}
               </button>

@@ -277,7 +277,7 @@ const MembersTab = () => {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <CircleNotch size={48} weight="bold" className="text-coral animate-spin" />
+        <CircleNotch size={48} className="text-coral animate-spin" />
       </div>
     )
   }
@@ -339,7 +339,7 @@ const MembersTab = () => {
                       title={t('remove_member')}
                       disabled={m.id === user?.id}
                     >
-                      <X size={14} weight="bold" />
+                      <X size={14} />
                     </button>
                   )}
                   <button
@@ -435,7 +435,7 @@ const MembersTab = () => {
                 className="flex-1 px-4 py-3 rounded-full bg-red-600 hover:bg-red-700 text-white font-bold transition-colors disabled:opacity-50"
               >
                 {deleteLoading ? (
-                  <CircleNotch size={20} weight="bold" className="animate-spin mx-auto" />
+                  <CircleNotch size={20} className="animate-spin mx-auto" />
                 ) : (
                   t('confirm')
                 )}
@@ -461,7 +461,7 @@ const MembersTab = () => {
             onClick={() => setAvatarPreview(null)}
             className="absolute top-4 right-4 w-10 h-10 rounded-full text-white/50 hover:text-white transition-colors flex items-center justify-center"
           >
-            <X size={24} weight="bold" />
+            <X size={24} />
           </button>
         </div>,
         document.body

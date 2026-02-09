@@ -124,7 +124,7 @@ const CreateAuctionModal = ({ onClose, onSuccess }) => {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="w-12 h-12 rounded-full bg-lavender-12 flex items-center justify-center">
-                <Gavel size={28} weight="bold" className="text-coral" />
+                <Gavel size={28} className="text-coral" />
               </div>
               <div>
                 <h3 className="text-lg font-bold text-white m-0">{t('create_auction')}</h3>
@@ -132,7 +132,7 @@ const CreateAuctionModal = ({ onClose, onSuccess }) => {
               </div>
             </div>
             <button onClick={onClose} className="text-gray-400 hover:text-white text-2xl">
-              <X size={24} weight="bold" />
+              <X size={24} />
             </button>
           </div>
         </div>
@@ -140,7 +140,7 @@ const CreateAuctionModal = ({ onClose, onSuccess }) => {
         {/* Error */}
         {error && (
           <div className="mx-6 mt-4 bg-red-500/20 border border-red-500 text-red-400 px-4 py-3 rounded-lg flex-shrink-0">
-            <WarningCircle size={16} weight="bold" className="inline mr-2" />{error}
+            <WarningCircle size={16} className="inline mr-2" />{error}
           </div>
         )}
 
@@ -175,7 +175,7 @@ const CreateAuctionModal = ({ onClose, onSuccess }) => {
           <div className="flex-1 overflow-y-auto">
             {loading ? (
               <div className="text-center py-10">
-                <CircleNotch size={40} weight="bold" className="animate-spin text-coral mx-auto" />
+                <CircleNotch size={40} className="animate-spin text-coral mx-auto" />
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -199,7 +199,7 @@ const CreateAuctionModal = ({ onClose, onSuccess }) => {
                           onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'block'; }}
                         />
                       ) : null}
-                      <Diamond size={20} weight="bold" style={{ color: RARITY_COLORS[item.rarity], display: item.icon ? 'none' : 'block' }} />
+                      <Diamond size={20} style={{ color: RARITY_COLORS[item.rarity], display: item.icon ? 'none' : 'block' }} />
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="font-bold truncate m-0" style={{ color: RARITY_COLORS[item.rarity] }}>
@@ -210,7 +210,7 @@ const CreateAuctionModal = ({ onClose, onSuccess }) => {
                       </p>
                     </div>
                     {selectedItem?.id === item.id && (
-                      <CheckCircle size={20} weight="bold" className="text-coral flex-shrink-0" />
+                      <CheckCircle size={20} className="text-coral flex-shrink-0" />
                     )}
                   </button>
                 ))}
@@ -236,7 +236,7 @@ const CreateAuctionModal = ({ onClose, onSuccess }) => {
                       onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'block'; }}
                     />
                   ) : null}
-                  <Diamond size={24} weight="bold" style={{ color: RARITY_COLORS[selectedItem.rarity], display: selectedItem.icon ? 'none' : 'block' }} />
+                  <Diamond size={24} style={{ color: RARITY_COLORS[selectedItem.rarity], display: selectedItem.icon ? 'none' : 'block' }} />
                 </div>
                 <div className="flex-1">
                   <p className="font-bold text-lg m-0" style={{ color: RARITY_COLORS[selectedItem.rarity] }}>
@@ -277,9 +277,9 @@ const CreateAuctionModal = ({ onClose, onSuccess }) => {
             className="flex-1 px-4 py-3 rounded-lg bg-coral text-indigo font-bold hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {creating ? (
-              <><CircleNotch size={18} weight="bold" className="inline animate-spin mr-2" />{t('loading')}...</>
+              <><CircleNotch size={18} className="inline animate-spin mr-2" />{t('loading')}...</>
             ) : (
-              <><Gavel size={18} weight="bold" className="inline mr-2" />{t('create_auction')}</>
+              <><Gavel size={18} className="inline mr-2" />{t('create_auction')}</>
             )}
           </button>
         </div>

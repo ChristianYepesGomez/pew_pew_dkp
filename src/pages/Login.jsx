@@ -35,19 +35,14 @@ const Login = () => {
           </button>
         </div>
 
-        <div className="bg-lavender-12 rounded-2xl overflow-hidden">
-          <div className="p-8 text-center border-b border-lavender-20">
-            <div className="mb-4 flex justify-center">
-              <CatLogo size={70} />
-            </div>
-            <h2 className="text-2xl font-bold text-coral mb-1">{t('guild_name')}</h2>
-            <p className="text-lavender text-sm">{t('login_title')}</p>
+        <div className="bg-lavender-12 rounded-2xl overflow-hidden p-8 space-y-8">
+          <div className="flex justify-center pt-4">
+            <CatLogo size={280} />
           </div>
 
-          <div className="p-6">
             {error && (
               <div className="bg-red-500/20 border border-red-500 text-red-400 px-4 py-3 rounded-xl mb-6 flex items-center gap-2">
-                <WarningCircle size={20} weight="bold" />
+                <WarningCircle size={20} />
                 <span>{error}</span>
               </div>
             )}
@@ -55,7 +50,7 @@ const Login = () => {
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <label className="flex items-center gap-2 text-cream text-sm font-semibold mb-2">
-                  <User size={16} weight="bold" className="text-coral" />{t('username')}
+                  <User size={16} className="text-coral" />{t('username')}
                 </label>
                 <input
                   type="text"
@@ -69,7 +64,7 @@ const Login = () => {
 
               <div>
                 <label className="flex items-center gap-2 text-cream text-sm font-semibold mb-2">
-                  <Lock size={16} weight="bold" className="text-coral" />{t('password')}
+                  <Lock size={16} className="text-coral" />{t('password')}
                 </label>
                 <input
                   type="password"
@@ -88,30 +83,30 @@ const Login = () => {
               >
                 {loading ? (
                   <span className="flex items-center justify-center gap-2">
-                    <CircleNotch size={20} weight="bold" className="animate-spin" />{t('loading')}...
+                    <CircleNotch size={20} className="animate-spin" />{t('loading')}...
                   </span>
                 ) : (
                   <span className="flex items-center justify-center gap-2">
-                    <SignIn size={20} weight="bold" />{t('login')}
+                    <SignIn size={20} />{t('login')}
                   </span>
                 )}
               </button>
-            </form>
-
-            <div className="text-center mt-6 pt-6 border-t border-lavender-20 space-y-3">
               <Link
                 to="/forgot-password"
                 className="text-lavender hover:text-cream transition-colors flex items-center justify-center gap-2 text-sm"
               >
-                <Key size={16} weight="bold" />{t('forgot_password')}
+                <Key size={16} />{t('forgot_password')}
               </Link>
+            </form>
+
+            <div className="text-center mt-6 pt-6 border-t border-lavender-20 space-y-3">
+            
               <p className="text-lavender">
                 {t('no_account')}{' '}
                 <Link to="/register" className="text-coral font-semibold hover:underline">
                   {t('register')}
                 </Link>
               </p>
-            </div>
           </div>
         </div>
       </div>

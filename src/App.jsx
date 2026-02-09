@@ -50,7 +50,7 @@ function App() {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <CircleNotch size={48} weight="bold" className="text-coral animate-spin" />
+        <CircleNotch size={48} className="text-coral animate-spin" />
       </div>
     )
   }

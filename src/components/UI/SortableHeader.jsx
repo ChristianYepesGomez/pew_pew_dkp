@@ -11,9 +11,9 @@ const SortableHeader = ({ children, field, sortField, sortDir, onSort, className
     >
       {children}
       {isActive ? (
-        sortDir === 'asc' ? <CaretUp size={12} weight="bold" /> : <CaretDown size={12} weight="bold" />
+        sortDir === 'asc' ? <CaretUp size={12} /> : <CaretDown size={12} />
       ) : (
-        <CaretUpDown size={12} weight="bold" className="text-lavender" />
+        <CaretUpDown size={12} className="text-lavender" />
       )}
     </button>
   )

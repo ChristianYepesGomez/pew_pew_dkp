@@ -29,7 +29,7 @@ const CharacterTab = () => {
 
   const classCSS = `class-${(user?.characterClass || '').toLowerCase().replace(' ', '-')}`
 
-  if (loading) return <div className="text-center py-20"><CircleNotch size={48} weight="bold" className="animate-spin text-coral mx-auto" /></div>
+  if (loading) return <div className="text-center py-20"><CircleNotch size={48} className="animate-spin text-coral mx-auto" /></div>
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -37,7 +37,7 @@ const CharacterTab = () => {
       <div className="space-y-6">
         {/* Character Info */}
         <div className="rounded-2xl bg-lavender-12 p-8">
-          <h3 className="flex items-center gap-3"><ShieldStar size={20} weight="bold" />{t('information')}</h3>
+          <h3 className="flex items-center gap-3"><ShieldStar size={20} />{t('information')}</h3>
           <div className="space-y-3">
             <p><strong className="text-coral">{t('name')}:</strong> <span className={classCSS}>{user?.characterName || '-'}</span></p>
             <p><strong className="text-coral">{t('class')}:</strong> <span className={classCSS}>{user?.characterClass || '-'}</span></p>
@@ -57,7 +57,7 @@ const CharacterTab = () => {
 
         {/* Stats */}
         <div className="rounded-2xl bg-lavender-12 p-8">
-          <h3 className="flex items-center gap-3"><ChartLineUp size={20} weight="bold" />{t('statistics')}</h3>
+          <h3 className="flex items-center gap-3"><ChartLineUp size={20} />{t('statistics')}</h3>
           <div className="space-y-3">
             <p><strong className="text-coral">{t('total_gained')}:</strong> <span className="amount-positive">{dkpData.lifetimeGained || 0} DKP</span></p>
             <p><strong className="text-coral">{t('total_spent')}:</strong> <span className="amount-negative">{dkpData.lifetimeSpent || 0} DKP</span></p>
@@ -79,7 +79,7 @@ const CharacterTab = () => {
       {/* Transactions */}
       <div className="lg:col-span-2">
         <div className="rounded-2xl bg-lavender-12 p-8">
-          <h3 className="flex items-center gap-3"><FileText size={20} weight="bold" />{t('my_dkp_history')}</h3>
+          <h3 className="flex items-center gap-3"><FileText size={20} />{t('my_dkp_history')}</h3>
           {dkpData.transactions?.length === 0 ? (
             <p className="text-center text-gray-400 py-8">{t('no_transactions')}</p>
           ) : (
@@ -87,12 +87,12 @@ const CharacterTab = () => {
               {dkpData.transactions?.map((trans, idx) => (
                 <div key={idx} className="flex justify-between items-center border-b border-lavender-20/20 pb-3">
                   <div>
-                    <Coins size={16} weight="bold" className="inline text-coral mr-2" />
+                    <Coins size={16} className="inline text-coral mr-2" />
                     <strong>{trans.reason}</strong>
                     <div className="text-sm text-gray-400 ml-6">{new Date(trans.created_at).toLocaleDateString()}</div>
                   </div>
                   <span className={trans.amount > 0 ? 'amount-positive' : 'amount-negative'}>
-                    {trans.amount > 0 ? <ArrowUp size={14} weight="bold" className="inline mr-1" /> : <ArrowDown size={14} weight="bold" className="inline mr-1" />}
+                    {trans.amount > 0 ? <ArrowUp size={14} className="inline mr-1" /> : <ArrowDown size={14} className="inline mr-1" />}
                     {trans.amount > 0 ? '+' : ''}{trans.amount} DKP
                   </span>
                 </div>

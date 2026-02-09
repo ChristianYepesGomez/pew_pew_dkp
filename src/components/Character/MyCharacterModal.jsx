@@ -169,7 +169,7 @@ const AvatarCropModal = ({ imageSrc, onConfirm, onCancel, t }) => {
     <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[110]">
       <div className="bg-indigo border-2 border-lavender-20 rounded-2xl p-6 w-full max-w-sm">
         <h4 className="text-lg text-coral mb-4 text-center">
-          <Crop size={18} weight="bold" className="inline mr-2" />{t('crop_avatar') || 'Ajustar foto'}
+          <Crop size={18} className="inline mr-2" />{t('crop_avatar') || 'Ajustar foto'}
         </h4>
 
         {/* Crop area */}
@@ -205,7 +205,7 @@ const AvatarCropModal = ({ imageSrc, onConfirm, onCancel, t }) => {
 
         {/* Zoom slider */}
         <div className="flex items-center gap-3 mb-4 px-4">
-          <MagnifyingGlassMinus size={16} weight="bold" className="text-lavender" />
+          <MagnifyingGlassMinus size={16} className="text-lavender" />
           <input
             type="range"
             min="0.5"
@@ -215,7 +215,7 @@ const AvatarCropModal = ({ imageSrc, onConfirm, onCancel, t }) => {
             onChange={(e) => setScale(parseFloat(e.target.value))}
             className="flex-1 accent-lavender-20"
           />
-          <MagnifyingGlassPlus size={16} weight="bold" className="text-lavender" />
+          <MagnifyingGlassPlus size={16} className="text-lavender" />
         </div>
 
         <p className="text-xs text-lavender text-center mb-4">
@@ -623,9 +623,9 @@ const MyCharacterModal = ({ onClose }) => {
                   onClick={() => window._avatarInput?.click()}
                 >
                   {avatarSaving ? (
-                    <CircleNotch size={20} weight="bold" className="text-white animate-spin" />
+                    <CircleNotch size={20} className="text-white animate-spin" />
                   ) : (
-                    <PencilSimple size={20} weight="bold" className="text-white" />
+                    <PencilSimple size={20} className="text-white" />
                   )}
                 </div>
                 {/* Delete button on hover (only if avatar exists) */}
@@ -635,7 +635,7 @@ const MyCharacterModal = ({ onClose }) => {
                     className={`absolute -top-1 -right-1 w-5 h-5 rounded-full bg-red-500 hover:bg-red-400 flex items-center justify-center transition-all ${avatarHover ? 'opacity-100 scale-100' : 'opacity-0 scale-75'}`}
                     title={t('remove_avatar')}
                   >
-                    <X size={10} weight="bold" className="text-white" />
+                    <X size={10} className="text-white" />
                   </button>
                 )}
                 {/* Hidden file input */}
@@ -665,7 +665,7 @@ const MyCharacterModal = ({ onClose }) => {
               </div>
             </div>
             <button onClick={onClose} className="text-gray-400 hover:text-white text-2xl">
-              <X size={24} weight="bold" />
+              <X size={24} />
             </button>
           </div>
         </div>
@@ -684,7 +684,7 @@ const MyCharacterModal = ({ onClose }) => {
                     : 'text-lavender hover:text-white hover:bg-lavender-12/10'
                 }`}
               >
-                <TabIcon size={16} weight="bold" className="inline mr-2" />
+                <TabIcon size={16} className="inline mr-2" />
                 {t(`tab_${tab}`)}
               </button>
             )
@@ -699,7 +699,7 @@ const MyCharacterModal = ({ onClose }) => {
               {/* Email Section */}
               <div className="p-6 border-b border-lavender-20/30">
                 <h4 className="text-sm text-coral mb-3">
-                  <Envelope size={14} weight="bold" className="inline mr-2" />{t('email')}
+                  <Envelope size={14} className="inline mr-2" />{t('email')}
                 </h4>
                 <div className="flex gap-2">
                   <input
@@ -714,7 +714,7 @@ const MyCharacterModal = ({ onClose }) => {
                     disabled={emailSaving}
                     className="px-4 py-2 rounded-lg bg-lavender-20 text-white text-sm font-bold hover:bg-lavender-20/80 transition-all disabled:opacity-50"
                   >
-                    {emailSaving ? <CircleNotch size={16} weight="bold" className="animate-spin" /> : t('save')}
+                    {emailSaving ? <CircleNotch size={16} className="animate-spin" /> : t('save')}
                   </button>
                 </div>
                 {emailMsg && (
@@ -727,7 +727,7 @@ const MyCharacterModal = ({ onClose }) => {
               {/* Password Change Section */}
               <div className="p-6">
                 <h4 className="text-sm text-coral mb-3">
-                  <Key size={14} weight="bold" className="inline mr-2" />{t('change_password')}
+                  <Key size={14} className="inline mr-2" />{t('change_password')}
                 </h4>
                 <div className="space-y-3">
                   <input
@@ -756,7 +756,7 @@ const MyCharacterModal = ({ onClose }) => {
                     disabled={passwordSaving || !currentPassword || !newPassword || !confirmPassword}
                     className="w-full py-2 rounded-lg bg-coral text-indigo text-sm font-bold hover:shadow-lg transition-all disabled:opacity-50"
                   >
-                    {passwordSaving ? <CircleNotch size={16} weight="bold" className="inline animate-spin mr-2" /> : <FloppyDisk size={16} weight="bold" className="inline mr-2" />}
+                    {passwordSaving ? <CircleNotch size={16} className="inline animate-spin mr-2" /> : <FloppyDisk size={16} className="inline mr-2" />}
                     {t('change_password')}
                   </button>
                 </div>
@@ -774,7 +774,7 @@ const MyCharacterModal = ({ onClose }) => {
             <div className="p-6">
               <div className="flex items-center justify-between mb-3">
                 <h4 className="text-sm text-coral m-0">
-                  <Users size={14} weight="bold" className="inline mr-2" />{t('my_characters')}
+                  <Users size={14} className="inline mr-2" />{t('my_characters')}
                 </h4>
                 <button
                   onClick={handleBlizzardImport}
@@ -783,9 +783,9 @@ const MyCharacterModal = ({ onClose }) => {
                   title={t('blizzard_import_hint')}
                 >
                   {blizzardLoading ? (
-                    <><CircleNotch size={12} weight="bold" className="inline animate-spin mr-1" /></>
+                    <><CircleNotch size={12} className="inline animate-spin mr-1" /></>
                   ) : (
-                    <><DownloadSimple size={12} weight="bold" className="inline mr-1" />{t('import_from_blizzard')}</>
+                    <><DownloadSimple size={12} className="inline mr-1" />{t('import_from_blizzard')}</>
                   )}
                 </button>
               </div>
@@ -795,7 +795,7 @@ const MyCharacterModal = ({ onClose }) => {
             )}
 
             {blizzardError && (
-              <p className="text-xs text-red-400 mb-2"><WarningCircle size={12} weight="bold" className="inline mr-1" />{blizzardError}</p>
+              <p className="text-xs text-red-400 mb-2"><WarningCircle size={12} className="inline mr-1" />{blizzardError}</p>
             )}
 
             {/* Blizzard Import Results */}
@@ -803,12 +803,12 @@ const MyCharacterModal = ({ onClose }) => {
               <div className="bg-blue-900/20 border border-blue-700/30 rounded-lg p-3 mb-3">
                 <div className="flex items-center justify-between mb-2">
                   <p className="text-sm text-blue-300 m-0 font-bold">
-                    <DownloadSimple size={14} weight="bold" className="inline mr-1" />
+                    <DownloadSimple size={14} className="inline mr-1" />
                     {t('blizzard_characters_found')} ({blizzardChars.length})
                   </p>
                   <button onClick={() => { setBlizzardChars([]); setSelectedChars(new Set()) }}
                     className="text-xs text-gray-400 hover:text-white transition-all">
-                    <X size={14} weight="bold" />
+                    <X size={14} />
                   </button>
                 </div>
                 <div className="space-y-1 max-h-48 overflow-auto mb-2">
@@ -830,7 +830,7 @@ const MyCharacterModal = ({ onClose }) => {
                         <span className="text-xs text-lavender flex-shrink-0">{char.className}{char.spec ? ` - ${char.spec}` : ''}</span>
                         <span className="text-xs text-gray-500 truncate hidden sm:inline">{char.realm}</span>
                         <span className="text-xs text-gray-500 ml-auto flex-shrink-0">Lv.{char.level}</span>
-                        {alreadyExists && <span className="text-[10px] text-blue-400 flex-shrink-0"><ArrowsClockwise size={10} weight="bold" className="inline mr-0.5" />{t('will_update')}</span>}
+                        {alreadyExists && <span className="text-[10px] text-blue-400 flex-shrink-0"><ArrowsClockwise size={10} className="inline mr-0.5" />{t('will_update')}</span>}
                       </label>
                     )
                   })}
@@ -841,9 +841,9 @@ const MyCharacterModal = ({ onClose }) => {
                   className="w-full py-2 rounded-lg bg-gradient-to-r from-blue-600 to-blue-800 text-white text-sm font-bold hover:shadow-lg transition-all disabled:opacity-50"
                 >
                   {importing ? (
-                    <><CircleNotch size={14} weight="bold" className="inline animate-spin mr-1" />{t('importing')}</>
+                    <><CircleNotch size={14} className="inline animate-spin mr-1" />{t('importing')}</>
                   ) : (
-                    <><DownloadSimple size={14} weight="bold" className="inline mr-1" />{t('import_selected')} ({selectedChars.size})</>
+                    <><DownloadSimple size={14} className="inline mr-1" />{t('import_selected')} ({selectedChars.size})</>
                   )}
                 </button>
               </div>
@@ -852,7 +852,7 @@ const MyCharacterModal = ({ onClose }) => {
             {/* Blizzard import hint when no characters */}
             {characters.length === 0 && !blizzardLoading && blizzardChars.length === 0 && (
               <div className="bg-blue-900/10 border border-blue-700/20 rounded-lg p-4 mb-3 text-center">
-                <Info size={20} weight="bold" className="text-blue-400 mx-auto mb-2" />
+                <Info size={20} className="text-blue-400 mx-auto mb-2" />
                 <p className="text-sm text-lavender m-0">{t('blizzard_import_hint')}</p>
               </div>
             )}
@@ -860,7 +860,7 @@ const MyCharacterModal = ({ onClose }) => {
             {/* Character List */}
             {loading ? (
               <div className="text-center py-4">
-                <CircleNotch size={24} weight="bold" className="animate-spin text-coral mx-auto" />
+                <CircleNotch size={24} className="animate-spin text-coral mx-auto" />
               </div>
             ) : (
               <div className="space-y-2">
@@ -882,7 +882,7 @@ const MyCharacterModal = ({ onClose }) => {
                         }`}
                         title={char.isPrimary ? t('primary_character') : t('set_as_primary')}
                       >
-                        <Star size={20} weight={char.isPrimary ? 'fill' : 'bold'} />
+                        <Star size={20} weight={char.isPrimary ? 'fill' : undefined} />
                       </button>
 
                       {/* Spec icon */}
@@ -924,9 +924,9 @@ const MyCharacterModal = ({ onClose }) => {
                               className="text-gray-400 hover:text-white text-xs"
                               disabled={editingSaving}
                             >
-                              <X size={12} weight="bold" />
+                              <X size={12} />
                             </button>
-                            {editingSaving && <CircleNotch size={12} weight="bold" className="animate-spin text-coral" />}
+                            {editingSaving && <CircleNotch size={12} className="animate-spin text-coral" />}
                           </div>
                         ) : (
                           <p className="text-xs text-lavender m-0">
@@ -942,7 +942,7 @@ const MyCharacterModal = ({ onClose }) => {
                           className="text-gray-600 hover:text-coral text-sm flex-shrink-0 transition-all"
                           title={t('change_spec')}
                         >
-                          <PencilSimple size={16} weight="bold" />
+                          <PencilSimple size={16} />
                         </button>
                       )}
 
@@ -953,7 +953,7 @@ const MyCharacterModal = ({ onClose }) => {
                           className="text-gray-600 hover:text-red-400 text-sm flex-shrink-0 transition-all"
                           title={t('delete_character')}
                         >
-                          <Trash size={16} weight="bold" />
+                          <Trash size={16} />
                         </button>
                       )}
                     </div>
@@ -988,12 +988,12 @@ const MyCharacterModal = ({ onClose }) => {
               {/* DKP History */}
               <div className="p-6">
                 <h4 className="text-sm text-coral mb-3">
-                  <ClockCounterClockwise size={14} weight="bold" className="inline mr-2" />{t('my_dkp_history')}
+                  <ClockCounterClockwise size={14} className="inline mr-2" />{t('my_dkp_history')}
                   <span className="text-xs text-lavender font-sans ml-2">({history.length})</span>
                 </h4>
                 {loading ? (
                   <div className="text-center py-4">
-                    <CircleNotch size={24} weight="bold" className="animate-spin text-coral mx-auto" />
+                    <CircleNotch size={24} className="animate-spin text-coral mx-auto" />
                   </div>
                 ) : history.length === 0 ? (
                   <p className="text-center text-gray-400 py-4 text-sm">{t('no_transactions')}</p>
@@ -1011,7 +1011,7 @@ const MyCharacterModal = ({ onClose }) => {
                               {tx.auctionItem.image && tx.auctionItem.image !== '🎁' ? (
                                 <img src={tx.auctionItem.image} alt="" className="w-full h-full object-cover" />
                               ) : (
-                                <Gavel size={16} weight="bold" style={{ color: RARITY_COLORS[tx.auctionItem.rarity] || RARITY_COLORS.epic }} />
+                                <Gavel size={16} style={{ color: RARITY_COLORS[tx.auctionItem.rarity] || RARITY_COLORS.epic }} />
                               )}
                             </div>
                           </WowheadTooltip>

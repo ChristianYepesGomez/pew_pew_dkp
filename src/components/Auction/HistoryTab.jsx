@@ -57,11 +57,11 @@ const HistoryTab = () => {
     })
   }
 
-  if (loading) return <div className="text-center py-20"><CircleNotch className="animate-spin text-6xl text-coral inline-block" weight="bold" /></div>
+  if (loading) return <div className="text-center py-20"><CircleNotch className="animate-spin text-6xl text-coral inline-block" /></div>
 
   return (
     <div>
-      <h3 className="flex items-center"><ClockCounterClockwise className="mr-3" weight="bold" />{t('auction_history_title')}</h3>
+      <h3 className="flex items-center"><ClockCounterClockwise className="mr-3" />{t('auction_history_title')}</h3>
 
       {auctions.length === 0 ? (
         <p className="text-center text-gray-400 py-8">{t('no_auction_history')}</p>
@@ -78,7 +78,7 @@ const HistoryTab = () => {
                   className="bg-gradient-to-r from-red-900 to-red-800 rounded-lg p-4 flex items-center gap-4 cursor-pointer hover:from-red-800 hover:to-red-700 transition-all border border-red-500/30"
                 >
                   <div className="w-12 h-12 rounded-lg bg-indigo flex items-center justify-center border-2 border-red-500 flex-shrink-0">
-                    <DoorOpen className="text-xl text-red-400" weight="bold" />
+                    <DoorOpen className="text-xl text-red-400" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <h5 className="mb-1 truncate" style={{ color: CLASS_COLORS[fw.member?.characterClass] || '#FFF' }}>
@@ -97,7 +97,7 @@ const HistoryTab = () => {
                       <p className="text-xs text-red-300 m-0 mb-1">{t('items_won')}</p>
                       <p className="font-bold text-yellow-400 m-0">{fw.itemsWon?.length || 0}</p>
                     </div>
-                    <CaretRight className="text-red-400 opacity-50" weight="bold" />
+                    <CaretRight className="text-red-400 opacity-50" />
                   </div>
                 </div>
               )
@@ -128,7 +128,7 @@ const HistoryTab = () => {
                     ) : null}
                     <Diamond
                       className="text-xl"
-                      weight="bold"
+                     
                       style={{
                         color: RARITY_COLORS[a.item_rarity] || RARITY_COLORS.epic,
                         display: a.item_image && a.item_image !== '🎁' ? 'none' : 'block'
@@ -157,7 +157,7 @@ const HistoryTab = () => {
                     {a.was_tie && a.rolls && (
                       <div className="text-center px-3 py-1 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
                         <p className="text-xs text-yellow-400 m-0 mb-1">
-                          <DiceFive className="inline mr-1" weight="bold" />{t('tie_resolved')}
+                          <DiceFive className="inline mr-1" />{t('tie_resolved')}
                         </p>
                         <div className="flex flex-col gap-0.5">
                           {a.rolls.map((roll, idx) => (
@@ -184,7 +184,7 @@ const HistoryTab = () => {
                         {a.winner.characterName}
                         {a.was_tie && (
                           <span className="text-xs text-yellow-400" title={`Roll: ${a.winning_roll}`}>
-                            <DiceFive className="inline" weight="bold" /> {a.winning_roll}
+                            <DiceFive className="inline" /> {a.winning_roll}
                           </span>
                         )}
                       </p>
@@ -208,11 +208,11 @@ const HistoryTab = () => {
                   className="w-full px-4 py-2 text-sm text-lavender hover:text-cream hover:bg-lavender-12/20 transition-colors border-t border-lavender-20/10 flex items-center justify-center gap-2"
                 >
                   {isLoading ? (
-                    <><CircleNotch className="animate-spin inline" weight="bold" /> {t('loading')}</>
+                    <><CircleNotch className="animate-spin inline" /> {t('loading')}</>
                   ) : isExpanded ? (
-                    <><CaretUp className="inline" weight="bold" /> {t('hide_bids')}</>
+                    <><CaretUp className="inline" /> {t('hide_bids')}</>
                   ) : (
-                    <><CaretDown className="inline" weight="bold" /> {t('show_bids')} ({a.bid_count})</>
+                    <><CaretDown className="inline" /> {t('show_bids')} ({a.bid_count})</>
                   )}
                 </button>
               )}
@@ -271,7 +271,7 @@ const FarewellModal = ({ auction, onClose, t, formatDate }) => {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <div className="w-14 h-14 rounded-full bg-indigo flex items-center justify-center border-2 border-red-500">
-                <DoorOpen className="text-2xl text-red-400" weight="bold" />
+                <DoorOpen className="text-2xl text-red-400" />
               </div>
               <div>
                 <h3 className="text-xl font-bold m-0" style={{ color: CLASS_COLORS[member?.characterClass] || '#FFF' }}>
@@ -283,7 +283,7 @@ const FarewellModal = ({ auction, onClose, t, formatDate }) => {
               </div>
             </div>
             <button onClick={onClose} className="text-gray-400 hover:text-cream text-2xl">
-              <X weight="bold" />
+              <X />
             </button>
           </div>
         </div>
@@ -322,7 +322,7 @@ const FarewellModal = ({ auction, onClose, t, formatDate }) => {
                         {item.item_image && item.item_image !== '🎁' ? (
                           <img src={item.item_image} alt={item.item_name} className="w-full h-full object-cover" onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'block'; }} />
                         ) : null}
-                        <Diamond className="text-sm" weight="bold" style={{ color: RARITY_COLORS[item.item_rarity] || RARITY_COLORS.epic, display: item.item_image && item.item_image !== '🎁' ? 'none' : 'block' }} />
+                        <Diamond className="text-sm" style={{ color: RARITY_COLORS[item.item_rarity] || RARITY_COLORS.epic, display: item.item_image && item.item_image !== '🎁' ? 'none' : 'block' }} />
                       </div>
                     </WowheadTooltip>
                     <div className="flex-1 min-w-0">

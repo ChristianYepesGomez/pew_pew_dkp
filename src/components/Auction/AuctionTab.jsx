@@ -122,7 +122,7 @@ const SoundSettingsModal = ({
               </div>
             </div>
             <button onClick={onClose} className="text-gray-400 hover:text-cream text-xl">
-              <X size={20} weight="bold" />
+              <X size={20} />
             </button>
           </div>
         </div>
@@ -153,7 +153,7 @@ const SoundSettingsModal = ({
                   <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
                     isSelected ? 'border-coral bg-coral' : 'border-gray-500'
                   }`}>
-                    {isSelected && <Check size={12} weight="bold" className="text-cream" />}
+                    {isSelected && <Check size={12} className="text-cream" />}
                   </div>
 
                   {/* Sound icon */}
@@ -207,8 +207,8 @@ const SoundSettingsModal = ({
                         title={t('upload_sound') || 'Subir sonido'}
                       >
                         {uploading
-                          ? <CircleNotch size={14} weight="bold" className="animate-spin" />
-                          : <Upload size={14} weight="bold" />
+                          ? <CircleNotch size={14} className="animate-spin" />
+                          : <Upload size={14} />
                         }
                       </button>
                       {hasCustomSound && (
@@ -220,7 +220,7 @@ const SoundSettingsModal = ({
                           className="w-9 h-9 rounded-lg bg-red-600/30 hover:bg-red-600/50 text-red-400 flex items-center justify-center transition-all"
                           title={t('remove_sound') || 'Eliminar sonido'}
                         >
-                          <Trash size={14} weight="bold" />
+                          <Trash size={14} />
                         </button>
                       )}
                     </div>
@@ -453,7 +453,7 @@ const AuctionTab = () => {
     return 'text-green-400'
   }
 
-  if (loading) return <div className="text-center py-20"><CircleNotch size={48} weight="bold" className="text-coral animate-spin mx-auto" /></div>
+  if (loading) return <div className="text-center py-20"><CircleNotch size={48} className="text-coral animate-spin mx-auto" /></div>
 
   return (
     <div className="rounded-2xl">
@@ -518,7 +518,7 @@ const AuctionTab = () => {
               onClick={() => setShowCreateModal(true)}
               className="px-4 py-2 bg-coral text-indigo rounded-lg hover:shadow-lg flex items-center gap-2 font-bold"
             >
-              <PlusCircle size={18} weight="bold" />{t('create_auction')}
+              <PlusCircle size={18} />{t('create_auction')}
             </button>
           )}
         </div>
@@ -573,7 +573,7 @@ const AuctionTab = () => {
                     </h4>
                     {bisData[auction.id]?.length > 0 && (
                       <div className="flex items-center gap-1 mt-1" title={bisData[auction.id].map(b => `${b.character_name}${b.priority ? ` #${b.priority}` : ''}`).join(', ')}>
-                        <Crosshair size={12} weight="bold" className="text-yellow-400" />
+                        <Crosshair size={12} className="text-yellow-400" />
                         <span className="text-xs text-yellow-400">
                           {bisData[auction.id].length} {t('bis_raiders_want')}
                         </span>

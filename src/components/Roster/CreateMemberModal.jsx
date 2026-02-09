@@ -96,7 +96,7 @@ const CreateMemberModal = ({ onClose, onSuccess }) => {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="w-12 h-12 rounded-full bg-teal/20 flex items-center justify-center">
-                <UserPlus size={24} weight="bold" className="text-teal" />
+                <UserPlus size={24} className="text-teal" />
               </div>
               <div>
                 <h3 className="text-lg font-bold text-cream">{t('create_member')}</h3>
@@ -104,14 +104,14 @@ const CreateMemberModal = ({ onClose, onSuccess }) => {
               </div>
             </div>
             <button onClick={onClose} className="text-lavender hover:text-cream transition-colors">
-              <X size={24} weight="bold" />
+              <X size={24} />
             </button>
           </div>
         </div>
 
         {error && (
           <div className="mx-6 mt-6 bg-red-500/20 border border-red-500 text-red-400 px-4 py-3 rounded-xl flex items-center gap-2">
-            <WarningCircle size={18} weight="bold" />{error}
+            <WarningCircle size={18} />{error}
           </div>
         )}
 
@@ -172,9 +172,9 @@ const CreateMemberModal = ({ onClose, onSuccess }) => {
             </button>
             <button type="submit" disabled={loading} className="flex-1 px-4 py-3 rounded-full bg-teal text-indigo font-bold hover:opacity-90 transition-opacity disabled:opacity-50">
               {loading ? (
-                <span className="flex items-center justify-center gap-2"><CircleNotch size={20} weight="bold" className="animate-spin" />{t('loading')}...</span>
+                <span className="flex items-center justify-center gap-2"><CircleNotch size={20} className="animate-spin" />{t('loading')}...</span>
               ) : (
-                <span className="flex items-center justify-center gap-2"><UserPlus size={20} weight="bold" />{t('create')}</span>
+                <span className="flex items-center justify-center gap-2"><UserPlus size={20} />{t('create')}</span>
               )}
             </button>
           </div>

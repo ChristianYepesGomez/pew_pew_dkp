@@ -258,22 +258,22 @@ const AdminTab = () => {
             ? 'bg-green-500/15 border-green-500/40 text-green-400'
             : 'bg-red-500/15 border-red-500/40 text-red-400'
         }`}>
-          {notification.type === 'success' ? <CheckCircle size={20} weight="bold" /> : <WarningCircle size={20} weight="bold" />}
+          {notification.type === 'success' ? <CheckCircle size={20} /> : <WarningCircle size={20} />}
           <span className="font-semibold">{notification.message}</span>
         </div>
       )}
 
       {/* Bulk Adjustment */}
       <div className="rounded-2xl bg-lavender-12 p-8">
-        <h3 className="flex items-center gap-3"><Users size={20} weight="bold" />{t('bulk_adjustment')}</h3>
+        <h3 className="flex items-center gap-3"><Users size={20} />{t('bulk_adjustment')}</h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
           <input type="number" value={bulkAmount} onChange={(e) => setBulkAmount(e.target.value)} placeholder={t('amount')} className="px-4 py-3 rounded-lg bg-indigo border border-lavender-20 text-lavender focus:outline-none focus:ring-2 focus:ring-coral" />
           <input type="text" value={bulkReason} onChange={(e) => setBulkReason(e.target.value)} placeholder={t('reason')} className="px-4 py-3 rounded-lg bg-indigo border border-lavender-20 text-lavender focus:outline-none focus:ring-2 focus:ring-coral" />
           <button onClick={handleBulkAdjust} disabled={bulkLoading} className="px-6 py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg font-bold disabled:opacity-50 transition-all">
             {bulkLoading ? (
-              <><CircleNotch size={18} weight="bold" className="inline animate-spin mr-2" />{t('loading')}...</>
+              <><CircleNotch size={18} className="inline animate-spin mr-2" />{t('loading')}...</>
             ) : (
-              <><Users size={18} weight="bold" className="inline mr-2" />{t('apply_to_all')}</>
+              <><Users size={18} className="inline mr-2" />{t('apply_to_all')}</>
             )}
           </button>
         </div>
@@ -288,7 +288,7 @@ const AdminTab = () => {
           <div className="mb-6 bg-yellow-600/10 border border-yellow-500/30 rounded-xl p-4">
             <div className="flex items-center justify-between mb-3">
               <h4 className="text-yellow-400 font-bold flex items-center gap-2 m-0">
-                <Bell size={18} weight="bold" className="animate-pulse" />
+                <Bell size={18} className="animate-pulse" />
                 {t('pending_wcl_reports') || 'Logs Pendientes'}
                 <span className="bg-yellow-500 text-white text-xs px-2 py-0.5 rounded-full">{pendingReports.length}</span>
               </h4>
@@ -297,7 +297,7 @@ const AdminTab = () => {
                 disabled={pendingLoading}
                 className="text-sm text-yellow-400 hover:text-yellow-300"
               >
-                {pendingLoading ? <CircleNotch size={14} weight="bold" className="inline animate-spin mr-1" /> : <ArrowsClockwise size={14} weight="bold" className="inline mr-1" />}
+                {pendingLoading ? <CircleNotch size={14} className="inline animate-spin mr-1" /> : <ArrowsClockwise size={14} className="inline mr-1" />}
                 {t('refresh')}
               </button>
             </div>
@@ -313,8 +313,8 @@ const AdminTab = () => {
                   <div className="flex-1 min-w-0">
                     <p className="font-semibold text-white truncate">{report.title}</p>
                     <p className="text-xs text-gray-400 flex items-center gap-3">
-                      <span><CalendarBlank size={12} weight="bold" className="inline mr-1" />{report.raidDate}</span>
-                      <span><Sword size={12} weight="bold" className="inline mr-1" />{report.zone}</span>
+                      <span><CalendarBlank size={12} className="inline mr-1" />{report.raidDate}</span>
+                      <span><Sword size={12} className="inline mr-1" />{report.zone}</span>
                     </p>
                   </div>
                   <div className="flex gap-2">
@@ -325,13 +325,13 @@ const AdminTab = () => {
                       className="px-3 py-2 bg-blue-600/30 hover:bg-blue-600/50 text-blue-400 rounded-lg text-sm transition-all"
                       title={t('view_on_wcl') || 'Ver en WCL'}
                     >
-                      <ArrowSquareOut size={16} weight="bold" />
+                      <ArrowSquareOut size={16} />
                     </a>
                     <button
                       onClick={() => handleAutoProcess(report.code)}
                       className="px-4 py-2 bg-green-600/30 hover:bg-green-600/50 text-green-400 rounded-lg text-sm font-semibold transition-all flex items-center gap-2"
                     >
-                      <Lightning size={16} weight="bold" />
+                      <Lightning size={16} />
                       {t('process') || 'Procesar'}
                     </button>
                   </div>
@@ -345,7 +345,7 @@ const AdminTab = () => {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-4">
           <input type="text" value={wclUrl} onChange={(e) => setWclUrl(e.target.value)} placeholder={t('wcl_url')} className="md:col-span-3 px-4 py-3 rounded-lg bg-indigo border border-lavender-20 text-lavender focus:outline-none focus:ring-2 focus:ring-coral" />
           <button onClick={handleWclPreview} disabled={loading} className="px-6 py-3 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg font-bold disabled:opacity-50">
-            {loading ? <CircleNotch size={18} weight="bold" className="inline animate-spin" /> : <><Eye size={18} weight="bold" className="inline mr-2" />{t('preview')}</>}
+            {loading ? <CircleNotch size={18} className="inline animate-spin" /> : <><Eye size={18} className="inline mr-2" />{t('preview')}</>}
           </button>
         </div>
 
@@ -390,9 +390,9 @@ const AdminTab = () => {
             {wclPreview.can_proceed && matchedParticipants.length > 0 && (
               <button onClick={handleWclConfirm} disabled={loading} className="px-6 py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg font-bold disabled:opacity-50 transition-all">
                 {loading ? (
-                  <><CircleNotch size={18} weight="bold" className="inline animate-spin mr-2" />{t('loading')}...</>
+                  <><CircleNotch size={18} className="inline animate-spin mr-2" />{t('loading')}...</>
                 ) : (
-                  <><Check size={18} weight="bold" className="inline mr-2" />{t('confirm_apply_to')} {matchedParticipants.length} {t('players')}</>
+                  <><Check size={18} className="inline mr-2" />{t('confirm_apply_to')} {matchedParticipants.length} {t('players')}</>
                 )}
               </button>
             )}
@@ -402,9 +402,9 @@ const AdminTab = () => {
 
       {/* WCL History */}
       <div className="rounded-2xl bg-lavender-12 p-8">
-        <h3 className="flex items-center gap-3"><ClockCounterClockwise size={20} weight="bold" />{t('wcl_history')}</h3>
+        <h3 className="flex items-center gap-3"><ClockCounterClockwise size={20} />{t('wcl_history')}</h3>
         {loadingHistory ? (
-          <div className="text-center py-8"><CircleNotch size={24} weight="bold" className="animate-spin text-coral mx-auto" /></div>
+          <div className="text-center py-8"><CircleNotch size={24} className="animate-spin text-coral mx-auto" /></div>
         ) : wclHistory.length === 0 ? (
           <p className="text-lavender mt-4 text-center">{t('no_data')}</p>
         ) : (
@@ -429,10 +429,10 @@ const AdminTab = () => {
                       )}
                     </div>
                     <div className="text-xs text-lavender flex items-center gap-2 flex-wrap">
-                      {report.raid_date && <span><CalendarBlank size={12} weight="bold" className="inline mr-1" />{report.raid_date}</span>}
-                      <span><Users size={12} weight="bold" className="inline mr-1" />{report.participants_count}</span>
-                      <span className="text-coral"><Coins size={12} weight="bold" className="inline mr-1" />{report.dkp_assigned}</span>
-                      <span><User size={12} weight="bold" className="inline mr-1" />{report.processed_by_name}</span>
+                      {report.raid_date && <span><CalendarBlank size={12} className="inline mr-1" />{report.raid_date}</span>}
+                      <span><Users size={12} className="inline mr-1" />{report.participants_count}</span>
+                      <span className="text-coral"><Coins size={12} className="inline mr-1" />{report.dkp_assigned}</span>
+                      <span><User size={12} className="inline mr-1" />{report.processed_by_name}</span>
                     </div>
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0">
@@ -442,10 +442,10 @@ const AdminTab = () => {
                         className="px-3 py-1.5 bg-red-500/10 text-red-400 rounded-lg text-xs hover:bg-red-500/20 transition-all flex items-center gap-1"
                         title={t('revert_dkp')}
                       >
-                        <ArrowCounterClockwise size={12} weight="bold" />{t('revert_dkp')}
+                        <ArrowCounterClockwise size={12} />{t('revert_dkp')}
                       </button>
                     )}
-                    {expandedReport === report.report_code ? <CaretUp size={14} weight="bold" className="text-lavender" /> : <CaretDown size={14} weight="bold" className="text-lavender" />}
+                    {expandedReport === report.report_code ? <CaretUp size={14} className="text-lavender" /> : <CaretDown size={14} className="text-lavender" />}
                   </div>
                 </div>
 
@@ -468,7 +468,7 @@ const AdminTab = () => {
                         <p className="text-lavender text-sm mt-2">{t('no_data')}</p>
                       )
                     ) : (
-                      <div className="text-center py-4"><CircleNotch size={18} weight="bold" className="animate-spin text-coral mx-auto" /></div>
+                      <div className="text-center py-4"><CircleNotch size={18} className="animate-spin text-coral mx-auto" /></div>
                     )}
                   </div>
                 )}
@@ -481,9 +481,9 @@ const AdminTab = () => {
       {/* Raid Days Configuration - Hidden for now, keeping code for future use */}
       {false && (
       <div className="rounded-2xl bg-lavender-12 p-8">
-        <h3 className="flex items-center gap-3"><CalendarDots size={20} weight="bold" />{t('raid_schedule')}</h3>
+        <h3 className="flex items-center gap-3"><CalendarDots size={20} />{t('raid_schedule')}</h3>
         {raidDaysLoading ? (
-          <div className="text-center py-8"><CircleNotch size={24} weight="bold" className="animate-spin text-coral mx-auto" /></div>
+          <div className="text-center py-8"><CircleNotch size={24} className="animate-spin text-coral mx-auto" /></div>
         ) : (
           <div className="mt-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
@@ -504,7 +504,7 @@ const AdminTab = () => {
                     <div className={`w-5 h-5 rounded-full flex items-center justify-center ${
                       day.isActive ? 'bg-coral' : 'bg-gray-600'
                     }`}>
-                      {day.isActive && <Check size={12} weight="bold" className="text-white" />}
+                      {day.isActive && <Check size={12} className="text-white" />}
                     </div>
                   </div>
                   {day.isActive && (
@@ -526,9 +526,9 @@ const AdminTab = () => {
               className="mt-4 px-6 py-3 bg-lavender-20 hover:bg-lavender-20/80 text-white rounded-lg font-bold disabled:opacity-50 transition-all"
             >
               {raidDaysSaving ? (
-                <><CircleNotch size={18} weight="bold" className="inline animate-spin mr-2" />{t('loading')}...</>
+                <><CircleNotch size={18} className="inline animate-spin mr-2" />{t('loading')}...</>
               ) : (
-                <><FloppyDisk size={18} weight="bold" className="inline mr-2" />{t('save_raid_days')}</>
+                <><FloppyDisk size={18} className="inline mr-2" />{t('save_raid_days')}</>
               )}
             </button>
           </div>
@@ -543,7 +543,7 @@ const AdminTab = () => {
           <div className="relative bg-indigo border border-red-500/40 rounded-2xl p-6 max-w-sm w-full shadow-2xl" onClick={(e) => e.stopPropagation()}>
             <div className="text-center space-y-4">
               <div className="w-16 h-16 rounded-full bg-red-500/20 flex items-center justify-center mx-auto">
-                <Warning size={28} weight="bold" className="text-red-400" />
+                <Warning size={28} className="text-red-400" />
               </div>
               <h3 className="text-lg font-bold text-white">{t('revert_dkp')}</h3>
               <p className="text-lavender text-sm">{t('confirm_revert')}</p>
@@ -559,7 +559,7 @@ const AdminTab = () => {
                   disabled={reverting}
                   className="flex-1 py-2 px-4 bg-red-600 text-white rounded-lg font-bold hover:bg-red-700 transition-all disabled:opacity-50"
                 >
-                  {reverting ? <CircleNotch size={18} weight="bold" className="inline animate-spin" /> : <><ArrowCounterClockwise size={16} weight="bold" className="inline mr-2" />{t('revert_dkp')}</>}
+                  {reverting ? <CircleNotch size={18} className="inline animate-spin" /> : <><ArrowCounterClockwise size={16} className="inline mr-2" />{t('revert_dkp')}</>}
                 </button>
               </div>
             </div>

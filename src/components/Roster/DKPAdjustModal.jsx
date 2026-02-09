@@ -60,7 +60,7 @@ const DKPAdjustModal = ({ member, onClose, onSubmit }) => {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="w-12 h-12 rounded-full bg-lavender-12 flex items-center justify-center">
-                <Coins size={24} weight="bold" className="text-coral" />
+                <Coins size={24} className="text-coral" />
               </div>
               <div>
                 <h3 className="text-lg font-bold text-cream">{t('adjust_dkp')}</h3>
@@ -70,7 +70,7 @@ const DKPAdjustModal = ({ member, onClose, onSubmit }) => {
               </div>
             </div>
             <button onClick={onClose} className="text-lavender hover:text-cream transition-colors">
-              <X size={24} weight="bold" />
+              <X size={24} />
             </button>
           </div>
         </div>
@@ -126,7 +126,7 @@ const DKPAdjustModal = ({ member, onClose, onSubmit }) => {
                   onClick={() => setReason(t(cr.key))}
                   className="bg-lavender-12 hover:bg-lavender-20 text-cream py-2 px-3 rounded-xl text-sm transition-colors flex items-center gap-2"
                 >
-                  <cr.Icon size={16} weight="bold" className="text-coral" />
+                  <cr.Icon size={16} className="text-coral" />
                   {t(cr.key)}
                 </button>
               ))}
@@ -154,9 +154,9 @@ const DKPAdjustModal = ({ member, onClose, onSubmit }) => {
               className="flex-1 px-4 py-3 rounded-full bg-coral text-indigo font-bold hover:opacity-90 transition-opacity disabled:opacity-50"
             >
               {loading ? (
-                <span className="flex items-center justify-center gap-2"><CircleNotch size={20} weight="bold" className="animate-spin" />{t('loading')}...</span>
+                <span className="flex items-center justify-center gap-2"><CircleNotch size={20} className="animate-spin" />{t('loading')}...</span>
               ) : (
-                <span className="flex items-center justify-center gap-2"><Check size={20} weight="bold" />{t('confirm')}</span>
+                <span className="flex items-center justify-center gap-2"><Check size={20} />{t('confirm')}</span>
               )}
             </button>
           </div>

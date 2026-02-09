@@ -75,7 +75,7 @@ const BidModal = ({ auction, userDkp, onClose, onSuccess }) => {
                       onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'block'; }}
                     />
                   ) : null}
-                  <Diamond size={20} weight="bold" style={{ color: RARITY_COLORS[auction.itemRarity], display: auction.itemImage && auction.itemImage !== '🎁' ? 'none' : 'block' }} />
+                  <Diamond size={20} style={{ color: RARITY_COLORS[auction.itemRarity], display: auction.itemImage && auction.itemImage !== '🎁' ? 'none' : 'block' }} />
                 </div>
               </WowheadTooltip>
               <div>
@@ -86,7 +86,7 @@ const BidModal = ({ auction, userDkp, onClose, onSuccess }) => {
               </div>
             </div>
             <button onClick={onClose} className="text-gray-400 hover:text-white text-2xl">
-              <X size={24} weight="bold" />
+              <X size={24} />
             </button>
           </div>
         </div>
@@ -110,7 +110,7 @@ const BidModal = ({ auction, userDkp, onClose, onSuccess }) => {
         {/* Error */}
         {error && (
           <div className="mx-6 mt-4 bg-red-500/20 border border-red-500 text-red-400 px-4 py-3 rounded-lg">
-            <WarningCircle size={16} weight="bold" className="inline mr-2" />{error}
+            <WarningCircle size={16} className="inline mr-2" />{error}
           </div>
         )}
 
@@ -157,9 +157,9 @@ const BidModal = ({ auction, userDkp, onClose, onSuccess }) => {
               className="flex-1 px-4 py-3 rounded-lg bg-gradient-to-r from-green-600 to-green-700 text-white font-bold hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? (
-                <><CircleNotch size={18} weight="bold" className="inline animate-spin mr-2" />{t('loading')}...</>
+                <><CircleNotch size={18} className="inline animate-spin mr-2" />{t('loading')}...</>
               ) : (
-                <><HandCoins size={18} weight="bold" className="inline mr-2" />{t('place_bid')}</>
+                <><HandCoins size={18} className="inline mr-2" />{t('place_bid')}</>
               )}
             </button>
           </div>

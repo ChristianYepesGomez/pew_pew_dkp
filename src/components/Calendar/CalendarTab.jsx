@@ -312,7 +312,7 @@ const CalendarTab = () => {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <CircleNotch size={40} weight="bold" className="animate-spin text-coral" />
+        <CircleNotch size={40} className="animate-spin text-coral" />
       </div>
     )
   }
@@ -335,7 +335,7 @@ const CalendarTab = () => {
                 : 'bg-lavender-12/30 text-white hover:bg-lavender-12/50'
             }`}
           >
-            <ClockCounterClockwise size={16} weight="bold" className="inline mr-2" />
+            <ClockCounterClockwise size={16} className="inline mr-2" />
             {t('raid_history')}
           </button>
           <button
@@ -346,7 +346,7 @@ const CalendarTab = () => {
                 : 'bg-lavender-12/30 text-white hover:bg-lavender-12/50'
             }`}
           >
-            {adminView ? <CalendarDots size={16} weight="bold" className="inline mr-2" /> : <Users size={16} weight="bold" className="inline mr-2" />}
+            {adminView ? <CalendarDots size={16} className="inline mr-2" /> : <Users size={16} className="inline mr-2" />}
             {adminView ? t('raid_calendar') : t('team_overview')}
           </button>
         </div>
@@ -359,7 +359,7 @@ const CalendarTab = () => {
             ? 'bg-green-500/20 border border-green-500 text-green-400'
             : 'bg-red-500/20 border border-red-500 text-red-400'
         }`}>
-          {notification.type === 'success' ? <Coins size={20} weight="bold" /> : <WarningCircle size={20} weight="bold" />}
+          {notification.type === 'success' ? <Coins size={20} /> : <WarningCircle size={20} />}
           <span>{notification.message}</span>
         </div>
       )}
@@ -375,7 +375,7 @@ const CalendarTab = () => {
           {unconfirmedCount > 0 && !bannerDismissed && (
             <div className="flex items-center gap-3 px-4 py-3 bg-orange-500/15 border border-orange-500/40 rounded-xl text-sm animate-pulse-subtle">
               <div className="w-8 h-8 rounded-full bg-orange-500/20 flex items-center justify-center flex-shrink-0">
-                <Warning size={16} weight="bold" className="text-orange-400" />
+                <Warning size={16} className="text-orange-400" />
               </div>
               <span className="flex-1 text-orange-200 font-medium">
                 {t('unconfirmed_days_alert').replace('{count}', unconfirmedCount)}
@@ -385,7 +385,7 @@ const CalendarTab = () => {
                 className="text-orange-400 hover:text-orange-200 transition-colors p-1"
                 title={t('dismiss')}
               >
-                <X size={16} weight="bold" />
+                <X size={16} />
               </button>
             </div>
           )}
@@ -393,14 +393,14 @@ const CalendarTab = () => {
           {/* Signup cutoff info banner */}
           {!cutoffBannerDismissed && (
             <div className="flex items-center gap-3 px-4 py-3 bg-yellow-500/10 border border-yellow-500/30 rounded-xl text-sm">
-              <Clock size={16} weight="bold" className="text-yellow-400 flex-shrink-0" />
+              <Clock size={16} className="text-yellow-400 flex-shrink-0" />
               <span className="flex-1 text-yellow-200">{t('signup_cutoff_info')}</span>
               <button
                 onClick={dismissCutoffBanner}
                 className="text-yellow-400 hover:text-yellow-200 transition-colors p-1"
                 title={t('dismiss')}
               >
-                <X size={16} weight="bold" />
+                <X size={16} />
               </button>
             </div>
           )}
@@ -441,7 +441,7 @@ const CalendarTab = () => {
             return (
             <div key={weekKey} className="space-y-4">
               <h3 className="text-lg text-coral flex items-center gap-2">
-                <CalendarDots size={18} weight="bold" />
+                <CalendarDots size={18} />
                 {weekLabel}
               </h3>
 
@@ -495,13 +495,13 @@ const CalendarTab = () => {
                             {/* DKP Bonus indicator: show when NOT yet awarded (incentive), hide when received */}
                             {!isLocked && !signup.dkpAwarded && (
                               <div className="flex items-center gap-1 text-yellow-400 text-sm opacity-60 animate-pulse" title={t('signup_dkp_hint')}>
-                                <Coins size={14} weight="bold" />
+                                <Coins size={14} />
                                 <span>+1</span>
                               </div>
                             )}
                             {isLocked && (
                               <div className="flex items-center gap-1 text-red-400 text-sm">
-                                <Lock size={14} weight="bold" />
+                                <Lock size={14} />
                               </div>
                             )}
                           </div>
@@ -518,17 +518,17 @@ const CalendarTab = () => {
                               <>
                                 {currentStatus ? (
                                   <div className={`flex items-center gap-2 text-base ${STATUS_CONFIG[currentStatus]?.color}`}>
-                                    {(() => { const Ic = STATUS_CONFIG[currentStatus]?.Icon; return Ic ? <Ic size={18} weight="bold" /> : null })()}
+                                    {(() => { const Ic = STATUS_CONFIG[currentStatus]?.Icon; return Ic ? <Ic size={18} /> : null })()}
                                     <span>{t('your_status')}: <strong>{t(currentStatus)}</strong></span>
                                   </div>
                                 ) : (
                                   <div className="flex items-center gap-2 text-base text-red-400">
-                                    <XCircle size={18} weight="bold" />
+                                    <XCircle size={18} />
                                     <span>{t('no_signup')}</span>
                                   </div>
                                 )}
                                 <div className="bg-red-900/20 border border-red-500/30 rounded-lg p-3 text-center">
-                                  <Lock size={16} weight="bold" className="inline mr-2 text-red-400" />
+                                  <Lock size={16} className="inline mr-2 text-red-400" />
                                   <span className="text-red-300 text-sm">{t('signup_locked')}</span>
                                 </div>
                               </>
@@ -536,7 +536,7 @@ const CalendarTab = () => {
                               <>
                                 {currentStatus && (
                                   <div className={`flex items-center gap-2 text-base ${STATUS_CONFIG[currentStatus]?.color}`}>
-                                    {(() => { const Ic = STATUS_CONFIG[currentStatus]?.Icon; return Ic ? <Ic size={18} weight="bold" /> : null })()}
+                                    {(() => { const Ic = STATUS_CONFIG[currentStatus]?.Icon; return Ic ? <Ic size={18} /> : null })()}
                                     <span>{t('your_status')}: <strong>{t(currentStatus)}</strong></span>
                                   </div>
                                 )}
@@ -553,9 +553,9 @@ const CalendarTab = () => {
                                       } ${isSaving ? 'opacity-50 cursor-not-allowed' : ''}`}
                                     >
                                       {isSaving && saving === signup.date ? (
-                                        <CircleNotch size={18} weight="bold" className="animate-spin" />
+                                        <CircleNotch size={18} className="animate-spin" />
                                       ) : (
-                                        <config.Icon size={20} weight="bold" />
+                                        <config.Icon size={20} />
                                       )}
                                       <span>{t(status)}</span>
                                     </button>
@@ -576,7 +576,7 @@ const CalendarTab = () => {
                                         disabled={isSaving}
                                         className="w-full py-1 px-3 bg-coral/20 text-coral text-sm rounded-lg hover:bg-coral/30 transition-all"
                                       >
-                                        <FloppyDisk size={14} weight="bold" className="inline mr-2" />{t('save_status')}
+                                        <FloppyDisk size={14} className="inline mr-2" />{t('save_status')}
                                       </button>
                                     )}
                                   </div>
@@ -591,7 +591,7 @@ const CalendarTab = () => {
                               <InlineAttendance attendance={attendance} t={t} />
                             ) : (
                               <div className="flex items-center justify-center py-6">
-                                <CircleNotch size={18} weight="bold" className="animate-spin text-coral" />
+                                <CircleNotch size={18} className="animate-spin text-coral" />
                               </div>
                             )}
                           </div>
@@ -603,17 +603,17 @@ const CalendarTab = () => {
                             <>
                               {currentStatus ? (
                                 <div className={`flex items-center gap-2 text-sm ${STATUS_CONFIG[currentStatus]?.color}`}>
-                                  {(() => { const Ic = STATUS_CONFIG[currentStatus]?.Icon; return Ic ? <Ic size={16} weight="bold" /> : null })()}
+                                  {(() => { const Ic = STATUS_CONFIG[currentStatus]?.Icon; return Ic ? <Ic size={16} /> : null })()}
                                   <span>{t('your_status')}: <strong>{t(currentStatus)}</strong></span>
                                 </div>
                               ) : (
                                 <div className="flex items-center gap-2 text-sm text-red-400">
-                                  <XCircle size={16} weight="bold" />
+                                  <XCircle size={16} />
                                   <span>{t('no_signup')}</span>
                                 </div>
                               )}
                               <div className="bg-red-900/20 border border-red-500/30 rounded-lg p-3 text-center">
-                                <Lock size={14} weight="bold" className="inline mr-2 text-red-400" />
+                                <Lock size={14} className="inline mr-2 text-red-400" />
                                 <span className="text-red-300 text-sm">{t('signup_locked')}</span>
                               </div>
                             </>
@@ -621,7 +621,7 @@ const CalendarTab = () => {
                             <>
                               {currentStatus && cardSize === 'medium' && (
                                 <div className={`flex items-center gap-2 text-sm ${STATUS_CONFIG[currentStatus]?.color}`}>
-                                  {(() => { const Ic = STATUS_CONFIG[currentStatus]?.Icon; return Ic ? <Ic size={16} weight="bold" /> : null })()}
+                                  {(() => { const Ic = STATUS_CONFIG[currentStatus]?.Icon; return Ic ? <Ic size={16} /> : null })()}
                                   <span>{t('your_status')}: <strong>{t(currentStatus)}</strong></span>
                                 </div>
                               )}
@@ -638,9 +638,9 @@ const CalendarTab = () => {
                                     } ${isSaving ? 'opacity-50 cursor-not-allowed' : ''}`}
                                   >
                                     {isSaving && saving === signup.date ? (
-                                      <CircleNotch size={16} weight="bold" className="animate-spin" />
+                                      <CircleNotch size={16} className="animate-spin" />
                                     ) : (
-                                      <config.Icon size={cardSize === 'medium' ? 20 : 16} weight="bold" />
+                                      <config.Icon size={cardSize === 'medium' ? 20 : 16} />
                                     )}
                                     <span className={cardSize === 'medium' ? 'inline text-sm' : 'hidden sm:inline text-xs'}>{t(status)}</span>
                                   </button>
@@ -661,7 +661,7 @@ const CalendarTab = () => {
                                       disabled={isSaving}
                                       className="w-full py-1 px-3 bg-coral/20 text-coral text-sm rounded-lg hover:bg-coral/30 transition-all"
                                     >
-                                      <FloppyDisk size={14} weight="bold" className="inline mr-2" />{t('save_status')}
+                                      <FloppyDisk size={14} className="inline mr-2" />{t('save_status')}
                                     </button>
                                   )}
                                 </div>
@@ -673,7 +673,7 @@ const CalendarTab = () => {
                               onClick={(e) => { e.stopPropagation(); openSummary(signup.date) }}
                               className="w-full py-2 px-3 bg-lavender-12/20 text-lavender text-sm rounded-lg hover:bg-lavender-12/40 hover:text-white transition-all flex items-center justify-center gap-2"
                             >
-                              <Users size={16} weight="bold" />
+                              <Users size={16} />
                               {t('view_details')}
                             </button>
                           )}
@@ -689,7 +689,7 @@ const CalendarTab = () => {
 
           {signups.length === 0 && (
             <div className="text-center py-12 text-lavender">
-              <CalendarX size={40} weight="bold" className="mx-auto mb-4 opacity-50" />
+              <CalendarX size={40} className="mx-auto mb-4 opacity-50" />
               <p>{t('no_raids_scheduled')}</p>
             </div>
           )}
@@ -762,7 +762,7 @@ const InlineAttendance = ({ attendance, t }) => {
       {/* Progress bar */}
       <div className="flex items-center justify-between text-xs">
         <span className="text-white font-semibold flex items-center gap-1.5">
-          <Users size={12} weight="bold" className="text-coral" />
+          <Users size={12} className="text-coral" />
           {t('raid_roster')}
         </span>
         <span className="text-lavender">
@@ -786,7 +786,7 @@ const InlineAttendance = ({ attendance, t }) => {
           return (
             <div key={role}>
               <div className={`flex items-center gap-1.5 mb-1.5 pb-1 border-b ${config.bgBorder}/40`}>
-                <config.Icon size={10} weight="bold" className={config.color} />
+                <config.Icon size={10} className={config.color} />
                 <span className="text-white font-medium">{t(role.toLowerCase())}</span>
                 <span className={`ml-auto ${confirmedCount >= config.min ? 'text-green-400' : 'text-red-400'}`}>{confirmedCount}</span>
               </div>
@@ -797,7 +797,7 @@ const InlineAttendance = ({ attendance, t }) => {
                     className="flex items-center gap-1"
                     title={member.characterClass}
                   >
-                    {member.statusKey === 'confirmed' ? <CheckCircle size={8} weight="bold" className="text-green-400" /> : <Question size={8} weight="bold" className="text-yellow-400" />}
+                    {member.statusKey === 'confirmed' ? <CheckCircle size={8} className="text-green-400" /> : <Question size={8} className="text-yellow-400" />}
                     <span className="truncate" style={{ color: CLASS_COLORS[member.characterClass] || '#fff' }}>
                       {member.characterName}
                     </span>
@@ -827,7 +827,7 @@ const MemberEntry = ({ member, statusKey, isAdmin }) => {
       className={`flex items-center gap-1.5 py-0.5 ${status.opacity}`}
       title={`${member.characterName} (${member.characterClass}${member.spec ? ' - ' + member.spec : ''})`}
     >
-      <status.Icon size={10} weight="bold" className={`${status.color} flex-shrink-0`} />
+      <status.Icon size={10} className={`${status.color} flex-shrink-0`} />
       <span
         className="text-xs truncate"
         style={{ color: CLASS_COLORS[member.characterClass] || '#fff' }}
@@ -836,7 +836,7 @@ const MemberEntry = ({ member, statusKey, isAdmin }) => {
       </span>
       {hasNote && (
         <span title={member.notes} className="flex-shrink-0 cursor-help">
-          <ChatDots size={9} weight="bold" className="text-yellow-400" />
+          <ChatDots size={9} className="text-yellow-400" />
         </span>
       )}
     </div>
@@ -872,13 +872,13 @@ const RoleSection = ({ role, members, t, isAdmin, columns = 1 }) => {
     <div className="flex-1 min-w-0">
       {/* Role Header */}
       <div className={`flex items-center gap-2 mb-2 pb-1.5 border-b ${config.bgBorder}/40`}>
-        <config.Icon size={16} weight="bold" className={config.color} />
+        <config.Icon size={16} className={config.color} />
         <span className="text-white font-semibold text-sm">{t(role.toLowerCase())}</span>
         <span className="text-xs ml-auto flex items-center gap-1.5">
           <span className={`font-bold ${countColor}`}>{confirmedCount}</span>
           {tentativeCount > 0 && <span className="text-yellow-400">+{tentativeCount}</span>}
           <span className="text-gray-500">/ {reqLabel}</span>
-          {isFilled && <Check size={9} weight="bold" className="text-green-400" />}
+          {isFilled && <Check size={9} className="text-green-400" />}
         </span>
       </div>
       {/* Members */}
@@ -925,14 +925,14 @@ const SummaryView = ({ summary, t, isAdmin }) => {
       <div>
         <div className="flex items-center justify-between text-xs mb-1.5">
           <span className="text-white font-semibold flex items-center gap-1.5">
-            <Skull size={10} weight="bold" className="text-coral" />
+            <Skull size={10} className="text-coral" />
             Mythic
           </span>
           <span className="text-lavender">
             <span className={`font-bold ${raidReady ? 'text-green-400' : 'text-white'}`}>{confirmed}</span>
             {tentative > 0 && <span className="text-yellow-400"> +{tentative}</span>}
             <span> / {MYTHIC_SIZE}</span>
-            {raidReady && <CheckCircle size={12} weight="bold" className="text-green-400 inline ml-1.5" />}
+            {raidReady && <CheckCircle size={12} className="text-green-400 inline ml-1.5" />}
           </span>
         </div>
         <div className="h-2 bg-indigo rounded-full overflow-hidden flex">
@@ -957,10 +957,10 @@ const SummaryView = ({ summary, t, isAdmin }) => {
 
       {/* Legend */}
       <div className="flex justify-center gap-3 text-[10px] text-lavender pt-1 border-t border-lavender-20/20">
-        <span className="flex items-center gap-1"><CheckCircle size={10} weight="bold" className="text-green-400" />{t('confirmed')}</span>
-        <span className="flex items-center gap-1"><Question size={10} weight="bold" className="text-yellow-400" />{t('tentative')}</span>
-        <span className="flex items-center gap-1 opacity-50"><XCircle size={10} weight="bold" className="text-red-400" />{t('declined')}</span>
-        <span className="flex items-center gap-1 opacity-30"><MinusCircle size={10} weight="bold" className="text-gray-500" />{t('members_no_response')}</span>
+        <span className="flex items-center gap-1"><CheckCircle size={10} className="text-green-400" />{t('confirmed')}</span>
+        <span className="flex items-center gap-1"><Question size={10} className="text-yellow-400" />{t('tentative')}</span>
+        <span className="flex items-center gap-1 opacity-50"><XCircle size={10} className="text-red-400" />{t('declined')}</span>
+        <span className="flex items-center gap-1 opacity-30"><MinusCircle size={10} className="text-gray-500" />{t('members_no_response')}</span>
       </div>
     </div>
   )
@@ -1017,7 +1017,7 @@ const SummaryModal = ({ date, summary, loadingSummary, onClose, t, language, isA
             onClick={onClose}
             className="w-8 h-8 rounded-lg bg-lavender-12/30 text-lavender hover:text-white hover:bg-lavender-12/50 transition-all flex items-center justify-center"
           >
-            <X size={16} weight="bold" />
+            <X size={16} />
           </button>
         </div>
 
@@ -1025,7 +1025,7 @@ const SummaryModal = ({ date, summary, loadingSummary, onClose, t, language, isA
         <div className="p-6 max-h-[70vh] overflow-y-auto">
           {loadingSummary ? (
             <div className="text-center py-12">
-              <CircleNotch size={32} weight="bold" className="animate-spin text-coral mx-auto" />
+              <CircleNotch size={32} className="animate-spin text-coral mx-auto" />
             </div>
           ) : summary ? (
             <SummaryView summary={summary} t={t} isAdmin={isAdmin} />
@@ -1097,10 +1097,10 @@ const AdminOverview = ({ overview, t, language, isAdmin }) => {
                     >
                       {status ? (
                         <div className="flex items-center gap-1">
-                          <config.Icon size={16} weight="bold" className={config.color} />
+                          <config.Icon size={16} className={config.color} />
                           {signup.notes && (
                             <span title={signup.notes}>
-                              <Note size={12} weight="bold" className="text-yellow-400 cursor-help" />
+                              <Note size={12} className="text-yellow-400 cursor-help" />
                             </span>
                           )}
                         </div>
@@ -1120,12 +1120,12 @@ const AdminOverview = ({ overview, t, language, isAdmin }) => {
       <div className="flex justify-center gap-6 text-sm">
         {Object.entries(STATUS_CONFIG).map(([status, config]) => (
           <div key={status} className={`flex items-center gap-2 ${config.color}`}>
-            <config.Icon size={16} weight="bold" />
+            <config.Icon size={16} />
             <span>{t(status)}</span>
           </div>
         ))}
         <div className="flex items-center gap-2 text-yellow-400">
-          <Note size={16} weight="bold" />
+          <Note size={16} />
           <span>{t('admin_notes')}</span>
         </div>
       </div>
@@ -1255,7 +1255,7 @@ const WCLLinkModal = ({ date, onClose, onLinked, t, language }) => {
             </div>
           </div>
           <button onClick={onClose} className="w-8 h-8 rounded-lg bg-lavender-12/30 text-lavender hover:text-white hover:bg-lavender-12/50 transition-all flex items-center justify-center">
-            <X size={16} weight="bold" />
+            <X size={16} />
           </button>
         </div>
 
@@ -1263,7 +1263,7 @@ const WCLLinkModal = ({ date, onClose, onLinked, t, language }) => {
         <div className="p-6 overflow-y-auto flex-1 space-y-4">
           {error && (
             <div className="bg-red-500/20 border border-red-500 text-red-400 px-4 py-3 rounded-lg text-sm">
-              <WarningCircle size={14} weight="bold" className="inline mr-2" />{error}
+              <WarningCircle size={14} className="inline mr-2" />{error}
             </div>
           )}
 
@@ -1272,18 +1272,18 @@ const WCLLinkModal = ({ date, onClose, onLinked, t, language }) => {
               {/* Auto-detected reports */}
               <div>
                 <h4 className="text-sm font-semibold text-white mb-3 flex items-center gap-2">
-                  <MagnifyingGlass size={14} weight="bold" className="text-coral" />
+                  <MagnifyingGlass size={14} className="text-coral" />
                   {t('auto_detected_reports')}
                 </h4>
                 {loadingAuto ? (
-                  <div className="text-center py-6"><CircleNotch size={24} weight="bold" className="animate-spin text-coral mx-auto" /></div>
+                  <div className="text-center py-6"><CircleNotch size={24} className="animate-spin text-coral mx-auto" /></div>
                 ) : autoError === 'guild_not_configured' ? (
                   <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-3 text-sm text-yellow-300">
-                    <Info size={14} weight="bold" className="inline mr-2" />{t('wcl_guild_not_configured')}
+                    <Info size={14} className="inline mr-2" />{t('wcl_guild_not_configured')}
                   </div>
                 ) : autoError ? (
                   <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3 text-sm text-red-300">
-                    <Warning size={14} weight="bold" className="inline mr-2" />{autoError}
+                    <Warning size={14} className="inline mr-2" />{autoError}
                   </div>
                 ) : autoReports.length === 0 ? (
                   <div className="text-center py-4 text-lavender text-sm">{t('no_reports_found')}</div>
@@ -1305,7 +1305,7 @@ const WCLLinkModal = ({ date, onClose, onLinked, t, language }) => {
                             disabled={loadingPreview}
                             className="ml-3 px-3 py-1.5 bg-orange-500/20 text-orange-400 rounded-lg text-sm hover:bg-orange-500/30 transition-all flex-shrink-0"
                           >
-                            {loadingPreview ? <CircleNotch size={14} weight="bold" className="animate-spin" /> : <><Link size={14} weight="bold" className="inline mr-1" />{t('link_this_report')}</>}
+                            {loadingPreview ? <CircleNotch size={14} className="animate-spin" /> : <><Link size={14} className="inline mr-1" />{t('link_this_report')}</>}
                           </button>
                         )}
                       </div>
@@ -1336,7 +1336,7 @@ const WCLLinkModal = ({ date, onClose, onLinked, t, language }) => {
                   disabled={!manualUrl.trim() || loadingPreview}
                   className="px-4 py-2 bg-coral/20 text-coral rounded-lg text-sm hover:bg-coral/30 transition-all disabled:opacity-50"
                 >
-                  {loadingPreview ? <CircleNotch size={14} weight="bold" className="animate-spin" /> : <MagnifyingGlass size={16} weight="bold" />}
+                  {loadingPreview ? <CircleNotch size={14} className="animate-spin" /> : <MagnifyingGlass size={16} />}
                 </button>
               </div>
             </>
@@ -1344,7 +1344,7 @@ const WCLLinkModal = ({ date, onClose, onLinked, t, language }) => {
             /* Preview step */
             <>
               <button onClick={() => { setStep('select'); setPreview(null) }} className="text-sm text-lavender hover:text-white transition-colors">
-                <ArrowLeft size={14} weight="bold" className="inline mr-2" />{t('back') || 'Volver'}
+                <ArrowLeft size={14} className="inline mr-2" />{t('back') || 'Volver'}
               </button>
 
               {preview && (
@@ -1395,9 +1395,9 @@ const WCLLinkModal = ({ date, onClose, onLinked, t, language }) => {
                     className="w-full py-3 bg-gradient-to-r from-orange-600 to-orange-700 text-white font-bold rounded-lg hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {confirming ? (
-                      <><CircleNotch size={18} weight="bold" className="inline animate-spin mr-2" />{t('loading')}...</>
+                      <><CircleNotch size={18} className="inline animate-spin mr-2" />{t('loading')}...</>
                     ) : (
-                      <><Check size={18} weight="bold" className="inline mr-2" />{t('confirm_apply_to')} {matchedCount} {t('players')}</>
+                      <><Check size={18} className="inline mr-2" />{t('confirm_apply_to')} {matchedCount} {t('players')}</>
                     )}
                   </button>
                 </div>
@@ -1424,7 +1424,7 @@ const RaidHistory = ({ history, loading, t, language, isAdmin, onLinkWcl }) => {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <CircleNotch size={40} weight="bold" className="animate-spin text-coral" />
+        <CircleNotch size={40} className="animate-spin text-coral" />
       </div>
     )
   }
@@ -1432,7 +1432,7 @@ const RaidHistory = ({ history, loading, t, language, isAdmin, onLinkWcl }) => {
   if (history.length === 0) {
     return (
       <div className="text-center py-12 text-lavender">
-        <CalendarX size={40} weight="bold" className="mx-auto mb-4 opacity-50" />
+        <CalendarX size={40} className="mx-auto mb-4 opacity-50" />
         <p>{t('no_past_raids')}</p>
       </div>
     )
@@ -1441,7 +1441,7 @@ const RaidHistory = ({ history, loading, t, language, isAdmin, onLinkWcl }) => {
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-3 mb-2">
-        <ClockCounterClockwise size={18} weight="bold" className="text-coral" />
+        <ClockCounterClockwise size={18} className="text-coral" />
         <h3 className="text-lg text-white">{t('past_raid_days')}</h3>
       </div>
 
@@ -1476,13 +1476,13 @@ const RaidHistory = ({ history, loading, t, language, isAdmin, onLinkWcl }) => {
                 {raid.attendance && (
                   <div className="flex items-center gap-3 text-sm">
                     <span className="text-green-400" title={t('confirmed')}>
-                      <CheckCircle size={14} weight="bold" className="inline mr-1" />{raid.attendance.confirmed}
+                      <CheckCircle size={14} className="inline mr-1" />{raid.attendance.confirmed}
                     </span>
                     <span className="text-yellow-400" title={t('tentative')}>
-                      <Question size={14} weight="bold" className="inline mr-1" />{raid.attendance.tentative}
+                      <Question size={14} className="inline mr-1" />{raid.attendance.tentative}
                     </span>
                     <span className="text-red-400" title={t('declined')}>
-                      <XCircle size={14} weight="bold" className="inline mr-1" />{raid.attendance.declined}
+                      <XCircle size={14} className="inline mr-1" />{raid.attendance.declined}
                     </span>
                   </div>
                 )}
@@ -1499,7 +1499,7 @@ const RaidHistory = ({ history, loading, t, language, isAdmin, onLinkWcl }) => {
                       <WclIcon size={18} />
                       <span className="text-orange-400 text-sm font-semibold">{raid.wclReport.title}</span>
                       <span className="text-xs text-lavender">({raid.wclReport.dkpAssigned} DKP)</span>
-                      <ArrowSquareOut size={14} weight="bold" className="text-lavender" />
+                      <ArrowSquareOut size={14} className="text-lavender" />
                     </a>
                   ) : isAdmin ? (
                     <button

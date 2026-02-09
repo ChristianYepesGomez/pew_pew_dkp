@@ -23,7 +23,7 @@ const RoleSwitcher = () => {
         }`}
         title="DEV: Role Switcher"
       >
-        {isDevMode ? <UserCircle size={24} weight="bold" /> : <Bug size={24} weight="bold" />}
+        {isDevMode ? <UserCircle size={24} /> : <Bug size={24} />}
       </button>
 
       {isOpen && (
@@ -47,14 +47,14 @@ const RoleSwitcher = () => {
               <span className={`w-2 h-2 rounded-full ${role.color}`}></span>
               {role.label}
               {(isDevMode ? user?.role : null) === role.id && (
-                <Check size={14} weight="bold" className="ml-auto text-teal" />
+                <Check size={14} className="ml-auto text-teal" />
               )}
             </button>
           ))}
           {isDevMode && (
             <div className="mt-2 pt-2 border-t border-lavender-20">
               <div className="text-xs text-yellow-400 px-2 flex items-center gap-1">
-                <Warning size={12} weight="bold" />
+                <Warning size={12} />
                 Viewing as {user?.role}
               </div>
             </div>

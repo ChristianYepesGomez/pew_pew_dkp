@@ -126,7 +126,7 @@ const ArmoryModal = ({ memberId, onClose }) => {
   if (loading) {
     return createPortal(
       <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[100]">
-        <CircleNotch size={48} weight="bold" className="text-coral animate-spin" />
+        <CircleNotch size={48} className="text-coral animate-spin" />
       </div>,
       document.body
     )
@@ -136,7 +136,7 @@ const ArmoryModal = ({ memberId, onClose }) => {
     return createPortal(
       <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[100] p-4">
         <div className="bg-indigo border-2 border-red-500 rounded-2xl p-6 text-center">
-          <WarningCircle size={48} weight="bold" className="text-red-400 mx-auto mb-4" />
+          <WarningCircle size={48} className="text-red-400 mx-auto mb-4" />
           <p className="text-cream mb-4">{t('member_not_found')}</p>
           <button onClick={onClose} className="px-6 py-2 rounded-full bg-lavender-12 text-cream hover:bg-lavender-20 transition-colors">
             {t('close')}
@@ -183,7 +183,7 @@ const ArmoryModal = ({ memberId, onClose }) => {
               </div>
             </div>
             <button onClick={onClose} className="text-lavender hover:text-cream transition-colors">
-              <X size={24} weight="bold" />
+              <X size={24} />
             </button>
           </div>
         </div>
@@ -214,7 +214,7 @@ const ArmoryModal = ({ memberId, onClose }) => {
               activeTab === 'loot' ? 'text-coral border-b-2 border-coral bg-lavender-12' : 'text-lavender hover:text-cream hover:bg-lavender-12'
             }`}
           >
-            <Trophy size={18} weight="bold" />
+            <Trophy size={18} />
             {t('loot_history')} ({loot.length})
           </button>
           <button
@@ -223,7 +223,7 @@ const ArmoryModal = ({ memberId, onClose }) => {
               activeTab === 'equipment' ? 'text-coral border-b-2 border-coral bg-lavender-12' : 'text-lavender hover:text-cream hover:bg-lavender-12'
             }`}
           >
-            <ShieldStar size={18} weight="bold" />
+            <ShieldStar size={18} />
             {t('equipment')}
           </button>
         </div>
@@ -244,7 +244,7 @@ const ArmoryModal = ({ memberId, onClose }) => {
                         {item.itemImage && item.itemImage !== '🎁' ? (
                           <img src={item.itemImage} alt="" className="w-full h-full object-cover" />
                         ) : (
-                          <Diamond size={18} weight="bold" style={{ color: RARITY_COLORS[item.itemRarity] || RARITY_COLORS.epic }} />
+                          <Diamond size={18} style={{ color: RARITY_COLORS[item.itemRarity] || RARITY_COLORS.epic }} />
                         )}
                       </div>
                     </WowheadTooltip>
@@ -267,23 +267,23 @@ const ArmoryModal = ({ memberId, onClose }) => {
             <div>
               {!profile?.server ? (
                 <div className="text-center py-8">
-                  <Sword size={48} weight="bold" className="text-lavender mx-auto mb-4" />
+                  <Sword size={48} className="text-lavender mx-auto mb-4" />
                   <p className="text-lavender">{t('no_server_configured')}</p>
                 </div>
               ) : equipmentLoading ? (
                 <div className="text-center py-8">
-                  <CircleNotch size={48} weight="bold" className="text-coral animate-spin mx-auto" />
+                  <CircleNotch size={48} className="text-coral animate-spin mx-auto" />
                   <p className="text-lavender mt-2">{t('loading_equipment')}</p>
                 </div>
               ) : equipmentError ? (
                 <div className="text-center py-8">
-                  <WarningCircle size={48} weight="bold" className="text-yellow-500 mx-auto mb-4" />
+                  <WarningCircle size={48} className="text-yellow-500 mx-auto mb-4" />
                   <p className="text-yellow-400">{equipmentError}</p>
                   <button
                     onClick={() => { setEquipment(null); setCharacterMedia(null); loadEquipment() }}
                     className="mt-4 px-4 py-2 rounded-full bg-lavender-12 text-cream hover:bg-lavender-20 transition-colors flex items-center gap-2 mx-auto"
                   >
-                    <ArrowCounterClockwise size={16} weight="bold" />
+                    <ArrowCounterClockwise size={16} />
                     {t('retry')}
                   </button>
                 </div>
@@ -315,7 +315,7 @@ const ArmoryModal = ({ memberId, onClose }) => {
                               {item.icon ? (
                                 <img src={item.icon} alt="" className="w-full h-full object-cover" />
                               ) : (
-                                <Question size={16} weight="bold" className="text-lavender" />
+                                <Question size={16} className="text-lavender" />
                               )}
                             </div>
                             <div className="flex-1 min-w-0">
@@ -330,7 +330,7 @@ const ArmoryModal = ({ memberId, onClose }) => {
                 </div>
               ) : (
                 <div className="text-center py-8">
-                  <ShieldStar size={48} weight="bold" className="text-lavender mx-auto mb-4" />
+                  <ShieldStar size={48} className="text-lavender mx-auto mb-4" />
                   <p className="text-lavender">{t('no_equipment_data')}</p>
                 </div>
               )}

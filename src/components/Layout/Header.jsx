@@ -64,7 +64,7 @@ const Header = ({ tabs = [], activeTab, onTabChange }) => {
             <span className="text-base font-semibold text-cream uppercase">
               {language}
             </span>
-            <CaretDown size={16} weight="bold" className="text-cream" />
+            <CaretDown size={16} className="text-cream" />
           </button>
 
           <PillButton

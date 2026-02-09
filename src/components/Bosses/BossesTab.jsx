@@ -103,7 +103,7 @@ const BossesTab = () => {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <CircleNotch size={32} weight="bold" className="animate-spin text-coral" />
+        <CircleNotch size={32} className="animate-spin text-coral" />
       </div>
     )
   }
@@ -111,7 +111,7 @@ const BossesTab = () => {
   if (error) {
     return (
       <div className="bg-red-500/20 border border-red-500 rounded-lg p-4 text-center">
-        <WarningCircle size={18} weight="bold" className="inline mr-2" />{error}
+        <WarningCircle size={18} className="inline mr-2" />{error}
       </div>
     )
   }
@@ -131,7 +131,7 @@ const BossesTab = () => {
                 : 'bg-white/10 text-gray-300 hover:bg-white/20'
             }`}
           >
-            <Skull size={16} weight="bold" className="inline mr-2" />
+            <Skull size={16} className="inline mr-2" />
             {t('current_raids')}
             {data.current.length > 0 && (
               <span className="ml-2 bg-coral text-indigo px-2 py-0.5 rounded-full text-xs">
@@ -147,7 +147,7 @@ const BossesTab = () => {
                 : 'bg-white/10 text-gray-300 hover:bg-white/20'
             }`}
           >
-            <Book size={16} weight="bold" className="inline mr-2" />
+            <Book size={16} className="inline mr-2" />
             {t('legacy_raids')}
             {data.legacy.length > 0 && (
               <span className="ml-2 bg-gray-600 text-gray-200 px-2 py-0.5 rounded-full text-xs">
@@ -162,7 +162,7 @@ const BossesTab = () => {
             onClick={handleSync}
             className="px-3 py-2 bg-white/10 hover:bg-white/20 rounded-lg text-sm transition-all"
           >
-            <ArrowsClockwise size={14} weight="bold" className="inline mr-2" />
+            <ArrowsClockwise size={14} className="inline mr-2" />
             {t('sync_zones')}
           </button>
         )}
@@ -171,7 +171,7 @@ const BossesTab = () => {
       {/* Zones */}
       {zones.length === 0 ? (
         <div className="text-center py-8 text-gray-400">
-          <Sword size={40} weight="bold" className="mx-auto mb-4" />
+          <Sword size={40} className="mx-auto mb-4" />
           <p>{t('no_bosses')}</p>
         </div>
       ) : (
@@ -184,7 +184,7 @@ const BossesTab = () => {
                 className="w-full px-4 py-3 flex items-center justify-between hover:bg-white/5 transition-all"
               >
                 <div className="flex items-center gap-3">
-                  {expandedZones[zone.id] ? <CaretDown size={16} weight="bold" className="text-gray-400" /> : <CaretRight size={16} weight="bold" className="text-gray-400" />}
+                  {expandedZones[zone.id] ? <CaretDown size={16} className="text-gray-400" /> : <CaretRight size={16} className="text-gray-400" />}
                   <span className="font-bold text-lg">{zone.name}</span>
                   {zone.progress && (
                     <span
@@ -291,18 +291,18 @@ const BossCard = ({ boss, onClick, t }) => {
         {/* Stats Row - Always show, even with 0 values */}
         <div className="flex items-center gap-4 text-sm">
           <div className="flex items-center gap-1">
-            <CheckCircle size={14} weight="bold" className={boss.kills > 0 ? 'text-green-400' : 'text-gray-500'} />
+            <CheckCircle size={14} className={boss.kills > 0 ? 'text-green-400' : 'text-gray-500'} />
             <span className={`font-semibold ${boss.kills > 0 ? 'text-green-400' : 'text-gray-500'}`}>{boss.kills || 0}</span>
             <span className="text-gray-400 text-xs">{t('kills')}</span>
           </div>
           <div className="flex items-center gap-1">
-            <XCircle size={14} weight="bold" className={boss.wipes > 0 ? 'text-red-400' : 'text-gray-500'} />
+            <XCircle size={14} className={boss.wipes > 0 ? 'text-red-400' : 'text-gray-500'} />
             <span className={`font-semibold ${boss.wipes > 0 ? 'text-red-400' : 'text-gray-500'}`}>{boss.wipes || 0}</span>
             <span className="text-gray-400 text-xs">{t('wipes')}</span>
           </div>
           {boss.fastestKill && (
             <div className="flex items-center gap-1">
-              <Lightning size={14} weight="bold" className="text-yellow-400" />
+              <Lightning size={14} className="text-yellow-400" />
               <span className="text-yellow-400 font-semibold">{boss.fastestKill}</span>
             </div>
           )}
@@ -317,9 +317,9 @@ const BossCard = ({ boss, onClick, t }) => {
             onClick={(e) => e.stopPropagation()}
             className="mt-3 flex items-center justify-center gap-2 py-2 bg-coral/20 backdrop-blur-sm rounded-lg text-coral text-sm font-medium opacity-0 group-hover:opacity-100 translate-y-2 group-hover:translate-y-0 transition-all duration-300 hover:bg-coral/30"
           >
-            <BookOpen size={16} weight="bold" />
+            <BookOpen size={16} />
             {t('view_guide')}
-            <ArrowSquareOut size={14} weight="bold" />
+            <ArrowSquareOut size={14} />
           </a>
         )}
       </div>
@@ -356,7 +356,7 @@ const BossDetailModal = ({ boss, details, loading, onClose, onChangeDifficulty, 
             onClick={onClose}
             className="absolute top-4 right-4 w-10 h-10 rounded-full bg-black/50 backdrop-blur-sm flex items-center justify-center text-gray-300 hover:text-white hover:bg-black/70 transition-all"
           >
-            <X size={20} weight="bold" />
+            <X size={20} />
           </button>
 
           {/* Boss Name Overlay */}
@@ -372,7 +372,7 @@ const BossDetailModal = ({ boss, details, loading, onClose, onChangeDifficulty, 
         <div className="p-6 overflow-y-auto max-h-[calc(90vh-192px)]">
           {loading ? (
             <div className="flex items-center justify-center py-12">
-              <CircleNotch size={32} weight="bold" className="animate-spin text-coral" />
+              <CircleNotch size={32} className="animate-spin text-coral" />
             </div>
           ) : details ? (
             <div className="space-y-6">
@@ -410,7 +410,7 @@ const BossDetailModal = ({ boss, details, loading, onClose, onChangeDifficulty, 
               {details.statistics && (
                 <div className="bg-white/5 rounded-xl p-4">
                   <h3 className="font-semibold mb-3 flex items-center gap-2">
-                    <ChartBar size={18} weight="bold" className="text-coral" />
+                    <ChartBar size={18} className="text-coral" />
                     {t('statistics')}
                     {availableDiffs.length <= 1 && (
                       <span
@@ -435,20 +435,20 @@ const BossDetailModal = ({ boss, details, loading, onClose, onChangeDifficulty, 
                   {(details.statistics.wipesToFirstKill !== null || details.statistics.firstKillDate) && (
                     <div className="mt-4 pt-4 border-t border-white/10">
                       <h4 className="text-xs text-gray-400 mb-2 flex items-center gap-2">
-                        <Flag size={14} weight="bold" className="text-yellow-400" />
+                        <Flag size={14} className="text-yellow-400" />
                         {t('progression_stats')}
                       </h4>
                       <div className="flex flex-wrap gap-4">
                         {details.statistics.wipesToFirstKill !== null && (
                           <div className="flex items-center gap-2 bg-red-500/10 px-3 py-2 rounded-lg">
-                            <Skull size={16} weight="bold" className="text-red-400" />
+                            <Skull size={16} className="text-red-400" />
                             <span className="text-sm text-gray-300">{t('wipes_to_first_kill')}:</span>
                             <span className="font-bold text-red-400">{details.statistics.wipesToFirstKill}</span>
                           </div>
                         )}
                         {details.statistics.firstKillDate && (
                           <div className="flex items-center gap-2 bg-green-500/10 px-3 py-2 rounded-lg">
-                            <Trophy size={16} weight="bold" className="text-green-400" />
+                            <Trophy size={16} className="text-green-400" />
                             <span className="text-sm text-gray-300">{t('first_kill')}:</span>
                             <span className="font-bold text-green-400">{details.statistics.firstKillDate}</span>
                           </div>
@@ -469,7 +469,7 @@ const BossDetailModal = ({ boss, details, loading, onClose, onChangeDifficulty, 
               {details.records && (details.records.topDamage || details.records.topHealing || details.records.mostDeaths) && (
                 <div className="bg-white/5 rounded-xl p-4">
                   <h3 className="font-semibold mb-3 flex items-center gap-2">
-                    <Trophy size={18} weight="bold" className="text-yellow-400" />
+                    <Trophy size={18} className="text-yellow-400" />
                     {t('records')}
                   </h3>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
@@ -513,7 +513,7 @@ const BossDetailModal = ({ boss, details, loading, onClose, onChangeDifficulty, 
               {details.deathLeaderboard && details.deathLeaderboard.length > 0 && (
                 <div className="bg-white/5 rounded-xl p-4">
                   <h3 className="font-semibold mb-3 flex items-center gap-2">
-                    <Skull size={18} weight="bold" className="text-red-400" />
+                    <Skull size={18} className="text-red-400" />
                     {t('hall_of_shame')}
                   </h3>
                   <div className="space-y-2">
@@ -532,7 +532,7 @@ const BossDetailModal = ({ boss, details, loading, onClose, onChangeDifficulty, 
                         </div>
                         <div className="flex items-center gap-4 text-sm">
                           <span className="text-red-400">
-                            <Skull size={14} weight="bold" className="inline mr-1" />
+                            <Skull size={14} className="inline mr-1" />
                             {player.deaths}
                           </span>
                           <span className="text-gray-400">
@@ -552,7 +552,7 @@ const BossDetailModal = ({ boss, details, loading, onClose, onChangeDifficulty, 
               {details.recentKills && details.recentKills.length > 0 && (
                 <div className="bg-white/5 rounded-xl p-4">
                   <h3 className="font-semibold mb-3 flex items-center gap-2">
-                    <ClockCounterClockwise size={18} weight="bold" className="text-green-400" />
+                    <ClockCounterClockwise size={18} className="text-green-400" />
                     {t('recent_kills')}
                   </h3>
                   <div className="space-y-2">
@@ -567,7 +567,7 @@ const BossDetailModal = ({ boss, details, loading, onClose, onChangeDifficulty, 
                         <span className="text-gray-300">{kill.date}</span>
                         <span className="text-yellow-400">{kill.killTime}</span>
                         <span className="text-coral text-sm">
-                          <ArrowSquareOut size={14} weight="bold" className="inline mr-1" />
+                          <ArrowSquareOut size={14} className="inline mr-1" />
                           WCL
                         </span>
                       </a>
@@ -584,9 +584,9 @@ const BossDetailModal = ({ boss, details, loading, onClose, onChangeDifficulty, 
                   rel="noopener noreferrer"
                   className="flex items-center justify-center gap-2 py-3 bg-coral/20 hover:bg-coral/30 rounded-xl text-coral font-semibold transition-all"
                 >
-                  <BookOpen size={18} weight="bold" />
+                  <BookOpen size={18} />
                   {t('view_guide')}
-                  <ArrowSquareOut size={16} weight="bold" />
+                  <ArrowSquareOut size={16} />
                 </a>
               )}
             </div>
@@ -613,7 +613,7 @@ const StatBox = ({ label, value, color }) => (
 const RecordCard = ({ Icon, iconColor, title, record }) => (
   <div className="bg-white/5 rounded-lg p-3">
     <div className="flex items-center gap-2 mb-2">
-      <Icon size={16} weight="bold" className={iconColor} />
+      <Icon size={16} className={iconColor} />
       <span className="text-xs text-gray-400">{title}</span>
     </div>
     <div className="flex items-center justify-between">
