@@ -37,12 +37,12 @@ const Input = forwardRef(({
       ref={ref}
       aria-invalid={isInvalid || undefined}
       className={cn(
-        'border-2 border-lavender-20 text-cream placeholder:text-lavender placeholder:font-normal placeholder:opacity-40 focus:outline-none focus:border-lavender transition-colors font-normal disabled:cursor-not-allowed disabled:opacity-60',
+        'outline outline-2 outline-lavender-20 border-none text-cream placeholder:text-lavender placeholder:font-normal placeholder:opacity-40 focus:outline-lavender transition-colors font-normal disabled:cursor-not-allowed disabled:opacity-60',
         variants[variant] || variants.solid,
         sizes[size] || sizes.lg,
         radii[radius] || radii.soft,
         fullWidth && 'w-full',
-        isInvalid && 'border-red-400 focus:border-red-400',
+        isInvalid && 'outline-red-400 focus:outline-red-400',
         className,
       )}
       {...props}

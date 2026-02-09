@@ -16,6 +16,14 @@ export default {
       xl: ['20px', { lineHeight: '28px' }],
       '2xl': ['24px', { lineHeight: '32px' }],
     },
+    borderWidth: {
+      ...defaultTheme.borderWidth,
+      2: '1.5px',
+    },
+    outlineWidth: {
+      ...defaultTheme.outlineWidth,
+      2: '1.5px',
+    },
     extend: {
       colors: {
         indigo: '#0f0b20',
