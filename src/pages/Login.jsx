@@ -4,6 +4,8 @@ import { CircleNotch, WarningCircle } from '@phosphor-icons/react'
 import { useAuth } from '../hooks/useAuth'
 import { useLanguage } from '../hooks/useLanguage'
 import CatLogo from '../components/Layout/CatLogo'
+import Button from '../components/UI/Button'
+import Input from '../components/UI/Input'
 
 const Login = () => {
   const [username, setUsername] = useState('')
@@ -27,15 +29,18 @@ const Login = () => {
     <div className="min-h-screen flex items-center justify-center px-4 py-8">
       <div className="w-full max-w-md">
         <div className="flex justify-end mb-4">
-          <button
+          <Button
             onClick={() => changeLanguage(language === 'es' ? 'en' : 'es')}
-            className="px-4 py-2 rounded-full border-2 border-lavender-20 text-cream text-sm font-semibold hover:bg-lavender-12 transition-colors uppercase"
+            variant="outline"
+            size="sm"
+            radius="pill"
+            className="uppercase"
           >
             {language}
-          </button>
+          </Button>
         </div>
 
-        <div className="bg-lavender-12 rounded-2xl overflow-hidden p-8 space-y-8">
+        <div className="bg-lavender-12 rounded-3xl overflow-hidden p-10 space-y-8">
           <div className="flex justify-center pt-4">
             <CatLogo size={280} />
           </div>
@@ -47,47 +52,50 @@ const Login = () => {
               </div>
             )}
 
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <label className="text-cream text-sm font-semibold mb-2">
-                  {t('username')}
-                </label>
-                <input
+            <form onSubmit={handleSubmit} className="flex flex-col gap-6">
+                <div className="flex flex-col gap-2">
+                  <label className="block text-cream text-sm font-semibold px-2">
+                    {t('username')}
+                  </label>
+                  <Input
                   type="text"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  className="w-full px-4 py-3 rounded-xl bg-indigo border-2 border-lavender-20 text-cream placeholder:text-lavender focus:outline-none focus:border-lavender transition-colors"
                   placeholder={t('enter_username')}
                   required
                 />
               </div>
 
-              <div>
-                <div className="flex items-center justify-between mb-2">
+              <div className="space-y-2">
+                <div className="flex flex-col gap-2">
+                  <div className="flex items-center justify-between px-2">
                   <label className="text-cream text-sm font-semibold">
-                    {t('password')}
-                  </label>
-                  <Link
-                    to="/forgot-password"
-                    className="text-lavender hover:text-cream transition-colors text-sm"
-                  >
-                    {t('forgot_password')}
-                  </Link>
+                      {t('password')}
+                    </label>
+                    <Link
+                      to="/forgot-password"
+                      className="text-lavender hover:text-cream transition-colors text-sm"
+                    >
+                      {t('forgot_password')}
+                    </Link>
+                  </div>
                 </div>
-                <input
+                <Input
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full px-4 py-3 rounded-xl bg-indigo border-2 border-lavender-20 text-cream placeholder:text-lavender focus:outline-none focus:border-lavender transition-colors"
                   placeholder={t('enter_password')}
                   required
                 />
               </div>
 
-              <button
+              <Button
                 type="submit"
-                disabled={loading}
-                className="w-full bg-coral text-indigo font-bold py-4 px-4 rounded-full hover:opacity-90 transition-opacity disabled:opacity-50"
+                variant="primary"
+                size="lg"
+                fullWidth
+                loading={loading}
+                className="font-bold px-4"
               >
                 {loading ? (
                   <span className="flex items-center justify-center gap-2">
@@ -96,19 +104,16 @@ const Login = () => {
                 ) : (
                   <span>{t('login')}</span>
                 )}
-              </button>
+              </Button>
             </form>
-
-            <div className="text-center mt-6 pt-6 border-t border-lavender-20 space-y-3">
-            
-              <p className="text-lavender">
-                {t('no_account')}{' '}
-                <Link to="/register" className="text-coral font-semibold hover:underline">
-                  {t('register')}
-                </Link>
-              </p>
-          </div>
         </div>
+
+        <p className="text-lavender text-center mt-6">
+          {t('no_account')}{' '}
+          <Link to="/register" className="text-coral font-semibold hover:underline">
+            {t('register')}
+          </Link>
+        </p>
       </div>
     </div>
   )

@@ -3,6 +3,8 @@ import { Link, useParams, useNavigate } from 'react-router-dom'
 import { Lock, FloppyDisk, CircleNotch, WarningCircle, CheckCircle, ArrowLeft } from '@phosphor-icons/react'
 import { useLanguage } from '../hooks/useLanguage'
 import { authAPI } from '../services/api'
+import Button from '../components/UI/Button'
+import Input from '../components/UI/Input'
 
 const ResetPassword = () => {
   const { token } = useParams()
@@ -45,12 +47,15 @@ const ResetPassword = () => {
     <div className="min-h-screen flex items-center justify-center px-4 py-8">
       <div className="w-full max-w-md">
         <div className="flex justify-end mb-4">
-          <button
+          <Button
             onClick={() => changeLanguage(language === 'es' ? 'en' : 'es')}
-            className="px-4 py-2 rounded-full border-2 border-lavender-20 text-cream text-sm font-semibold hover:bg-lavender-12 transition-colors uppercase"
+            variant="outline"
+            size="sm"
+            radius="pill"
+            className="uppercase"
           >
             {language}
-          </button>
+          </Button>
         </div>
 
         <div className="bg-lavender-12 rounded-2xl overflow-hidden">
@@ -83,11 +88,10 @@ const ResetPassword = () => {
                   <label className="flex items-center gap-2 text-cream text-sm font-semibold mb-2">
                     <Lock size={16} className="text-coral" />{t('new_password')}
                   </label>
-                  <input
+                  <Input
                     type="password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="w-full px-4 py-3 rounded-xl bg-indigo border-2 border-lavender-20 text-cream placeholder:text-lavender focus:outline-none focus:border-lavender transition-colors"
                     required
                     minLength={6}
                   />
@@ -97,20 +101,22 @@ const ResetPassword = () => {
                   <label className="flex items-center gap-2 text-cream text-sm font-semibold mb-2">
                     <Lock size={16} className="text-coral" />{t('confirm_password')}
                   </label>
-                  <input
+                  <Input
                     type="password"
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
-                    className="w-full px-4 py-3 rounded-xl bg-indigo border-2 border-lavender-20 text-cream placeholder:text-lavender focus:outline-none focus:border-lavender transition-colors"
                     required
                     minLength={6}
                   />
                 </div>
 
-                <button
+                <Button
                   type="submit"
-                  disabled={loading}
-                  className="w-full bg-coral text-indigo font-bold py-4 px-4 rounded-full hover:opacity-90 transition-opacity disabled:opacity-50"
+                  variant="primary"
+                  size="lg"
+                  fullWidth
+                  loading={loading}
+                  className="font-bold px-4"
                 >
                   {loading ? (
                     <span className="flex items-center justify-center gap-2">
@@ -121,7 +127,7 @@ const ResetPassword = () => {
                       <FloppyDisk size={20} />{t('change_password')}
                     </span>
                   )}
-                </button>
+                </Button>
               </form>
             ) : (
               <div className="text-center py-4">

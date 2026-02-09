@@ -1,19 +1,29 @@
-const variants = {
-  active: 'bg-coral text-indigo',
-  inactive: 'bg-lavender-12 text-cream hover:bg-lavender-20',
-  ghost: 'text-cream hover:bg-lavender-12',
+import Button from './Button'
+import { cn } from '../../utils/cn'
+
+const variantMap = {
+  active: 'primary',
+  inactive: 'secondary',
+  ghost: 'ghost',
 }
 
-const PillButton = ({ children, icon: Icon, active, variant, iconOnly, className = '', ...props }) => {
+const PillButton = ({ children, icon, active, variant, iconOnly, size = 'lg', className = '', ...props }) => {
   const resolved = variant || (active ? 'active' : 'inactive')
-  const base = `flex items-center justify-center gap-2 h-12 shrink-0 whitespace-nowrap rounded-full font-medium text-base transition-colors ${variants[resolved]}`
-  const padding = iconOnly ? 'w-12' : 'px-5 py-3'
+  const mappedVariant = variantMap[resolved] || resolved
 
   return (
-    <button className={`${base} ${padding} ${className}`} {...props}>
-      {Icon && <Icon size={24} />}
-      {!iconOnly && children}
-    </button>
+    <Button
+      variant={mappedVariant}
+      size={size}
+      radius="pill"
+      icon={icon}
+      iconOnly={iconOnly}
+      iconSize={24}
+      className={cn('shrink-0 font-medium', className)}
+      {...props}
+    >
+      {children}
+    </Button>
   )
 }
 
