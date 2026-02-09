@@ -5,8 +5,11 @@ import { useLanguage } from '../../hooks/useLanguage'
 import { dkpAPI, authAPI, charactersAPI, blizzardAPI } from '../../services/api'
 import WowheadTooltip from '../Common/WowheadTooltip'
 import { X, CircleNotch, PencilSimple, Crop, MagnifyingGlassMinus, MagnifyingGlassPlus, User, Users, Coins, Envelope, Key, FloppyDisk, Gavel, ClockCounterClockwise, WarningCircle, DownloadSimple, ArrowsClockwise, Trash, Star, Info } from '@phosphor-icons/react'
-
-const TABS = ['profile', 'characters', 'dkp']
+import {
+  CHARACTER_MODAL_VIEW,
+  CHARACTER_MODAL_VIEW_ORDER,
+  normalizeCharacterModalView,
+} from './characterModalViews'
 
 const CLASS_COLORS = {
   Warrior: '#C79C6E', Paladin: '#F58CBA', Hunter: '#ABD473', Rogue: '#FFF569', Priest: '#FFFFFF',
@@ -75,6 +78,12 @@ const CLASS_SPECS = {
 const RARITY_COLORS = {
   common: '#9d9d9d', uncommon: '#1eff00', rare: '#0070dd',
   epic: '#a335ee', legendary: '#ff8000',
+}
+
+const TAB_ICONS = {
+  [CHARACTER_MODAL_VIEW.PROFILE]: User,
+  [CHARACTER_MODAL_VIEW.CHARACTERS]: Users,
+  [CHARACTER_MODAL_VIEW.DKP]: Coins,
 }
 
 // CLASSES removed - manual character creation disabled, only Blizzard import allowed
@@ -242,10 +251,14 @@ const AvatarCropModal = ({ imageSrc, onConfirm, onCancel, t }) => {
   )
 }
 
-const MyCharacterModal = ({ onClose }) => {
+const MyCharacterModal = ({
+  onClose,
+  initialTab = CHARACTER_MODAL_VIEW.PROFILE,
+  showTabs = true,
+}) => {
   const { user, refreshUser } = useAuth()
   const { t, language } = useLanguage()
-  const [activeTab, setActiveTab] = useState('profile')
+  const [activeTab, setActiveTab] = useState(normalizeCharacterModalView(initialTab))
   const [history, setHistory] = useState([])
   const [characters, setCharacters] = useState([])
   const [loading, setLoading] = useState(true)
@@ -284,6 +297,10 @@ const MyCharacterModal = ({ onClose }) => {
     document.addEventListener('keydown', handleKeyDown)
     return () => document.removeEventListener('keydown', handleKeyDown)
   }, [handleKeyDown])
+
+  useEffect(() => {
+    setActiveTab(normalizeCharacterModalView(initialTab))
+  }, [initialTab])
 
   useEffect(() => {
     loadData()
@@ -591,8 +608,6 @@ const MyCharacterModal = ({ onClose }) => {
     })
   }
 
-  const TAB_ICONS = { profile: User, characters: Users, dkp: Coins }
-
   return createPortal(
     <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[100] p-4">
       <div className="bg-indigo border-2 border-lavender-20 rounded-2xl w-full max-w-2xl shadow-2xl max-h-[90vh] flex flex-col">
@@ -670,26 +685,27 @@ const MyCharacterModal = ({ onClose }) => {
           </div>
         </div>
 
-        {/* Tab Navigation */}
-        <div className="flex border-b border-lavender-20/30 flex-shrink-0">
-          {TABS.map((tab) => {
-            const TabIcon = TAB_ICONS[tab]
-            return (
-              <button
-                key={tab}
-                onClick={() => setActiveTab(tab)}
-                className={`flex-1 py-3 px-4 text-sm font-semibold transition-all ${
-                  activeTab === tab
-                    ? 'text-coral border-b-2 border-coral bg-lavender-12/20'
-                    : 'text-lavender hover:text-white hover:bg-lavender-12/10'
-                }`}
-              >
-                <TabIcon size={16} className="inline mr-2" />
-                {t(`tab_${tab}`)}
-              </button>
-            )
-          })}
-        </div>
+        {showTabs && (
+          <div className="flex border-b border-lavender-20/30 flex-shrink-0">
+            {CHARACTER_MODAL_VIEW_ORDER.map((tab) => {
+              const TabIcon = TAB_ICONS[tab]
+              return (
+                <button
+                  key={tab}
+                  onClick={() => setActiveTab(tab)}
+                  className={`flex-1 py-3 px-4 text-sm font-semibold transition-all ${
+                    activeTab === tab
+                      ? 'text-coral border-b-2 border-coral bg-lavender-12/20'
+                      : 'text-lavender hover:text-white hover:bg-lavender-12/10'
+                  }`}
+                >
+                  <TabIcon size={16} className="inline mr-2" />
+                  {t(`tab_${tab}`)}
+                </button>
+              )
+            })}
+          </div>
+        )}
 
         {/* Scrollable content */}
         <div className="flex-1 overflow-auto">

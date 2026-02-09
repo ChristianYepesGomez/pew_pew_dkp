@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Users, CalendarDots, Gavel, ClockCounterClockwise, Skull, Crown } from '@phosphor-icons/react'
+import { Users, CalendarDots, Gavel, ClockCounterClockwise, Skull } from '@phosphor-icons/react'
 import { useAuth } from '../hooks/useAuth'
 import { useLanguage } from '../hooks/useLanguage'
 import { calendarAPI } from '../services/api'
@@ -70,8 +70,6 @@ const Dashboard = () => {
     { id: 'history', icon: ClockCounterClockwise, label: t('auction_history') },
     { id: 'bosses', icon: Skull, label: t('bosses') },
   ]
-
-  if (isAdmin) tabs.push({ id: 'admin', icon: Crown, label: t('admin') })
 
   return (
     <div className="flex min-h-screen flex-col gap-14 p-12">

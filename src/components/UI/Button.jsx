@@ -1,4 +1,4 @@
-import { forwardRef, isValidElement } from 'react'
+import { createElement, forwardRef, isValidElement } from 'react'
 import { cn } from '../../utils/cn'
 
 const variants = {
@@ -50,10 +50,13 @@ const Button = forwardRef(({
   const renderIcon = (IconComponent) => {
     if (!IconComponent) return null
     if (isValidElement(IconComponent)) return IconComponent
-    if (typeof IconComponent === 'function') {
-      return <IconComponent size={iconSize} />
-    }
-    return null
+    if (
+      typeof IconComponent !== 'function'
+      && typeof IconComponent !== 'object'
+      && typeof IconComponent !== 'string'
+    ) return null
+
+    return createElement(IconComponent, { size: iconSize, 'aria-hidden': true })
   }
 
   return (

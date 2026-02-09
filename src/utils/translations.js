@@ -3,6 +3,7 @@ export const translations = {
     guild_name: 'Pew Pew Kittens with Guns',
     midnight_edition: 'Midnight Edition',
     logout: 'Salir',
+    language: 'Idioma',
     light_mode: 'Modo claro',
     dark_mode: 'Modo oscuro',
     // Registration
@@ -571,6 +572,7 @@ export const translations = {
     guild_name: 'Pew Pew Kittens with Guns',
     midnight_edition: 'Midnight Edition',
     logout: 'Logout',
+    language: 'Language',
     light_mode: 'Light mode',
     dark_mode: 'Dark mode',
     // Registration
