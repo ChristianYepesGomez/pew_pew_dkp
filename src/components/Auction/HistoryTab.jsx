@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
+import { CircleNotch, ClockCounterClockwise, Diamond, Trophy, DoorOpen, CaretRight, CaretUp, CaretDown, X, DiceFive } from '@phosphor-icons/react'
 import { useSocket } from '../../hooks/useSocket'
 import { useLanguage } from '../../hooks/useLanguage'
 import { auctionsAPI } from '../../services/api'
@@ -56,11 +57,11 @@ const HistoryTab = () => {
     })
   }
 
-  if (loading) return <div className="text-center py-20"><i className="fas fa-circle-notch fa-spin text-6xl text-midnight-glow"></i></div>
+  if (loading) return <div className="text-center py-20"><CircleNotch className="animate-spin text-6xl text-coral inline-block" weight="bold" /></div>
 
   return (
-    <div className="info-card">
-      <h3><i className="fas fa-history mr-3"></i>{t('auction_history_title')}</h3>
+    <div>
+      <h3 className="flex items-center"><ClockCounterClockwise className="mr-3" weight="bold" />{t('auction_history_title')}</h3>
 
       {auctions.length === 0 ? (
         <p className="text-center text-gray-400 py-8">{t('no_auction_history')}</p>
@@ -74,13 +75,13 @@ const HistoryTab = () => {
                 <div
                   key={a.id}
                   onClick={() => setFarewellModal(a)}
-                  className="bg-gradient-to-r from-red-900 to-red-800 bg-opacity-50 rounded-lg p-4 flex items-center gap-4 cursor-pointer hover:from-red-800 hover:to-red-700 transition-all border border-red-500 border-opacity-30"
+                  className="bg-gradient-to-r from-red-900 to-red-800 rounded-lg p-4 flex items-center gap-4 cursor-pointer hover:from-red-800 hover:to-red-700 transition-all border border-red-500/30"
                 >
-                  <div className="w-12 h-12 rounded-lg bg-midnight-deepblue flex items-center justify-center border-2 border-red-500 flex-shrink-0">
-                    <i className="fas fa-door-open text-xl text-red-400"></i>
+                  <div className="w-12 h-12 rounded-lg bg-indigo flex items-center justify-center border-2 border-red-500 flex-shrink-0">
+                    <DoorOpen className="text-xl text-red-400" weight="bold" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <h5 className="font-cinzel mb-1 truncate" style={{ color: CLASS_COLORS[fw.member?.characterClass] || '#FFF' }}>
+                    <h5 className="mb-1 truncate" style={{ color: CLASS_COLORS[fw.member?.characterClass] || '#FFF' }}>
                       {fw.member?.characterName}
                     </h5>
                     <p className="text-xs text-red-300 m-0">
@@ -96,7 +97,7 @@ const HistoryTab = () => {
                       <p className="text-xs text-red-300 m-0 mb-1">{t('items_won')}</p>
                       <p className="font-bold text-yellow-400 m-0">{fw.itemsWon?.length || 0}</p>
                     </div>
-                    <i className="fas fa-chevron-right text-red-400 opacity-50"></i>
+                    <CaretRight className="text-red-400 opacity-50" weight="bold" />
                   </div>
                 </div>
               )
@@ -109,12 +110,12 @@ const HistoryTab = () => {
             const isLoading = bidsData === 'loading'
 
             return (
-              <div key={a.id} className="bg-midnight-spaceblue bg-opacity-50 rounded-lg overflow-hidden">
+              <div key={a.id} className="bg-lavender-12/50 rounded-lg overflow-hidden">
                 <div className="p-4 flex items-center gap-4">
                 {/* Item Icon */}
                 <WowheadTooltip itemId={a.item_id}>
                   <div
-                    className="w-12 h-12 rounded-lg bg-midnight-deepblue flex items-center justify-center border-2 flex-shrink-0 overflow-hidden"
+                    className="w-12 h-12 rounded-lg bg-indigo flex items-center justify-center border-2 flex-shrink-0 overflow-hidden"
                     style={{ borderColor: RARITY_COLORS[a.item_rarity] || RARITY_COLORS.epic }}
                   >
                     {a.item_image && a.item_image !== '🎁' ? (
@@ -125,25 +126,26 @@ const HistoryTab = () => {
                         onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'block'; }}
                       />
                     ) : null}
-                    <i
-                      className="fas fa-gem text-xl"
+                    <Diamond
+                      className="text-xl"
+                      weight="bold"
                       style={{
                         color: RARITY_COLORS[a.item_rarity] || RARITY_COLORS.epic,
                         display: a.item_image && a.item_image !== '🎁' ? 'none' : 'block'
                       }}
-                    ></i>
+                    />
                   </div>
                 </WowheadTooltip>
 
                 {/* Item Name */}
                 <div className="flex-1 min-w-0">
                   <h5
-                    className="font-cinzel mb-1 truncate"
+                    className="mb-1 truncate"
                     style={{ color: RARITY_COLORS[a.item_rarity] || RARITY_COLORS.epic }}
                   >
                     {a.item_name}
                   </h5>
-                  <p className="text-xs text-midnight-silver m-0">
+                  <p className="text-xs text-lavender m-0">
                     {formatDate(a.ended_at || a.created_at)}
                   </p>
                 </div>
@@ -153,9 +155,9 @@ const HistoryTab = () => {
                   <div className="flex items-center gap-4">
                     {/* Roll info if it was a tie */}
                     {a.was_tie && a.rolls && (
-                      <div className="text-center px-3 py-1 bg-yellow-500 bg-opacity-10 border border-yellow-500 border-opacity-30 rounded-lg">
+                      <div className="text-center px-3 py-1 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
                         <p className="text-xs text-yellow-400 m-0 mb-1">
-                          <i className="fas fa-dice mr-1"></i>{t('tie_resolved')}
+                          <DiceFive className="inline mr-1" weight="bold" />{t('tie_resolved')}
                         </p>
                         <div className="flex flex-col gap-0.5">
                           {a.rolls.map((roll, idx) => (
@@ -167,14 +169,14 @@ const HistoryTab = () => {
                                 {roll.characterName}
                               </span>
                               : {roll.roll}
-                              {roll.isWinner && <i className="fas fa-trophy ml-1 text-yellow-400"></i>}
+                              {roll.isWinner && <Trophy className="inline ml-1 text-yellow-400" weight="fill" />}
                             </p>
                           ))}
                         </div>
                       </div>
                     )}
                     <div className="text-right">
-                      <p className="text-xs text-midnight-silver m-0 mb-1">{t('winner')}</p>
+                      <p className="text-xs text-lavender m-0 mb-1">{t('winner')}</p>
                       <p
                         className="font-bold m-0 flex items-center justify-end gap-2"
                         style={{ color: CLASS_COLORS[a.winner.characterClass] || '#FFF' }}
@@ -182,19 +184,19 @@ const HistoryTab = () => {
                         {a.winner.characterName}
                         {a.was_tie && (
                           <span className="text-xs text-yellow-400" title={`Roll: ${a.winning_roll}`}>
-                            <i className="fas fa-dice"></i> {a.winning_roll}
+                            <DiceFive className="inline" weight="bold" /> {a.winning_roll}
                           </span>
                         )}
                       </p>
                     </div>
                     <div className="text-right min-w-[80px]">
-                      <p className="text-xs text-midnight-silver m-0 mb-1">{t('dkp_spent')}</p>
+                      <p className="text-xs text-lavender m-0 mb-1">{t('dkp_spent')}</p>
                       <p className="font-bold text-red-400 m-0">-{a.winning_bid} DKP</p>
                     </div>
                   </div>
                 ) : (
                   <div className="text-right">
-                    <p className="text-midnight-silver m-0">{t('no_winner')}</p>
+                    <p className="text-lavender m-0">{t('no_winner')}</p>
                   </div>
                 )}
               </div>
@@ -203,29 +205,29 @@ const HistoryTab = () => {
               {a.bid_count > 0 && (
                 <button
                   onClick={() => toggleBids(a.id, a.bid_count)}
-                  className="w-full px-4 py-2 text-sm text-midnight-silver hover:text-white hover:bg-midnight-purple hover:bg-opacity-20 transition-colors border-t border-midnight-bright-purple border-opacity-10 flex items-center justify-center gap-2"
+                  className="w-full px-4 py-2 text-sm text-lavender hover:text-cream hover:bg-lavender-12/20 transition-colors border-t border-lavender-20/10 flex items-center justify-center gap-2"
                 >
                   {isLoading ? (
-                    <><i className="fas fa-circle-notch fa-spin"></i> {t('loading')}</>
+                    <><CircleNotch className="animate-spin inline" weight="bold" /> {t('loading')}</>
                   ) : isExpanded ? (
-                    <><i className="fas fa-chevron-up"></i> {t('hide_bids')}</>
+                    <><CaretUp className="inline" weight="bold" /> {t('hide_bids')}</>
                   ) : (
-                    <><i className="fas fa-chevron-down"></i> {t('show_bids')} ({a.bid_count})</>
+                    <><CaretDown className="inline" weight="bold" /> {t('show_bids')} ({a.bid_count})</>
                   )}
                 </button>
               )}
 
               {/* Expanded bids list */}
               {isExpanded && Array.isArray(bidsData) && bidsData.length > 0 && (
-                <div className="border-t border-midnight-bright-purple border-opacity-10 bg-midnight-deepblue bg-opacity-50">
+                <div className="border-t border-lavender-20/10 bg-indigo/50">
                   <div className="px-4 py-2 space-y-1">
                     {bidsData.map((bid, idx) => (
                       <div
                         key={idx}
-                        className={`flex items-center justify-between text-sm py-1 ${idx === 0 ? 'text-yellow-400' : 'text-midnight-silver'}`}
+                        className={`flex items-center justify-between text-sm py-1 ${idx === 0 ? 'text-yellow-400' : 'text-lavender'}`}
                       >
                         <span style={{ color: idx === 0 ? CLASS_COLORS[bid.characterClass] : undefined }}>
-                          {idx === 0 && <i className="fas fa-trophy mr-2 text-yellow-400"></i>}
+                          {idx === 0 && <Trophy className="inline mr-2 text-yellow-400" weight="fill" />}
                           {bid.characterName}
                         </span>
                         <span className={idx === 0 ? 'text-red-400 font-bold' : ''}>
@@ -262,17 +264,17 @@ const FarewellModal = ({ auction, onClose, t, formatDate }) => {
   const items = fw.itemsWon || []
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-[100] p-4" onClick={onClose}>
-      <div className="bg-midnight-deepblue border-2 border-red-500 border-opacity-40 rounded-2xl w-full max-w-lg shadow-2xl max-h-[90vh] overflow-hidden flex flex-col" onClick={e => e.stopPropagation()}>
+    <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[100] p-4" onClick={onClose}>
+      <div className="bg-indigo border-2 border-red-500/40 rounded-2xl w-full max-w-lg shadow-2xl max-h-[90vh] overflow-hidden flex flex-col" onClick={e => e.stopPropagation()}>
         {/* Header */}
-        <div className="p-6 bg-gradient-to-r from-red-900 to-red-800 border-b border-red-500 border-opacity-30">
+        <div className="p-6 bg-gradient-to-r from-red-900 to-red-800 border-b border-red-500/30">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <div className="w-14 h-14 rounded-full bg-midnight-deepblue flex items-center justify-center border-2 border-red-500">
-                <i className="fas fa-door-open text-2xl text-red-400"></i>
+              <div className="w-14 h-14 rounded-full bg-indigo flex items-center justify-center border-2 border-red-500">
+                <DoorOpen className="text-2xl text-red-400" weight="bold" />
               </div>
               <div>
-                <h3 className="text-xl font-cinzel font-bold m-0" style={{ color: CLASS_COLORS[member?.characterClass] || '#FFF' }}>
+                <h3 className="text-xl font-bold m-0" style={{ color: CLASS_COLORS[member?.characterClass] || '#FFF' }}>
                   {member?.characterName}
                 </h3>
                 <p className="text-sm text-red-300 m-0">
@@ -280,24 +282,24 @@ const FarewellModal = ({ auction, onClose, t, formatDate }) => {
                 </p>
               </div>
             </div>
-            <button onClick={onClose} className="text-gray-400 hover:text-white text-2xl">
-              <i className="fas fa-times"></i>
+            <button onClick={onClose} className="text-gray-400 hover:text-cream text-2xl">
+              <X weight="bold" />
             </button>
           </div>
         </div>
 
         {/* Stats */}
-        <div className="p-4 bg-midnight-purple bg-opacity-20 grid grid-cols-3 gap-4 text-center border-b border-midnight-bright-purple border-opacity-20">
+        <div className="p-4 bg-lavender-12/20 grid grid-cols-3 gap-4 text-center border-b border-lavender-20/20">
           <div>
-            <p className="text-xs text-midnight-silver m-0">{t('total_gained')}</p>
+            <p className="text-xs text-lavender m-0">{t('total_gained')}</p>
             <p className="text-xl font-bold text-green-400 m-0">{member?.lifetimeGained || 0}</p>
           </div>
           <div>
-            <p className="text-xs text-midnight-silver m-0">{t('total_spent')}</p>
+            <p className="text-xs text-lavender m-0">{t('total_spent')}</p>
             <p className="text-xl font-bold text-red-400 m-0">{member?.lifetimeSpent || 0}</p>
           </div>
           <div>
-            <p className="text-xs text-midnight-silver m-0">{t('items_won')}</p>
+            <p className="text-xs text-lavender m-0">{t('items_won')}</p>
             <p className="text-xl font-bold text-yellow-400 m-0">{items.length}</p>
           </div>
         </div>
@@ -306,21 +308,21 @@ const FarewellModal = ({ auction, onClose, t, formatDate }) => {
         <div className="p-4 overflow-auto flex-1">
           {items.length > 0 ? (
             <>
-              <h6 className="font-bold mb-3 text-midnight-silver">
-                <i className="fas fa-trophy mr-2 text-yellow-400"></i>{t('items_obtained')}
+              <h6 className="font-bold mb-3 text-lavender">
+                <Trophy className="inline mr-2 text-yellow-400" weight="fill" />{t('items_obtained')}
               </h6>
               <div className="space-y-2">
                 {items.map((item, i) => (
-                  <div key={i} className="flex items-center gap-3 bg-midnight-purple bg-opacity-20 rounded-lg p-3">
+                  <div key={i} className="flex items-center gap-3 bg-lavender-12/20 rounded-lg p-3">
                     <WowheadTooltip itemId={item.item_id}>
                       <div
-                        className="w-8 h-8 rounded bg-midnight-deepblue flex items-center justify-center border flex-shrink-0 overflow-hidden"
+                        className="w-8 h-8 rounded bg-indigo flex items-center justify-center border flex-shrink-0 overflow-hidden"
                         style={{ borderColor: RARITY_COLORS[item.item_rarity] || RARITY_COLORS.epic }}
                       >
                         {item.item_image && item.item_image !== '🎁' ? (
                           <img src={item.item_image} alt={item.item_name} className="w-full h-full object-cover" onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'block'; }} />
                         ) : null}
-                        <i className="fas fa-gem text-sm" style={{ color: RARITY_COLORS[item.item_rarity] || RARITY_COLORS.epic, display: item.item_image && item.item_image !== '🎁' ? 'none' : 'block' }}></i>
+                        <Diamond className="text-sm" weight="bold" style={{ color: RARITY_COLORS[item.item_rarity] || RARITY_COLORS.epic, display: item.item_image && item.item_image !== '🎁' ? 'none' : 'block' }} />
                       </div>
                     </WowheadTooltip>
                     <div className="flex-1 min-w-0">
@@ -339,7 +341,7 @@ const FarewellModal = ({ auction, onClose, t, formatDate }) => {
         </div>
 
         {/* Footer */}
-        <div className="p-4 border-t border-midnight-bright-purple border-opacity-20 text-center">
+        <div className="p-4 border-t border-lavender-20/20 text-center">
           <p className="text-sm text-gray-500 m-0 italic">{t('farewell_message')}</p>
         </div>
       </div>

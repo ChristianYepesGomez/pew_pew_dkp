@@ -4,6 +4,7 @@ import { useAuth } from '../../hooks/useAuth'
 import { useLanguage } from '../../hooks/useLanguage'
 import { dkpAPI, authAPI, charactersAPI, blizzardAPI } from '../../services/api'
 import WowheadTooltip from '../Common/WowheadTooltip'
+import { X, CircleNotch, PencilSimple, Crop, MagnifyingGlassMinus, MagnifyingGlassPlus, User, Users, Coins, Envelope, Key, FloppyDisk, Gavel, ClockCounterClockwise, WarningCircle, DownloadSimple, ArrowsClockwise, Trash, Star, Info } from '@phosphor-icons/react'
 
 const TABS = ['profile', 'characters', 'dkp']
 
@@ -165,16 +166,16 @@ const AvatarCropModal = ({ imageSrc, onConfirm, onCancel, t }) => {
   }
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-[110]">
-      <div className="bg-midnight-deepblue border-2 border-midnight-bright-purple rounded-2xl p-6 w-full max-w-sm">
-        <h4 className="text-lg font-cinzel text-midnight-glow mb-4 text-center">
-          <i className="fas fa-crop-alt mr-2"></i>{t('crop_avatar') || 'Ajustar foto'}
+    <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[110]">
+      <div className="bg-indigo border-2 border-lavender-20 rounded-2xl p-6 w-full max-w-sm">
+        <h4 className="text-lg text-coral mb-4 text-center">
+          <Crop size={18} weight="bold" className="inline mr-2" />{t('crop_avatar') || 'Ajustar foto'}
         </h4>
 
         {/* Crop area */}
         <div
           ref={containerRef}
-          className="relative w-64 h-64 mx-auto mb-4 overflow-hidden rounded-full border-4 border-midnight-bright-purple cursor-move"
+          className="relative w-64 h-64 mx-auto mb-4 overflow-hidden rounded-full border-4 border-lavender-20 cursor-move"
           style={{ background: 'rgba(0,0,0,0.5)' }}
           onMouseDown={handleMouseDown}
           onMouseMove={handleMouseMove}
@@ -204,7 +205,7 @@ const AvatarCropModal = ({ imageSrc, onConfirm, onCancel, t }) => {
 
         {/* Zoom slider */}
         <div className="flex items-center gap-3 mb-4 px-4">
-          <i className="fas fa-search-minus text-midnight-silver"></i>
+          <MagnifyingGlassMinus size={16} weight="bold" className="text-lavender" />
           <input
             type="range"
             min="0.5"
@@ -212,12 +213,12 @@ const AvatarCropModal = ({ imageSrc, onConfirm, onCancel, t }) => {
             step="0.1"
             value={scale}
             onChange={(e) => setScale(parseFloat(e.target.value))}
-            className="flex-1 accent-midnight-bright-purple"
+            className="flex-1 accent-lavender-20"
           />
-          <i className="fas fa-search-plus text-midnight-silver"></i>
+          <MagnifyingGlassPlus size={16} weight="bold" className="text-lavender" />
         </div>
 
-        <p className="text-xs text-midnight-silver text-center mb-4">
+        <p className="text-xs text-lavender text-center mb-4">
           {t('drag_to_position') || 'Arrastra para posicionar'}
         </p>
 
@@ -231,7 +232,7 @@ const AvatarCropModal = ({ imageSrc, onConfirm, onCancel, t }) => {
           </button>
           <button
             onClick={handleConfirm}
-            className="flex-1 py-2 rounded-lg bg-gradient-to-r from-midnight-purple to-midnight-bright-purple text-white font-bold hover:shadow-lg transition-all"
+            className="flex-1 py-2 rounded-lg bg-coral text-indigo font-bold hover:shadow-lg transition-all"
           >
             {t('confirm')}
           </button>
@@ -590,11 +591,13 @@ const MyCharacterModal = ({ onClose }) => {
     })
   }
 
+  const TAB_ICONS = { profile: User, characters: Users, dkp: Coins }
+
   return createPortal(
-    <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-[100] p-4">
-      <div className="bg-midnight-deepblue border-2 border-midnight-bright-purple rounded-2xl w-full max-w-2xl shadow-2xl max-h-[90vh] flex flex-col">
+    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[100] p-4">
+      <div className="bg-indigo border-2 border-lavender-20 rounded-2xl w-full max-w-2xl shadow-2xl max-h-[90vh] flex flex-col">
         {/* Header */}
-        <div className="p-6 border-b border-midnight-bright-purple border-opacity-30 flex-shrink-0">
+        <div className="p-6 border-b border-lavender-20/30 flex-shrink-0">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               {/* Editable Avatar */}
@@ -604,25 +607,25 @@ const MyCharacterModal = ({ onClose }) => {
                 onMouseLeave={() => setAvatarHover(false)}
               >
                 <div
-                  className="w-16 h-16 rounded-full bg-midnight-purple flex items-center justify-center overflow-hidden border-2 transition-all group-hover:border-midnight-glow"
+                  className="w-16 h-16 rounded-full bg-lavender-12 flex items-center justify-center overflow-hidden border-2 transition-all group-hover:border-coral"
                   style={{ borderColor: avatarHover ? undefined : (CLASS_COLORS[user?.characterClass] || '#A78BFA') }}
                   onClick={() => window._avatarInput?.click()}
                 >
                   {user?.avatar ? (
                     <img src={user.avatar} alt="Avatar" className="w-full h-full object-cover" />
                   ) : (
-                    <img src="/logo.png" alt="Default" className="w-full h-full object-cover" />
+                    <img src="/logo.svg" alt="Default" className="w-full h-full object-cover" />
                   )}
                 </div>
                 {/* Hover overlay with pencil */}
                 <div
-                  className={`absolute inset-0 rounded-full bg-black bg-opacity-50 flex items-center justify-center transition-opacity ${avatarHover ? 'opacity-100' : 'opacity-0'}`}
+                  className={`absolute inset-0 rounded-full bg-black/50 flex items-center justify-center transition-opacity ${avatarHover ? 'opacity-100' : 'opacity-0'}`}
                   onClick={() => window._avatarInput?.click()}
                 >
                   {avatarSaving ? (
-                    <i className="fas fa-spinner fa-spin text-white text-lg"></i>
+                    <CircleNotch size={20} weight="bold" className="text-white animate-spin" />
                   ) : (
-                    <i className="fas fa-pencil-alt text-white text-lg"></i>
+                    <PencilSimple size={20} weight="bold" className="text-white" />
                   )}
                 </div>
                 {/* Delete button on hover (only if avatar exists) */}
@@ -632,7 +635,7 @@ const MyCharacterModal = ({ onClose }) => {
                     className={`absolute -top-1 -right-1 w-5 h-5 rounded-full bg-red-500 hover:bg-red-400 flex items-center justify-center transition-all ${avatarHover ? 'opacity-100 scale-100' : 'opacity-0 scale-75'}`}
                     title={t('remove_avatar')}
                   >
-                    <i className="fas fa-times text-white text-xs"></i>
+                    <X size={10} weight="bold" className="text-white" />
                   </button>
                 )}
                 {/* Hidden file input */}
@@ -646,13 +649,13 @@ const MyCharacterModal = ({ onClose }) => {
                 />
               </div>
               <div>
-                <h3 className="text-2xl font-cinzel font-bold m-0" style={{ color: user?.characterClass ? (CLASS_COLORS[user.characterClass] || '#A78BFA') : '#A78BFA' }}>
+                <h3 className="text-2xl font-bold m-0" style={{ color: user?.characterClass ? (CLASS_COLORS[user.characterClass] || '#A78BFA') : '#A78BFA' }}>
                   {user?.characterName || user?.username}
                 </h3>
                 {user?.characterClass ? (
-                  <p className="text-midnight-silver m-0">{user?.characterClass} - {user?.spec || '-'}</p>
+                  <p className="text-lavender m-0">{user?.characterClass} - {user?.spec || '-'}</p>
                 ) : (
-                  <p className="text-midnight-silver m-0">{t('no_character')}</p>
+                  <p className="text-lavender m-0">{t('no_character')}</p>
                 )}
                 {avatarMsg && (
                   <p className={`text-xs m-0 ${avatarMsg === t('avatar_saved') || avatarMsg === t('avatar_removed') ? 'text-green-400' : 'text-red-400'}`}>
@@ -662,27 +665,30 @@ const MyCharacterModal = ({ onClose }) => {
               </div>
             </div>
             <button onClick={onClose} className="text-gray-400 hover:text-white text-2xl">
-              <i className="fas fa-times"></i>
+              <X size={24} weight="bold" />
             </button>
           </div>
         </div>
 
         {/* Tab Navigation */}
-        <div className="flex border-b border-midnight-bright-purple border-opacity-30 flex-shrink-0">
-          {TABS.map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`flex-1 py-3 px-4 text-sm font-semibold transition-all ${
-                activeTab === tab
-                  ? 'text-midnight-glow border-b-2 border-midnight-glow bg-midnight-purple bg-opacity-20'
-                  : 'text-midnight-silver hover:text-white hover:bg-midnight-purple hover:bg-opacity-10'
-              }`}
-            >
-              <i className={`fas ${tab === 'profile' ? 'fa-user' : tab === 'characters' ? 'fa-users' : 'fa-coins'} mr-2`}></i>
-              {t(`tab_${tab}`)}
-            </button>
-          ))}
+        <div className="flex border-b border-lavender-20/30 flex-shrink-0">
+          {TABS.map((tab) => {
+            const TabIcon = TAB_ICONS[tab]
+            return (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                className={`flex-1 py-3 px-4 text-sm font-semibold transition-all ${
+                  activeTab === tab
+                    ? 'text-coral border-b-2 border-coral bg-lavender-12/20'
+                    : 'text-lavender hover:text-white hover:bg-lavender-12/10'
+                }`}
+              >
+                <TabIcon size={16} weight="bold" className="inline mr-2" />
+                {t(`tab_${tab}`)}
+              </button>
+            )
+          })}
         </div>
 
         {/* Scrollable content */}
@@ -691,9 +697,9 @@ const MyCharacterModal = ({ onClose }) => {
           {activeTab === 'profile' && (
             <>
               {/* Email Section */}
-              <div className="p-6 border-b border-midnight-bright-purple border-opacity-30">
-                <h4 className="text-sm font-cinzel text-midnight-glow mb-3">
-                  <i className="fas fa-envelope mr-2"></i>{t('email')}
+              <div className="p-6 border-b border-lavender-20/30">
+                <h4 className="text-sm text-coral mb-3">
+                  <Envelope size={14} weight="bold" className="inline mr-2" />{t('email')}
                 </h4>
                 <div className="flex gap-2">
                   <input
@@ -701,14 +707,14 @@ const MyCharacterModal = ({ onClose }) => {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder={t('email_placeholder')}
-                    className="flex-1 bg-midnight-purple bg-opacity-30 border border-midnight-bright-purple border-opacity-30 rounded-lg px-3 py-2 text-white text-sm placeholder-gray-500 focus:outline-none focus:border-midnight-glow"
+                    className="flex-1 bg-lavender-12/30 border border-lavender-20/30 rounded-lg px-3 py-2 text-white text-sm placeholder-gray-500 focus:outline-none focus:border-coral"
                   />
                   <button
                     onClick={handleSaveEmail}
                     disabled={emailSaving}
-                    className="px-4 py-2 rounded-lg bg-midnight-bright-purple text-white text-sm font-bold hover:bg-opacity-80 transition-all disabled:opacity-50"
+                    className="px-4 py-2 rounded-lg bg-lavender-20 text-white text-sm font-bold hover:bg-lavender-20/80 transition-all disabled:opacity-50"
                   >
-                    {emailSaving ? <i className="fas fa-spinner fa-spin"></i> : t('save')}
+                    {emailSaving ? <CircleNotch size={16} weight="bold" className="animate-spin" /> : t('save')}
                   </button>
                 </div>
                 {emailMsg && (
@@ -720,8 +726,8 @@ const MyCharacterModal = ({ onClose }) => {
 
               {/* Password Change Section */}
               <div className="p-6">
-                <h4 className="text-sm font-cinzel text-midnight-glow mb-3">
-                  <i className="fas fa-key mr-2"></i>{t('change_password')}
+                <h4 className="text-sm text-coral mb-3">
+                  <Key size={14} weight="bold" className="inline mr-2" />{t('change_password')}
                 </h4>
                 <div className="space-y-3">
                   <input
@@ -729,28 +735,28 @@ const MyCharacterModal = ({ onClose }) => {
                     value={currentPassword}
                     onChange={(e) => setCurrentPassword(e.target.value)}
                     placeholder={t('current_password')}
-                    className="w-full bg-midnight-purple bg-opacity-30 border border-midnight-bright-purple border-opacity-30 rounded-lg px-3 py-2 text-white text-sm placeholder-gray-500 focus:outline-none focus:border-midnight-glow"
+                    className="w-full bg-lavender-12/30 border border-lavender-20/30 rounded-lg px-3 py-2 text-white text-sm placeholder-gray-500 focus:outline-none focus:border-coral"
                   />
                   <input
                     type="password"
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
                     placeholder={t('new_password')}
-                    className="w-full bg-midnight-purple bg-opacity-30 border border-midnight-bright-purple border-opacity-30 rounded-lg px-3 py-2 text-white text-sm placeholder-gray-500 focus:outline-none focus:border-midnight-glow"
+                    className="w-full bg-lavender-12/30 border border-lavender-20/30 rounded-lg px-3 py-2 text-white text-sm placeholder-gray-500 focus:outline-none focus:border-coral"
                   />
                   <input
                     type="password"
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     placeholder={t('confirm_password')}
-                    className="w-full bg-midnight-purple bg-opacity-30 border border-midnight-bright-purple border-opacity-30 rounded-lg px-3 py-2 text-white text-sm placeholder-gray-500 focus:outline-none focus:border-midnight-glow"
+                    className="w-full bg-lavender-12/30 border border-lavender-20/30 rounded-lg px-3 py-2 text-white text-sm placeholder-gray-500 focus:outline-none focus:border-coral"
                   />
                   <button
                     onClick={handleChangePassword}
                     disabled={passwordSaving || !currentPassword || !newPassword || !confirmPassword}
-                    className="w-full py-2 rounded-lg bg-gradient-to-r from-midnight-purple to-midnight-bright-purple text-white text-sm font-bold hover:shadow-lg transition-all disabled:opacity-50"
+                    className="w-full py-2 rounded-lg bg-coral text-indigo text-sm font-bold hover:shadow-lg transition-all disabled:opacity-50"
                   >
-                    {passwordSaving ? <i className="fas fa-spinner fa-spin mr-2"></i> : <i className="fas fa-save mr-2"></i>}
+                    {passwordSaving ? <CircleNotch size={16} weight="bold" className="inline animate-spin mr-2" /> : <FloppyDisk size={16} weight="bold" className="inline mr-2" />}
                     {t('change_password')}
                   </button>
                 </div>
@@ -767,19 +773,19 @@ const MyCharacterModal = ({ onClose }) => {
           {activeTab === 'characters' && (
             <div className="p-6">
               <div className="flex items-center justify-between mb-3">
-                <h4 className="text-sm font-cinzel text-midnight-glow m-0">
-                  <i className="fas fa-users mr-2"></i>{t('my_characters')}
+                <h4 className="text-sm text-coral m-0">
+                  <Users size={14} weight="bold" className="inline mr-2" />{t('my_characters')}
                 </h4>
                 <button
                   onClick={handleBlizzardImport}
                   disabled={blizzardLoading}
-                  className="text-xs px-3 py-1 rounded-lg bg-blue-700 bg-opacity-60 text-blue-200 hover:bg-opacity-80 transition-all disabled:opacity-50"
+                  className="text-xs px-3 py-1 rounded-lg bg-blue-700/60 text-blue-200 hover:bg-blue-700/80 transition-all disabled:opacity-50"
                   title={t('blizzard_import_hint')}
                 >
                   {blizzardLoading ? (
-                    <><i className="fas fa-spinner fa-spin mr-1"></i></>
+                    <><CircleNotch size={12} weight="bold" className="inline animate-spin mr-1" /></>
                   ) : (
-                    <><i className="fas fa-download mr-1"></i>{t('import_from_blizzard')}</>
+                    <><DownloadSimple size={12} weight="bold" className="inline mr-1" />{t('import_from_blizzard')}</>
                   )}
                 </button>
               </div>
@@ -789,20 +795,20 @@ const MyCharacterModal = ({ onClose }) => {
             )}
 
             {blizzardError && (
-              <p className="text-xs text-red-400 mb-2"><i className="fas fa-exclamation-circle mr-1"></i>{blizzardError}</p>
+              <p className="text-xs text-red-400 mb-2"><WarningCircle size={12} weight="bold" className="inline mr-1" />{blizzardError}</p>
             )}
 
             {/* Blizzard Import Results */}
             {blizzardChars.length > 0 && (
-              <div className="bg-blue-900 bg-opacity-20 border border-blue-700 border-opacity-30 rounded-lg p-3 mb-3">
+              <div className="bg-blue-900/20 border border-blue-700/30 rounded-lg p-3 mb-3">
                 <div className="flex items-center justify-between mb-2">
                   <p className="text-sm text-blue-300 m-0 font-bold">
-                    <i className="fas fa-download mr-1"></i>
+                    <DownloadSimple size={14} weight="bold" className="inline mr-1" />
                     {t('blizzard_characters_found')} ({blizzardChars.length})
                   </p>
                   <button onClick={() => { setBlizzardChars([]); setSelectedChars(new Set()) }}
                     className="text-xs text-gray-400 hover:text-white transition-all">
-                    <i className="fas fa-times"></i>
+                    <X size={14} weight="bold" />
                   </button>
                 </div>
                 <div className="space-y-1 max-h-48 overflow-auto mb-2">
@@ -811,7 +817,7 @@ const MyCharacterModal = ({ onClose }) => {
                       (c.characterName || '').toLowerCase() === (char.name || '').toLowerCase()
                     )
                     return (
-                      <label key={idx} className={`flex items-center gap-2 p-2 rounded cursor-pointer hover:bg-midnight-purple hover:bg-opacity-30 ${alreadyExists ? 'opacity-60' : ''}`}>
+                      <label key={idx} className={`flex items-center gap-2 p-2 rounded cursor-pointer hover:bg-lavender-12/30 ${alreadyExists ? 'opacity-60' : ''}`}>
                         <input
                           type="checkbox"
                           checked={selectedChars.has(idx)}
@@ -821,10 +827,10 @@ const MyCharacterModal = ({ onClose }) => {
                         <span className="text-sm font-bold truncate" style={{ color: CLASS_COLORS[char.className] || '#FFF' }}>
                           {char.name}
                         </span>
-                        <span className="text-xs text-midnight-silver flex-shrink-0">{char.className}{char.spec ? ` - ${char.spec}` : ''}</span>
+                        <span className="text-xs text-lavender flex-shrink-0">{char.className}{char.spec ? ` - ${char.spec}` : ''}</span>
                         <span className="text-xs text-gray-500 truncate hidden sm:inline">{char.realm}</span>
                         <span className="text-xs text-gray-500 ml-auto flex-shrink-0">Lv.{char.level}</span>
-                        {alreadyExists && <span className="text-[10px] text-blue-400 flex-shrink-0"><i className="fas fa-sync-alt mr-0.5"></i>{t('will_update')}</span>}
+                        {alreadyExists && <span className="text-[10px] text-blue-400 flex-shrink-0"><ArrowsClockwise size={10} weight="bold" className="inline mr-0.5" />{t('will_update')}</span>}
                       </label>
                     )
                   })}
@@ -835,9 +841,9 @@ const MyCharacterModal = ({ onClose }) => {
                   className="w-full py-2 rounded-lg bg-gradient-to-r from-blue-600 to-blue-800 text-white text-sm font-bold hover:shadow-lg transition-all disabled:opacity-50"
                 >
                   {importing ? (
-                    <><i className="fas fa-spinner fa-spin mr-1"></i>{t('importing')}</>
+                    <><CircleNotch size={14} weight="bold" className="inline animate-spin mr-1" />{t('importing')}</>
                   ) : (
-                    <><i className="fas fa-download mr-1"></i>{t('import_selected')} ({selectedChars.size})</>
+                    <><DownloadSimple size={14} weight="bold" className="inline mr-1" />{t('import_selected')} ({selectedChars.size})</>
                   )}
                 </button>
               </div>
@@ -845,16 +851,16 @@ const MyCharacterModal = ({ onClose }) => {
 
             {/* Blizzard import hint when no characters */}
             {characters.length === 0 && !blizzardLoading && blizzardChars.length === 0 && (
-              <div className="bg-blue-900 bg-opacity-10 border border-blue-700 border-opacity-20 rounded-lg p-4 mb-3 text-center">
-                <i className="fas fa-info-circle text-blue-400 text-lg mb-2"></i>
-                <p className="text-sm text-midnight-silver m-0">{t('blizzard_import_hint')}</p>
+              <div className="bg-blue-900/10 border border-blue-700/20 rounded-lg p-4 mb-3 text-center">
+                <Info size={20} weight="bold" className="text-blue-400 mx-auto mb-2" />
+                <p className="text-sm text-lavender m-0">{t('blizzard_import_hint')}</p>
               </div>
             )}
 
             {/* Character List */}
             {loading ? (
               <div className="text-center py-4">
-                <i className="fas fa-circle-notch fa-spin text-2xl text-midnight-glow"></i>
+                <CircleNotch size={24} weight="bold" className="animate-spin text-coral mx-auto" />
               </div>
             ) : (
               <div className="space-y-2">
@@ -864,7 +870,7 @@ const MyCharacterModal = ({ onClose }) => {
                   return (
                     <div
                       key={char.id}
-                      className="bg-midnight-purple bg-opacity-20 rounded-lg p-3 flex items-center gap-3"
+                      className="bg-lavender-12/20 rounded-lg p-3 flex items-center gap-3"
                     >
                       {/* Star */}
                       <button
@@ -876,7 +882,7 @@ const MyCharacterModal = ({ onClose }) => {
                         }`}
                         title={char.isPrimary ? t('primary_character') : t('set_as_primary')}
                       >
-                        <i className={`fas fa-star`}></i>
+                        <Star size={20} weight={char.isPrimary ? 'fill' : 'bold'} />
                       </button>
 
                       {/* Spec icon */}
@@ -893,7 +899,7 @@ const MyCharacterModal = ({ onClose }) => {
                         <p className="text-sm font-bold m-0 truncate" style={{ color: CLASS_COLORS[char.characterClass] || '#FFF' }}>
                           {char.characterName}
                           {char.isPrimary && (
-                            <span className="ml-2 text-[10px] font-normal bg-yellow-400 bg-opacity-20 text-yellow-400 px-1.5 py-0.5 rounded">
+                            <span className="ml-2 text-[10px] font-normal bg-yellow-400/20 text-yellow-400 px-1.5 py-0.5 rounded">
                               {t('primary_character')}
                             </span>
                           )}
@@ -901,7 +907,7 @@ const MyCharacterModal = ({ onClose }) => {
                         {isEditing ? (
                           <div className="flex items-center gap-2 mt-1">
                             <select
-                              className="text-xs bg-midnight-deepblue border border-midnight-bright-purple rounded px-2 py-1 text-white focus:outline-none focus:border-midnight-glow"
+                              className="text-xs bg-indigo border border-lavender-20 rounded px-2 py-1 text-white focus:outline-none focus:border-coral"
                               defaultValue={char.spec || ''}
                               onChange={(e) => handleChangeSpec(char.id, e.target.value)}
                               disabled={editingSaving}
@@ -918,12 +924,12 @@ const MyCharacterModal = ({ onClose }) => {
                               className="text-gray-400 hover:text-white text-xs"
                               disabled={editingSaving}
                             >
-                              <i className="fas fa-times"></i>
+                              <X size={12} weight="bold" />
                             </button>
-                            {editingSaving && <i className="fas fa-spinner fa-spin text-xs text-midnight-glow"></i>}
+                            {editingSaving && <CircleNotch size={12} weight="bold" className="animate-spin text-coral" />}
                           </div>
                         ) : (
-                          <p className="text-xs text-midnight-silver m-0">
+                          <p className="text-xs text-lavender m-0">
                             {char.characterClass} - {char.spec || '-'} ({char.raidRole})
                           </p>
                         )}
@@ -933,10 +939,10 @@ const MyCharacterModal = ({ onClose }) => {
                       {!isEditing && classSpecs && (
                         <button
                           onClick={() => setEditingCharId(char.id)}
-                          className="text-gray-600 hover:text-midnight-glow text-sm flex-shrink-0 transition-all"
+                          className="text-gray-600 hover:text-coral text-sm flex-shrink-0 transition-all"
                           title={t('change_spec')}
                         >
-                          <i className="fas fa-pencil-alt"></i>
+                          <PencilSimple size={16} weight="bold" />
                         </button>
                       )}
 
@@ -947,7 +953,7 @@ const MyCharacterModal = ({ onClose }) => {
                           className="text-gray-600 hover:text-red-400 text-sm flex-shrink-0 transition-all"
                           title={t('delete_character')}
                         >
-                          <i className="fas fa-trash-alt"></i>
+                          <Trash size={16} weight="bold" />
                         </button>
                       )}
                     </div>
@@ -962,18 +968,18 @@ const MyCharacterModal = ({ onClose }) => {
           {activeTab === 'dkp' && (
             <>
               {/* Stats */}
-              <div className="p-6 border-b border-midnight-bright-purple border-opacity-30">
+              <div className="p-6 border-b border-lavender-20/30">
                 <div className="grid grid-cols-3 gap-4">
-                  <div className="bg-midnight-purple bg-opacity-30 rounded-xl p-4 text-center">
-                    <p className="text-xs text-midnight-silver m-0 mb-1">{t('current_dkp')}</p>
-                    <p className="text-3xl font-bold text-midnight-glow m-0">{user?.currentDkp || 0}</p>
+                  <div className="bg-lavender-12/30 rounded-xl p-4 text-center">
+                    <p className="text-xs text-lavender m-0 mb-1">{t('current_dkp')}</p>
+                    <p className="text-3xl font-bold text-coral m-0">{user?.currentDkp || 0}</p>
                   </div>
-                  <div className="bg-midnight-purple bg-opacity-30 rounded-xl p-4 text-center">
-                    <p className="text-xs text-midnight-silver m-0 mb-1">{t('total_gained')}</p>
+                  <div className="bg-lavender-12/30 rounded-xl p-4 text-center">
+                    <p className="text-xs text-lavender m-0 mb-1">{t('total_gained')}</p>
                     <p className="text-2xl font-bold text-green-400 m-0">+{user?.lifetimeGained || 0}</p>
                   </div>
-                  <div className="bg-midnight-purple bg-opacity-30 rounded-xl p-4 text-center">
-                    <p className="text-xs text-midnight-silver m-0 mb-1">{t('total_spent')}</p>
+                  <div className="bg-lavender-12/30 rounded-xl p-4 text-center">
+                    <p className="text-xs text-lavender m-0 mb-1">{t('total_spent')}</p>
                     <p className="text-2xl font-bold text-red-400 m-0">-{user?.lifetimeSpent || 0}</p>
                   </div>
                 </div>
@@ -981,31 +987,31 @@ const MyCharacterModal = ({ onClose }) => {
 
               {/* DKP History */}
               <div className="p-6">
-                <h4 className="text-sm font-cinzel text-midnight-glow mb-3">
-                  <i className="fas fa-history mr-2"></i>{t('my_dkp_history')}
-                  <span className="text-xs text-midnight-silver font-sans ml-2">({history.length})</span>
+                <h4 className="text-sm text-coral mb-3">
+                  <ClockCounterClockwise size={14} weight="bold" className="inline mr-2" />{t('my_dkp_history')}
+                  <span className="text-xs text-lavender font-sans ml-2">({history.length})</span>
                 </h4>
                 {loading ? (
                   <div className="text-center py-4">
-                    <i className="fas fa-circle-notch fa-spin text-2xl text-midnight-glow"></i>
+                    <CircleNotch size={24} weight="bold" className="animate-spin text-coral mx-auto" />
                   </div>
                 ) : history.length === 0 ? (
                   <p className="text-center text-gray-400 py-4 text-sm">{t('no_transactions')}</p>
                 ) : (
                   <div className="space-y-2 max-h-80 overflow-auto">
                     {history.map((tx) => (
-                      <div key={tx.id} className="bg-midnight-purple bg-opacity-20 rounded-lg p-3 flex items-center gap-3">
+                      <div key={tx.id} className="bg-lavender-12/20 rounded-lg p-3 flex items-center gap-3">
                         {/* Item icon (if auction transaction) with Wowhead tooltip */}
                         {tx.auctionItem ? (
                           <WowheadTooltip itemId={tx.auctionItem.itemId}>
                             <div
-                              className="w-9 h-9 rounded-lg bg-midnight-purple flex items-center justify-center flex-shrink-0 border overflow-hidden cursor-help"
+                              className="w-9 h-9 rounded-lg bg-lavender-12 flex items-center justify-center flex-shrink-0 border overflow-hidden cursor-help"
                               style={{ borderColor: RARITY_COLORS[tx.auctionItem.rarity] || RARITY_COLORS.epic }}
                             >
                               {tx.auctionItem.image && tx.auctionItem.image !== '🎁' ? (
                                 <img src={tx.auctionItem.image} alt="" className="w-full h-full object-cover" />
                               ) : (
-                                <i className="fas fa-gavel text-sm" style={{ color: RARITY_COLORS[tx.auctionItem.rarity] || RARITY_COLORS.epic }}></i>
+                                <Gavel size={16} weight="bold" style={{ color: RARITY_COLORS[tx.auctionItem.rarity] || RARITY_COLORS.epic }} />
                               )}
                             </div>
                           </WowheadTooltip>
@@ -1020,7 +1026,7 @@ const MyCharacterModal = ({ onClose }) => {
                           ) : (
                             <p className="text-white text-sm m-0 truncate">{tx.reason}</p>
                           )}
-                          <p className="text-xs text-midnight-silver m-0">
+                          <p className="text-xs text-lavender m-0">
                             {formatDate(tx.createdAt || tx.created_at)}
                           </p>
                         </div>
@@ -1037,10 +1043,10 @@ const MyCharacterModal = ({ onClose }) => {
         </div>
 
         {/* Footer */}
-        <div className="p-4 border-t border-midnight-bright-purple border-opacity-30 flex-shrink-0">
+        <div className="p-4 border-t border-lavender-20/30 flex-shrink-0">
           <button
             onClick={onClose}
-            className="w-full px-4 py-3 rounded-lg bg-gradient-to-r from-midnight-purple to-midnight-bright-purple text-white font-bold hover:shadow-lg transition-all"
+            className="w-full px-4 py-3 rounded-lg bg-coral text-indigo font-bold hover:shadow-lg transition-all"
           >
             {t('close')}
           </button>

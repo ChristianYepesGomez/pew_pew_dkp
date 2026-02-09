@@ -1,5 +1,6 @@
 import { Component } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
+import { CircleNotch } from '@phosphor-icons/react'
 import { useAuth } from './hooks/useAuth'
 import Login from './pages/Login'
 import Register from './pages/Register'
@@ -25,13 +26,13 @@ class ErrorBoundary extends Component {
   render() {
     if (this.state.hasError) {
       return (
-        <div style={{ background: '#1a1a2e', color: '#e0e0e0', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'sans-serif' }}>
-          <div style={{ textAlign: 'center', maxWidth: 400 }}>
-            <h2 style={{ color: '#ff6b6b' }}>Something went wrong</h2>
-            <p style={{ color: '#888', fontSize: 14 }}>{this.state.error?.message || 'Unknown error'}</p>
+        <div className="min-h-screen flex items-center justify-center bg-indigo text-cream">
+          <div className="text-center max-w-[400px]">
+            <h2 className="text-coral text-2xl font-bold mb-2">Something went wrong</h2>
+            <p className="text-lavender text-sm mb-4">{this.state.error?.message || 'Unknown error'}</p>
             <button
               onClick={() => window.location.reload()}
-              style={{ marginTop: 16, padding: '8px 24px', background: '#6c5ce7', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 14 }}
+              className="px-6 py-2 bg-coral text-indigo rounded-full font-semibold hover:opacity-90 transition-opacity"
             >
               Reload page
             </button>
@@ -49,7 +50,7 @@ function App() {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <i className="fas fa-circle-notch fa-spin text-6xl text-midnight-glow"></i>
+        <CircleNotch size={48} weight="bold" className="text-coral animate-spin" />
       </div>
     )
   }
@@ -63,7 +64,6 @@ function App() {
         <Route path="/reset-password/:token" element={!isAuthenticated ? <ResetPassword /> : <Navigate to="/" />} />
         <Route path="/" element={isAuthenticated ? <Dashboard /> : <Navigate to="/login" />} />
       </Routes>
-      {/* DEV: Role switcher for admin testing */}
       {isAuthenticated && <RoleSwitcher />}
     </ErrorBoundary>
   )

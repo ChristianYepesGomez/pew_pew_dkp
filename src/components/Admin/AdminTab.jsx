@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useLanguage } from '../../hooks/useLanguage'
 import { membersAPI, dkpAPI, warcraftLogsAPI, calendarAPI } from '../../services/api'
+import { CheckCircle, WarningCircle, Users, CircleNotch, Eye, Check, ClockCounterClockwise, CalendarBlank, Sword, Coins, User, CaretUp, CaretDown, ArrowCounterClockwise, Warning, Bell, ArrowsClockwise, Lightning, ArrowSquareOut, FloppyDisk, CalendarDots, Note } from '@phosphor-icons/react'
 
 const WCL_ICON = 'https://assets.rpglogs.com/img/warcraft/favicon.png'
 
@@ -254,40 +255,40 @@ const AdminTab = () => {
       {notification && (
         <div className={`flex items-center gap-3 px-5 py-4 rounded-xl border shadow-lg animate-fade-in ${
           notification.type === 'success'
-            ? 'bg-green-500 bg-opacity-15 border-green-500 border-opacity-40 text-green-400'
-            : 'bg-red-500 bg-opacity-15 border-red-500 border-opacity-40 text-red-400'
+            ? 'bg-green-500/15 border-green-500/40 text-green-400'
+            : 'bg-red-500/15 border-red-500/40 text-red-400'
         }`}>
-          <i className={`fas ${notification.type === 'success' ? 'fa-check-circle' : 'fa-exclamation-circle'} text-xl`}></i>
+          {notification.type === 'success' ? <CheckCircle size={20} weight="bold" /> : <WarningCircle size={20} weight="bold" />}
           <span className="font-semibold">{notification.message}</span>
         </div>
       )}
 
       {/* Bulk Adjustment */}
-      <div className="info-card">
-        <h3><i className="fas fa-users-cog mr-3"></i>{t('bulk_adjustment')}</h3>
+      <div className="rounded-2xl bg-lavender-12 p-8">
+        <h3 className="flex items-center gap-3"><Users size={20} weight="bold" />{t('bulk_adjustment')}</h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
-          <input type="number" value={bulkAmount} onChange={(e) => setBulkAmount(e.target.value)} placeholder={t('amount')} className="px-4 py-3 rounded-lg bg-midnight-spaceblue border border-midnight-bright-purple text-midnight-silver focus:outline-none focus:ring-2 focus:ring-midnight-glow" />
-          <input type="text" value={bulkReason} onChange={(e) => setBulkReason(e.target.value)} placeholder={t('reason')} className="px-4 py-3 rounded-lg bg-midnight-spaceblue border border-midnight-bright-purple text-midnight-silver focus:outline-none focus:ring-2 focus:ring-midnight-glow" />
+          <input type="number" value={bulkAmount} onChange={(e) => setBulkAmount(e.target.value)} placeholder={t('amount')} className="px-4 py-3 rounded-lg bg-indigo border border-lavender-20 text-lavender focus:outline-none focus:ring-2 focus:ring-coral" />
+          <input type="text" value={bulkReason} onChange={(e) => setBulkReason(e.target.value)} placeholder={t('reason')} className="px-4 py-3 rounded-lg bg-indigo border border-lavender-20 text-lavender focus:outline-none focus:ring-2 focus:ring-coral" />
           <button onClick={handleBulkAdjust} disabled={bulkLoading} className="px-6 py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg font-bold disabled:opacity-50 transition-all">
             {bulkLoading ? (
-              <><i className="fas fa-circle-notch fa-spin mr-2"></i>{t('loading')}...</>
+              <><CircleNotch size={18} weight="bold" className="inline animate-spin mr-2" />{t('loading')}...</>
             ) : (
-              <><i className="fas fa-users mr-2"></i>{t('apply_to_all')}</>
+              <><Users size={18} weight="bold" className="inline mr-2" />{t('apply_to_all')}</>
             )}
           </button>
         </div>
       </div>
 
       {/* Warcraft Logs */}
-      <div className="info-card">
-        <h3><img src={WCL_ICON} alt="WCL" className="inline-block mr-3 w-6 h-6" />{t('wcl_integration')}</h3>
+      <div className="rounded-2xl bg-lavender-12 p-8">
+        <h3 className="flex items-center gap-3"><img src={WCL_ICON} alt="WCL" className="inline-block w-6 h-6" />{t('wcl_integration')}</h3>
 
         {/* Pending Reports - Auto-detected */}
         {pendingReports.length > 0 && (
-          <div className="mb-6 bg-yellow-600 bg-opacity-10 border border-yellow-500 border-opacity-30 rounded-xl p-4">
+          <div className="mb-6 bg-yellow-600/10 border border-yellow-500/30 rounded-xl p-4">
             <div className="flex items-center justify-between mb-3">
               <h4 className="text-yellow-400 font-bold flex items-center gap-2 m-0">
-                <i className="fas fa-bell animate-pulse"></i>
+                <Bell size={18} weight="bold" className="animate-pulse" />
                 {t('pending_wcl_reports') || 'Logs Pendientes'}
                 <span className="bg-yellow-500 text-white text-xs px-2 py-0.5 rounded-full">{pendingReports.length}</span>
               </h4>
@@ -296,7 +297,7 @@ const AdminTab = () => {
                 disabled={pendingLoading}
                 className="text-sm text-yellow-400 hover:text-yellow-300"
               >
-                <i className={`fas ${pendingLoading ? 'fa-spinner fa-spin' : 'fa-sync-alt'} mr-1`}></i>
+                {pendingLoading ? <CircleNotch size={14} weight="bold" className="inline animate-spin mr-1" /> : <ArrowsClockwise size={14} weight="bold" className="inline mr-1" />}
                 {t('refresh')}
               </button>
             </div>
@@ -307,13 +308,13 @@ const AdminTab = () => {
               {pendingReports.map(report => (
                 <div
                   key={report.code}
-                  className="flex items-center justify-between bg-midnight-deepblue bg-opacity-50 rounded-lg px-4 py-3"
+                  className="flex items-center justify-between bg-indigo/50 rounded-lg px-4 py-3"
                 >
                   <div className="flex-1 min-w-0">
                     <p className="font-semibold text-white truncate">{report.title}</p>
                     <p className="text-xs text-gray-400 flex items-center gap-3">
-                      <span><i className="fas fa-calendar-day mr-1"></i>{report.raidDate}</span>
-                      <span><i className="fas fa-dungeon mr-1"></i>{report.zone}</span>
+                      <span><CalendarBlank size={12} weight="bold" className="inline mr-1" />{report.raidDate}</span>
+                      <span><Sword size={12} weight="bold" className="inline mr-1" />{report.zone}</span>
                     </p>
                   </div>
                   <div className="flex gap-2">
@@ -321,16 +322,16 @@ const AdminTab = () => {
                       href={`https://www.warcraftlogs.com/reports/${report.code}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="px-3 py-2 bg-blue-600 bg-opacity-30 hover:bg-opacity-50 text-blue-400 rounded-lg text-sm transition-all"
+                      className="px-3 py-2 bg-blue-600/30 hover:bg-blue-600/50 text-blue-400 rounded-lg text-sm transition-all"
                       title={t('view_on_wcl') || 'Ver en WCL'}
                     >
-                      <i className="fas fa-external-link-alt"></i>
+                      <ArrowSquareOut size={16} weight="bold" />
                     </a>
                     <button
                       onClick={() => handleAutoProcess(report.code)}
-                      className="px-4 py-2 bg-green-600 bg-opacity-30 hover:bg-opacity-50 text-green-400 rounded-lg text-sm font-semibold transition-all flex items-center gap-2"
+                      className="px-4 py-2 bg-green-600/30 hover:bg-green-600/50 text-green-400 rounded-lg text-sm font-semibold transition-all flex items-center gap-2"
                     >
-                      <i className="fas fa-bolt"></i>
+                      <Lightning size={16} weight="bold" />
                       {t('process') || 'Procesar'}
                     </button>
                   </div>
@@ -342,15 +343,15 @@ const AdminTab = () => {
 
         {/* Manual URL Input */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-4">
-          <input type="text" value={wclUrl} onChange={(e) => setWclUrl(e.target.value)} placeholder={t('wcl_url')} className="md:col-span-3 px-4 py-3 rounded-lg bg-midnight-spaceblue border border-midnight-bright-purple text-midnight-silver focus:outline-none focus:ring-2 focus:ring-midnight-glow" />
+          <input type="text" value={wclUrl} onChange={(e) => setWclUrl(e.target.value)} placeholder={t('wcl_url')} className="md:col-span-3 px-4 py-3 rounded-lg bg-indigo border border-lavender-20 text-lavender focus:outline-none focus:ring-2 focus:ring-coral" />
           <button onClick={handleWclPreview} disabled={loading} className="px-6 py-3 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg font-bold disabled:opacity-50">
-            {loading ? <i className="fas fa-circle-notch fa-spin"></i> : <><i className="fas fa-eye mr-2"></i>{t('preview')}</>}
+            {loading ? <CircleNotch size={18} weight="bold" className="inline animate-spin" /> : <><Eye size={18} weight="bold" className="inline mr-2" />{t('preview')}</>}
           </button>
         </div>
 
         {wclPreview && (
           <div className="mt-6 space-y-4">
-            <div className="bg-blue-900 bg-opacity-50 rounded-lg p-4">
+            <div className="bg-blue-900/50 rounded-lg p-4">
               <h6 className="font-bold mb-2"><img src={WCL_ICON} alt="WCL" className="inline-block mr-2 w-5 h-5" />{wclPreview.report.title}</h6>
               <p>{t('bosses')}: {wclPreview.report.bossesKilled}/{wclPreview.report.totalBosses} | {t('participants')}: {wclPreview.report.participantCount} | {t('dkp_per_player')}: {dkpPerPlayer}</p>
             </div>
@@ -360,7 +361,7 @@ const AdminTab = () => {
                 <h6 className="font-bold mb-2">{t('players_to_receive')}:</h6>
                 <table className="w-full">
                   <thead>
-                    <tr className="border-b border-midnight-bright-purple">
+                    <tr className="border-b border-lavender-20">
                       <th className="text-left py-2">{t('character')}</th>
                       <th className="text-right py-2">{t('current_dkp_label')}</th>
                       <th className="text-right py-2">{t('after')}</th>
@@ -368,13 +369,13 @@ const AdminTab = () => {
                   </thead>
                   <tbody>
                     {matchedParticipants.map((p, i) => (
-                      <tr key={i} className="border-b border-midnight-bright-purple border-opacity-20">
+                      <tr key={i} className="border-b border-lavender-20/20">
                         <td className="py-2">
                           <span className="font-bold" style={{ color: CLASS_COLORS[p.wcl_class] || '#FFF' }}>
                             {p.character_name}
                           </span>
                         </td>
-                        <td className="py-2 text-right text-midnight-glow">{p.current_dkp || 0}</td>
+                        <td className="py-2 text-right text-coral">{p.current_dkp || 0}</td>
                         <td className="py-2 text-right">
                           <span className="text-green-400 font-bold">{(p.current_dkp || 0) + p.dkp_to_assign}</span>
                           <span className="text-green-500 text-sm ml-2">(+{p.dkp_to_assign})</span>
@@ -389,9 +390,9 @@ const AdminTab = () => {
             {wclPreview.can_proceed && matchedParticipants.length > 0 && (
               <button onClick={handleWclConfirm} disabled={loading} className="px-6 py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg font-bold disabled:opacity-50 transition-all">
                 {loading ? (
-                  <><i className="fas fa-circle-notch fa-spin mr-2"></i>{t('loading')}...</>
+                  <><CircleNotch size={18} weight="bold" className="inline animate-spin mr-2" />{t('loading')}...</>
                 ) : (
-                  <><i className="fas fa-check mr-2"></i>{t('confirm_apply_to')} {matchedParticipants.length} {t('players')}</>
+                  <><Check size={18} weight="bold" className="inline mr-2" />{t('confirm_apply_to')} {matchedParticipants.length} {t('players')}</>
                 )}
               </button>
             )}
@@ -400,23 +401,23 @@ const AdminTab = () => {
       </div>
 
       {/* WCL History */}
-      <div className="info-card">
-        <h3><i className="fas fa-history mr-3"></i>{t('wcl_history')}</h3>
+      <div className="rounded-2xl bg-lavender-12 p-8">
+        <h3 className="flex items-center gap-3"><ClockCounterClockwise size={20} weight="bold" />{t('wcl_history')}</h3>
         {loadingHistory ? (
-          <div className="text-center py-8"><i className="fas fa-circle-notch fa-spin text-2xl text-midnight-glow"></i></div>
+          <div className="text-center py-8"><CircleNotch size={24} weight="bold" className="animate-spin text-coral mx-auto" /></div>
         ) : wclHistory.length === 0 ? (
-          <p className="text-midnight-silver mt-4 text-center">{t('no_data')}</p>
+          <p className="text-lavender mt-4 text-center">{t('no_data')}</p>
         ) : (
           <div className="mt-4 space-y-2">
             {wclHistory.map(report => (
               <div key={report.report_code} className={`rounded-lg border overflow-hidden transition-all ${
                 report.is_reverted
-                  ? 'border-red-500 border-opacity-30 bg-red-900 bg-opacity-10'
-                  : 'border-midnight-bright-purple border-opacity-20 bg-midnight-purple bg-opacity-10'
+                  ? 'border-red-500/30 bg-red-900/10'
+                  : 'border-lavender-20/20 bg-lavender-12/10'
               }`}>
                 {/* Report Row */}
                 <div
-                  className="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-midnight-purple hover:bg-opacity-20 transition-all"
+                  className="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-lavender-12/20 transition-all"
                   onClick={() => handleExpandReport(report.report_code)}
                 >
                   <img src={WCL_ICON} alt="WCL" className={`inline-block w-5 h-5 ${report.is_reverted ? 'opacity-40 grayscale' : ''}`} />
@@ -424,33 +425,33 @@ const AdminTab = () => {
                     <div className="flex items-center gap-2">
                       <span className="font-semibold text-white text-sm truncate">{report.report_title}</span>
                       {report.is_reverted && (
-                        <span className="text-xs bg-red-500 bg-opacity-20 text-red-400 px-2 py-0.5 rounded">{t('reverted')}</span>
+                        <span className="text-xs bg-red-500/20 text-red-400 px-2 py-0.5 rounded">{t('reverted')}</span>
                       )}
                     </div>
-                    <div className="text-xs text-midnight-silver flex items-center gap-2 flex-wrap">
-                      {report.raid_date && <span><i className="fas fa-calendar-day mr-1"></i>{report.raid_date}</span>}
-                      <span><i className="fas fa-users mr-1"></i>{report.participants_count}</span>
-                      <span className="text-midnight-glow"><i className="fas fa-coins mr-1"></i>{report.dkp_assigned}</span>
-                      <span><i className="fas fa-user mr-1"></i>{report.processed_by_name}</span>
+                    <div className="text-xs text-lavender flex items-center gap-2 flex-wrap">
+                      {report.raid_date && <span><CalendarBlank size={12} weight="bold" className="inline mr-1" />{report.raid_date}</span>}
+                      <span><Users size={12} weight="bold" className="inline mr-1" />{report.participants_count}</span>
+                      <span className="text-coral"><Coins size={12} weight="bold" className="inline mr-1" />{report.dkp_assigned}</span>
+                      <span><User size={12} weight="bold" className="inline mr-1" />{report.processed_by_name}</span>
                     </div>
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0">
                     {!report.is_reverted && (
                       <button
                         onClick={(e) => { e.stopPropagation(); setRevertConfirm(report.report_code) }}
-                        className="px-3 py-1.5 bg-red-500 bg-opacity-10 text-red-400 rounded-lg text-xs hover:bg-opacity-20 transition-all"
+                        className="px-3 py-1.5 bg-red-500/10 text-red-400 rounded-lg text-xs hover:bg-red-500/20 transition-all flex items-center gap-1"
                         title={t('revert_dkp')}
                       >
-                        <i className="fas fa-undo mr-1"></i>{t('revert_dkp')}
+                        <ArrowCounterClockwise size={12} weight="bold" />{t('revert_dkp')}
                       </button>
                     )}
-                    <i className={`fas fa-chevron-${expandedReport === report.report_code ? 'up' : 'down'} text-midnight-silver text-xs`}></i>
+                    {expandedReport === report.report_code ? <CaretUp size={14} weight="bold" className="text-lavender" /> : <CaretDown size={14} weight="bold" className="text-lavender" />}
                   </div>
                 </div>
 
                 {/* Expanded Transactions */}
                 {expandedReport === report.report_code && (
-                  <div className="px-4 pb-3 border-t border-midnight-bright-purple border-opacity-20">
+                  <div className="px-4 pb-3 border-t border-lavender-20/20">
                     {reportTransactions[report.report_code] ? (
                       reportTransactions[report.report_code].length > 0 ? (
                         <div className="mt-2 space-y-1">
@@ -464,10 +465,10 @@ const AdminTab = () => {
                           ))}
                         </div>
                       ) : (
-                        <p className="text-midnight-silver text-sm mt-2">{t('no_data')}</p>
+                        <p className="text-lavender text-sm mt-2">{t('no_data')}</p>
                       )
                     ) : (
-                      <div className="text-center py-4"><i className="fas fa-circle-notch fa-spin text-midnight-glow"></i></div>
+                      <div className="text-center py-4"><CircleNotch size={18} weight="bold" className="animate-spin text-coral mx-auto" /></div>
                     )}
                   </div>
                 )}
@@ -479,10 +480,10 @@ const AdminTab = () => {
 
       {/* Raid Days Configuration - Hidden for now, keeping code for future use */}
       {false && (
-      <div className="info-card">
-        <h3><i className="fas fa-calendar-alt mr-3"></i>{t('raid_schedule')}</h3>
+      <div className="rounded-2xl bg-lavender-12 p-8">
+        <h3 className="flex items-center gap-3"><CalendarDots size={20} weight="bold" />{t('raid_schedule')}</h3>
         {raidDaysLoading ? (
-          <div className="text-center py-8"><i className="fas fa-circle-notch fa-spin text-2xl text-midnight-glow"></i></div>
+          <div className="text-center py-8"><CircleNotch size={24} weight="bold" className="animate-spin text-coral mx-auto" /></div>
         ) : (
           <div className="mt-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
@@ -491,19 +492,19 @@ const AdminTab = () => {
                   key={day.dayOfWeek}
                   className={`rounded-lg border p-4 transition-all cursor-pointer ${
                     day.isActive
-                      ? 'border-midnight-glow bg-midnight-glow bg-opacity-10'
-                      : 'border-midnight-bright-purple border-opacity-30 bg-midnight-purple bg-opacity-10'
+                      ? 'border-coral bg-coral/10'
+                      : 'border-lavender-20/30 bg-lavender-12/10'
                   }`}
                   onClick={() => toggleRaidDay(day.dayOfWeek)}
                 >
                   <div className="flex items-center justify-between mb-2">
-                    <span className={`font-bold ${day.isActive ? 'text-midnight-glow' : 'text-midnight-silver'}`}>
+                    <span className={`font-bold ${day.isActive ? 'text-coral' : 'text-lavender'}`}>
                       {DAY_NAMES[day.dayOfWeek]?.[t('lang_code') || 'en'] || DAY_NAMES[day.dayOfWeek]?.en}
                     </span>
                     <div className={`w-5 h-5 rounded-full flex items-center justify-center ${
-                      day.isActive ? 'bg-midnight-glow' : 'bg-gray-600'
+                      day.isActive ? 'bg-coral' : 'bg-gray-600'
                     }`}>
-                      {day.isActive && <i className="fas fa-check text-white text-xs"></i>}
+                      {day.isActive && <Check size={12} weight="bold" className="text-white" />}
                     </div>
                   </div>
                   {day.isActive && (
@@ -512,7 +513,7 @@ const AdminTab = () => {
                         type="time"
                         value={day.raidTime}
                         onChange={(e) => updateRaidTime(day.dayOfWeek, e.target.value)}
-                        className="w-full px-3 py-2 rounded-lg bg-midnight-spaceblue border border-midnight-bright-purple border-opacity-30 text-white text-sm focus:outline-none focus:border-midnight-glow"
+                        className="w-full px-3 py-2 rounded-lg bg-indigo border border-lavender-20/30 text-white text-sm focus:outline-none focus:border-coral"
                       />
                     </div>
                   )}
@@ -522,12 +523,12 @@ const AdminTab = () => {
             <button
               onClick={saveRaidDays}
               disabled={raidDaysSaving}
-              className="mt-4 px-6 py-3 bg-midnight-bright-purple hover:bg-opacity-80 text-white rounded-lg font-bold disabled:opacity-50 transition-all"
+              className="mt-4 px-6 py-3 bg-lavender-20 hover:bg-lavender-20/80 text-white rounded-lg font-bold disabled:opacity-50 transition-all"
             >
               {raidDaysSaving ? (
-                <><i className="fas fa-circle-notch fa-spin mr-2"></i>{t('loading')}...</>
+                <><CircleNotch size={18} weight="bold" className="inline animate-spin mr-2" />{t('loading')}...</>
               ) : (
-                <><i className="fas fa-save mr-2"></i>{t('save_raid_days')}</>
+                <><FloppyDisk size={18} weight="bold" className="inline mr-2" />{t('save_raid_days')}</>
               )}
             </button>
           </div>
@@ -538,18 +539,18 @@ const AdminTab = () => {
       {/* Revert Confirmation Dialog */}
       {revertConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => setRevertConfirm(null)}>
-          <div className="absolute inset-0 bg-black bg-opacity-70"></div>
-          <div className="relative bg-midnight-deepblue border border-red-500 border-opacity-40 rounded-2xl p-6 max-w-sm w-full shadow-2xl" onClick={(e) => e.stopPropagation()}>
+          <div className="absolute inset-0 bg-black/70"></div>
+          <div className="relative bg-indigo border border-red-500/40 rounded-2xl p-6 max-w-sm w-full shadow-2xl" onClick={(e) => e.stopPropagation()}>
             <div className="text-center space-y-4">
-              <div className="w-16 h-16 rounded-full bg-red-500 bg-opacity-20 flex items-center justify-center mx-auto">
-                <i className="fas fa-exclamation-triangle text-red-400 text-2xl"></i>
+              <div className="w-16 h-16 rounded-full bg-red-500/20 flex items-center justify-center mx-auto">
+                <Warning size={28} weight="bold" className="text-red-400" />
               </div>
               <h3 className="text-lg font-bold text-white">{t('revert_dkp')}</h3>
-              <p className="text-midnight-silver text-sm">{t('confirm_revert')}</p>
+              <p className="text-lavender text-sm">{t('confirm_revert')}</p>
               <div className="flex gap-3">
                 <button
                   onClick={() => setRevertConfirm(null)}
-                  className="flex-1 py-2 px-4 border border-midnight-bright-purple text-midnight-silver rounded-lg hover:bg-midnight-purple hover:bg-opacity-20 transition-all"
+                  className="flex-1 py-2 px-4 border border-lavender-20 text-lavender rounded-lg hover:bg-lavender-12/20 transition-all"
                 >
                   {t('cancel')}
                 </button>
@@ -558,7 +559,7 @@ const AdminTab = () => {
                   disabled={reverting}
                   className="flex-1 py-2 px-4 bg-red-600 text-white rounded-lg font-bold hover:bg-red-700 transition-all disabled:opacity-50"
                 >
-                  {reverting ? <i className="fas fa-circle-notch fa-spin"></i> : <><i className="fas fa-undo mr-2"></i>{t('revert_dkp')}</>}
+                  {reverting ? <CircleNotch size={18} weight="bold" className="inline animate-spin" /> : <><ArrowCounterClockwise size={16} weight="bold" className="inline mr-2" />{t('revert_dkp')}</>}
                 </button>
               </div>
             </div>

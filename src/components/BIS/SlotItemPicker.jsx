@@ -4,6 +4,11 @@ import { itemPopularityAPI } from '../../services/api'
 import RARITY_COLORS from '../../utils/rarityColors'
 import WowheadTooltip from '../Common/WowheadTooltip'
 import { PAPER_DOLL_SLOTS } from './PaperDoll'
+import {
+  SquaresFour, Sword, Key, X, Star, Diamond,
+  CheckCircle, Circle, Trash, PlusCircle, Fire,
+  Check, CircleNotch, Plus,
+} from '@phosphor-icons/react'
 
 const RARITY_BG = {
   common: 'from-gray-600 to-gray-700',
@@ -14,9 +19,9 @@ const RARITY_BG = {
 }
 
 const SOURCE_TABS = [
-  { key: 'all', icon: 'fa-layer-group' },
-  { key: 'raid', icon: 'fa-dungeon' },
-  { key: 'mythicplus', icon: 'fa-key' },
+  { key: 'all', Icon: SquaresFour },
+  { key: 'raid', Icon: Sword },
+  { key: 'mythicplus', Icon: Key },
 ]
 
 const SlotItemPicker = ({ slotKey, allItems = [], bisItems = [], onAdd, onRemove, onToggleObtained, onClose, userClass = null }) => {
@@ -114,11 +119,11 @@ const SlotItemPicker = ({ slotKey, allItems = [], bisItems = [], onAdd, onRemove
       {/* Header */}
       <div className="flex items-center justify-between mb-3 flex-shrink-0">
         <div className="flex items-center gap-2">
-          <i className={`fas ${slotDef.icon} text-midnight-glow`}></i>
-          <h4 className="font-cinzel text-sm text-white m-0">{t(`bis_slot_${slotKey.toLowerCase()}`) || slotDef.label}</h4>
+          {slotDef.Icon && <slotDef.Icon size={16} className="text-coral" />}
+          <h4 className="text-sm text-white m-0">{t(`bis_slot_${slotKey.toLowerCase()}`) || slotDef.label}</h4>
         </div>
         <button onClick={onClose} className="text-gray-400 hover:text-white text-sm p-1">
-          <i className="fas fa-times"></i>
+          <X size={14} />
         </button>
       </div>
 
@@ -130,11 +135,11 @@ const SlotItemPicker = ({ slotKey, allItems = [], bisItems = [], onAdd, onRemove
             onClick={() => setSourceFilter(tab.key)}
             className={`flex-1 px-3 py-1.5 rounded-lg text-xs transition-all flex items-center justify-center gap-1.5 ${
               sourceFilter === tab.key
-                ? 'bg-midnight-purple text-white'
-                : 'bg-midnight-deepblue bg-opacity-50 text-midnight-silver hover:text-white'
+                ? 'bg-lavender-12 text-white'
+                : 'bg-indigo/50 text-lavender hover:text-white'
             }`}
           >
-            <i className={`fas ${tab.icon}`}></i>
+            <tab.Icon size={14} />
             {t(`bis_source_${tab.key}`)}
           </button>
         ))}
@@ -146,7 +151,7 @@ const SlotItemPicker = ({ slotKey, allItems = [], bisItems = [], onAdd, onRemove
         value={search}
         onChange={(e) => setSearch(e.target.value)}
         placeholder={t('search_items')}
-        className="w-full px-3 py-2 rounded-lg bg-midnight-purple bg-opacity-20 border border-midnight-bright-purple border-opacity-30 text-white text-sm placeholder-gray-500 focus:outline-none focus:border-midnight-glow mb-3 flex-shrink-0"
+        className="w-full px-3 py-2 rounded-lg bg-lavender-12/20 border border-lavender-20/30 text-white text-sm placeholder-gray-500 focus:outline-none focus:border-coral mb-3 flex-shrink-0"
       />
 
       {/* Scrollable content */}
@@ -154,8 +159,8 @@ const SlotItemPicker = ({ slotKey, allItems = [], bisItems = [], onAdd, onRemove
         {/* Current BIS items for this slot */}
         {slotBisItems.length > 0 && (
           <div>
-            <p className="text-xs text-midnight-silver mb-2 font-semibold uppercase tracking-wider">
-              <i className="fas fa-star mr-1 text-yellow-400"></i>{t('bis_your_bis')} ({slotBisItems.length})
+            <p className="text-xs text-lavender mb-2 font-semibold uppercase tracking-wider inline-flex items-center gap-1">
+              <Star size={14} weight="fill" className="text-yellow-400" />{t('bis_your_bis')} ({slotBisItems.length})
             </p>
             <div className="space-y-1.5">
               {slotBisItems.map(bi => (
@@ -163,8 +168,8 @@ const SlotItemPicker = ({ slotKey, allItems = [], bisItems = [], onAdd, onRemove
                   key={bi.id}
                   className={`flex items-center gap-2 p-2 rounded-lg border transition-all ${
                     bi.obtained
-                      ? 'border-green-500 border-opacity-30 bg-green-900 bg-opacity-10'
-                      : 'border-midnight-bright-purple border-opacity-20 bg-midnight-purple bg-opacity-10'
+                      ? 'border-green-500/30 bg-green-900/10'
+                      : 'border-lavender-20/20 bg-lavender-12/10'
                   }`}
                 >
                   <WowheadTooltip itemId={bi.item_id}>
@@ -176,7 +181,7 @@ const SlotItemPicker = ({ slotKey, allItems = [], bisItems = [], onAdd, onRemove
                         <img src={bi.item_image} alt="" className="w-full h-full object-cover" />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center">
-                          <i className="fas fa-gem text-xs" style={{ color: RARITY_COLORS[bi.item_rarity] }}></i>
+                          <Diamond size={12} style={{ color: RARITY_COLORS[bi.item_rarity] }} />
                         </div>
                       )}
                     </div>
@@ -187,7 +192,7 @@ const SlotItemPicker = ({ slotKey, allItems = [], bisItems = [], onAdd, onRemove
                         {language === 'en' && bi.item_name_en ? bi.item_name_en : bi.item_name}
                       </p>
                     </WowheadTooltip>
-                    <p className="text-[10px] text-midnight-silver m-0 truncate">
+                    <p className="text-[10px] text-lavender m-0 truncate">
                       {bi.boss_name}
                       {bi.source_type === 'mythicplus' && <span className="ml-1 text-blue-400">(M+)</span>}
                     </p>
@@ -197,18 +202,18 @@ const SlotItemPicker = ({ slotKey, allItems = [], bisItems = [], onAdd, onRemove
                     className={`p-1.5 rounded text-xs transition-all ${
                       bi.obtained
                         ? 'text-green-400 hover:text-green-300'
-                        : 'text-midnight-silver hover:text-green-400'
+                        : 'text-lavender hover:text-green-400'
                     }`}
                     title={bi.obtained ? t('bis_mark_unobtained') : t('bis_mark_obtained')}
                   >
-                    <i className={`fas ${bi.obtained ? 'fa-check-circle' : 'fa-circle'}`}></i>
+                    {bi.obtained ? <CheckCircle size={16} /> : <Circle size={16} />}
                   </button>
                   <button
                     onClick={() => onRemove(bi.id)}
-                    className="p-1.5 rounded text-xs text-midnight-silver hover:text-red-400 transition-all"
+                    className="p-1.5 rounded text-xs text-lavender hover:text-red-400 transition-all"
                     title={t('bis_remove')}
                   >
-                    <i className="fas fa-trash-alt"></i>
+                    <Trash size={14} />
                   </button>
                 </div>
               ))}
@@ -218,8 +223,8 @@ const SlotItemPicker = ({ slotKey, allItems = [], bisItems = [], onAdd, onRemove
 
         {/* Available items to add */}
         <div>
-          <p className="text-xs text-midnight-silver mb-2 font-semibold uppercase tracking-wider">
-            <i className="fas fa-plus-circle mr-1 text-midnight-glow"></i>{t('bis_available_items')} ({availableItems.length})
+          <p className="text-xs text-lavender mb-2 font-semibold uppercase tracking-wider inline-flex items-center gap-1">
+            <PlusCircle size={14} className="text-coral" />{t('bis_available_items')} ({availableItems.length})
           </p>
           <div className="space-y-1">
             {availableItems.map(item => {
@@ -233,8 +238,8 @@ const SlotItemPicker = ({ slotKey, allItems = [], bisItems = [], onAdd, onRemove
                   disabled={isAlreadyBis || isAdding}
                   className={`w-full flex items-center gap-2 p-2 rounded-lg border text-left transition-all ${
                     isAlreadyBis
-                      ? 'border-green-500 border-opacity-20 bg-green-900 bg-opacity-5 opacity-50 cursor-not-allowed'
-                      : 'border-midnight-bright-purple border-opacity-15 hover:border-opacity-40 hover:bg-midnight-purple hover:bg-opacity-15'
+                      ? 'border-green-500/20 bg-green-900/5 opacity-50 cursor-not-allowed'
+                      : 'border-lavender-20/15 hover:border-lavender-20/40 hover:bg-lavender-12/15'
                   }`}
                 >
                   <WowheadTooltip itemId={item.id}>
@@ -246,7 +251,7 @@ const SlotItemPicker = ({ slotKey, allItems = [], bisItems = [], onAdd, onRemove
                         <img src={item.icon} alt="" className="w-full h-full object-cover" />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center">
-                          <i className="fas fa-gem text-xs" style={{ color: RARITY_COLORS[item.rarity] }}></i>
+                          <Diamond size={12} style={{ color: RARITY_COLORS[item.rarity] }} />
                         </div>
                       )}
                     </div>
@@ -257,29 +262,29 @@ const SlotItemPicker = ({ slotKey, allItems = [], bisItems = [], onAdd, onRemove
                         {item.name[language] || item.name.en}
                       </p>
                     </WowheadTooltip>
-                    <p className="text-[10px] text-midnight-silver m-0 truncate">
+                    <p className="text-[10px] text-lavender m-0 truncate">
                       {getBossName(item)}
                       {(item.sourceType || 'raid') === 'mythicplus' && <span className="ml-1 text-blue-400">(M+)</span>}
                       {item.itemLevel > 0 && <span className="ml-1">iLvl {item.itemLevel}</span>}
                     </p>
                   </div>
                   {popularItems[item.id] && (
-                    <span className="flex-shrink-0 inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-orange-500 bg-opacity-15 text-orange-400 text-[10px] font-bold" title={t('bis_popular')}>
-                      <i className="fas fa-fire text-[8px]"></i>{Math.round(popularItems[item.id])}%
+                    <span className="flex-shrink-0 inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-orange-500/15 text-orange-400 text-[10px] font-bold" title={t('bis_popular')}>
+                      <Fire size={10} />{Math.round(popularItems[item.id])}%
                     </span>
                   )}
                   {isAlreadyBis ? (
-                    <i className="fas fa-check text-green-500 text-xs flex-shrink-0"></i>
+                    <Check size={14} className="text-green-500 flex-shrink-0" />
                   ) : isAdding ? (
-                    <i className="fas fa-circle-notch fa-spin text-midnight-glow text-xs flex-shrink-0"></i>
+                    <CircleNotch size={14} className="animate-spin text-coral flex-shrink-0" />
                   ) : (
-                    <i className="fas fa-plus text-midnight-silver text-xs flex-shrink-0 opacity-0 group-hover:opacity-100"></i>
+                    <Plus size={14} className="text-lavender flex-shrink-0 opacity-0 group-hover:opacity-100" />
                   )}
                 </button>
               )
             })}
             {availableItems.length === 0 && (
-              <p className="text-midnight-silver text-xs text-center py-4">{t('no_items_found')}</p>
+              <p className="text-lavender text-xs text-center py-4">{t('no_items_found')}</p>
             )}
           </div>
         </div>

@@ -1,6 +1,6 @@
 const CatLogo = ({ size = 40, className = '' }) => (
   <img
-    src="/logo.png"
+    src="/logo.svg"
     alt="Pew Pew Kittens with Guns"
     width={size}
     height={size}

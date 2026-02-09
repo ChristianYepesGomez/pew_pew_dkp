@@ -1,4 +1,5 @@
 import { createPortal } from 'react-dom'
+import { Coins, PlusCircle, Gavel, Clock, Crown, Scales, X, CalendarCheck, Skull, Check, DiceFive } from '@phosphor-icons/react'
 import { useLanguage } from '../../hooks/useLanguage'
 import VaultIcon from './VaultIcon'
 
@@ -6,106 +7,99 @@ const DKPInfoModal = ({ onClose }) => {
   const { t } = useLanguage()
 
   return createPortal(
-    <div className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-[100] p-4" onClick={onClose}>
+    <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[100] p-4" onClick={onClose}>
       <div
-        className="bg-midnight-deepblue border-2 border-midnight-bright-purple rounded-2xl w-full max-w-lg shadow-2xl max-h-[90vh] overflow-hidden flex flex-col"
+        className="bg-indigo border-2 border-lavender-20 rounded-2xl w-full max-w-lg shadow-2xl max-h-[90vh] overflow-hidden flex flex-col"
         onClick={e => e.stopPropagation()}
       >
-        {/* Header */}
-        <div className="p-6 bg-gradient-to-r from-midnight-purple to-midnight-bright-purple border-b border-midnight-bright-purple border-opacity-30">
+        <div className="p-6 bg-lavender-12 border-b border-lavender-20">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-full bg-midnight-deepblue flex items-center justify-center border-2 border-midnight-glow">
-                <i className="fas fa-coins text-xl text-midnight-glow"></i>
+              <div className="w-12 h-12 rounded-full bg-indigo flex items-center justify-center border-2 border-lavender-20">
+                <Coins size={24} weight="bold" className="text-coral" />
               </div>
               <div>
-                <h3 className="text-xl font-cinzel font-bold text-white m-0">{t('dkp_system_title')}</h3>
-                <p className="text-sm text-midnight-silver m-0">{t('dkp_system_subtitle')}</p>
+                <h3 className="text-xl font-bold text-cream">{t('dkp_system_title')}</h3>
+                <p className="text-sm text-lavender">{t('dkp_system_subtitle')}</p>
               </div>
             </div>
-            <button onClick={onClose} className="text-gray-400 hover:text-white text-2xl">
-              <i className="fas fa-times"></i>
+            <button onClick={onClose} className="text-lavender hover:text-cream transition-colors">
+              <X size={24} weight="bold" />
             </button>
           </div>
         </div>
 
-        {/* Content */}
         <div className="p-6 overflow-auto space-y-6">
-          {/* Earning DKP */}
-          <div className="bg-green-500 bg-opacity-10 border border-green-500 border-opacity-30 rounded-xl p-4">
-            <h4 className="flex items-center gap-2 text-green-400 font-bold mb-3 text-sm uppercase">
-              <i className="fas fa-plus-circle"></i>
+          <div className="bg-teal/10 border border-teal/30 rounded-xl p-4">
+            <h4 className="flex items-center gap-2 text-teal font-bold mb-3 text-sm uppercase">
+              <PlusCircle size={18} weight="bold" />
               {t('dkp_earning_title')}
             </h4>
             <ul className="space-y-2 text-sm">
               <li className="flex items-center gap-3">
-                <span className="w-8 h-8 rounded-lg bg-green-500 bg-opacity-20 flex items-center justify-center text-green-400 flex-shrink-0">
-                  <i className="fas fa-calendar-check"></i>
+                <span className="w-8 h-8 rounded-lg bg-teal/20 flex items-center justify-center text-teal shrink-0">
+                  <CalendarCheck size={18} weight="bold" />
                 </span>
-                <span className="text-white">{t('dkp_earning_calendar')} <span className="text-green-400 font-bold">+1</span></span>
+                <span className="text-cream">{t('dkp_earning_calendar')} <span className="text-teal font-bold">+1</span></span>
               </li>
               <li className="flex items-center gap-3">
-                <span className="w-8 h-8 rounded-lg bg-green-500 bg-opacity-20 flex items-center justify-center text-green-400 flex-shrink-0">
-                  <i className="fas fa-dragon"></i>
+                <span className="w-8 h-8 rounded-lg bg-teal/20 flex items-center justify-center text-teal shrink-0">
+                  <Skull size={18} weight="bold" />
                 </span>
-                <span className="text-white">{t('dkp_earning_raid')} <span className="text-green-400 font-bold">+5</span></span>
+                <span className="text-cream">{t('dkp_earning_raid')} <span className="text-teal font-bold">+5</span></span>
               </li>
               <li className="flex items-center gap-3">
-                <span className="w-8 h-8 rounded-lg bg-green-500 bg-opacity-20 flex items-center justify-center flex-shrink-0">
+                <span className="w-8 h-8 rounded-lg bg-teal/20 flex items-center justify-center shrink-0">
                   <VaultIcon completed={true} size={24} />
                 </span>
-                <span className="text-white">{t('dkp_earning_vault')} <span className="text-green-400 font-bold">+10</span></span>
+                <span className="text-cream">{t('dkp_earning_vault')} <span className="text-teal font-bold">+10</span></span>
               </li>
             </ul>
           </div>
 
-          {/* Spending DKP */}
-          <div className="bg-red-500 bg-opacity-10 border border-red-500 border-opacity-30 rounded-xl p-4">
+          <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4">
             <h4 className="flex items-center gap-2 text-red-400 font-bold mb-3 text-sm uppercase">
-              <i className="fas fa-gavel"></i>
+              <Gavel size={18} weight="bold" />
               {t('dkp_spending_title')}
             </h4>
-            <ul className="space-y-2 text-sm text-white">
+            <ul className="space-y-2 text-sm text-cream">
               <li className="flex items-start gap-3">
-                <i className="fas fa-check text-red-400 mt-1"></i>
+                <Check size={16} weight="bold" className="text-red-400 mt-0.5 shrink-0" />
                 <span>{t('dkp_spending_auctions')}</span>
               </li>
               <li className="flex items-start gap-3">
-                <i className="fas fa-check text-red-400 mt-1"></i>
+                <Check size={16} weight="bold" className="text-red-400 mt-0.5 shrink-0" />
                 <span>{t('dkp_spending_free')}</span>
               </li>
               <li className="flex items-start gap-3">
-                <i className="fas fa-dice text-yellow-400 mt-1"></i>
+                <DiceFive size={16} weight="bold" className="text-yellow-400 mt-0.5 shrink-0" />
                 <span>{t('dkp_spending_ties')}</span>
               </li>
             </ul>
           </div>
 
-          {/* Anti-Snipe Rule */}
-          <div className="bg-orange-500 bg-opacity-10 border border-orange-500 border-opacity-30 rounded-xl p-4">
+          <div className="bg-orange-500/10 border border-orange-500/30 rounded-xl p-4">
             <h4 className="flex items-center gap-2 text-orange-400 font-bold mb-3 text-sm uppercase">
-              <i className="fas fa-clock"></i>
+              <Clock size={18} weight="bold" />
               {t('anti_snipe_title')}
             </h4>
-            <p className="text-sm text-white">{t('anti_snipe_info')}</p>
+            <p className="text-sm text-cream">{t('anti_snipe_info')}</p>
             <p className="text-xs text-orange-300 mt-2 italic">{t('anti_snipe_reason')}</p>
           </div>
 
-          {/* DKP Cap */}
-          <div className="bg-yellow-500 bg-opacity-10 border border-yellow-500 border-opacity-30 rounded-xl p-4">
+          <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-4">
             <h4 className="flex items-center gap-2 text-yellow-400 font-bold mb-3 text-sm uppercase">
-              <i className="fas fa-crown"></i>
+              <Crown size={18} weight="bold" />
               {t('dkp_cap_title')}: 250
             </h4>
-            <p className="text-sm text-white mb-2">{t('dkp_cap_explanation')}</p>
+            <p className="text-sm text-cream mb-2">{t('dkp_cap_explanation')}</p>
             <p className="text-xs text-yellow-300 italic">{t('dkp_cap_why')}</p>
           </div>
 
-          {/* Fair System Note */}
-          <div className="text-center p-4 bg-midnight-purple bg-opacity-20 rounded-xl border border-midnight-bright-purple border-opacity-20">
-            <i className="fas fa-balance-scale text-2xl text-midnight-glow mb-2"></i>
-            <h5 className="text-white font-bold mb-1">{t('dkp_fair_system')}</h5>
-            <p className="text-sm text-midnight-silver">{t('dkp_fair_explanation')}</p>
+          <div className="text-center p-4 bg-lavender-12 rounded-xl border border-lavender-20">
+            <Scales size={32} weight="bold" className="text-coral mx-auto mb-2" />
+            <h5 className="text-cream font-bold mb-1">{t('dkp_fair_system')}</h5>
+            <p className="text-sm text-lavender">{t('dkp_fair_explanation')}</p>
           </div>
         </div>
       </div>

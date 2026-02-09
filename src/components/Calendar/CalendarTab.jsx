@@ -4,6 +4,7 @@ import { useAuth } from '../../hooks/useAuth'
 import { useLanguage } from '../../hooks/useLanguage'
 import { calendarAPI, warcraftLogsAPI } from '../../services/api'
 import CLASS_COLORS from '../../utils/classColors'
+import { CheckCircle, XCircle, Question, MinusCircle, ShieldStar, Heart, Crosshair, CircleNotch, CalendarDots, CalendarX, Users, ClockCounterClockwise, Coins, WarningCircle, Warning, X, Clock, Lock, FloppyDisk, Skull, Check, ChatDots, Note, MagnifyingGlass, ArrowLeft, Link, ArrowSquareOut, Info } from '@phosphor-icons/react'
 
 const WCL_ICON = 'https://assets.rpglogs.com/img/warcraft/favicon.png'
 
@@ -13,21 +14,21 @@ const WclIcon = ({ size = 16, className = '', opacity = '' }) => (
 
 const STATUS_CONFIG = {
   confirmed: {
-    icon: 'fa-check-circle',
+    Icon: CheckCircle,
     color: 'text-green-400',
     bg: 'bg-green-500',
     bgHover: 'hover:bg-green-600',
     border: 'border-green-500'
   },
   declined: {
-    icon: 'fa-times-circle',
+    Icon: XCircle,
     color: 'text-red-400',
     bg: 'bg-red-500',
     bgHover: 'hover:bg-red-600',
     border: 'border-red-500'
   },
   tentative: {
-    icon: 'fa-question-circle',
+    Icon: Question,
     color: 'text-yellow-400',
     bg: 'bg-yellow-500',
     bgHover: 'hover:bg-yellow-600',
@@ -311,7 +312,7 @@ const CalendarTab = () => {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <i className="fas fa-circle-notch fa-spin text-4xl text-midnight-glow"></i>
+        <CircleNotch size={40} weight="bold" className="animate-spin text-coral" />
       </div>
     )
   }
@@ -321,8 +322,8 @@ const CalendarTab = () => {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-cinzel font-bold text-white">{t('raid_calendar')}</h2>
-          <p className="text-midnight-silver">{t('raid_signup')}</p>
+          <h2 className="text-2xl font-bold text-white">{t('raid_calendar')}</h2>
+          <p className="text-lavender">{t('raid_signup')}</p>
         </div>
 
         <div className="flex items-center gap-2">
@@ -330,22 +331,22 @@ const CalendarTab = () => {
             onClick={() => { setShowHistory(!showHistory); setAdminView(false) }}
             className={`px-4 py-2 rounded-lg transition-all ${
               showHistory
-                ? 'bg-orange-500 bg-opacity-80 text-white'
-                : 'bg-midnight-purple bg-opacity-30 text-white hover:bg-opacity-50'
+                ? 'bg-orange-500/80 text-white'
+                : 'bg-lavender-12/30 text-white hover:bg-lavender-12/50'
             }`}
           >
-            <i className="fas fa-history mr-2"></i>
+            <ClockCounterClockwise size={16} weight="bold" className="inline mr-2" />
             {t('raid_history')}
           </button>
           <button
             onClick={() => { setAdminView(!adminView); setShowHistory(false) }}
             className={`px-4 py-2 rounded-lg transition-all ${
               adminView
-                ? 'bg-midnight-glow text-midnight-deepblue'
-                : 'bg-midnight-purple bg-opacity-30 text-white hover:bg-opacity-50'
+                ? 'bg-coral text-indigo'
+                : 'bg-lavender-12/30 text-white hover:bg-lavender-12/50'
             }`}
           >
-            <i className={`fas ${adminView ? 'fa-calendar-alt' : 'fa-users'} mr-2`}></i>
+            {adminView ? <CalendarDots size={16} weight="bold" className="inline mr-2" /> : <Users size={16} weight="bold" className="inline mr-2" />}
             {adminView ? t('raid_calendar') : t('team_overview')}
           </button>
         </div>
@@ -355,10 +356,10 @@ const CalendarTab = () => {
       {notification && (
         <div className={`p-4 rounded-lg flex items-center gap-3 animate-fade-in ${
           notification.type === 'success'
-            ? 'bg-green-500 bg-opacity-20 border border-green-500 text-green-400'
-            : 'bg-red-500 bg-opacity-20 border border-red-500 text-red-400'
+            ? 'bg-green-500/20 border border-green-500 text-green-400'
+            : 'bg-red-500/20 border border-red-500 text-red-400'
         }`}>
-          <i className={`fas ${notification.type === 'success' ? 'fa-coins' : 'fa-exclamation-circle'} text-xl`}></i>
+          {notification.type === 'success' ? <Coins size={20} weight="bold" /> : <WarningCircle size={20} weight="bold" />}
           <span>{notification.message}</span>
         </div>
       )}
@@ -372,9 +373,9 @@ const CalendarTab = () => {
         <>
           {/* Unconfirmed days alert */}
           {unconfirmedCount > 0 && !bannerDismissed && (
-            <div className="flex items-center gap-3 px-4 py-3 bg-orange-500 bg-opacity-15 border border-orange-500 border-opacity-40 rounded-xl text-sm animate-pulse-subtle">
-              <div className="w-8 h-8 rounded-full bg-orange-500 bg-opacity-20 flex items-center justify-center flex-shrink-0">
-                <i className="fas fa-exclamation text-orange-400"></i>
+            <div className="flex items-center gap-3 px-4 py-3 bg-orange-500/15 border border-orange-500/40 rounded-xl text-sm animate-pulse-subtle">
+              <div className="w-8 h-8 rounded-full bg-orange-500/20 flex items-center justify-center flex-shrink-0">
+                <Warning size={16} weight="bold" className="text-orange-400" />
               </div>
               <span className="flex-1 text-orange-200 font-medium">
                 {t('unconfirmed_days_alert').replace('{count}', unconfirmedCount)}
@@ -384,22 +385,22 @@ const CalendarTab = () => {
                 className="text-orange-400 hover:text-orange-200 transition-colors p-1"
                 title={t('dismiss')}
               >
-                <i className="fas fa-times"></i>
+                <X size={16} weight="bold" />
               </button>
             </div>
           )}
 
           {/* Signup cutoff info banner */}
           {!cutoffBannerDismissed && (
-            <div className="flex items-center gap-3 px-4 py-3 bg-yellow-500 bg-opacity-10 border border-yellow-500 border-opacity-30 rounded-xl text-sm">
-              <i className="fas fa-clock text-yellow-400 flex-shrink-0"></i>
+            <div className="flex items-center gap-3 px-4 py-3 bg-yellow-500/10 border border-yellow-500/30 rounded-xl text-sm">
+              <Clock size={16} weight="bold" className="text-yellow-400 flex-shrink-0" />
               <span className="flex-1 text-yellow-200">{t('signup_cutoff_info')}</span>
               <button
                 onClick={dismissCutoffBanner}
                 className="text-yellow-400 hover:text-yellow-200 transition-colors p-1"
                 title={t('dismiss')}
               >
-                <i className="fas fa-times"></i>
+                <X size={16} weight="bold" />
               </button>
             </div>
           )}
@@ -439,8 +440,8 @@ const CalendarTab = () => {
 
             return (
             <div key={weekKey} className="space-y-4">
-              <h3 className="text-lg font-cinzel text-midnight-glow flex items-center gap-2">
-                <i className="fas fa-calendar-week"></i>
+              <h3 className="text-lg text-coral flex items-center gap-2">
+                <CalendarDots size={18} weight="bold" />
                 {weekLabel}
               </h3>
 
@@ -460,30 +461,30 @@ const CalendarTab = () => {
                     <div
                       key={signup.date}
                       onClick={cardSize === 'compact' ? () => openSummary(signup.date) : undefined}
-                      className={`bg-midnight-purple bg-opacity-20 rounded-xl border-2 overflow-hidden transition-all ${
-                        cardSize === 'compact' ? 'cursor-pointer hover:bg-opacity-30' : ''
+                      className={`bg-lavender-12/20 rounded-xl border-2 overflow-hidden transition-all ${
+                        cardSize === 'compact' ? 'cursor-pointer hover:bg-lavender-12/30' : ''
                       } ${
                         isLocked
-                          ? 'border-red-500 border-opacity-30 opacity-75'
+                          ? 'border-red-500/30 opacity-75'
                           : dateInfo.isToday
-                            ? 'border-midnight-glow shadow-lg shadow-midnight-glow/20'
-                            : 'border-midnight-bright-purple border-opacity-30'
+                            ? 'border-coral shadow-lg shadow-coral/20'
+                            : 'border-lavender-20/30'
                       }`}
                     >
                       {/* Date Header */}
-                      <div className={`${cardSize === 'full' ? 'px-6 py-5' : cardSize === 'medium' ? 'px-5 py-4' : 'px-4 py-3'} ${isLocked ? 'bg-red-900 bg-opacity-20' : dateInfo.isToday ? 'bg-midnight-glow bg-opacity-20' : 'bg-midnight-purple bg-opacity-30'}`}>
+                      <div className={`${cardSize === 'full' ? 'px-6 py-5' : cardSize === 'medium' ? 'px-5 py-4' : 'px-4 py-3'} ${isLocked ? 'bg-red-900/20' : dateInfo.isToday ? 'bg-coral/20' : 'bg-lavender-12/30'}`}>
                         <div className="flex items-center justify-between">
                           <div className={`flex items-center ${cardSize === 'full' ? 'gap-5' : cardSize === 'medium' ? 'gap-4' : 'gap-3'}`}>
                             <div className="text-center">
                               <div className={`${cardSize === 'full' ? 'text-4xl' : cardSize === 'medium' ? 'text-3xl' : 'text-2xl'} font-bold text-white`}>{dateInfo.dayNum}</div>
-                              <div className={`${cardSize === 'full' ? 'text-sm' : 'text-xs'} text-midnight-silver uppercase`}>{dateInfo.month}</div>
+                              <div className={`${cardSize === 'full' ? 'text-sm' : 'text-xs'} text-lavender uppercase`}>{dateInfo.month}</div>
                             </div>
                             <div>
                               <div className={`font-semibold text-white ${cardSize === 'full' ? 'text-xl' : cardSize === 'medium' ? 'text-lg' : ''}`}>{dateInfo.dayName}</div>
-                              <div className={`${cardSize === 'full' ? 'text-base' : 'text-sm'} text-midnight-silver`}>
+                              <div className={`${cardSize === 'full' ? 'text-base' : 'text-sm'} text-lavender`}>
                                 {signup.raidTime || '21:00'}
                                 {dateInfo.isToday && !isLocked && (
-                                  <span className="ml-2 px-2 py-0.5 bg-midnight-glow text-midnight-deepblue text-xs rounded-full font-bold">
+                                  <span className="ml-2 px-2 py-0.5 bg-coral text-indigo text-xs rounded-full font-bold">
                                     {t('today')}
                                   </span>
                                 )}
@@ -494,13 +495,13 @@ const CalendarTab = () => {
                             {/* DKP Bonus indicator: show when NOT yet awarded (incentive), hide when received */}
                             {!isLocked && !signup.dkpAwarded && (
                               <div className="flex items-center gap-1 text-yellow-400 text-sm opacity-60 animate-pulse" title={t('signup_dkp_hint')}>
-                                <i className="fas fa-coins"></i>
+                                <Coins size={14} weight="bold" />
                                 <span>+1</span>
                               </div>
                             )}
                             {isLocked && (
                               <div className="flex items-center gap-1 text-red-400 text-sm">
-                                <i className="fas fa-lock"></i>
+                                <Lock size={14} weight="bold" />
                               </div>
                             )}
                           </div>
@@ -517,17 +518,17 @@ const CalendarTab = () => {
                               <>
                                 {currentStatus ? (
                                   <div className={`flex items-center gap-2 text-base ${STATUS_CONFIG[currentStatus]?.color}`}>
-                                    <i className={`fas ${STATUS_CONFIG[currentStatus]?.icon}`}></i>
+                                    {(() => { const Ic = STATUS_CONFIG[currentStatus]?.Icon; return Ic ? <Ic size={18} weight="bold" /> : null })()}
                                     <span>{t('your_status')}: <strong>{t(currentStatus)}</strong></span>
                                   </div>
                                 ) : (
                                   <div className="flex items-center gap-2 text-base text-red-400">
-                                    <i className="fas fa-times-circle"></i>
+                                    <XCircle size={18} weight="bold" />
                                     <span>{t('no_signup')}</span>
                                   </div>
                                 )}
-                                <div className="bg-red-900 bg-opacity-20 border border-red-500 border-opacity-30 rounded-lg p-3 text-center">
-                                  <i className="fas fa-lock mr-2 text-red-400"></i>
+                                <div className="bg-red-900/20 border border-red-500/30 rounded-lg p-3 text-center">
+                                  <Lock size={16} weight="bold" className="inline mr-2 text-red-400" />
                                   <span className="text-red-300 text-sm">{t('signup_locked')}</span>
                                 </div>
                               </>
@@ -535,7 +536,7 @@ const CalendarTab = () => {
                               <>
                                 {currentStatus && (
                                   <div className={`flex items-center gap-2 text-base ${STATUS_CONFIG[currentStatus]?.color}`}>
-                                    <i className={`fas ${STATUS_CONFIG[currentStatus]?.icon}`}></i>
+                                    {(() => { const Ic = STATUS_CONFIG[currentStatus]?.Icon; return Ic ? <Ic size={18} weight="bold" /> : null })()}
                                     <span>{t('your_status')}: <strong>{t(currentStatus)}</strong></span>
                                   </div>
                                 )}
@@ -548,13 +549,13 @@ const CalendarTab = () => {
                                       className={`flex-1 py-3 px-4 rounded-lg transition-all flex items-center justify-center gap-2 ${
                                         currentStatus === status
                                           ? `${config.bg} text-white`
-                                          : `bg-midnight-purple bg-opacity-30 ${config.color} ${config.bgHover} hover:text-white`
+                                          : `bg-lavender-12/30 ${config.color} ${config.bgHover} hover:text-white`
                                       } ${isSaving ? 'opacity-50 cursor-not-allowed' : ''}`}
                                     >
                                       {isSaving && saving === signup.date ? (
-                                        <i className="fas fa-circle-notch fa-spin"></i>
+                                        <CircleNotch size={18} weight="bold" className="animate-spin" />
                                       ) : (
-                                        <i className={`fas ${config.icon} text-lg`}></i>
+                                        <config.Icon size={20} weight="bold" />
                                       )}
                                       <span>{t(status)}</span>
                                     </button>
@@ -567,15 +568,15 @@ const CalendarTab = () => {
                                       value={notes[signup.date] || ''}
                                       onChange={(e) => setNotes(prev => ({ ...prev, [signup.date]: e.target.value }))}
                                       placeholder={t('note_placeholder')}
-                                      className="w-full px-3 py-2 bg-midnight-deepblue border border-midnight-bright-purple rounded-lg text-white text-sm placeholder-gray-500 focus:outline-none focus:border-midnight-glow"
+                                      className="w-full px-3 py-2 bg-indigo border border-lavender-20 rounded-lg text-white text-sm placeholder-gray-500 focus:outline-none focus:border-coral"
                                     />
                                     {notes[signup.date] !== signup.notes && (
                                       <button
                                         onClick={() => handleStatusChange(signup.date, 'tentative')}
                                         disabled={isSaving}
-                                        className="w-full py-1 px-3 bg-midnight-glow bg-opacity-20 text-midnight-glow text-sm rounded-lg hover:bg-opacity-30 transition-all"
+                                        className="w-full py-1 px-3 bg-coral/20 text-coral text-sm rounded-lg hover:bg-coral/30 transition-all"
                                       >
-                                        <i className="fas fa-save mr-2"></i>{t('save_status')}
+                                        <FloppyDisk size={14} weight="bold" className="inline mr-2" />{t('save_status')}
                                       </button>
                                     )}
                                   </div>
@@ -585,12 +586,12 @@ const CalendarTab = () => {
                           </div>
 
                           {/* Right: Inline attendance */}
-                          <div className="lg:w-80 xl:w-96 bg-midnight-purple bg-opacity-10 rounded-xl p-4 border border-midnight-bright-purple border-opacity-20">
+                          <div className="lg:w-80 xl:w-96 bg-lavender-12/10 rounded-xl p-4 border border-lavender-20/20">
                             {attendance ? (
                               <InlineAttendance attendance={attendance} t={t} />
                             ) : (
                               <div className="flex items-center justify-center py-6">
-                                <i className="fas fa-circle-notch fa-spin text-midnight-glow"></i>
+                                <CircleNotch size={18} weight="bold" className="animate-spin text-coral" />
                               </div>
                             )}
                           </div>
@@ -602,17 +603,17 @@ const CalendarTab = () => {
                             <>
                               {currentStatus ? (
                                 <div className={`flex items-center gap-2 text-sm ${STATUS_CONFIG[currentStatus]?.color}`}>
-                                  <i className={`fas ${STATUS_CONFIG[currentStatus]?.icon}`}></i>
+                                  {(() => { const Ic = STATUS_CONFIG[currentStatus]?.Icon; return Ic ? <Ic size={16} weight="bold" /> : null })()}
                                   <span>{t('your_status')}: <strong>{t(currentStatus)}</strong></span>
                                 </div>
                               ) : (
                                 <div className="flex items-center gap-2 text-sm text-red-400">
-                                  <i className="fas fa-times-circle"></i>
+                                  <XCircle size={16} weight="bold" />
                                   <span>{t('no_signup')}</span>
                                 </div>
                               )}
-                              <div className="bg-red-900 bg-opacity-20 border border-red-500 border-opacity-30 rounded-lg p-3 text-center">
-                                <i className="fas fa-lock mr-2 text-red-400"></i>
+                              <div className="bg-red-900/20 border border-red-500/30 rounded-lg p-3 text-center">
+                                <Lock size={14} weight="bold" className="inline mr-2 text-red-400" />
                                 <span className="text-red-300 text-sm">{t('signup_locked')}</span>
                               </div>
                             </>
@@ -620,7 +621,7 @@ const CalendarTab = () => {
                             <>
                               {currentStatus && cardSize === 'medium' && (
                                 <div className={`flex items-center gap-2 text-sm ${STATUS_CONFIG[currentStatus]?.color}`}>
-                                  <i className={`fas ${STATUS_CONFIG[currentStatus]?.icon}`}></i>
+                                  {(() => { const Ic = STATUS_CONFIG[currentStatus]?.Icon; return Ic ? <Ic size={16} weight="bold" /> : null })()}
                                   <span>{t('your_status')}: <strong>{t(currentStatus)}</strong></span>
                                 </div>
                               )}
@@ -633,13 +634,13 @@ const CalendarTab = () => {
                                     className={`flex-1 ${cardSize === 'medium' ? 'py-3 px-3' : 'py-2 px-2'} rounded-lg transition-all flex items-center justify-center gap-2 ${
                                       currentStatus === status
                                         ? `${config.bg} text-white`
-                                        : `bg-midnight-purple bg-opacity-30 ${config.color} ${config.bgHover} hover:text-white`
+                                        : `bg-lavender-12/30 ${config.color} ${config.bgHover} hover:text-white`
                                     } ${isSaving ? 'opacity-50 cursor-not-allowed' : ''}`}
                                   >
                                     {isSaving && saving === signup.date ? (
-                                      <i className="fas fa-circle-notch fa-spin"></i>
+                                      <CircleNotch size={16} weight="bold" className="animate-spin" />
                                     ) : (
-                                      <i className={`fas ${config.icon} ${cardSize === 'medium' ? 'text-lg' : ''}`}></i>
+                                      <config.Icon size={cardSize === 'medium' ? 20 : 16} weight="bold" />
                                     )}
                                     <span className={cardSize === 'medium' ? 'inline text-sm' : 'hidden sm:inline text-xs'}>{t(status)}</span>
                                   </button>
@@ -652,15 +653,15 @@ const CalendarTab = () => {
                                     value={notes[signup.date] || ''}
                                     onChange={(e) => setNotes(prev => ({ ...prev, [signup.date]: e.target.value }))}
                                     placeholder={t('note_placeholder')}
-                                    className="w-full px-3 py-2 bg-midnight-deepblue border border-midnight-bright-purple rounded-lg text-white text-sm placeholder-gray-500 focus:outline-none focus:border-midnight-glow"
+                                    className="w-full px-3 py-2 bg-indigo border border-lavender-20 rounded-lg text-white text-sm placeholder-gray-500 focus:outline-none focus:border-coral"
                                   />
                                   {notes[signup.date] !== signup.notes && (
                                     <button
                                       onClick={(e) => { e.stopPropagation(); handleStatusChange(signup.date, 'tentative') }}
                                       disabled={isSaving}
-                                      className="w-full py-1 px-3 bg-midnight-glow bg-opacity-20 text-midnight-glow text-sm rounded-lg hover:bg-opacity-30 transition-all"
+                                      className="w-full py-1 px-3 bg-coral/20 text-coral text-sm rounded-lg hover:bg-coral/30 transition-all"
                                     >
-                                      <i className="fas fa-save mr-2"></i>{t('save_status')}
+                                      <FloppyDisk size={14} weight="bold" className="inline mr-2" />{t('save_status')}
                                     </button>
                                   )}
                                 </div>
@@ -670,9 +671,9 @@ const CalendarTab = () => {
                           {cardSize === 'medium' && (
                             <button
                               onClick={(e) => { e.stopPropagation(); openSummary(signup.date) }}
-                              className="w-full py-2 px-3 bg-midnight-purple bg-opacity-20 text-midnight-silver text-sm rounded-lg hover:bg-opacity-40 hover:text-white transition-all flex items-center justify-center gap-2"
+                              className="w-full py-2 px-3 bg-lavender-12/20 text-lavender text-sm rounded-lg hover:bg-lavender-12/40 hover:text-white transition-all flex items-center justify-center gap-2"
                             >
-                              <i className="fas fa-users"></i>
+                              <Users size={16} weight="bold" />
                               {t('view_details')}
                             </button>
                           )}
@@ -687,8 +688,8 @@ const CalendarTab = () => {
           })}
 
           {signups.length === 0 && (
-            <div className="text-center py-12 text-midnight-silver">
-              <i className="fas fa-calendar-times text-4xl mb-4 opacity-50"></i>
+            <div className="text-center py-12 text-lavender">
+              <CalendarX size={40} weight="bold" className="mx-auto mb-4 opacity-50" />
               <p>{t('no_raids_scheduled')}</p>
             </div>
           )}
@@ -724,18 +725,18 @@ const CalendarTab = () => {
 
 // Status icon/color config for member entries
 const MEMBER_STATUS = {
-  confirmed: { icon: 'fa-check-circle', color: 'text-green-400', opacity: '' },
-  tentative: { icon: 'fa-question-circle', color: 'text-yellow-400', opacity: '' },
-  declined: { icon: 'fa-times-circle', color: 'text-red-400', opacity: 'opacity-40' },
-  noResponse: { icon: 'fa-minus-circle', color: 'text-gray-500', opacity: 'opacity-30' },
+  confirmed: { Icon: CheckCircle, color: 'text-green-400', opacity: '' },
+  tentative: { Icon: Question, color: 'text-yellow-400', opacity: '' },
+  declined: { Icon: XCircle, color: 'text-red-400', opacity: 'opacity-40' },
+  noResponse: { Icon: MinusCircle, color: 'text-gray-500', opacity: 'opacity-30' },
 }
 
 // Mythic raid composition requirements
 const MYTHIC_SIZE = 20
 const ROLE_CONFIG = {
-  Tank:   { icon: 'fa-shield-alt', color: 'text-blue-400', bgBorder: 'border-blue-500', min: 2, max: 2 },
-  Healer: { icon: 'fa-heart',      color: 'text-green-400', bgBorder: 'border-green-500', min: 3, max: 5 },
-  DPS:    { icon: 'fa-crosshairs',  color: 'text-red-400',   bgBorder: 'border-red-500',   min: 13, max: 15 },
+  Tank:   { Icon: ShieldStar, color: 'text-blue-400', bgBorder: 'border-blue-500', min: 2, max: 2 },
+  Healer: { Icon: Heart,      color: 'text-green-400', bgBorder: 'border-green-500', min: 3, max: 5 },
+  DPS:    { Icon: Crosshair,  color: 'text-red-400',   bgBorder: 'border-red-500',   min: 13, max: 15 },
 }
 
 // Inline Attendance for full-size cards
@@ -761,18 +762,18 @@ const InlineAttendance = ({ attendance, t }) => {
       {/* Progress bar */}
       <div className="flex items-center justify-between text-xs">
         <span className="text-white font-semibold flex items-center gap-1.5">
-          <i className="fas fa-users text-midnight-glow"></i>
+          <Users size={12} weight="bold" className="text-coral" />
           {t('raid_roster')}
         </span>
-        <span className="text-midnight-silver">
+        <span className="text-lavender">
           <span className={`font-bold ${confirmed >= MYTHIC_SIZE ? 'text-green-400' : 'text-white'}`}>{confirmed}</span>
           {tentative > 0 && <span className="text-yellow-400"> +{tentative}</span>}
           <span> / {MYTHIC_SIZE}</span>
         </span>
       </div>
-      <div className="h-1.5 bg-midnight-deepblue rounded-full overflow-hidden flex">
+      <div className="h-1.5 bg-indigo rounded-full overflow-hidden flex">
         <div className={`${confirmed >= MYTHIC_SIZE ? 'bg-green-500' : confirmed >= 15 ? 'bg-yellow-500' : 'bg-red-500'} transition-all`} style={{ width: `${Math.min((confirmed / MYTHIC_SIZE) * 100, 100)}%` }}></div>
-        <div className="bg-yellow-500 bg-opacity-50 transition-all" style={{ width: `${Math.min((tentative / MYTHIC_SIZE) * 100, 100 - (confirmed / MYTHIC_SIZE) * 100)}%` }}></div>
+        <div className="bg-yellow-500/50 transition-all" style={{ width: `${Math.min((tentative / MYTHIC_SIZE) * 100, 100 - (confirmed / MYTHIC_SIZE) * 100)}%` }}></div>
       </div>
 
       {/* Role columns */}
@@ -784,8 +785,8 @@ const InlineAttendance = ({ attendance, t }) => {
 
           return (
             <div key={role}>
-              <div className={`flex items-center gap-1.5 mb-1.5 pb-1 border-b ${config.bgBorder} border-opacity-40`}>
-                <i className={`fas ${config.icon} ${config.color} text-[10px]`}></i>
+              <div className={`flex items-center gap-1.5 mb-1.5 pb-1 border-b ${config.bgBorder}/40`}>
+                <config.Icon size={10} weight="bold" className={config.color} />
                 <span className="text-white font-medium">{t(role.toLowerCase())}</span>
                 <span className={`ml-auto ${confirmedCount >= config.min ? 'text-green-400' : 'text-red-400'}`}>{confirmedCount}</span>
               </div>
@@ -796,14 +797,14 @@ const InlineAttendance = ({ attendance, t }) => {
                     className="flex items-center gap-1"
                     title={member.characterClass}
                   >
-                    <i className={`fas ${member.statusKey === 'confirmed' ? 'fa-check-circle text-green-400' : 'fa-question-circle text-yellow-400'} text-[8px]`}></i>
+                    {member.statusKey === 'confirmed' ? <CheckCircle size={8} weight="bold" className="text-green-400" /> : <Question size={8} weight="bold" className="text-yellow-400" />}
                     <span className="truncate" style={{ color: CLASS_COLORS[member.characterClass] || '#fff' }}>
                       {member.characterName}
                     </span>
                   </div>
                 ))}
                 {members.length > 8 && (
-                  <div className="text-midnight-silver text-[10px]">+{members.length - 8} {t('more')}</div>
+                  <div className="text-lavender text-[10px]">+{members.length - 8} {t('more')}</div>
                 )}
                 {members.length === 0 && (
                   <div className="text-gray-600 italic">-</div>
@@ -826,7 +827,7 @@ const MemberEntry = ({ member, statusKey, isAdmin }) => {
       className={`flex items-center gap-1.5 py-0.5 ${status.opacity}`}
       title={`${member.characterName} (${member.characterClass}${member.spec ? ' - ' + member.spec : ''})`}
     >
-      <i className={`fas ${status.icon} ${status.color} text-[10px] flex-shrink-0`}></i>
+      <status.Icon size={10} weight="bold" className={`${status.color} flex-shrink-0`} />
       <span
         className="text-xs truncate"
         style={{ color: CLASS_COLORS[member.characterClass] || '#fff' }}
@@ -834,10 +835,9 @@ const MemberEntry = ({ member, statusKey, isAdmin }) => {
         {member.characterName}
       </span>
       {hasNote && (
-        <i
-          className="fas fa-comment-dots text-yellow-400 text-[9px] flex-shrink-0 cursor-help"
-          title={member.notes}
-        ></i>
+        <span title={member.notes} className="flex-shrink-0 cursor-help">
+          <ChatDots size={9} weight="bold" className="text-yellow-400" />
+        </span>
       )}
     </div>
   )
@@ -871,14 +871,14 @@ const RoleSection = ({ role, members, t, isAdmin, columns = 1 }) => {
   return (
     <div className="flex-1 min-w-0">
       {/* Role Header */}
-      <div className={`flex items-center gap-2 mb-2 pb-1.5 border-b ${config.bgBorder} border-opacity-40`}>
-        <i className={`fas ${config.icon} ${config.color}`}></i>
+      <div className={`flex items-center gap-2 mb-2 pb-1.5 border-b ${config.bgBorder}/40`}>
+        <config.Icon size={16} weight="bold" className={config.color} />
         <span className="text-white font-semibold text-sm">{t(role.toLowerCase())}</span>
         <span className="text-xs ml-auto flex items-center gap-1.5">
           <span className={`font-bold ${countColor}`}>{confirmedCount}</span>
           {tentativeCount > 0 && <span className="text-yellow-400">+{tentativeCount}</span>}
           <span className="text-gray-500">/ {reqLabel}</span>
-          {isFilled && <i className="fas fa-check text-green-400 text-[9px]"></i>}
+          {isFilled && <Check size={9} weight="bold" className="text-green-400" />}
         </span>
       </div>
       {/* Members */}
@@ -925,19 +925,19 @@ const SummaryView = ({ summary, t, isAdmin }) => {
       <div>
         <div className="flex items-center justify-between text-xs mb-1.5">
           <span className="text-white font-semibold flex items-center gap-1.5">
-            <i className="fas fa-skull text-midnight-glow text-[10px]"></i>
+            <Skull size={10} weight="bold" className="text-coral" />
             Mythic
           </span>
-          <span className="text-midnight-silver">
+          <span className="text-lavender">
             <span className={`font-bold ${raidReady ? 'text-green-400' : 'text-white'}`}>{confirmed}</span>
             {tentative > 0 && <span className="text-yellow-400"> +{tentative}</span>}
             <span> / {MYTHIC_SIZE}</span>
-            {raidReady && <i className="fas fa-check-circle text-green-400 ml-1.5"></i>}
+            {raidReady && <CheckCircle size={12} weight="bold" className="text-green-400 inline ml-1.5" />}
           </span>
         </div>
-        <div className="h-2 bg-midnight-deepblue rounded-full overflow-hidden flex">
+        <div className="h-2 bg-indigo rounded-full overflow-hidden flex">
           <div className={`${barColor} transition-all duration-500`} style={{ width: `${pctConfirmed}%` }}></div>
-          <div className="bg-yellow-500 bg-opacity-50 transition-all duration-500" style={{ width: `${pctTentative}%` }}></div>
+          <div className="bg-yellow-500/50 transition-all duration-500" style={{ width: `${pctTentative}%` }}></div>
         </div>
         {/* Slot markers at key thresholds */}
         <div className="relative h-0">
@@ -956,11 +956,11 @@ const SummaryView = ({ summary, t, isAdmin }) => {
       </div>
 
       {/* Legend */}
-      <div className="flex justify-center gap-3 text-[10px] text-midnight-silver pt-1 border-t border-midnight-bright-purple border-opacity-20">
-        <span className="flex items-center gap-1"><i className="fas fa-check-circle text-green-400"></i>{t('confirmed')}</span>
-        <span className="flex items-center gap-1"><i className="fas fa-question-circle text-yellow-400"></i>{t('tentative')}</span>
-        <span className="flex items-center gap-1 opacity-50"><i className="fas fa-times-circle text-red-400"></i>{t('declined')}</span>
-        <span className="flex items-center gap-1 opacity-30"><i className="fas fa-minus-circle text-gray-500"></i>{t('members_no_response')}</span>
+      <div className="flex justify-center gap-3 text-[10px] text-lavender pt-1 border-t border-lavender-20/20">
+        <span className="flex items-center gap-1"><CheckCircle size={10} weight="bold" className="text-green-400" />{t('confirmed')}</span>
+        <span className="flex items-center gap-1"><Question size={10} weight="bold" className="text-yellow-400" />{t('tentative')}</span>
+        <span className="flex items-center gap-1 opacity-50"><XCircle size={10} weight="bold" className="text-red-400" />{t('declined')}</span>
+        <span className="flex items-center gap-1 opacity-30"><MinusCircle size={10} weight="bold" className="text-gray-500" />{t('members_no_response')}</span>
       </div>
     </div>
   )
@@ -994,30 +994,30 @@ const SummaryModal = ({ date, summary, loadingSummary, onClose, t, language, isA
       onClick={onClose}
     >
       {/* Backdrop */}
-      <div className="absolute inset-0 bg-black bg-opacity-70 backdrop-blur-sm" />
+      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
 
       {/* Modal */}
       <div
-        className="relative w-full max-w-lg bg-midnight-deepblue border border-midnight-bright-purple border-opacity-40 rounded-2xl shadow-2xl shadow-midnight-glow/10 animate-fade-in overflow-hidden"
+        className="relative w-full max-w-lg bg-indigo border border-lavender-20/40 rounded-2xl shadow-2xl shadow-coral/10 animate-fade-in overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Modal Header */}
-        <div className="px-6 py-4 bg-midnight-purple bg-opacity-30 border-b border-midnight-bright-purple border-opacity-30 flex items-center justify-between">
+        <div className="px-6 py-4 bg-lavender-12/30 border-b border-lavender-20/30 flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-lg bg-midnight-purple bg-opacity-40 flex flex-col items-center justify-center">
+            <div className="w-12 h-12 rounded-lg bg-lavender-12/40 flex flex-col items-center justify-center">
               <span className="text-lg font-bold text-white leading-none">{dateInfo.dayNum}</span>
-              <span className="text-[10px] text-midnight-silver uppercase">{dateInfo.month}</span>
+              <span className="text-[10px] text-lavender uppercase">{dateInfo.month}</span>
             </div>
             <div>
-              <h3 className="text-lg font-cinzel font-bold text-white">{t('raid_roster')}</h3>
-              <p className="text-sm text-midnight-silver">{dateInfo.dayName}</p>
+              <h3 className="text-lg font-bold text-white">{t('raid_roster')}</h3>
+              <p className="text-sm text-lavender">{dateInfo.dayName}</p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="w-8 h-8 rounded-lg bg-midnight-purple bg-opacity-30 text-midnight-silver hover:text-white hover:bg-opacity-50 transition-all flex items-center justify-center"
+            className="w-8 h-8 rounded-lg bg-lavender-12/30 text-lavender hover:text-white hover:bg-lavender-12/50 transition-all flex items-center justify-center"
           >
-            <i className="fas fa-times"></i>
+            <X size={16} weight="bold" />
           </button>
         </div>
 
@@ -1025,7 +1025,7 @@ const SummaryModal = ({ date, summary, loadingSummary, onClose, t, language, isA
         <div className="p-6 max-h-[70vh] overflow-y-auto">
           {loadingSummary ? (
             <div className="text-center py-12">
-              <i className="fas fa-circle-notch fa-spin text-3xl text-midnight-glow"></i>
+              <CircleNotch size={32} weight="bold" className="animate-spin text-coral mx-auto" />
             </div>
           ) : summary ? (
             <SummaryView summary={summary} t={t} isAdmin={isAdmin} />
@@ -1054,12 +1054,12 @@ const AdminOverview = ({ overview, t, language, isAdmin }) => {
       <div className="overflow-x-auto">
         <div className="min-w-[600px]">
           {/* Header Row */}
-          <div className="flex bg-midnight-purple bg-opacity-30 rounded-t-lg">
-            <div className="w-48 px-4 py-3 font-semibold text-white border-r border-midnight-bright-purple border-opacity-30">
+          <div className="flex bg-lavender-12/30 rounded-t-lg">
+            <div className="w-48 px-4 py-3 font-semibold text-white border-r border-lavender-20/30">
               {t('character')}
             </div>
             {overview.dates.map(date => (
-              <div key={date.date} className="flex-1 px-2 py-3 text-center border-r border-midnight-bright-purple border-opacity-30 last:border-r-0">
+              <div key={date.date} className="flex-1 px-2 py-3 text-center border-r border-lavender-20/30 last:border-r-0">
                 <div className="font-semibold text-white text-sm">{formatDateShort(date.date)}</div>
                 <div className="flex justify-center gap-2 mt-1 text-xs">
                   <span className="text-green-400" title={t('confirmed')}>{date.counts.confirmed}</span>
@@ -1075,15 +1075,15 @@ const AdminOverview = ({ overview, t, language, isAdmin }) => {
             {overview.members.map((member, idx) => (
               <div
                 key={member.id}
-                className={`flex ${idx % 2 === 0 ? 'bg-midnight-purple bg-opacity-10' : ''} hover:bg-midnight-purple hover:bg-opacity-20 transition-all`}
+                className={`flex ${idx % 2 === 0 ? 'bg-lavender-12/10' : ''} hover:bg-lavender-12/20 transition-all`}
               >
                 <div
-                  className="w-48 px-4 py-2 border-r border-midnight-bright-purple border-opacity-20 flex items-center gap-2 cursor-pointer"
+                  className="w-48 px-4 py-2 border-r border-lavender-20/20 flex items-center gap-2 cursor-pointer"
                   onClick={() => setExpandedMember(expandedMember === member.id ? null : member.id)}
                   style={{ color: CLASS_COLORS[member.characterClass] || '#fff' }}
                 >
                   <span className="truncate">{member.characterName}</span>
-                  <span className="text-xs text-midnight-silver">({member.raidRole})</span>
+                  <span className="text-xs text-lavender">({member.raidRole})</span>
                 </div>
                 {overview.dates.map(date => {
                   const signup = member.signups[date.date]
@@ -1093,16 +1093,15 @@ const AdminOverview = ({ overview, t, language, isAdmin }) => {
                   return (
                     <div
                       key={date.date}
-                      className="flex-1 px-2 py-2 text-center border-r border-midnight-bright-purple border-opacity-20 last:border-r-0 flex items-center justify-center"
+                      className="flex-1 px-2 py-2 text-center border-r border-lavender-20/20 last:border-r-0 flex items-center justify-center"
                     >
                       {status ? (
                         <div className="flex items-center gap-1">
-                          <i className={`fas ${config.icon} ${config.color}`}></i>
+                          <config.Icon size={16} weight="bold" className={config.color} />
                           {signup.notes && (
-                            <i
-                              className="fas fa-sticky-note text-yellow-400 text-xs cursor-help"
-                              title={signup.notes}
-                            ></i>
+                            <span title={signup.notes}>
+                              <Note size={12} weight="bold" className="text-yellow-400 cursor-help" />
+                            </span>
                           )}
                         </div>
                       ) : (
@@ -1121,12 +1120,12 @@ const AdminOverview = ({ overview, t, language, isAdmin }) => {
       <div className="flex justify-center gap-6 text-sm">
         {Object.entries(STATUS_CONFIG).map(([status, config]) => (
           <div key={status} className={`flex items-center gap-2 ${config.color}`}>
-            <i className={`fas ${config.icon}`}></i>
+            <config.Icon size={16} weight="bold" />
             <span>{t(status)}</span>
           </div>
         ))}
         <div className="flex items-center gap-2 text-yellow-400">
-          <i className="fas fa-sticky-note"></i>
+          <Note size={16} weight="bold" />
           <span>{t('admin_notes')}</span>
         </div>
       </div>
@@ -1239,32 +1238,32 @@ const WCLLinkModal = ({ date, onClose, onLinked, t, language }) => {
 
   return createPortal(
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4" onClick={onClose}>
-      <div className="absolute inset-0 bg-black bg-opacity-70 backdrop-blur-sm" />
+      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
       <div
-        className="relative w-full max-w-lg bg-midnight-deepblue border border-midnight-bright-purple border-opacity-40 rounded-2xl shadow-2xl animate-fade-in overflow-hidden max-h-[85vh] flex flex-col"
+        className="relative w-full max-w-lg bg-indigo border border-lavender-20/40 rounded-2xl shadow-2xl animate-fade-in overflow-hidden max-h-[85vh] flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="px-6 py-4 bg-midnight-purple bg-opacity-30 border-b border-midnight-bright-purple border-opacity-30 flex items-center justify-between flex-shrink-0">
+        <div className="px-6 py-4 bg-lavender-12/30 border-b border-lavender-20/30 flex items-center justify-between flex-shrink-0">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-orange-500 bg-opacity-20 flex items-center justify-center">
+            <div className="w-10 h-10 rounded-lg bg-orange-500/20 flex items-center justify-center">
               <WclIcon size={24} />
             </div>
             <div>
               <h3 className="text-lg font-bold text-white">{t('link_wcl_report')}</h3>
-              <p className="text-sm text-midnight-silver">{dateInfo.dayName} {dateInfo.dayNum} {dateInfo.month}</p>
+              <p className="text-sm text-lavender">{dateInfo.dayName} {dateInfo.dayNum} {dateInfo.month}</p>
             </div>
           </div>
-          <button onClick={onClose} className="w-8 h-8 rounded-lg bg-midnight-purple bg-opacity-30 text-midnight-silver hover:text-white hover:bg-opacity-50 transition-all flex items-center justify-center">
-            <i className="fas fa-times"></i>
+          <button onClick={onClose} className="w-8 h-8 rounded-lg bg-lavender-12/30 text-lavender hover:text-white hover:bg-lavender-12/50 transition-all flex items-center justify-center">
+            <X size={16} weight="bold" />
           </button>
         </div>
 
         {/* Body */}
         <div className="p-6 overflow-y-auto flex-1 space-y-4">
           {error && (
-            <div className="bg-red-500 bg-opacity-20 border border-red-500 text-red-400 px-4 py-3 rounded-lg text-sm">
-              <i className="fas fa-exclamation-circle mr-2"></i>{error}
+            <div className="bg-red-500/20 border border-red-500 text-red-400 px-4 py-3 rounded-lg text-sm">
+              <WarningCircle size={14} weight="bold" className="inline mr-2" />{error}
             </div>
           )}
 
@@ -1273,40 +1272,40 @@ const WCLLinkModal = ({ date, onClose, onLinked, t, language }) => {
               {/* Auto-detected reports */}
               <div>
                 <h4 className="text-sm font-semibold text-white mb-3 flex items-center gap-2">
-                  <i className="fas fa-search text-midnight-glow"></i>
+                  <MagnifyingGlass size={14} weight="bold" className="text-coral" />
                   {t('auto_detected_reports')}
                 </h4>
                 {loadingAuto ? (
-                  <div className="text-center py-6"><i className="fas fa-circle-notch fa-spin text-2xl text-midnight-glow"></i></div>
+                  <div className="text-center py-6"><CircleNotch size={24} weight="bold" className="animate-spin text-coral mx-auto" /></div>
                 ) : autoError === 'guild_not_configured' ? (
-                  <div className="bg-yellow-500 bg-opacity-10 border border-yellow-500 border-opacity-30 rounded-lg p-3 text-sm text-yellow-300">
-                    <i className="fas fa-info-circle mr-2"></i>{t('wcl_guild_not_configured')}
+                  <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-3 text-sm text-yellow-300">
+                    <Info size={14} weight="bold" className="inline mr-2" />{t('wcl_guild_not_configured')}
                   </div>
                 ) : autoError ? (
-                  <div className="bg-red-500 bg-opacity-10 border border-red-500 border-opacity-30 rounded-lg p-3 text-sm text-red-300">
-                    <i className="fas fa-exclamation-triangle mr-2"></i>{autoError}
+                  <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3 text-sm text-red-300">
+                    <Warning size={14} weight="bold" className="inline mr-2" />{autoError}
                   </div>
                 ) : autoReports.length === 0 ? (
-                  <div className="text-center py-4 text-midnight-silver text-sm">{t('no_reports_found')}</div>
+                  <div className="text-center py-4 text-lavender text-sm">{t('no_reports_found')}</div>
                 ) : (
                   <div className="space-y-2">
                     {autoReports.map(report => (
-                      <div key={report.code} className="flex items-center justify-between bg-midnight-purple bg-opacity-20 rounded-lg p-3 border border-midnight-bright-purple border-opacity-20">
+                      <div key={report.code} className="flex items-center justify-between bg-lavender-12/20 rounded-lg p-3 border border-lavender-20/20">
                         <div className="flex-1 min-w-0">
                           <div className="text-sm font-semibold text-white truncate">{report.title}</div>
-                          <div className="text-xs text-midnight-silver">{report.zone} &middot; {report.owner}</div>
+                          <div className="text-xs text-lavender">{report.zone} &middot; {report.owner}</div>
                         </div>
                         {report.alreadyProcessed ? (
-                          <span className="text-xs text-yellow-400 px-2 py-1 bg-yellow-500 bg-opacity-10 rounded">{t('report_already_processed')}</span>
+                          <span className="text-xs text-yellow-400 px-2 py-1 bg-yellow-500/10 rounded">{t('report_already_processed')}</span>
                         ) : report.wasReverted ? (
-                          <span className="text-xs text-gray-400 px-2 py-1 bg-gray-500 bg-opacity-10 rounded">{t('report_was_reverted')}</span>
+                          <span className="text-xs text-gray-400 px-2 py-1 bg-gray-500/10 rounded">{t('report_was_reverted')}</span>
                         ) : (
                           <button
                             onClick={() => handleSelectReport(report.code)}
                             disabled={loadingPreview}
-                            className="ml-3 px-3 py-1.5 bg-orange-500 bg-opacity-20 text-orange-400 rounded-lg text-sm hover:bg-opacity-30 transition-all flex-shrink-0"
+                            className="ml-3 px-3 py-1.5 bg-orange-500/20 text-orange-400 rounded-lg text-sm hover:bg-orange-500/30 transition-all flex-shrink-0"
                           >
-                            {loadingPreview ? <i className="fas fa-circle-notch fa-spin"></i> : <><i className="fas fa-link mr-1"></i>{t('link_this_report')}</>}
+                            {loadingPreview ? <CircleNotch size={14} weight="bold" className="animate-spin" /> : <><Link size={14} weight="bold" className="inline mr-1" />{t('link_this_report')}</>}
                           </button>
                         )}
                       </div>
@@ -1317,9 +1316,9 @@ const WCLLinkModal = ({ date, onClose, onLinked, t, language }) => {
 
               {/* Divider */}
               <div className="flex items-center gap-3 py-1">
-                <div className="flex-1 border-t border-midnight-bright-purple border-opacity-20"></div>
-                <span className="text-xs text-midnight-silver">{t('or_enter_url')}</span>
-                <div className="flex-1 border-t border-midnight-bright-purple border-opacity-20"></div>
+                <div className="flex-1 border-t border-lavender-20/20"></div>
+                <span className="text-xs text-lavender">{t('or_enter_url')}</span>
+                <div className="flex-1 border-t border-lavender-20/20"></div>
               </div>
 
               {/* Manual URL Input */}
@@ -1329,51 +1328,51 @@ const WCLLinkModal = ({ date, onClose, onLinked, t, language }) => {
                   value={manualUrl}
                   onChange={(e) => setManualUrl(e.target.value)}
                   placeholder="https://www.warcraftlogs.com/reports/..."
-                  className="flex-1 px-3 py-2 bg-midnight-purple bg-opacity-30 border border-midnight-bright-purple rounded-lg text-white text-sm placeholder-gray-500 focus:outline-none focus:border-midnight-glow"
+                  className="flex-1 px-3 py-2 bg-lavender-12/30 border border-lavender-20 rounded-lg text-white text-sm placeholder-gray-500 focus:outline-none focus:border-coral"
                   onKeyDown={(e) => e.key === 'Enter' && handleManualSubmit()}
                 />
                 <button
                   onClick={handleManualSubmit}
                   disabled={!manualUrl.trim() || loadingPreview}
-                  className="px-4 py-2 bg-midnight-glow bg-opacity-20 text-midnight-glow rounded-lg text-sm hover:bg-opacity-30 transition-all disabled:opacity-50"
+                  className="px-4 py-2 bg-coral/20 text-coral rounded-lg text-sm hover:bg-coral/30 transition-all disabled:opacity-50"
                 >
-                  {loadingPreview ? <i className="fas fa-circle-notch fa-spin"></i> : <i className="fas fa-search"></i>}
+                  {loadingPreview ? <CircleNotch size={14} weight="bold" className="animate-spin" /> : <MagnifyingGlass size={16} weight="bold" />}
                 </button>
               </div>
             </>
           ) : (
             /* Preview step */
             <>
-              <button onClick={() => { setStep('select'); setPreview(null) }} className="text-sm text-midnight-silver hover:text-white transition-colors">
-                <i className="fas fa-arrow-left mr-2"></i>{t('back') || 'Volver'}
+              <button onClick={() => { setStep('select'); setPreview(null) }} className="text-sm text-lavender hover:text-white transition-colors">
+                <ArrowLeft size={14} weight="bold" className="inline mr-2" />{t('back') || 'Volver'}
               </button>
 
               {preview && (
                 <div className="space-y-4">
                   {/* Report info */}
-                  <div className="bg-midnight-purple bg-opacity-20 rounded-lg p-4 border border-midnight-bright-purple border-opacity-20">
+                  <div className="bg-lavender-12/20 rounded-lg p-4 border border-lavender-20/20">
                     <h4 className="font-bold text-white">{preview.report.title}</h4>
-                    <div className="text-sm text-midnight-silver mt-1">
+                    <div className="text-sm text-lavender mt-1">
                       {preview.report.bossesKilled}/{preview.report.totalBosses} {t('bosses')} &middot; {preview.report.participantCount} {t('participants')}
                     </div>
                   </div>
 
                   {/* Summary */}
-                  <div className="flex gap-4 justify-around bg-midnight-purple bg-opacity-10 rounded-lg p-3">
+                  <div className="flex gap-4 justify-around bg-lavender-12/10 rounded-lg p-3">
                     <div className="text-center">
                       <div className="text-2xl font-bold text-green-400">{matchedCount}</div>
-                      <div className="text-xs text-midnight-silver">{t('players_to_receive')}</div>
+                      <div className="text-xs text-lavender">{t('players_to_receive')}</div>
                     </div>
                     <div className="text-center">
-                      <div className="text-2xl font-bold text-midnight-glow">{totalDkp}</div>
-                      <div className="text-xs text-midnight-silver">Total DKP</div>
+                      <div className="text-2xl font-bold text-coral">{totalDkp}</div>
+                      <div className="text-xs text-lavender">Total DKP</div>
                     </div>
                   </div>
 
                   {/* Matched participants list */}
                   <div className="max-h-48 overflow-y-auto space-y-1">
                     {preview.participants?.filter(p => p.matched).map(p => (
-                      <div key={p.user_id} className="flex items-center justify-between text-sm py-1 px-2 bg-midnight-purple bg-opacity-10 rounded">
+                      <div key={p.user_id} className="flex items-center justify-between text-sm py-1 px-2 bg-lavender-12/10 rounded">
                         <span className="flex items-center gap-2">
                           <span style={{ color: CLASS_COLORS[p.character_class] || '#fff' }}>
                             {p.character_name}
@@ -1384,7 +1383,7 @@ const WCLLinkModal = ({ date, onClose, onLinked, t, language }) => {
                             </span>
                           )}
                         </span>
-                        <span className="text-midnight-glow font-bold">+{p.dkp_to_assign} DKP</span>
+                        <span className="text-coral font-bold">+{p.dkp_to_assign} DKP</span>
                       </div>
                     ))}
                   </div>
@@ -1396,9 +1395,9 @@ const WCLLinkModal = ({ date, onClose, onLinked, t, language }) => {
                     className="w-full py-3 bg-gradient-to-r from-orange-600 to-orange-700 text-white font-bold rounded-lg hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {confirming ? (
-                      <><i className="fas fa-circle-notch fa-spin mr-2"></i>{t('loading')}...</>
+                      <><CircleNotch size={18} weight="bold" className="inline animate-spin mr-2" />{t('loading')}...</>
                     ) : (
-                      <><i className="fas fa-check mr-2"></i>{t('confirm_apply_to')} {matchedCount} {t('players')}</>
+                      <><Check size={18} weight="bold" className="inline mr-2" />{t('confirm_apply_to')} {matchedCount} {t('players')}</>
                     )}
                   </button>
                 </div>
@@ -1425,15 +1424,15 @@ const RaidHistory = ({ history, loading, t, language, isAdmin, onLinkWcl }) => {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <i className="fas fa-circle-notch fa-spin text-4xl text-midnight-glow"></i>
+        <CircleNotch size={40} weight="bold" className="animate-spin text-coral" />
       </div>
     )
   }
 
   if (history.length === 0) {
     return (
-      <div className="text-center py-12 text-midnight-silver">
-        <i className="fas fa-calendar-times text-4xl mb-4 opacity-50"></i>
+      <div className="text-center py-12 text-lavender">
+        <CalendarX size={40} weight="bold" className="mx-auto mb-4 opacity-50" />
         <p>{t('no_past_raids')}</p>
       </div>
     )
@@ -1442,8 +1441,8 @@ const RaidHistory = ({ history, loading, t, language, isAdmin, onLinkWcl }) => {
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-3 mb-2">
-        <i className="fas fa-history text-midnight-glow"></i>
-        <h3 className="text-lg font-cinzel text-white">{t('past_raid_days')}</h3>
+        <ClockCounterClockwise size={18} weight="bold" className="text-coral" />
+        <h3 className="text-lg text-white">{t('past_raid_days')}</h3>
       </div>
 
       <div className="space-y-3">
@@ -1454,10 +1453,10 @@ const RaidHistory = ({ history, loading, t, language, isAdmin, onLinkWcl }) => {
           return (
             <div
               key={raid.date}
-              className={`bg-midnight-purple bg-opacity-20 rounded-xl border p-4 transition-all ${
+              className={`bg-lavender-12/20 rounded-xl border p-4 transition-all ${
                 hasLog
-                  ? 'border-orange-500 border-opacity-40'
-                  : 'border-midnight-bright-purple border-opacity-20'
+                  ? 'border-orange-500/40'
+                  : 'border-lavender-20/20'
               }`}
             >
               <div className="flex items-center justify-between">
@@ -1465,11 +1464,11 @@ const RaidHistory = ({ history, loading, t, language, isAdmin, onLinkWcl }) => {
                 <div className="flex items-center gap-4">
                   <div className="text-center min-w-[50px]">
                     <div className="text-xl font-bold text-white">{dateInfo.dayNum}</div>
-                    <div className="text-xs text-midnight-silver uppercase">{dateInfo.month}</div>
+                    <div className="text-xs text-lavender uppercase">{dateInfo.month}</div>
                   </div>
                   <div>
                     <div className="font-semibold text-white">{dateInfo.dayName}</div>
-                    <div className="text-sm text-midnight-silver">{raid.raidTime}</div>
+                    <div className="text-sm text-lavender">{raid.raidTime}</div>
                   </div>
                 </div>
 
@@ -1477,13 +1476,13 @@ const RaidHistory = ({ history, loading, t, language, isAdmin, onLinkWcl }) => {
                 {raid.attendance && (
                   <div className="flex items-center gap-3 text-sm">
                     <span className="text-green-400" title={t('confirmed')}>
-                      <i className="fas fa-check-circle mr-1"></i>{raid.attendance.confirmed}
+                      <CheckCircle size={14} weight="bold" className="inline mr-1" />{raid.attendance.confirmed}
                     </span>
                     <span className="text-yellow-400" title={t('tentative')}>
-                      <i className="fas fa-question-circle mr-1"></i>{raid.attendance.tentative}
+                      <Question size={14} weight="bold" className="inline mr-1" />{raid.attendance.tentative}
                     </span>
                     <span className="text-red-400" title={t('declined')}>
-                      <i className="fas fa-times-circle mr-1"></i>{raid.attendance.declined}
+                      <XCircle size={14} weight="bold" className="inline mr-1" />{raid.attendance.declined}
                     </span>
                   </div>
                 )}
@@ -1495,23 +1494,23 @@ const RaidHistory = ({ history, loading, t, language, isAdmin, onLinkWcl }) => {
                       href={`https://www.warcraftlogs.com/reports/${raid.wclReport.code}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex items-center gap-2 px-3 py-2 bg-orange-500 bg-opacity-20 rounded-lg hover:bg-opacity-30 transition-all"
+                      className="flex items-center gap-2 px-3 py-2 bg-orange-500/20 rounded-lg hover:bg-orange-500/30 transition-all"
                     >
                       <WclIcon size={18} />
                       <span className="text-orange-400 text-sm font-semibold">{raid.wclReport.title}</span>
-                      <span className="text-xs text-midnight-silver">({raid.wclReport.dkpAssigned} DKP)</span>
-                      <i className="fas fa-external-link-alt text-xs text-midnight-silver"></i>
+                      <span className="text-xs text-lavender">({raid.wclReport.dkpAssigned} DKP)</span>
+                      <ArrowSquareOut size={14} weight="bold" className="text-lavender" />
                     </a>
                   ) : isAdmin ? (
                     <button
                       onClick={() => onLinkWcl(raid.date)}
-                      className="flex items-center gap-2 px-3 py-2 bg-midnight-purple bg-opacity-30 rounded-lg hover:bg-opacity-50 transition-all text-midnight-silver hover:text-white"
+                      className="flex items-center gap-2 px-3 py-2 bg-lavender-12/30 rounded-lg hover:bg-lavender-12/50 transition-all text-lavender hover:text-white"
                     >
                       <WclIcon size={16} opacity="opacity-50" />
                       <span className="text-sm">{t('link_wcl_report')}</span>
                     </button>
                   ) : (
-                    <div className="flex items-center gap-2 text-midnight-silver opacity-50">
+                    <div className="flex items-center gap-2 text-lavender opacity-50">
                       <WclIcon size={16} opacity="opacity-30" />
                       <span className="text-sm">{t('no_wcl_report')}</span>
                     </div>

@@ -1,9 +1,11 @@
 import { useState, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
+import { CircleNotch, X, Trophy, ShieldStar, WarningCircle, ArrowCounterClockwise, Question, Diamond, Sword } from '@phosphor-icons/react'
 import { useLanguage } from '../../hooks/useLanguage'
 import { armoryAPI } from '../../services/api'
 import WowheadTooltip from '../Common/WowheadTooltip'
 import CLASS_COLORS from '../../utils/classColors'
+import PillBadge from '../UI/PillBadge'
 
 const RARITY_COLORS = {
   common: '#9d9d9d', uncommon: '#1eff00', rare: '#0070dd',
@@ -52,27 +54,7 @@ const SPEC_ICONS = {
   'Augmentation': 'https://wow.zamimg.com/images/wow/icons/medium/classicon_evoker_augmentation.jpg',
 }
 
-// Equipment slot order and display names
-const EQUIPMENT_SLOTS = [
-  { slot: 'HEAD', icon: 'inv_helmet_03' },
-  { slot: 'NECK', icon: 'inv_jewelry_necklace_01' },
-  { slot: 'SHOULDER', icon: 'inv_shoulder_02' },
-  { slot: 'BACK', icon: 'inv_misc_cape_18' },
-  { slot: 'CHEST', icon: 'inv_chest_chain' },
-  { slot: 'SHIRT', icon: 'inv_shirt_grey_01' },
-  { slot: 'TABARD', icon: 'inv_shirt_guildtabard_01' },
-  { slot: 'WRIST', icon: 'inv_bracer_07' },
-  { slot: 'HANDS', icon: 'inv_gauntlets_04' },
-  { slot: 'WAIST', icon: 'inv_belt_03' },
-  { slot: 'LEGS', icon: 'inv_pants_03' },
-  { slot: 'FEET', icon: 'inv_boots_05' },
-  { slot: 'FINGER_1', icon: 'inv_jewelry_ring_01' },
-  { slot: 'FINGER_2', icon: 'inv_jewelry_ring_01' },
-  { slot: 'TRINKET_1', icon: 'inv_trinket_naxxramas04' },
-  { slot: 'TRINKET_2', icon: 'inv_trinket_naxxramas04' },
-  { slot: 'MAIN_HAND', icon: 'inv_sword_04' },
-  { slot: 'OFF_HAND', icon: 'inv_shield_04' },
-]
+const ROLE_COLORS = { DPS: 'coral', Tank: 'lavender', Healer: 'teal' }
 
 const ArmoryModal = ({ memberId, onClose }) => {
   const { t, language } = useLanguage()
@@ -112,7 +94,6 @@ const ArmoryModal = ({ memberId, onClose }) => {
     loadData()
   }, [memberId])
 
-  // Load equipment and character media when switching to equipment tab
   const loadEquipment = useCallback(async () => {
     if (!profile?.server || !profile?.characterName || equipment || equipmentLoading) return
 
@@ -134,24 +115,18 @@ const ArmoryModal = ({ memberId, onClose }) => {
   }, [profile, equipment, equipmentLoading, t])
 
   useEffect(() => {
-    if (activeTab === 'equipment') {
-      loadEquipment()
-    }
+    if (activeTab === 'equipment') loadEquipment()
   }, [activeTab, loadEquipment])
 
   const formatDate = (dateStr) => {
     const date = new Date(dateStr)
-    return date.toLocaleDateString(language === 'es' ? 'es-ES' : 'en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    })
+    return date.toLocaleDateString(language === 'es' ? 'es-ES' : 'en-US', { year: 'numeric', month: 'short', day: 'numeric' })
   }
 
   if (loading) {
     return createPortal(
-      <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-[100]">
-        <i className="fas fa-circle-notch fa-spin text-6xl text-midnight-glow"></i>
+      <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[100]">
+        <CircleNotch size={48} weight="bold" className="text-coral animate-spin" />
       </div>,
       document.body
     )
@@ -159,11 +134,11 @@ const ArmoryModal = ({ memberId, onClose }) => {
 
   if (!profile) {
     return createPortal(
-      <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-[100] p-4">
-        <div className="bg-midnight-deepblue border-2 border-red-500 rounded-2xl p-6 text-center">
-          <i className="fas fa-exclamation-triangle text-4xl text-red-400 mb-4"></i>
-          <p className="text-white mb-4">{t('member_not_found')}</p>
-          <button onClick={onClose} className="px-6 py-2 rounded-lg bg-midnight-purple text-white">
+      <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[100] p-4">
+        <div className="bg-indigo border-2 border-red-500 rounded-2xl p-6 text-center">
+          <WarningCircle size={48} weight="bold" className="text-red-400 mx-auto mb-4" />
+          <p className="text-cream mb-4">{t('member_not_found')}</p>
+          <button onClick={onClose} className="px-6 py-2 rounded-full bg-lavender-12 text-cream hover:bg-lavender-20 transition-colors">
             {t('close')}
           </button>
         </div>
@@ -172,147 +147,116 @@ const ArmoryModal = ({ memberId, onClose }) => {
     )
   }
 
+  const role = profile.raidRole || 'DPS'
+  const roleColor = ROLE_COLORS[role] || 'coral'
+
   return createPortal(
-    <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-[100] p-4" onClick={onClose}>
+    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[100] p-4" onClick={onClose}>
       <div
-        className="bg-midnight-deepblue border-2 border-midnight-bright-purple rounded-2xl w-full max-w-3xl shadow-2xl max-h-[90vh] flex flex-col"
+        className="bg-indigo border-2 border-lavender-20 rounded-2xl w-full max-w-3xl shadow-2xl max-h-[90vh] flex flex-col"
         onClick={e => e.stopPropagation()}
       >
-        {/* Header */}
-        <div className="p-6 border-b border-midnight-bright-purple border-opacity-30 flex-shrink-0">
+        <div className="p-6 border-b border-lavender-20 shrink-0">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              {/* Avatar */}
               <div
-                className="w-16 h-16 rounded-full bg-midnight-purple flex items-center justify-center overflow-hidden border-2"
-                style={{ borderColor: CLASS_COLORS[profile.characterClass] || '#A78BFA' }}
+                className="w-16 h-16 rounded-full bg-lavender-12 flex items-center justify-center overflow-hidden border-2"
+                style={{ borderColor: CLASS_COLORS[profile.characterClass] || '#b1a7d0' }}
               >
                 {profile.avatar ? (
                   <img src={profile.avatar} alt="" className="w-full h-full object-cover" />
                 ) : (
-                  <span
-                    className="text-2xl font-bold"
-                    style={{ color: CLASS_COLORS[profile.characterClass] || '#FFF' }}
-                  >
+                  <span className="text-2xl font-bold" style={{ color: CLASS_COLORS[profile.characterClass] || '#FFF' }}>
                     {profile.characterName?.charAt(0).toUpperCase()}
                   </span>
                 )}
               </div>
               <div>
-                <h3
-                  className="text-2xl font-cinzel font-bold m-0"
-                  style={{ color: CLASS_COLORS[profile.characterClass] || '#A78BFA' }}
-                >
+                <h3 className="text-2xl font-bold" style={{ color: CLASS_COLORS[profile.characterClass] || '#ffaf9d' }}>
                   {profile.characterName}
                 </h3>
                 <div className="flex items-center gap-2 mt-1">
-                  {SPEC_ICONS[profile.spec] && (
-                    <img src={SPEC_ICONS[profile.spec]} alt="" className="w-5 h-5 rounded" />
-                  )}
-                  <p className="text-midnight-silver m-0 text-sm">
-                    {profile.characterClass} {profile.spec ? `- ${profile.spec}` : ''}
-                  </p>
-                  <span className={`px-2 py-0.5 rounded text-xs font-bold ${profile.raidRole === 'Tank' ? 'bg-blue-500' : profile.raidRole === 'Healer' ? 'bg-green-500' : 'bg-red-500'} text-white`}>
-                    {profile.raidRole || 'DPS'}
-                  </span>
+                  {SPEC_ICONS[profile.spec] && <img src={SPEC_ICONS[profile.spec]} alt="" className="w-5 h-5 rounded" />}
+                  <p className="text-lavender text-sm">{profile.characterClass} {profile.spec ? `- ${profile.spec}` : ''}</p>
+                  <PillBadge color={roleColor}>{role}</PillBadge>
                 </div>
               </div>
             </div>
-            <button onClick={onClose} className="text-gray-400 hover:text-white text-2xl">
-              <i className="fas fa-times"></i>
+            <button onClick={onClose} className="text-lavender hover:text-cream transition-colors">
+              <X size={24} weight="bold" />
             </button>
           </div>
         </div>
 
-        {/* Stats */}
-        <div className="p-4 bg-midnight-purple bg-opacity-20 grid grid-cols-4 gap-4 text-center border-b border-midnight-bright-purple border-opacity-20 flex-shrink-0">
+        <div className="p-4 bg-lavender-12 grid grid-cols-4 gap-4 text-center border-b border-lavender-20 shrink-0">
           <div>
-            <p className="text-xs text-midnight-silver m-0">{t('current_dkp')}</p>
-            <p className="text-xl font-bold text-midnight-glow m-0">{profile.currentDkp}</p>
+            <p className="text-xs text-lavender">{t('current_dkp')}</p>
+            <p className="text-xl font-bold text-coral">{profile.currentDkp}</p>
           </div>
           <div>
-            <p className="text-xs text-midnight-silver m-0">{t('total_gained')}</p>
-            <p className="text-xl font-bold text-green-400 m-0">+{profile.lifetimeGained}</p>
+            <p className="text-xs text-lavender">{t('total_gained')}</p>
+            <p className="text-xl font-bold text-teal">+{profile.lifetimeGained}</p>
           </div>
           <div>
-            <p className="text-xs text-midnight-silver m-0">{t('total_spent')}</p>
-            <p className="text-xl font-bold text-red-400 m-0">-{profile.lifetimeSpent}</p>
+            <p className="text-xs text-lavender">{t('total_spent')}</p>
+            <p className="text-xl font-bold text-red-400">-{profile.lifetimeSpent}</p>
           </div>
           <div>
-            <p className="text-xs text-midnight-silver m-0">{t('items_won')}</p>
-            <p className="text-xl font-bold text-yellow-400 m-0">{profile.itemsWon}</p>
+            <p className="text-xs text-lavender">{t('items_won')}</p>
+            <p className="text-xl font-bold text-yellow-400">{profile.itemsWon}</p>
           </div>
         </div>
 
-        {/* Tab Navigation */}
-        <div className="flex border-b border-midnight-bright-purple border-opacity-30 flex-shrink-0">
+        <div className="flex border-b border-lavender-20 shrink-0">
           <button
             onClick={() => setActiveTab('loot')}
-            className={`flex-1 py-3 px-4 text-sm font-semibold transition-all ${
-              activeTab === 'loot'
-                ? 'text-midnight-glow border-b-2 border-midnight-glow bg-midnight-purple bg-opacity-20'
-                : 'text-midnight-silver hover:text-white hover:bg-midnight-purple hover:bg-opacity-10'
+            className={`flex-1 py-3 px-4 text-sm font-semibold transition-colors flex items-center justify-center gap-2 ${
+              activeTab === 'loot' ? 'text-coral border-b-2 border-coral bg-lavender-12' : 'text-lavender hover:text-cream hover:bg-lavender-12'
             }`}
           >
-            <i className="fas fa-trophy mr-2"></i>
+            <Trophy size={18} weight="bold" />
             {t('loot_history')} ({loot.length})
           </button>
           <button
             onClick={() => setActiveTab('equipment')}
-            className={`flex-1 py-3 px-4 text-sm font-semibold transition-all ${
-              activeTab === 'equipment'
-                ? 'text-midnight-glow border-b-2 border-midnight-glow bg-midnight-purple bg-opacity-20'
-                : 'text-midnight-silver hover:text-white hover:bg-midnight-purple hover:bg-opacity-10'
+            className={`flex-1 py-3 px-4 text-sm font-semibold transition-colors flex items-center justify-center gap-2 ${
+              activeTab === 'equipment' ? 'text-coral border-b-2 border-coral bg-lavender-12' : 'text-lavender hover:text-cream hover:bg-lavender-12'
             }`}
           >
-            <i className="fas fa-shield-alt mr-2"></i>
+            <ShieldStar size={18} weight="bold" />
             {t('equipment')}
           </button>
         </div>
 
-        {/* Content */}
         <div className="flex-1 overflow-auto p-4">
           {activeTab === 'loot' && (
             loot.length === 0 ? (
-              <p className="text-center text-gray-500 py-8">{t('no_items_won')}</p>
+              <p className="text-center text-lavender py-8">{t('no_items_won')}</p>
             ) : (
               <div className="space-y-2">
                 {loot.map((item) => (
-                  <div
-                    key={item.id}
-                    className="bg-midnight-purple bg-opacity-20 rounded-lg p-3 flex items-center gap-3"
-                  >
+                  <div key={item.id} className="bg-lavender-12 rounded-xl p-3 flex items-center gap-3">
                     <WowheadTooltip itemId={item.itemId}>
                       <div
-                        className="w-10 h-10 rounded-lg bg-midnight-deepblue flex items-center justify-center border-2 flex-shrink-0 overflow-hidden cursor-help"
+                        className="w-10 h-10 rounded-lg bg-indigo flex items-center justify-center border-2 shrink-0 overflow-hidden cursor-help"
                         style={{ borderColor: RARITY_COLORS[item.itemRarity] || RARITY_COLORS.epic }}
                       >
                         {item.itemImage && item.itemImage !== '🎁' ? (
                           <img src={item.itemImage} alt="" className="w-full h-full object-cover" />
                         ) : (
-                          <i
-                            className="fas fa-gem"
-                            style={{ color: RARITY_COLORS[item.itemRarity] || RARITY_COLORS.epic }}
-                          ></i>
+                          <Diamond size={18} weight="bold" style={{ color: RARITY_COLORS[item.itemRarity] || RARITY_COLORS.epic }} />
                         )}
                       </div>
                     </WowheadTooltip>
                     <div className="flex-1 min-w-0">
                       <WowheadTooltip itemId={item.itemId}>
-                        <p
-                          className="font-bold m-0 truncate cursor-help"
-                          style={{ color: RARITY_COLORS[item.itemRarity] || RARITY_COLORS.epic }}
-                        >
+                        <p className="font-bold truncate cursor-help" style={{ color: RARITY_COLORS[item.itemRarity] || RARITY_COLORS.epic }}>
                           {item.itemName}
                         </p>
                       </WowheadTooltip>
-                      <p className="text-xs text-midnight-silver m-0">
-                        {formatDate(item.wonAt)}
-                      </p>
+                      <p className="text-xs text-lavender">{formatDate(item.wonAt)}</p>
                     </div>
-                    <span className="text-red-400 font-bold flex-shrink-0">
-                      -{item.dkpSpent} DKP
-                    </span>
+                    <span className="text-red-400 font-bold shrink-0">-{item.dkpSpent} DKP</span>
                   </div>
                 ))}
               </div>
@@ -323,41 +267,39 @@ const ArmoryModal = ({ memberId, onClose }) => {
             <div>
               {!profile?.server ? (
                 <div className="text-center py-8">
-                  <i className="fas fa-server text-4xl text-gray-500 mb-4"></i>
-                  <p className="text-gray-500">{t('no_server_configured')}</p>
+                  <Sword size={48} weight="bold" className="text-lavender mx-auto mb-4" />
+                  <p className="text-lavender">{t('no_server_configured')}</p>
                 </div>
               ) : equipmentLoading ? (
                 <div className="text-center py-8">
-                  <i className="fas fa-circle-notch fa-spin text-4xl text-midnight-glow"></i>
-                  <p className="text-midnight-silver mt-2">{t('loading_equipment')}</p>
+                  <CircleNotch size={48} weight="bold" className="text-coral animate-spin mx-auto" />
+                  <p className="text-lavender mt-2">{t('loading_equipment')}</p>
                 </div>
               ) : equipmentError ? (
                 <div className="text-center py-8">
-                  <i className="fas fa-exclamation-triangle text-4xl text-yellow-500 mb-4"></i>
+                  <WarningCircle size={48} weight="bold" className="text-yellow-500 mx-auto mb-4" />
                   <p className="text-yellow-400">{equipmentError}</p>
                   <button
                     onClick={() => { setEquipment(null); setCharacterMedia(null); loadEquipment() }}
-                    className="mt-4 px-4 py-2 rounded-lg bg-midnight-purple text-white hover:bg-midnight-bright-purple transition-all"
+                    className="mt-4 px-4 py-2 rounded-full bg-lavender-12 text-cream hover:bg-lavender-20 transition-colors flex items-center gap-2 mx-auto"
                   >
+                    <ArrowCounterClockwise size={16} weight="bold" />
                     {t('retry')}
                   </button>
                 </div>
               ) : equipment && equipment.length > 0 ? (
                 <div className="flex gap-4">
-                  {/* Character render */}
                   {characterMedia?.mainRaw && (
-                    <div className="hidden sm:flex flex-shrink-0 w-[200px] items-start justify-center">
-                      <div className="relative w-full rounded-xl overflow-hidden bg-gradient-to-b from-midnight-purple/20 via-midnight-deepblue/40 to-midnight-purple/20 border border-midnight-bright-purple border-opacity-10">
+                    <div className="hidden sm:flex shrink-0 w-[200px] items-start justify-center">
+                      <div className="relative w-full rounded-xl overflow-hidden bg-lavender-12 border border-lavender-20">
                         <img
                           src={characterMedia.mainRaw}
                           alt={profile.characterName}
                           className="w-full h-auto object-contain"
-                          style={{ filter: 'drop-shadow(0 0 12px rgba(139, 92, 246, 0.3))' }}
                         />
                       </div>
                     </div>
                   )}
-                  {/* Equipment grid */}
                   <div className={`flex-1 grid gap-2 ${characterMedia?.mainRaw ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-2'}`}>
                     {equipment.map((item) => {
                       const quality = (item.rarity || item.quality || 'epic').toLowerCase()
@@ -365,24 +307,20 @@ const ArmoryModal = ({ memberId, onClose }) => {
                       const slotName = (item.slotName || item.slot || '').replace(/_/g, ' ')
                       return (
                         <WowheadTooltip key={item.slot} itemId={item.itemId}>
-                          <div className="bg-midnight-purple bg-opacity-20 rounded-lg p-2 flex items-center gap-2 cursor-help hover:bg-opacity-30 transition-all">
+                          <div className="bg-lavender-12 rounded-xl p-2 flex items-center gap-2 cursor-help hover:bg-lavender-20 transition-colors">
                             <div
-                              className="w-9 h-9 rounded bg-midnight-deepblue flex items-center justify-center border-2 flex-shrink-0 overflow-hidden"
+                              className="w-9 h-9 rounded bg-indigo flex items-center justify-center border-2 shrink-0 overflow-hidden"
                               style={{ borderColor: rarityColor }}
                             >
                               {item.icon ? (
                                 <img src={item.icon} alt="" className="w-full h-full object-cover" />
                               ) : (
-                                <i className="fas fa-question text-gray-500"></i>
+                                <Question size={16} weight="bold" className="text-lavender" />
                               )}
                             </div>
                             <div className="flex-1 min-w-0">
-                              <p className="text-xs font-bold m-0 truncate" style={{ color: rarityColor }}>
-                                {item.name}
-                              </p>
-                              <p className="text-xs text-gray-500 m-0">
-                                {slotName} {item.itemLevel ? `\u2022 iLvl ${item.itemLevel}` : ''}
-                              </p>
+                              <p className="text-xs font-bold truncate" style={{ color: rarityColor }}>{item.name}</p>
+                              <p className="text-xs text-lavender">{slotName} {item.itemLevel ? `\u2022 iLvl ${item.itemLevel}` : ''}</p>
                             </div>
                           </div>
                         </WowheadTooltip>
@@ -392,19 +330,18 @@ const ArmoryModal = ({ memberId, onClose }) => {
                 </div>
               ) : (
                 <div className="text-center py-8">
-                  <i className="fas fa-shield-alt text-4xl text-gray-500 mb-4"></i>
-                  <p className="text-gray-500">{t('no_equipment_data')}</p>
+                  <ShieldStar size={48} weight="bold" className="text-lavender mx-auto mb-4" />
+                  <p className="text-lavender">{t('no_equipment_data')}</p>
                 </div>
               )}
             </div>
           )}
         </div>
 
-        {/* Footer */}
-        <div className="p-4 border-t border-midnight-bright-purple border-opacity-30 flex-shrink-0">
+        <div className="p-4 border-t border-lavender-20 shrink-0">
           <button
             onClick={onClose}
-            className="w-full px-4 py-3 rounded-lg bg-gradient-to-r from-midnight-purple to-midnight-bright-purple text-white font-bold hover:shadow-lg transition-all"
+            className="w-full px-4 py-3 rounded-full bg-coral text-indigo font-bold hover:opacity-90 transition-opacity"
           >
             {t('close')}
           </button>

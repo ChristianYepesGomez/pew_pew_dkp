@@ -1,8 +1,5 @@
-/**
- * DEV TOOL: Role Switcher
- * Only visible for admins - allows testing different role views without logging out
- */
 import { useState } from 'react'
+import { Bug, UserCircle, Check, Warning } from '@phosphor-icons/react'
 import { useAuth } from '../../hooks/useAuth'
 
 const ROLES = [
@@ -15,14 +12,10 @@ const RoleSwitcher = () => {
   const { user, realRole, isDevMode, setDevRole } = useAuth()
   const [isOpen, setIsOpen] = useState(false)
 
-  // Only show for actual admins
   if (realRole !== 'admin') return null
-
-  const currentRole = ROLES.find(r => r.id === (isDevMode ? user?.role : null)) || ROLES[0]
 
   return (
     <div className="fixed bottom-4 right-4 z-50">
-      {/* Toggle Button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
         className={`w-12 h-12 rounded-full shadow-lg flex items-center justify-center text-white transition-all hover:scale-110 ${
@@ -30,13 +23,12 @@ const RoleSwitcher = () => {
         }`}
         title="DEV: Role Switcher"
       >
-        <i className={`fas ${isDevMode ? 'fa-user-secret' : 'fa-bug'}`}></i>
+        {isDevMode ? <UserCircle size={24} weight="bold" /> : <Bug size={24} weight="bold" />}
       </button>
 
-      {/* Dropdown */}
       {isOpen && (
-        <div className="absolute bottom-14 right-0 bg-midnight-deepblue border border-midnight-bright-purple rounded-lg shadow-xl p-2 min-w-[160px]">
-          <div className="text-xs text-gray-400 px-2 py-1 border-b border-gray-700 mb-1">
+        <div className="absolute bottom-14 right-0 bg-indigo border-2 border-lavender-20 rounded-2xl shadow-xl p-2 min-w-[160px]">
+          <div className="text-xs text-lavender px-2 py-1 border-b border-lavender-20 mb-1">
             DEV: View as...
           </div>
           {ROLES.map(role => (
@@ -46,23 +38,23 @@ const RoleSwitcher = () => {
                 setDevRole(role.id)
                 setIsOpen(false)
               }}
-              className={`w-full text-left px-3 py-2 rounded text-sm flex items-center gap-2 transition-colors ${
+              className={`w-full text-left px-3 py-2 rounded-xl text-sm flex items-center gap-2 transition-colors ${
                 (isDevMode ? user?.role : null) === role.id
-                  ? 'bg-midnight-purple text-white'
-                  : 'text-gray-300 hover:bg-midnight-purple hover:bg-opacity-50'
+                  ? 'bg-lavender-12 text-cream'
+                  : 'text-lavender hover:bg-lavender-12'
               }`}
             >
               <span className={`w-2 h-2 rounded-full ${role.color}`}></span>
               {role.label}
               {(isDevMode ? user?.role : null) === role.id && (
-                <i className="fas fa-check ml-auto text-green-400"></i>
+                <Check size={14} weight="bold" className="ml-auto text-teal" />
               )}
             </button>
           ))}
           {isDevMode && (
-            <div className="mt-2 pt-2 border-t border-gray-700">
+            <div className="mt-2 pt-2 border-t border-lavender-20">
               <div className="text-xs text-yellow-400 px-2 flex items-center gap-1">
-                <i className="fas fa-exclamation-triangle"></i>
+                <Warning size={12} weight="bold" />
                 Viewing as {user?.role}
               </div>
             </div>

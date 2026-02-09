@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Link, useParams, useNavigate } from 'react-router-dom'
+import { Lock, FloppyDisk, CircleNotch, WarningCircle, CheckCircle, ArrowLeft } from '@phosphor-icons/react'
 import { useLanguage } from '../hooks/useLanguage'
 import { authAPI } from '../services/api'
 
@@ -43,39 +44,35 @@ const ResetPassword = () => {
   return (
     <div className="min-h-screen flex items-center justify-center px-4 py-8">
       <div className="w-full max-w-md">
-        {/* Language toggle */}
         <div className="flex justify-end mb-4">
           <button
             onClick={() => changeLanguage(language === 'es' ? 'en' : 'es')}
-            className="px-3 py-1 rounded-lg border border-midnight-bright-purple text-midnight-silver hover:bg-midnight-bright-purple hover:bg-opacity-20 transition-all"
+            className="px-4 py-2 rounded-full border-2 border-lavender-20 text-cream text-sm font-semibold hover:bg-lavender-12 transition-colors uppercase"
           >
-            {language === 'es' ? '🇪🇸' : '🇬🇧'}
+            {language}
           </button>
         </div>
 
-        {/* Main card */}
-        <div className="bg-midnight-deepblue bg-opacity-95 backdrop-blur-lg rounded-2xl shadow-2xl border border-midnight-bright-purple overflow-hidden">
-          {/* Header */}
-          <div className="p-8 text-center border-b border-midnight-bright-purple border-opacity-30 bg-gradient-to-b from-midnight-purple/20 to-transparent">
-            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-midnight-purple bg-opacity-30 flex items-center justify-center border border-midnight-bright-purple">
-              <i className="fas fa-lock text-3xl text-midnight-glow"></i>
+        <div className="bg-lavender-12 rounded-2xl overflow-hidden">
+          <div className="p-8 text-center border-b border-lavender-20">
+            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-indigo flex items-center justify-center border-2 border-lavender-20">
+              <Lock size={32} weight="bold" className="text-coral" />
             </div>
-            <h2 className="text-2xl font-cinzel font-bold text-midnight-glow mb-2">{t('reset_password')}</h2>
-            <p className="text-midnight-silver text-sm">{t('reset_password_desc')}</p>
+            <h2 className="text-2xl font-bold text-coral mb-2">{t('reset_password')}</h2>
+            <p className="text-lavender text-sm">{t('reset_password_desc')}</p>
           </div>
 
-          {/* Content */}
           <div className="p-6">
             {error && (
-              <div className="bg-red-500 bg-opacity-20 border border-red-500 text-red-400 px-4 py-3 rounded-lg mb-6 flex items-center gap-2">
-                <i className="fas fa-exclamation-circle"></i>
+              <div className="bg-red-500/20 border border-red-500 text-red-400 px-4 py-3 rounded-xl mb-6 flex items-center gap-2">
+                <WarningCircle size={20} weight="bold" />
                 <span>{error}</span>
               </div>
             )}
 
             {message && (
-              <div className="bg-green-500 bg-opacity-20 border border-green-500 text-green-400 px-4 py-3 rounded-lg mb-6 flex items-center gap-2">
-                <i className="fas fa-check-circle"></i>
+              <div className="bg-teal/20 border border-teal text-teal px-4 py-3 rounded-xl mb-6 flex items-center gap-2">
+                <CheckCircle size={20} weight="bold" />
                 <span>{message}</span>
               </div>
             )}
@@ -83,28 +80,28 @@ const ResetPassword = () => {
             {!message ? (
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
-                  <label className="block text-midnight-silver text-sm font-semibold mb-2">
-                    <i className="fas fa-lock mr-2 text-midnight-glow"></i>{t('new_password')}
+                  <label className="flex items-center gap-2 text-cream text-sm font-semibold mb-2">
+                    <Lock size={16} weight="bold" className="text-coral" />{t('new_password')}
                   </label>
                   <input
                     type="password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="w-full px-4 py-3 rounded-lg bg-midnight-purple bg-opacity-30 border border-midnight-bright-purple border-opacity-30 text-white placeholder-gray-500 focus:outline-none focus:border-midnight-glow transition-all"
+                    className="w-full px-4 py-3 rounded-xl bg-indigo border-2 border-lavender-20 text-cream placeholder:text-lavender focus:outline-none focus:border-lavender transition-colors"
                     required
                     minLength={6}
                   />
                 </div>
 
                 <div>
-                  <label className="block text-midnight-silver text-sm font-semibold mb-2">
-                    <i className="fas fa-lock mr-2 text-midnight-glow"></i>{t('confirm_password')}
+                  <label className="flex items-center gap-2 text-cream text-sm font-semibold mb-2">
+                    <Lock size={16} weight="bold" className="text-coral" />{t('confirm_password')}
                   </label>
                   <input
                     type="password"
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
-                    className="w-full px-4 py-3 rounded-lg bg-midnight-purple bg-opacity-30 border border-midnight-bright-purple border-opacity-30 text-white placeholder-gray-500 focus:outline-none focus:border-midnight-glow transition-all"
+                    className="w-full px-4 py-3 rounded-xl bg-indigo border-2 border-lavender-20 text-cream placeholder:text-lavender focus:outline-none focus:border-lavender transition-colors"
                     required
                     minLength={6}
                   />
@@ -113,28 +110,31 @@ const ResetPassword = () => {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full bg-gradient-to-r from-midnight-purple to-midnight-bright-purple text-white font-bold py-4 px-4 rounded-lg hover:shadow-lg hover:shadow-midnight-glow/30 transform hover:-translate-y-0.5 transition-all disabled:opacity-50 disabled:transform-none"
+                  className="w-full bg-coral text-indigo font-bold py-4 px-4 rounded-full hover:opacity-90 transition-opacity disabled:opacity-50"
                 >
                   {loading ? (
-                    <><i className="fas fa-circle-notch fa-spin mr-2"></i>{t('loading')}...</>
+                    <span className="flex items-center justify-center gap-2">
+                      <CircleNotch size={20} weight="bold" className="animate-spin" />{t('loading')}...
+                    </span>
                   ) : (
-                    <><i className="fas fa-save mr-2"></i>{t('change_password')}</>
+                    <span className="flex items-center justify-center gap-2">
+                      <FloppyDisk size={20} weight="bold" />{t('change_password')}
+                    </span>
                   )}
                 </button>
               </form>
             ) : (
               <div className="text-center py-4">
-                <p className="text-midnight-silver text-sm">{t('redirecting_to_login')}</p>
+                <p className="text-lavender text-sm">{t('redirecting_to_login')}</p>
               </div>
             )}
 
-            {/* Back to login */}
-            <div className="text-center mt-6 pt-6 border-t border-midnight-bright-purple border-opacity-20">
+            <div className="text-center mt-6 pt-6 border-t border-lavender-20">
               <Link
                 to="/login"
-                className="text-midnight-silver hover:text-midnight-glow transition-colors text-sm"
+                className="text-lavender hover:text-cream transition-colors text-sm flex items-center justify-center gap-2"
               >
-                <i className="fas fa-arrow-left mr-2"></i>{t('back_to_login')}
+                <ArrowLeft size={16} weight="bold" />{t('back_to_login')}
               </Link>
             </div>
           </div>

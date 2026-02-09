@@ -10,6 +10,42 @@ import BidModal from './BidModal'
 import WowheadTooltip from '../Common/WowheadTooltip'
 import CLASS_COLORS from '../../utils/classColors'
 import RARITY_COLORS from '../../utils/rarityColors'
+import {
+  MusicNotes,
+  X,
+  Check,
+  Play,
+  CircleNotch,
+  Upload,
+  Trash,
+  Info,
+  Gavel,
+  Bell,
+  BellSlash,
+  SpeakerHigh,
+  SpeakerSlash,
+  GearSix,
+  PlusCircle,
+  Diamond,
+  Crosshair,
+  DiceFive,
+  HandCoins,
+  ShieldStar
+} from '@phosphor-icons/react'
+
+// Map FA icon class names to Phosphor components for dynamic sound icon rendering
+const SOUND_ICON_MAP = {
+  'fa-bell': Bell,
+  'fa-music': MusicNotes,
+  'fa-gem': Diamond,
+  'fa-dice': DiceFive,
+  'fa-volume-up': SpeakerHigh,
+  'fa-drum': MusicNotes,
+  'fa-magic': MusicNotes,
+  'fa-bolt': MusicNotes,
+  'fa-star': MusicNotes,
+  'fa-upload': Upload,
+}
 
 // Sound Settings Modal Component
 const SoundSettingsModal = ({
@@ -61,26 +97,32 @@ const SoundSettingsModal = ({
     }
   }
 
+  const renderSoundIcon = (iconClass, isSelected) => {
+    const IconComponent = SOUND_ICON_MAP[iconClass]
+    if (!IconComponent) return null
+    return <IconComponent size={16} weight="fill" className={isSelected ? 'text-coral' : 'text-lavender'} />
+  }
+
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-[100] p-4" onClick={onClose}>
+    <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[100] p-4" onClick={onClose}>
       <div
-        className="bg-midnight-deepblue border-2 border-midnight-bright-purple rounded-2xl w-full max-w-md shadow-2xl max-h-[90vh] overflow-hidden flex flex-col"
+        className="bg-indigo border-2 border-lavender-20 rounded-2xl w-full max-w-md shadow-2xl max-h-[90vh] overflow-hidden flex flex-col"
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="p-4 bg-gradient-to-r from-midnight-purple to-midnight-bright-purple border-b border-midnight-bright-purple border-opacity-30">
+        <div className="p-4 bg-lavender-12 border-b border-lavender-20/30">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-midnight-deepblue flex items-center justify-center border-2 border-midnight-glow">
-                <i className="fas fa-music text-lg text-midnight-glow"></i>
+              <div className="w-10 h-10 rounded-full bg-indigo flex items-center justify-center border-2 border-coral">
+                <MusicNotes size={20} weight="fill" className="text-coral" />
               </div>
               <div>
-                <h3 className="text-lg font-cinzel font-bold text-white m-0">{t('sound_settings') || 'Configuración de Sonido'}</h3>
-                <p className="text-xs text-midnight-silver m-0">{t('sound_settings_subtitle') || 'Personaliza el sonido de las notificaciones'}</p>
+                <h3 className="text-lg font-bold text-cream m-0">{t('sound_settings') || 'Configuración de Sonido'}</h3>
+                <p className="text-xs text-lavender m-0">{t('sound_settings_subtitle') || 'Personaliza el sonido de las notificaciones'}</p>
               </div>
             </div>
-            <button onClick={onClose} className="text-gray-400 hover:text-white text-xl">
-              <i className="fas fa-times"></i>
+            <button onClick={onClose} className="text-gray-400 hover:text-cream text-xl">
+              <X size={20} weight="bold" />
             </button>
           </div>
         </div>
@@ -97,8 +139,8 @@ const SoundSettingsModal = ({
                 key={sound.id}
                 className={`p-3 rounded-xl border transition-all cursor-pointer ${
                   isSelected
-                    ? 'bg-midnight-purple bg-opacity-30 border-midnight-glow'
-                    : 'bg-white bg-opacity-5 border-gray-700 hover:border-midnight-bright-purple'
+                    ? 'bg-lavender-12/30 border-coral'
+                    : 'bg-white/5 border-gray-700 hover:border-lavender-20'
                 }`}
                 onClick={() => {
                   if (!isCustom || hasCustomSound) {
@@ -109,26 +151,26 @@ const SoundSettingsModal = ({
                 <div className="flex items-center gap-3">
                   {/* Selection indicator */}
                   <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
-                    isSelected ? 'border-midnight-glow bg-midnight-glow' : 'border-gray-500'
+                    isSelected ? 'border-coral bg-coral' : 'border-gray-500'
                   }`}>
-                    {isSelected && <i className="fas fa-check text-xs text-white"></i>}
+                    {isSelected && <Check size={12} weight="bold" className="text-cream" />}
                   </div>
 
                   {/* Sound icon */}
                   {sound.icon && (
                     <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
-                      isSelected ? 'bg-midnight-glow bg-opacity-20' : 'bg-midnight-purple bg-opacity-30'
+                      isSelected ? 'bg-coral/20' : 'bg-lavender-12/30'
                     }`}>
-                      <i className={`fas ${sound.icon} ${isSelected ? 'text-midnight-glow' : 'text-midnight-silver'}`}></i>
+                      {renderSoundIcon(sound.icon, isSelected)}
                     </div>
                   )}
 
                   {/* Sound info */}
                   <div className="flex-1 min-w-0">
-                    <p className={`font-bold m-0 ${isSelected ? 'text-midnight-glow' : 'text-white'}`}>
+                    <p className={`font-bold m-0 ${isSelected ? 'text-coral' : 'text-cream'}`}>
                       {isCustom ? (t('custom_sound') || 'Sonido Personalizado') : sound.name}
                     </p>
-                    <p className="text-xs text-midnight-silver m-0 truncate">
+                    <p className="text-xs text-lavender m-0 truncate">
                       {isCustom
                         ? (hasCustomSound
                           ? (t('custom_sound_loaded') || 'Sonido cargado')
@@ -145,10 +187,10 @@ const SoundSettingsModal = ({
                         e.stopPropagation()
                         onPreviewSound(sound.id)
                       }}
-                      className="w-9 h-9 rounded-lg bg-midnight-purple bg-opacity-50 hover:bg-opacity-80 text-white flex items-center justify-center transition-all"
+                      className="w-9 h-9 rounded-lg bg-lavender-12/50 hover:bg-lavender-12/80 text-cream flex items-center justify-center transition-all"
                       title={t('preview_sound') || 'Previsualizar'}
                     >
-                      <i className="fas fa-play text-sm"></i>
+                      <Play size={14} weight="fill" />
                     </button>
                   )}
 
@@ -161,10 +203,13 @@ const SoundSettingsModal = ({
                           fileInputRef.current?.click()
                         }}
                         disabled={uploading}
-                        className="w-9 h-9 rounded-lg bg-green-600 bg-opacity-30 hover:bg-opacity-50 text-green-400 flex items-center justify-center transition-all"
+                        className="w-9 h-9 rounded-lg bg-green-600/30 hover:bg-green-600/50 text-green-400 flex items-center justify-center transition-all"
                         title={t('upload_sound') || 'Subir sonido'}
                       >
-                        <i className={`fas ${uploading ? 'fa-spinner fa-spin' : 'fa-upload'} text-sm`}></i>
+                        {uploading
+                          ? <CircleNotch size={14} weight="bold" className="animate-spin" />
+                          : <Upload size={14} weight="bold" />
+                        }
                       </button>
                       {hasCustomSound && (
                         <button
@@ -172,10 +217,10 @@ const SoundSettingsModal = ({
                             e.stopPropagation()
                             onClearCustomSound()
                           }}
-                          className="w-9 h-9 rounded-lg bg-red-600 bg-opacity-30 hover:bg-opacity-50 text-red-400 flex items-center justify-center transition-all"
+                          className="w-9 h-9 rounded-lg bg-red-600/30 hover:bg-red-600/50 text-red-400 flex items-center justify-center transition-all"
                           title={t('remove_sound') || 'Eliminar sonido'}
                         >
-                          <i className="fas fa-trash text-sm"></i>
+                          <Trash size={14} weight="bold" />
                         </button>
                       )}
                     </div>
@@ -196,9 +241,9 @@ const SoundSettingsModal = ({
         </div>
 
         {/* Footer */}
-        <div className="p-4 border-t border-midnight-bright-purple border-opacity-30 bg-midnight-purple bg-opacity-10">
-          <p className="text-xs text-midnight-silver text-center m-0">
-            <i className="fas fa-info-circle mr-1"></i>
+        <div className="p-4 border-t border-lavender-20/30 bg-lavender-12/10">
+          <p className="text-xs text-lavender text-center m-0">
+            <Info size={12} weight="fill" className="inline mr-1 align-middle" />
             {t('sound_settings_info') || 'Los sonidos personalizados se guardan en tu navegador (máx 2MB)'}
           </p>
         </div>
@@ -408,12 +453,12 @@ const AuctionTab = () => {
     return 'text-green-400'
   }
 
-  if (loading) return <div className="text-center py-20"><i className="fas fa-circle-notch fa-spin text-6xl text-midnight-glow"></i></div>
+  if (loading) return <div className="text-center py-20"><CircleNotch size={48} weight="bold" className="text-coral animate-spin mx-auto" /></div>
 
   return (
-    <div className="info-card">
+    <div className="rounded-2xl">
       <div className="flex justify-between items-center mb-6">
-        <h3 className="mb-0"><i className="fas fa-gavel mr-3"></i>{t('active_auction_title')}</h3>
+        <h3 className="mb-0 flex items-center gap-3"><Gavel size={24} weight="fill" />{t('active_auction_title')}</h3>
         <div className="flex items-center gap-3">
           {/* Notification Controls */}
           {isSupported && (
@@ -423,10 +468,10 @@ const AuctionTab = () => {
                 onClick={isEnabled ? disableNotifications : enableNotifications}
                 className={`px-3 py-2 rounded-l-lg flex items-center gap-2 text-sm transition-all ${
                   isEnabled
-                    ? 'bg-green-600 bg-opacity-20 text-green-400 border border-green-600'
+                    ? 'bg-green-600/20 text-green-400 border border-green-600'
                     : permission === 'denied'
-                      ? 'bg-red-600 bg-opacity-20 text-red-400 border border-red-600 cursor-not-allowed'
-                      : 'bg-white bg-opacity-10 text-gray-300 hover:bg-opacity-20 border border-gray-600'
+                      ? 'bg-red-600/20 text-red-400 border border-red-600 cursor-not-allowed'
+                      : 'bg-white/10 text-gray-300 hover:bg-white/20 border border-gray-600'
                 }`}
                 title={
                   isEnabled
@@ -437,7 +482,7 @@ const AuctionTab = () => {
                 }
                 disabled={permission === 'denied'}
               >
-                <i className={`fas ${isEnabled ? 'fa-bell' : 'fa-bell-slash'}`}></i>
+                {isEnabled ? <Bell size={16} weight="fill" /> : <BellSlash size={16} weight="fill" />}
                 <span className="hidden sm:inline">
                   {isEnabled ? (t('notifications_on') || 'Notif.') : (t('notifications_off') || 'Notif.')}
                 </span>
@@ -449,19 +494,19 @@ const AuctionTab = () => {
                     onClick={toggleSound}
                     className={`px-2 py-2 text-sm transition-all border-l-0 ${
                       soundEnabled
-                        ? 'bg-green-600 bg-opacity-20 text-green-400 border border-green-600'
-                        : 'bg-white bg-opacity-10 text-gray-400 border border-gray-600 hover:bg-opacity-20'
+                        ? 'bg-green-600/20 text-green-400 border border-green-600'
+                        : 'bg-white/10 text-gray-400 border border-gray-600 hover:bg-white/20'
                     }`}
                     title={soundEnabled ? (t('sound_on') || 'Sonido ON') : (t('sound_off') || 'Sonido OFF')}
                   >
-                    <i className={`fas ${soundEnabled ? 'fa-volume-up' : 'fa-volume-mute'}`}></i>
+                    {soundEnabled ? <SpeakerHigh size={16} weight="fill" /> : <SpeakerSlash size={16} weight="fill" />}
                   </button>
                   <button
                     onClick={() => setShowSoundModal(true)}
-                    className="px-2 py-2 rounded-r-lg text-sm transition-all border-l-0 bg-white bg-opacity-10 text-gray-300 border border-gray-600 hover:bg-opacity-20 hover:text-midnight-glow"
+                    className="px-2 py-2 rounded-r-lg text-sm transition-all border-l-0 bg-white/10 text-gray-300 border border-gray-600 hover:bg-white/20 hover:text-coral"
                     title={t('sound_settings') || 'Configurar sonido'}
                   >
-                    <i className="fas fa-cog"></i>
+                    <GearSix size={16} weight="fill" />
                   </button>
                 </>
               )}
@@ -471,9 +516,9 @@ const AuctionTab = () => {
           {isAdmin && (
             <button
               onClick={() => setShowCreateModal(true)}
-              className="px-4 py-2 bg-gradient-to-r from-midnight-purple to-midnight-bright-purple text-white rounded-lg hover:shadow-lg flex items-center gap-2"
+              className="px-4 py-2 bg-coral text-indigo rounded-lg hover:shadow-lg flex items-center gap-2 font-bold"
             >
-              <i className="fas fa-plus-circle"></i>{t('create_auction')}
+              <PlusCircle size={18} weight="bold" />{t('create_auction')}
             </button>
           )}
         </div>
@@ -490,13 +535,13 @@ const AuctionTab = () => {
             return (
               <div
                 key={auction.id}
-                className={`bg-gradient-to-r from-purple-900 to-purple-800 rounded-xl p-4 border border-purple-600 border-opacity-50 ${isExpired ? 'opacity-60' : ''}`}
+                className={`bg-lavender-12 rounded-xl p-4 border border-lavender-20/50 ${isExpired ? 'opacity-60' : ''}`}
               >
                 <div className="flex items-center gap-4">
                   {/* Item Icon */}
                   <WowheadTooltip itemId={auction.itemId}>
                     <div
-                      className="w-14 h-14 rounded-lg bg-midnight-deepblue flex items-center justify-center border-2 flex-shrink-0 overflow-hidden"
+                      className="w-14 h-14 rounded-lg bg-indigo flex items-center justify-center border-2 flex-shrink-0 overflow-hidden"
                       style={{ borderColor: RARITY_COLORS[auction.itemRarity] }}
                     >
                       {auction.itemImage && auction.itemImage !== '🎁' ? (
@@ -507,27 +552,28 @@ const AuctionTab = () => {
                           onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'block'; }}
                         />
                       ) : null}
-                      <i
-                        className="fas fa-gem text-2xl"
+                      <Diamond
+                        size={28}
+                        weight="fill"
                         style={{
                           color: RARITY_COLORS[auction.itemRarity],
                           display: auction.itemImage && auction.itemImage !== '🎁' ? 'none' : 'block'
                         }}
-                      ></i>
+                      />
                     </div>
                   </WowheadTooltip>
 
                   {/* Item Name + BIS Badge */}
                   <div className="flex-1 min-w-0">
                     <h4
-                      className="text-lg font-cinzel mb-0 truncate"
+                      className="text-lg mb-0 truncate"
                       style={{ color: RARITY_COLORS[auction.itemRarity] }}
                     >
                       {auction.itemName}
                     </h4>
                     {bisData[auction.id]?.length > 0 && (
                       <div className="flex items-center gap-1 mt-1" title={bisData[auction.id].map(b => `${b.character_name}${b.priority ? ` #${b.priority}` : ''}`).join(', ')}>
-                        <i className="fas fa-crosshairs text-xs text-yellow-400"></i>
+                        <Crosshair size={12} weight="bold" className="text-yellow-400" />
                         <span className="text-xs text-yellow-400">
                           {bisData[auction.id].length} {t('bis_raiders_want')}
                         </span>
@@ -537,14 +583,14 @@ const AuctionTab = () => {
 
                   {/* Highest Bidder / Tie Info */}
                   <div className="text-center min-w-[120px]">
-                    <p className="text-xs text-midnight-silver m-0 mb-1">
+                    <p className="text-xs text-lavender m-0 mb-1">
                       {auction.hasTie ? t('tied_bidders') : t('highest_bidder')}
                     </p>
                     {auction.hasTie ? (
                       <div className="flex items-center justify-center gap-1">
-                        <i className="fas fa-dice text-yellow-400 animate-pulse"></i>
+                        <DiceFive size={16} weight="fill" className="text-yellow-400 animate-pulse" />
                         <span className="text-yellow-400 font-bold">{auction.tiedBidders?.length || 0}</span>
-                        <span className="text-xs text-midnight-silver">{t('players_tied')}</span>
+                        <span className="text-xs text-lavender">{t('players_tied')}</span>
                       </div>
                     ) : auction.highestBidder ? (
                       <p
@@ -560,7 +606,7 @@ const AuctionTab = () => {
 
                   {/* Current Bid */}
                   <div className="text-center min-w-[100px]">
-                    <p className="text-xs text-midnight-silver m-0 mb-1">{t('current_bid')}</p>
+                    <p className="text-xs text-lavender m-0 mb-1">{t('current_bid')}</p>
                     <p className="text-xl font-bold text-green-400 m-0">
                       {auction.currentBid || 0} <span className="text-sm">DKP</span>
                     </p>
@@ -568,12 +614,14 @@ const AuctionTab = () => {
 
                   {/* Time Remaining */}
                   <div className="text-center min-w-[80px]">
-                    <p className="text-xs text-midnight-silver m-0 mb-1 flex items-center justify-center gap-1">
+                    <p className="text-xs text-lavender m-0 mb-1 flex items-center justify-center gap-1">
                       {t('time_remaining')}
-                      <i
-                        className="fas fa-shield-alt text-[10px] text-blue-400 cursor-help"
+                      <ShieldStar
+                        size={12}
+                        weight="fill"
+                        className="text-blue-400 cursor-help"
                         title={t('anti_snipe_info')}
-                      ></i>
+                      />
                     </p>
                     <p className={`text-xl font-mono font-bold m-0 ${getTimeColor(time)}`}>
                       {formatTime(time)}
@@ -584,9 +632,9 @@ const AuctionTab = () => {
                   <button
                     onClick={() => setBidModal({ open: true, auction })}
                     disabled={isExpired}
-                    className="px-6 py-3 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-500 hover:to-green-600 text-white rounded-lg font-bold transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
+                    className="px-6 py-3 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-500 hover:to-green-600 text-cream rounded-lg font-bold transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
                   >
-                    <i className="fas fa-hand-holding-usd"></i>
+                    <HandCoins size={20} weight="fill" />
                     {t('place_bid')}
                   </button>
                 </div>

@@ -1,29 +1,34 @@
 import { useMemo } from 'react'
 import { useLanguage } from '../../hooks/useLanguage'
 import RARITY_COLORS from '../../utils/rarityColors'
+import {
+  Crown, Circle, TShirt, Wind, Bandaids,
+  Hand, Minus, Pants, Boot, Ring, Diamond, Sword, Shield,
+  Check, CheckCircle, User, SquaresFour,
+} from '@phosphor-icons/react'
 
 // Paper doll slot definitions — WoW armory-style layout
 // matchSlots: item.slot values that can go in this slot
 const PAPER_DOLL_SLOTS = {
   // Left column (top to bottom)
-  HEAD:      { label: 'Head', icon: 'fa-hard-hat', matchSlots: ['Head'], col: 'left', row: 0 },
-  NECK:      { label: 'Neck', icon: 'fa-circle', matchSlots: ['Neck'], col: 'left', row: 1 },
-  SHOULDER:  { label: 'Shoulder', icon: 'fa-tshirt', matchSlots: ['Shoulder'], col: 'left', row: 2 },
-  BACK:      { label: 'Back', icon: 'fa-wind', matchSlots: ['Back'], col: 'left', row: 3 },
-  CHEST:     { label: 'Chest', icon: 'fa-vest-patches', matchSlots: ['Chest'], col: 'left', row: 4 },
-  WRIST:     { label: 'Wrist', icon: 'fa-band-aid', matchSlots: ['Wrist'], col: 'left', row: 5 },
+  HEAD:      { label: 'Head', Icon: Crown, matchSlots: ['Head'], col: 'left', row: 0 },
+  NECK:      { label: 'Neck', Icon: Circle, matchSlots: ['Neck'], col: 'left', row: 1 },
+  SHOULDER:  { label: 'Shoulder', Icon: TShirt, matchSlots: ['Shoulder'], col: 'left', row: 2 },
+  BACK:      { label: 'Back', Icon: Wind, matchSlots: ['Back'], col: 'left', row: 3 },
+  CHEST:     { label: 'Chest', Icon: TShirt, matchSlots: ['Chest'], col: 'left', row: 4 },
+  WRIST:     { label: 'Wrist', Icon: Bandaids, matchSlots: ['Wrist'], col: 'left', row: 5 },
   // Right column (top to bottom)
-  HANDS:     { label: 'Hands', icon: 'fa-hand-paper', matchSlots: ['Hands'], col: 'right', row: 0 },
-  WAIST:     { label: 'Waist', icon: 'fa-minus', matchSlots: ['Waist'], col: 'right', row: 1 },
-  LEGS:      { label: 'Legs', icon: 'fa-socks', matchSlots: ['Legs'], col: 'right', row: 2 },
-  FEET:      { label: 'Feet', icon: 'fa-shoe-prints', matchSlots: ['Feet'], col: 'right', row: 3 },
-  FINGER_1:  { label: 'Finger', icon: 'fa-ring', matchSlots: ['Finger'], col: 'right', row: 4 },
-  FINGER_2:  { label: 'Finger', icon: 'fa-ring', matchSlots: ['Finger'], col: 'right', row: 5 },
-  TRINKET_1: { label: 'Trinket', icon: 'fa-gem', matchSlots: ['Trinket'], col: 'right', row: 6 },
-  TRINKET_2: { label: 'Trinket', icon: 'fa-gem', matchSlots: ['Trinket'], col: 'right', row: 7 },
+  HANDS:     { label: 'Hands', Icon: Hand, matchSlots: ['Hands'], col: 'right', row: 0 },
+  WAIST:     { label: 'Waist', Icon: Minus, matchSlots: ['Waist'], col: 'right', row: 1 },
+  LEGS:      { label: 'Legs', Icon: Pants, matchSlots: ['Legs'], col: 'right', row: 2 },
+  FEET:      { label: 'Feet', Icon: Boot, matchSlots: ['Feet'], col: 'right', row: 3 },
+  FINGER_1:  { label: 'Finger', Icon: Ring, matchSlots: ['Finger'], col: 'right', row: 4 },
+  FINGER_2:  { label: 'Finger', Icon: Ring, matchSlots: ['Finger'], col: 'right', row: 5 },
+  TRINKET_1: { label: 'Trinket', Icon: Diamond, matchSlots: ['Trinket'], col: 'right', row: 6 },
+  TRINKET_2: { label: 'Trinket', Icon: Diamond, matchSlots: ['Trinket'], col: 'right', row: 7 },
   // Bottom row
-  MAIN_HAND: { label: 'Main Hand', icon: 'fa-sword', matchSlots: ['Main Hand', 'One-Hand', 'Two-Hand'], col: 'bottom-left', row: 0 },
-  OFF_HAND:  { label: 'Off Hand', icon: 'fa-shield-alt', matchSlots: ['Off Hand', 'Shield', 'One-Hand'], col: 'bottom-right', row: 0 },
+  MAIN_HAND: { label: 'Main Hand', Icon: Sword, matchSlots: ['Main Hand', 'One-Hand', 'Two-Hand'], col: 'bottom-left', row: 0 },
+  OFF_HAND:  { label: 'Off Hand', Icon: Shield, matchSlots: ['Off Hand', 'Shield', 'One-Hand'], col: 'bottom-right', row: 0 },
 }
 
 export { PAPER_DOLL_SLOTS }
@@ -88,6 +93,7 @@ const PaperDoll = ({ bisItems = [], selectedSlot, onSlotClick, hasTwoHand = fals
     const isSelected = selectedSlot === slotKey
     const isDisabled = slotKey === 'OFF_HAND' && mainHandHasTwoHand
     const displayItem = items[0] // Show first item in slot
+    const SlotIcon = slotDef.Icon
 
     return (
       <button
@@ -99,10 +105,10 @@ const PaperDoll = ({ bisItems = [], selectedSlot, onSlotClick, hasTwoHand = fals
           isDisabled
             ? 'border-gray-700 bg-gray-900 opacity-30 cursor-not-allowed'
             : isSelected
-              ? 'border-midnight-glow bg-midnight-purple bg-opacity-60 shadow-lg shadow-midnight-glow/30 scale-110'
+              ? 'border-coral bg-lavender-12/60 shadow-lg shadow-coral/30 scale-110'
               : displayItem
-                ? `bg-gradient-to-br from-midnight-purple/30 to-midnight-deepblue hover:scale-105 hover:shadow-md`
-                : 'border-midnight-bright-purple border-opacity-30 bg-midnight-deepblue bg-opacity-50 hover:border-opacity-60 hover:bg-opacity-80'
+                ? `bg-gradient-to-br from-lavender-12/30 to-indigo hover:scale-105 hover:shadow-md`
+                : 'border-lavender-20/30 bg-indigo/50 hover:border-lavender-20/60 hover:bg-indigo/80'
         }`}
         style={displayItem ? { borderColor: RARITY_COLORS[displayItem.item_rarity] || '#a335ee' } : undefined}
       >
@@ -114,19 +120,19 @@ const PaperDoll = ({ bisItems = [], selectedSlot, onSlotClick, hasTwoHand = fals
             onError={(e) => { e.target.style.display = 'none' }}
           />
         ) : (
-          <i className={`fas ${slotDef.icon} text-sm ${isSelected ? 'text-midnight-glow' : 'text-midnight-silver opacity-40'}`}></i>
+          <SlotIcon size={16} className={isSelected ? 'text-coral' : 'text-lavender opacity-40'} />
         )}
 
         {/* Obtained check overlay */}
         {displayItem?.obtained === 1 && (
-          <div className="absolute inset-0 bg-green-500 bg-opacity-20 flex items-center justify-center">
-            <i className="fas fa-check text-green-400 text-xs"></i>
+          <div className="absolute inset-0 bg-green-500/20 flex items-center justify-center">
+            <Check size={14} className="text-green-400" />
           </div>
         )}
 
         {/* Count badge for multiple items */}
         {items.length > 1 && (
-          <span className="absolute -top-1 -right-1 w-4 h-4 bg-midnight-glow text-black text-[10px] font-bold rounded-full flex items-center justify-center">
+          <span className="absolute -top-1 -right-1 w-4 h-4 bg-coral text-black text-[10px] font-bold rounded-full flex items-center justify-center">
             {items.length}
           </span>
         )}
@@ -145,9 +151,9 @@ const PaperDoll = ({ bisItems = [], selectedSlot, onSlotClick, hasTwoHand = fals
   return (
     <div className="flex flex-col items-center gap-4">
       {/* Stats bar */}
-      <div className="flex gap-4 text-xs text-midnight-silver">
-        <span><i className="fas fa-th-large mr-1 text-midnight-glow"></i>{filledSlots}/{totalSlots} {t('bis_slots_filled')}</span>
-        <span><i className="fas fa-check-circle mr-1 text-green-400"></i>{obtainedCount} {t('bis_obtained')}</span>
+      <div className="flex gap-4 text-xs text-lavender">
+        <span className="inline-flex items-center gap-1"><SquaresFour size={14} className="text-coral" />{filledSlots}/{totalSlots} {t('bis_slots_filled')}</span>
+        <span className="inline-flex items-center gap-1"><CheckCircle size={14} className="text-green-400" />{obtainedCount} {t('bis_obtained')}</span>
       </div>
 
       {/* Paper doll grid */}
@@ -161,8 +167,8 @@ const PaperDoll = ({ bisItems = [], selectedSlot, onSlotClick, hasTwoHand = fals
 
         {/* Center spacer — class emblem placeholder */}
         <div style={{ gridColumn: 2, gridRow: '1 / 9' }} className="w-24 flex items-center justify-center">
-          <div className="w-16 h-16 rounded-full border border-midnight-bright-purple border-opacity-20 bg-midnight-purple bg-opacity-10 flex items-center justify-center">
-            <i className="fas fa-user text-2xl text-midnight-bright-purple opacity-20"></i>
+          <div className="w-16 h-16 rounded-full border border-lavender-20/20 bg-lavender-12/10 flex items-center justify-center">
+            <User size={28} className="text-coral/20" />
           </div>
         </div>
 

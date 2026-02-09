@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { User, Envelope, Lock, UserPlus, CircleNotch, WarningCircle, Info, CheckCircle } from '@phosphor-icons/react'
 import { useLanguage } from '../hooks/useLanguage'
 import { authAPI } from '../services/api'
 import CatLogo from '../components/Layout/CatLogo'
@@ -53,12 +54,12 @@ const Register = () => {
   if (success) {
     return (
       <div className="min-h-screen flex items-center justify-center px-4">
-        <div className="bg-midnight-deepblue bg-opacity-95 backdrop-blur-lg rounded-2xl shadow-2xl p-8 text-center max-w-md border border-midnight-bright-purple">
-          <div className="w-20 h-20 bg-gradient-to-br from-green-400 to-green-600 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg shadow-green-500/30">
-            <i className="fas fa-check text-white text-3xl"></i>
+        <div className="bg-lavender-12 rounded-2xl p-8 text-center max-w-md">
+          <div className="w-20 h-20 bg-teal/20 rounded-full flex items-center justify-center mx-auto mb-6">
+            <CheckCircle size={40} weight="fill" className="text-teal" />
           </div>
-          <h2 className="text-2xl font-cinzel font-bold text-midnight-glow mb-3">{t('registration_success')}</h2>
-          <p className="text-midnight-silver">{t('redirecting_to_login')}</p>
+          <h2 className="text-2xl font-bold text-coral mb-3">{t('registration_success')}</h2>
+          <p className="text-lavender">{t('redirecting_to_login')}</p>
         </div>
       </div>
     )
@@ -67,125 +68,116 @@ const Register = () => {
   return (
     <div className="min-h-screen flex items-center justify-center px-4 py-8">
       <div className="w-full max-w-md">
-        {/* Language toggle */}
         <div className="flex justify-end mb-4">
           <button
             onClick={() => changeLanguage(language === 'es' ? 'en' : 'es')}
-            className="px-3 py-1 rounded-lg border border-midnight-bright-purple text-midnight-silver hover:bg-midnight-bright-purple hover:bg-opacity-20 transition-all"
+            className="px-4 py-2 rounded-full border-2 border-lavender-20 text-cream text-sm font-semibold hover:bg-lavender-12 transition-colors uppercase"
           >
-            {language === 'es' ? '🇪🇸' : '🇬🇧'}
+            {language}
           </button>
         </div>
 
-        {/* Main card */}
-        <div className="bg-midnight-deepblue bg-opacity-95 backdrop-blur-lg rounded-2xl shadow-2xl border border-midnight-bright-purple overflow-hidden">
-          {/* Header */}
-          <div className="p-8 text-center border-b border-midnight-bright-purple border-opacity-30 bg-gradient-to-b from-midnight-purple/20 to-transparent">
+        <div className="bg-lavender-12 rounded-2xl overflow-hidden">
+          <div className="p-8 text-center border-b border-lavender-20">
             <div className="mb-4 flex justify-center">
               <CatLogo size={70} />
             </div>
-            <h2 className="text-2xl font-cinzel font-bold text-midnight-glow mb-1">{t('guild_name')}</h2>
-            <p className="text-midnight-silver text-sm">{t('create_account')}</p>
+            <h2 className="text-2xl font-bold text-coral mb-1">{t('guild_name')}</h2>
+            <p className="text-lavender text-sm">{t('create_account')}</p>
           </div>
 
-          {/* Form */}
           <div className="p-6">
             {error && (
-              <div className="bg-red-500 bg-opacity-20 border border-red-500 text-red-400 px-4 py-3 rounded-lg mb-6 flex items-center gap-2">
-                <i className="fas fa-exclamation-circle"></i>
+              <div className="bg-red-500/20 border border-red-500 text-red-400 px-4 py-3 rounded-xl mb-6 flex items-center gap-2">
+                <WarningCircle size={20} weight="bold" />
                 <span>{error}</span>
               </div>
             )}
 
             <form onSubmit={handleSubmit} className="space-y-4">
-              {/* Username */}
               <div>
-                <label className="block text-midnight-silver text-sm font-semibold mb-2">
-                  <i className="fas fa-user mr-2 text-midnight-glow"></i>{t('username')}
+                <label className="flex items-center gap-2 text-cream text-sm font-semibold mb-2">
+                  <User size={16} weight="bold" className="text-coral" />{t('username')}
                 </label>
                 <input
                   type="text"
                   value={formData.username}
                   onChange={(e) => setFormData({ ...formData, username: e.target.value })}
-                  className="w-full px-4 py-3 rounded-lg bg-midnight-purple bg-opacity-30 border border-midnight-bright-purple border-opacity-30 text-white placeholder-gray-500 focus:outline-none focus:border-midnight-glow transition-all"
+                  className="w-full px-4 py-3 rounded-xl bg-indigo border-2 border-lavender-20 text-cream placeholder:text-lavender focus:outline-none focus:border-lavender transition-colors"
                   placeholder={t('enter_username')}
                   required
                 />
               </div>
 
-              {/* Email */}
               <div>
-                <label className="block text-midnight-silver text-sm font-semibold mb-2">
-                  <i className="fas fa-envelope mr-2 text-midnight-glow"></i>{t('email')}
+                <label className="flex items-center gap-2 text-cream text-sm font-semibold mb-2">
+                  <Envelope size={16} weight="bold" className="text-coral" />{t('email')}
                 </label>
                 <input
                   type="email"
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  className="w-full px-4 py-3 rounded-lg bg-midnight-purple bg-opacity-30 border border-midnight-bright-purple border-opacity-30 text-white placeholder-gray-500 focus:outline-none focus:border-midnight-glow transition-all"
+                  className="w-full px-4 py-3 rounded-xl bg-indigo border-2 border-lavender-20 text-cream placeholder:text-lavender focus:outline-none focus:border-lavender transition-colors"
                   placeholder={t('enter_email')}
                   required
                 />
               </div>
 
-              {/* Password */}
               <div>
-                <label className="block text-midnight-silver text-sm font-semibold mb-2">
-                  <i className="fas fa-lock mr-2 text-midnight-glow"></i>{t('password')}
+                <label className="flex items-center gap-2 text-cream text-sm font-semibold mb-2">
+                  <Lock size={16} weight="bold" className="text-coral" />{t('password')}
                 </label>
                 <input
                   type="password"
                   value={formData.password}
                   onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                  className="w-full px-4 py-3 rounded-lg bg-midnight-purple bg-opacity-30 border border-midnight-bright-purple border-opacity-30 text-white placeholder-gray-500 focus:outline-none focus:border-midnight-glow transition-all"
+                  className="w-full px-4 py-3 rounded-xl bg-indigo border-2 border-lavender-20 text-cream placeholder:text-lavender focus:outline-none focus:border-lavender transition-colors"
                   placeholder={t('enter_password')}
                   required
                 />
-                <p className="text-xs text-midnight-silver mt-1">{t('password_requirements')}</p>
+                <p className="text-xs text-lavender mt-1">{t('password_requirements')}</p>
               </div>
 
-              {/* Confirm Password */}
               <div>
-                <label className="block text-midnight-silver text-sm font-semibold mb-2">
-                  <i className="fas fa-lock mr-2 text-midnight-glow"></i>{t('confirm_password')}
+                <label className="flex items-center gap-2 text-cream text-sm font-semibold mb-2">
+                  <Lock size={16} weight="bold" className="text-coral" />{t('confirm_password')}
                 </label>
                 <input
                   type="password"
                   value={formData.confirmPassword}
                   onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
-                  className="w-full px-4 py-3 rounded-lg bg-midnight-purple bg-opacity-30 border border-midnight-bright-purple border-opacity-30 text-white placeholder-gray-500 focus:outline-none focus:border-midnight-glow transition-all"
+                  className="w-full px-4 py-3 rounded-xl bg-indigo border-2 border-lavender-20 text-cream placeholder:text-lavender focus:outline-none focus:border-lavender transition-colors"
                   placeholder={t('repeat_password')}
                   required
                 />
               </div>
 
-              {/* Info note */}
-              <div className="flex items-start gap-3 px-4 py-3 bg-midnight-purple bg-opacity-20 rounded-lg border border-midnight-bright-purple border-opacity-20 text-sm">
-                <i className="fas fa-info-circle text-midnight-glow mt-0.5"></i>
-                <p className="text-midnight-silver">
-                  {t('register_info')}
-                </p>
+              <div className="flex items-start gap-3 px-4 py-3 bg-indigo rounded-xl border-2 border-lavender-20 text-sm">
+                <Info size={18} weight="bold" className="text-coral mt-0.5 shrink-0" />
+                <p className="text-lavender">{t('register_info')}</p>
               </div>
 
-              {/* Submit */}
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full bg-gradient-to-r from-midnight-purple to-midnight-bright-purple text-white font-bold py-4 px-4 rounded-lg hover:shadow-lg hover:shadow-midnight-glow/30 transform hover:-translate-y-0.5 transition-all disabled:opacity-50 disabled:transform-none"
+                className="w-full bg-coral text-indigo font-bold py-4 px-4 rounded-full hover:opacity-90 transition-opacity disabled:opacity-50"
               >
                 {loading ? (
-                  <><i className="fas fa-circle-notch fa-spin mr-2"></i>{t('loading')}...</>
+                  <span className="flex items-center justify-center gap-2">
+                    <CircleNotch size={20} weight="bold" className="animate-spin" />{t('loading')}...
+                  </span>
                 ) : (
-                  <><i className="fas fa-user-plus mr-2"></i>{t('create_account')}</>
+                  <span className="flex items-center justify-center gap-2">
+                    <UserPlus size={20} weight="bold" />{t('create_account')}
+                  </span>
                 )}
               </button>
             </form>
 
-            {/* Login link */}
-            <div className="text-center mt-6 pt-6 border-t border-midnight-bright-purple border-opacity-20">
-              <p className="text-midnight-silver">
+            <div className="text-center mt-6 pt-6 border-t border-lavender-20">
+              <p className="text-lavender">
                 {t('have_account')}{' '}
-                <Link to="/login" className="text-midnight-glow font-semibold hover:underline">
+                <Link to="/login" className="text-coral font-semibold hover:underline">
                   {t('login_here')}
                 </Link>
               </p>

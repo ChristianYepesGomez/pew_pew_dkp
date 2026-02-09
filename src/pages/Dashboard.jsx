@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { Users, CalendarDots, Gavel, ClockCounterClockwise, Skull, Crown } from '@phosphor-icons/react'
 import { useAuth } from '../hooks/useAuth'
 import { useLanguage } from '../hooks/useLanguage'
 import { calendarAPI } from '../services/api'
@@ -9,8 +10,6 @@ import HistoryTab from '../components/Auction/HistoryTab'
 import CalendarTab from '../components/Calendar/CalendarTab'
 import AdminTab from '../components/Admin/AdminTab'
 import BossesTab from '../components/Bosses/BossesTab'
-import BISTab from '../components/BIS/BISTab'
-import AnalyticsTab from '../components/Analytics/AnalyticsTab'
 
 const Dashboard = () => {
   const [activeTab, setActiveTab] = useState('members')
@@ -19,11 +18,7 @@ const Dashboard = () => {
   const { user } = useAuth()
 
   const isAdmin = user?.role === 'admin'
-  const isOfficer = user?.role === 'officer'
-  const canManage = isAdmin || isOfficer
 
-  // Check for unconfirmed calendar days to show badge
-  // Must match CalendarTab logic: group by raid week, limit to 2 weeks, exclude past days
   useEffect(() => {
     const checkUnconfirmed = async () => {
       try {
@@ -33,7 +28,6 @@ const Dashboard = () => {
         const today = new Date()
         today.setHours(0, 0, 0, 0)
 
-        // Helper: get the Thursday that ends this raid week (matches CalendarTab)
         const getRaidWeekEndThursday = (dateStr) => {
           const d = new Date(dateStr + 'T00:00:00')
           const dayOfWeek = d.getDay()
@@ -43,7 +37,6 @@ const Dashboard = () => {
           return thursdayDate.toISOString().split('T')[0]
         }
 
-        // Group by raid week
         const sortedDates = [...dates].sort((a, b) => a.date.localeCompare(b.date))
         const weekMap = new Map()
         for (const signup of sortedDates) {
@@ -52,7 +45,6 @@ const Dashboard = () => {
           weekMap.get(weekKey).push(signup)
         }
 
-        // Limit to 2 weeks, count unconfirmed (excluding past days)
         const weeks = Array.from(weekMap.entries())
           .sort((a, b) => a[0].localeCompare(b[0]))
           .slice(0, 2)
@@ -72,57 +64,26 @@ const Dashboard = () => {
   }, [activeTab])
 
   const tabs = [
-    { id: 'members', icon: 'fa-users', label: t('members') },
-    { id: 'calendar', icon: 'fa-calendar-alt', label: t('calendar') },
-    { id: 'auction', icon: 'fa-gavel', label: t('active_auction') },
-    { id: 'history', icon: 'fa-history', label: t('auction_history') },
-    { id: 'bosses', icon: 'fa-dragon', label: t('bosses') },
-    { id: 'bis', icon: 'fa-scroll', label: t('bis') },
-    { id: 'stats', icon: 'fa-chart-line', label: t('stats') },
+    { id: 'members', icon: Users, label: t('members') },
+    { id: 'calendar', icon: CalendarDots, label: t('calendar') },
+    { id: 'auction', icon: Gavel, label: t('active_auction') },
+    { id: 'history', icon: ClockCounterClockwise, label: t('auction_history') },
+    { id: 'bosses', icon: Skull, label: t('bosses') },
   ]
 
-  // Only admin can see Admin tab (not officers)
-  if (isAdmin) tabs.push({ id: 'admin', icon: 'fa-crown', label: t('admin') })
+  if (isAdmin) tabs.push({ id: 'admin', icon: Crown, label: t('admin') })
 
   return (
-    <div className="min-h-screen">
-      <Header />
+    <div className="flex min-h-screen flex-col gap-14 p-12">
+      <Header tabs={tabs} activeTab={activeTab} onTabChange={setActiveTab} />
 
-      <div className="container mx-auto px-4 py-8 max-w-7xl">
-        {/* Tabs - Centered */}
-        <div className="flex flex-wrap justify-center gap-2 mb-8 border-b-2 border-midnight-bright-purple border-opacity-30 pb-4">
-          {tabs.map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`relative px-6 py-3 rounded-t-lg font-cinzel text-base tracking-wide transition-all duration-300 ${
-                activeTab === tab.id
-                  ? 'bg-gradient-to-r from-midnight-purple to-midnight-bright-purple text-white shadow-lg'
-                  : 'bg-transparent text-midnight-silver hover:bg-midnight-bright-purple hover:bg-opacity-10'
-              }`}
-            >
-              <i className={`fas ${tab.icon} mr-2`}></i>
-              {tab.label}
-              {tab.id === 'calendar' && calendarBadge > 0 && activeTab !== 'calendar' && (
-                <span className="absolute -top-1 -right-1 w-5 h-5 bg-orange-500 text-white text-xs font-bold rounded-full flex items-center justify-center animate-pulse-subtle">
-                  {calendarBadge}
-                </span>
-              )}
-            </button>
-          ))}
-        </div>
-
-        {/* Content */}
-        <div className="animate-fade-in">
-          {activeTab === 'members' && <MembersTab />}
-          {activeTab === 'bosses' && <BossesTab />}
-          {activeTab === 'calendar' && <CalendarTab />}
-          {activeTab === 'auction' && <AuctionTab />}
-          {activeTab === 'history' && <HistoryTab />}
-          {activeTab === 'bis' && <BISTab />}
-          {activeTab === 'stats' && <AnalyticsTab />}
-          {activeTab === 'admin' && isAdmin && <AdminTab />}
-        </div>
+      <div className="mx-auto w-full max-w-[960px] animate-fade-in">
+        {activeTab === 'members' && <MembersTab />}
+        {activeTab === 'bosses' && <BossesTab />}
+        {activeTab === 'calendar' && <CalendarTab />}
+        {activeTab === 'auction' && <AuctionTab />}
+        {activeTab === 'history' && <HistoryTab />}
+        {activeTab === 'admin' && isAdmin && <AdminTab />}
       </div>
     </div>
   )

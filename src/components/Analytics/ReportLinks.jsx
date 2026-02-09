@@ -1,4 +1,5 @@
 import { useLanguage } from '../../hooks/useLanguage'
+import { Scroll, Microscope, Skull } from '@phosphor-icons/react'
 
 const ReportLinks = ({ reportCode, characterName = null }) => {
   const { t } = useLanguage()
@@ -7,7 +8,7 @@ const ReportLinks = ({ reportCode, characterName = null }) => {
   const links = [
     {
       href: `https://www.warcraftlogs.com/reports/${reportCode}`,
-      icon: 'fa-scroll',
+      Icon: Scroll,
       label: 'WCL',
       color: 'text-orange-400 hover:text-orange-300',
     },
@@ -16,7 +17,7 @@ const ReportLinks = ({ reportCode, characterName = null }) => {
   if (characterName) {
     links.push({
       href: `https://wowanalyzer.com/report/${reportCode}/${encodeURIComponent(characterName)}`,
-      icon: 'fa-microscope',
+      Icon: Microscope,
       label: 'Analyze',
       color: 'text-blue-400 hover:text-blue-300',
     })
@@ -24,7 +25,7 @@ const ReportLinks = ({ reportCode, characterName = null }) => {
 
   links.push({
     href: `https://www.wipefest.gg/report/${reportCode}`,
-    icon: 'fa-skull-crossbones',
+    Icon: Skull,
     label: 'Wipefest',
     color: 'text-red-400 hover:text-red-300',
   })
@@ -37,10 +38,10 @@ const ReportLinks = ({ reportCode, characterName = null }) => {
           href={link.href}
           target="_blank"
           rel="noopener noreferrer"
-          className={`inline-flex items-center gap-1 px-2 py-1 rounded text-xs ${link.color} bg-midnight-purple bg-opacity-30 hover:bg-opacity-50 transition-all`}
+          className={`inline-flex items-center gap-1 px-2 py-1 rounded text-xs ${link.color} bg-lavender-12/30 hover:bg-lavender-12/50 transition-all`}
           title={link.label}
         >
-          <i className={`fas ${link.icon}`}></i>
+          <link.Icon size={14} />
           <span className="hidden sm:inline">{link.label}</span>
         </a>
       ))}
