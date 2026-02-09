@@ -1,8 +1,9 @@
 import { useState } from 'react'
 import { Link, useParams, useNavigate } from 'react-router-dom'
-import { Lock, FloppyDisk, CircleNotch, WarningCircle, CheckCircle, ArrowLeft } from '@phosphor-icons/react'
+import { CircleNotch, WarningCircle, CheckCircle } from '@phosphor-icons/react'
 import { useLanguage } from '../hooks/useLanguage'
 import { authAPI } from '../services/api'
+import CatLogo from '../components/Layout/CatLogo'
 import Button from '../components/UI/Button'
 import Input from '../components/UI/Input'
 
@@ -58,35 +59,34 @@ const ResetPassword = () => {
           </Button>
         </div>
 
-        <div className="bg-lavender-12 rounded-2xl overflow-hidden">
-          <div className="p-8 text-center border-b border-lavender-20">
-            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-indigo flex items-center justify-center border-2 border-lavender-20">
-              <Lock size={32} className="text-coral" />
-            </div>
-            <h2 className="text-2xl font-bold text-coral mb-2">{t('reset_password')}</h2>
+        <div className="flex flex-col items-center justify-start bg-lavender-12 rounded-3xl overflow-hidden p-10 space-y-8">
+          <CatLogo size={220} />
+
+          <div className="text-center space-y-2">
+            <h2 className="text-2xl font-bold text-coral">{t('reset_password')}</h2>
             <p className="text-lavender text-sm">{t('reset_password_desc')}</p>
           </div>
 
-          <div className="p-6">
+          <div className="w-full">
             {error && (
-              <div className="bg-red-500/20 border border-red-500 text-red-400 px-4 py-3 rounded-xl mb-6 flex items-center gap-2">
+              <div className="w-full bg-red-500/20 border border-red-500 text-red-400 px-4 py-3 rounded-xl mb-6 flex items-center gap-2">
                 <WarningCircle size={20} />
                 <span>{error}</span>
               </div>
             )}
 
             {message && (
-              <div className="bg-teal/20 border border-teal text-teal px-4 py-3 rounded-xl mb-6 flex items-center gap-2">
+              <div className="w-full bg-teal/20 border border-teal text-teal px-4 py-3 rounded-xl mb-6 flex items-center gap-2">
                 <CheckCircle size={20} />
                 <span>{message}</span>
               </div>
             )}
 
             {!message ? (
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div>
-                  <label className="flex items-center gap-2 text-cream text-sm font-semibold mb-2">
-                    <Lock size={16} className="text-coral" />{t('new_password')}
+              <form onSubmit={handleSubmit} className="w-full flex flex-col gap-6">
+                <div className="w-full flex flex-col gap-2">
+                  <label className="block text-cream text-sm font-semibold px-2">
+                    {t('new_password')}
                   </label>
                   <Input
                     type="password"
@@ -97,9 +97,9 @@ const ResetPassword = () => {
                   />
                 </div>
 
-                <div>
-                  <label className="flex items-center gap-2 text-cream text-sm font-semibold mb-2">
-                    <Lock size={16} className="text-coral" />{t('confirm_password')}
+                <div className="w-full flex flex-col gap-2">
+                  <label className="block text-cream text-sm font-semibold px-2">
+                    {t('confirm_password')}
                   </label>
                   <Input
                     type="password"
@@ -123,28 +123,19 @@ const ResetPassword = () => {
                       <CircleNotch size={20} className="animate-spin" />{t('loading')}...
                     </span>
                   ) : (
-                    <span className="flex items-center justify-center gap-2">
-                      <FloppyDisk size={20} />{t('change_password')}
-                    </span>
+                    <span>{t('change_password')}</span>
                   )}
                 </Button>
               </form>
-            ) : (
-              <div className="text-center py-4">
-                <p className="text-lavender text-sm">{t('redirecting_to_login')}</p>
-              </div>
-            )}
-
-            <div className="text-center mt-6 pt-6 border-t border-lavender-20">
-              <Link
-                to="/login"
-                className="text-lavender hover:text-cream transition-colors text-sm flex items-center justify-center gap-2"
-              >
-                <ArrowLeft size={16} />{t('back_to_login')}
-              </Link>
-            </div>
+            ) : null}
           </div>
         </div>
+
+        <p className="text-lavender text-center mt-6">
+          <Link to="/login" className="text-coral font-semibold hover:underline">
+            {t('back_to_login')}
+          </Link>
+        </p>
       </div>
     </div>
   )
