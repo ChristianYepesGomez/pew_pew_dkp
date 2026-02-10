@@ -316,6 +316,7 @@ const MembersTab = () => {
           onChange={(e) => setFilterText(e.target.value)}
           placeholder={t('search_name')}
           size="md"
+          fullWidth={false}
           className="w-[211px]"
         />
         <PopoverMenu
