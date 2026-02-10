@@ -151,7 +151,7 @@ const Register = () => {
                   type="password"
                   value={formData.password}
                   onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                  placeholder={t('enter_password')}
+                  placeholder={t('password_placeholder')}
                   required
                 />
               </div>
@@ -164,7 +164,7 @@ const Register = () => {
                   type="password"
                   value={formData.confirmPassword}
                   onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
-                  placeholder={t('repeat_password')}
+                  placeholder={t('password_placeholder')}
                   required
                 />
               </div>

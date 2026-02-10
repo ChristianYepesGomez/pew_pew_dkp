@@ -54,7 +54,7 @@ const PopoverMenu = ({
           id={menuId}
           role="menu"
           className={cn(
-            'absolute z-50 mt-2 rounded-2xl border border-lavender-20 bg-lavender-12 p-2 shadow-xl',
+            'absolute z-50 mt-2 rounded-2xl border-2 border-lavender-20 bg-lavender-12-solid p-2 shadow-xl',
             placement === 'left' ? 'left-0' : 'right-0',
             menuClassName,
           )}
@@ -78,7 +78,7 @@ export const PopoverMenuItem = ({
     type="button"
     role="menuitem"
     className={cn(
-      'flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-base font-semibold text-cream transition-colors hover:bg-lavender-20',
+      'flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-sm font-medium text-cream transition-colors hover:bg-lavender-20',
       trailing && 'justify-between',
       className,
     )}
@@ -94,7 +94,7 @@ export const PopoverMenuItem = ({
 )
 
 export const PopoverMenuDivider = ({ className = '' }) => (
-  <div className={cn('my-1 h-px bg-lavender-20/60', className)} />
+  <div className={cn('-mx-2 my-1 h-px bg-lavender-20/15', className)} />
 )
 
 export default PopoverMenu

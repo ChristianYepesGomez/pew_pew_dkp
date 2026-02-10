@@ -750,21 +750,21 @@ const MyCharacterModal = ({
                     type="password"
                     value={currentPassword}
                     onChange={(e) => setCurrentPassword(e.target.value)}
-                    placeholder={t('current_password')}
+                    placeholder={t('password_placeholder')}
                     className="w-full bg-lavender-12/30 border border-lavender-20/30 rounded-lg px-3 py-2 text-white text-sm placeholder-gray-500 focus:outline-none focus:border-coral"
                   />
                   <input
                     type="password"
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
-                    placeholder={t('new_password')}
+                    placeholder={t('password_placeholder')}
                     className="w-full bg-lavender-12/30 border border-lavender-20/30 rounded-lg px-3 py-2 text-white text-sm placeholder-gray-500 focus:outline-none focus:border-coral"
                   />
                   <input
                     type="password"
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
-                    placeholder={t('confirm_password')}
+                    placeholder={t('password_placeholder')}
                     className="w-full bg-lavender-12/30 border border-lavender-20/30 rounded-lg px-3 py-2 text-white text-sm placeholder-gray-500 focus:outline-none focus:border-coral"
                   />
                   <button

@@ -138,7 +138,6 @@ const Header = ({ tabs = [], activeTab, onTabChange }) => {
             </>
           )}
 
-
           <PopoverMenuItem
             leading={<Translate size={18} />}
             onClick={handleToggleLanguage}

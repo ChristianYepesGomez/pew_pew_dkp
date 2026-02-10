@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { createPortal } from 'react-dom'
-import { Users, X, CircleNotch, Skull, Crown } from '@phosphor-icons/react'
+import { Users, X, CircleNotch, Skull, Crown, CaretDown } from '@phosphor-icons/react'
 import { useAuth } from '../../hooks/useAuth'
 import { useSocket } from '../../hooks/useSocket'
 import { useLanguage } from '../../hooks/useLanguage'
@@ -11,7 +11,7 @@ import VaultIcon from '../Common/VaultIcon'
 import CLASS_COLORS from '../../utils/classColors'
 import SectionHeader from '../UI/SectionHeader'
 import PillInput from '../UI/PillInput'
-import PillSelect from '../UI/PillSelect'
+import PopoverMenu, { PopoverMenuItem } from '../UI/PopoverMenu'
 import SurfaceCard from '../UI/SurfaceCard'
 import PillBadge from '../UI/PillBadge'
 import SortableHeader from '../UI/SortableHeader'
@@ -77,6 +77,7 @@ const MembersTab = () => {
   const [sortDir, setSortDir] = useState('desc')
   const [filterText, setFilterText] = useState('')
   const [filterRole, setFilterRole] = useState('all')
+  const [roleMenuOpen, setRoleMenuOpen] = useState(false)
   const isAdmin = user?.role === 'admin'
   const isOfficer = user?.role === 'officer'
   const canManageVault = isAdmin || isOfficer
@@ -290,17 +291,46 @@ const MembersTab = () => {
           value={filterText}
           onChange={(e) => setFilterText(e.target.value)}
           placeholder={t('search_name')}
+          size="md"
           className="w-[211px]"
         />
-        <PillSelect
-          value={filterRole}
-          onChange={(e) => setFilterRole(e.target.value)}
+        <PopoverMenu
+          open={roleMenuOpen}
+          onOpenChange={setRoleMenuOpen}
+          menuId="role-filter-menu"
+          placement="right"
+          menuClassName="min-w-32 w-max max-w-xs"
+          trigger={({ open, triggerProps }) => (
+            <button
+              {...triggerProps}
+              className="flex items-center gap-2 h-10 whitespace-nowrap rounded-full bg-transparent px-4 py-2 text-sm font-medium text-cream outline outline-2 outline-lavender-20 transition-colors hover:bg-lavender-12"
+            >
+              {filterRole === 'all' ? t('all_roles') : t(filterRole.toLowerCase())}
+              <CaretDown
+                size={14}
+                className={`text-cream transition-transform ${open ? 'rotate-180' : ''}`}
+              />
+            </button>
+          )}
         >
-          <option value="all">{t('all_roles')}</option>
-          <option value="Tank">{t('tank')}</option>
-          <option value="Healer">{t('healer')}</option>
-          <option value="DPS">{t('dps')}</option>
-        </PillSelect>
+          {[
+            { value: 'all', label: t('all_roles') },
+            { value: 'Tank', label: t('tank') },
+            { value: 'Healer', label: t('healer') },
+            { value: 'DPS', label: t('dps') },
+          ].map((option) => (
+            <PopoverMenuItem
+              key={option.value}
+              onClick={() => {
+                setFilterRole(option.value)
+                setRoleMenuOpen(false)
+              }}
+              className={filterRole === option.value ? 'text-coral' : ''}
+            >
+              {option.label}
+            </PopoverMenuItem>
+          ))}
+        </PopoverMenu>
       </SectionHeader>
 
       <SurfaceCard>

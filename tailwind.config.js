@@ -33,6 +33,7 @@ export default {
         lavender: {
           DEFAULT: '#b1a7d0',
           12: '#b1a7d01f',
+          '12-solid': '#221e35',
           20: '#b1a7d033',
         },
         teal: '#40c7be',
