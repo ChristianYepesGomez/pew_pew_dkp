@@ -64,6 +64,21 @@ const ROLE_COLORS = {
   Healer: 'teal',
 }
 
+const DEFAULT_SORT_DIRECTION = {
+  characterName: 'asc',
+  spec: 'asc',
+  raidRole: 'asc',
+  currentDkp: 'desc',
+}
+
+const getSortValue = (member, field) => {
+  if (field === 'currentDkp') return Number(member.currentDkp || 0)
+  if (field === 'characterName') return (member.characterName || '').toLowerCase()
+  if (field === 'spec') return (member.spec || '').toLowerCase()
+  if (field === 'raidRole') return (member.raidRole || '').toLowerCase()
+  return member[field]
+}
+
 const MembersTab = () => {
   const { user } = useAuth()
   const { t } = useLanguage()
@@ -81,6 +96,11 @@ const MembersTab = () => {
   const isAdmin = user?.role === 'admin'
   const isOfficer = user?.role === 'officer'
   const canManageVault = isAdmin || isOfficer
+  const tableGridStyle = {
+    gridTemplateColumns: isAdmin
+      ? 'minmax(12rem, 2.2fr) minmax(10rem, 1.7fr) minmax(7.5rem, 1.2fr) minmax(4rem, 0.8fr) 2.25rem'
+      : 'minmax(12rem, 2.2fr) minmax(10rem, 1.7fr) minmax(7.5rem, 1.2fr) minmax(4rem, 0.8fr)',
+  }
   const [avatarPreview, setAvatarPreview] = useState(null)
   const [armoryMemberId, setArmoryMemberId] = useState(null)
 
@@ -185,10 +205,10 @@ const MembersTab = () => {
 
   const handleSort = (field) => {
     if (sortField === field) {
-      setSortDir(sortDir === 'asc' ? 'desc' : 'asc')
+      setSortDir((prev) => (prev === 'asc' ? 'desc' : 'asc'))
     } else {
       setSortField(field)
-      setSortDir('desc')
+      setSortDir(DEFAULT_SORT_DIRECTION[field] || 'asc')
     }
   }
 
@@ -208,17 +228,21 @@ const MembersTab = () => {
     }
 
     return [...filtered].sort((a, b) => {
-      let aVal = a[sortField]
-      let bVal = b[sortField]
+      const aVal = getSortValue(a, sortField)
+      const bVal = getSortValue(b, sortField)
 
-      if (typeof aVal === 'string') aVal = aVal?.toLowerCase() || ''
-      if (typeof bVal === 'string') bVal = bVal?.toLowerCase() || ''
-
-      if (sortDir === 'asc') {
-        return aVal > bVal ? 1 : -1
+      let comparison = 0
+      if (typeof aVal === 'number' && typeof bVal === 'number') {
+        comparison = aVal - bVal
       } else {
-        return aVal < bVal ? 1 : -1
+        comparison = String(aVal ?? '').localeCompare(String(bVal ?? ''), undefined, { numeric: true, sensitivity: 'base' })
       }
+
+      if (comparison === 0) {
+        return (a.characterName || '').localeCompare(b.characterName || '', undefined, { sensitivity: 'base' })
+      }
+
+      return sortDir === 'asc' ? comparison : -comparison
     })
   }, [members, filterText, filterRole, sortField, sortDir])
 
@@ -334,14 +358,16 @@ const MembersTab = () => {
       </SectionHeader>
 
       <SurfaceCard>
-        <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_fit-content(100%)] gap-x-4 gap-y-3 items-center">
+        <div className="grid gap-x-4 gap-y-3 items-center" style={tableGridStyle}>
           <div className="pb-4">
             <SortableHeader field="characterName" sortField={sortField} sortDir={sortDir} onSort={handleSort}>
               {t('character')}
             </SortableHeader>
           </div>
           <div className="pb-4">
-            <span className="text-xs font-bold text-cream">{t('spec')}</span>
+            <SortableHeader field="spec" sortField={sortField} sortDir={sortDir} onSort={handleSort}>
+              {t('spec')}
+            </SortableHeader>
           </div>
           <div className="pb-4">
             <SortableHeader field="raidRole" sortField={sortField} sortDir={sortDir} onSort={handleSort}>
@@ -353,25 +379,21 @@ const MembersTab = () => {
               DKP
             </SortableHeader>
           </div>
+          {isAdmin && (
+            <div className="pb-4 text-right">
+              <span className="text-xs font-bold text-cream">{t('actions')}</span>
+            </div>
+          )}
 
           {filteredAndSortedMembers.map((m) => {
             const classColor = CLASS_COLORS[m.characterClass] || '#FFFFFF'
             const role = m.raidRole || 'DPS'
             const roleColor = ROLE_COLORS[role] || 'coral'
+            const isCurrentUser = m.id === user?.id
 
             return (
               <React.Fragment key={m.id}>
                 <div className="flex items-center gap-2">
-                  {isAdmin && (
-                    <button
-                      onClick={(e) => { e.stopPropagation(); setDeleteModal({ open: true, member: m }) }}
-                      className={`text-red-500 transition-opacity text-xs ${m.id === user?.id ? 'invisible' : 'opacity-0 hover:opacity-100'}`}
-                      title={t('remove_member')}
-                      disabled={m.id === user?.id}
-                    >
-                      <X size={14} />
-                    </button>
-                  )}
                   <button
                     onClick={() => setArmoryMemberId(m.id)}
                     className="text-base font-semibold mix-blend-screen hover:underline cursor-pointer"
@@ -424,6 +446,19 @@ const MembersTab = () => {
                     <Crown size={14} weight="fill" className="text-yellow-400" />
                   )}
                 </div>
+
+                {isAdmin && (
+                  <div className="flex justify-end">
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setDeleteModal({ open: true, member: m }) }}
+                      className={`transition-colors text-xs ${isCurrentUser ? 'text-red-500/35 cursor-not-allowed' : 'text-red-400 hover:text-red-300'}`}
+                      title={t('remove_member')}
+                      disabled={isCurrentUser}
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
+                )}
               </React.Fragment>
             )
           })}
