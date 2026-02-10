@@ -10,6 +10,9 @@ import BidModal from './BidModal'
 import WowheadTooltip from '../Common/WowheadTooltip'
 import CLASS_COLORS from '../../utils/classColors'
 import RARITY_COLORS from '../../utils/rarityColors'
+import SectionHeader from '../UI/SectionHeader'
+import SurfaceCard from '../UI/SurfaceCard'
+import Button from '../UI/Button'
 import {
   MusicNotes,
   X,
@@ -121,7 +124,7 @@ const SoundSettingsModal = ({
                 <p className="text-xs text-lavender m-0">{t('sound_settings_subtitle') || 'Personaliza el sonido de las notificaciones'}</p>
               </div>
             </div>
-            <button onClick={onClose} className="text-gray-400 hover:text-cream text-xl">
+            <button onClick={onClose} className="text-xl text-lavender transition-colors hover:text-cream">
               <X size={20} />
             </button>
           </div>
@@ -140,7 +143,7 @@ const SoundSettingsModal = ({
                 className={`p-3 rounded-xl border transition-all cursor-pointer ${
                   isSelected
                     ? 'bg-lavender-12/30 border-coral'
-                    : 'bg-white/5 border-gray-700 hover:border-lavender-20'
+                    : 'bg-indigo/60 border-lavender-20/30 hover:border-lavender-20'
                 }`}
                 onClick={() => {
                   if (!isCustom || hasCustomSound) {
@@ -151,7 +154,7 @@ const SoundSettingsModal = ({
                 <div className="flex items-center gap-3">
                   {/* Selection indicator */}
                   <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
-                    isSelected ? 'border-coral bg-coral' : 'border-gray-500'
+                    isSelected ? 'border-coral bg-coral' : 'border-lavender/50'
                   }`}>
                     {isSelected && <Check size={12} className="text-cream" />}
                   </div>
@@ -456,9 +459,8 @@ const AuctionTab = () => {
   if (loading) return <div className="text-center py-20"><CircleNotch size={48} className="text-coral animate-spin mx-auto" /></div>
 
   return (
-    <div className="rounded-2xl">
-      <div className="flex justify-between items-center mb-6">
-        <h3 className="mb-0 flex items-center gap-3"><Gavel size={24} weight="fill" />{t('active_auction_title')}</h3>
+    <div className="space-y-6">
+      <SectionHeader icon={Gavel} title={t('active_auction_title')}>
         <div className="flex items-center gap-3">
           {/* Notification Controls */}
           {isSupported && (
@@ -466,12 +468,12 @@ const AuctionTab = () => {
               {/* Notification Toggle */}
               <button
                 onClick={isEnabled ? disableNotifications : enableNotifications}
-                className={`px-3 py-2 rounded-l-lg flex items-center gap-2 text-sm transition-all ${
+                className={`h-10 rounded-l-full border px-3 text-sm transition-colors ${
                   isEnabled
-                    ? 'bg-green-600/20 text-green-400 border border-green-600'
+                    ? 'border-teal bg-teal/10 text-teal'
                     : permission === 'denied'
-                      ? 'bg-red-600/20 text-red-400 border border-red-600 cursor-not-allowed'
-                      : 'bg-white/10 text-gray-300 hover:bg-white/20 border border-gray-600'
+                      ? 'cursor-not-allowed border-red-600 bg-red-600/20 text-red-400'
+                      : 'border-lavender-20 bg-indigo text-lavender hover:bg-lavender-12 hover:text-cream'
                 }`}
                 title={
                   isEnabled
@@ -492,10 +494,10 @@ const AuctionTab = () => {
                 <>
                   <button
                     onClick={toggleSound}
-                    className={`px-2 py-2 text-sm transition-all border-l-0 ${
+                    className={`h-10 border border-l-0 px-2 text-sm transition-colors ${
                       soundEnabled
-                        ? 'bg-green-600/20 text-green-400 border border-green-600'
-                        : 'bg-white/10 text-gray-400 border border-gray-600 hover:bg-white/20'
+                        ? 'border-teal bg-teal/10 text-teal'
+                        : 'border-lavender-20 bg-indigo text-lavender hover:bg-lavender-12 hover:text-cream'
                     }`}
                     title={soundEnabled ? (t('sound_on') || 'Sonido ON') : (t('sound_off') || 'Sonido OFF')}
                   >
@@ -503,7 +505,7 @@ const AuctionTab = () => {
                   </button>
                   <button
                     onClick={() => setShowSoundModal(true)}
-                    className="px-2 py-2 rounded-r-lg text-sm transition-all border-l-0 bg-white/10 text-gray-300 border border-gray-600 hover:bg-white/20 hover:text-coral"
+                    className="h-10 rounded-r-full border border-l-0 border-lavender-20 bg-indigo px-2 text-sm text-lavender transition-colors hover:bg-lavender-12 hover:text-coral"
                     title={t('sound_settings') || 'Configurar sonido'}
                   >
                     <GearSix size={16} weight="fill" />
@@ -514,135 +516,145 @@ const AuctionTab = () => {
           )}
 
           {isAdmin && (
-            <button
+            <Button
               onClick={() => setShowCreateModal(true)}
-              className="px-4 py-2 bg-coral text-indigo rounded-lg hover:shadow-lg flex items-center gap-2 font-bold"
+              variant="primary"
+              size="md"
+              radius="pill"
+              icon={PlusCircle}
+              className="font-bold"
             >
-              <PlusCircle size={18} />{t('create_auction')}
-            </button>
+              {t('create_auction')}
+            </Button>
           )}
         </div>
-      </div>
+      </SectionHeader>
 
-      {auctions.length === 0 ? (
-        <p className="text-center text-gray-400 py-8">{t('no_active_auction')}</p>
-      ) : (
-        <div className="space-y-4">
-          {auctions.map((auction) => {
-            const time = timeRemaining[auction.id]
-            const isExpired = time?.expired
+      <SurfaceCard className="space-y-4 p-5 sm:p-6">
+        {auctions.length === 0 ? (
+          <p className="py-8 text-center text-lavender">{t('no_active_auction')}</p>
+        ) : (
+          <div className="space-y-4">
+            {auctions.map((auction) => {
+              const time = timeRemaining[auction.id]
+              const isExpired = time?.expired
 
-            return (
-              <div
-                key={auction.id}
-                className={`bg-lavender-12 rounded-xl p-4 border border-lavender-20/50 ${isExpired ? 'opacity-60' : ''}`}
-              >
-                <div className="flex items-center gap-4">
-                  {/* Item Icon */}
-                  <WowheadTooltip itemId={auction.itemId}>
-                    <div
-                      className="w-14 h-14 rounded-lg bg-indigo flex items-center justify-center border-2 flex-shrink-0 overflow-hidden"
-                      style={{ borderColor: RARITY_COLORS[auction.itemRarity] }}
-                    >
-                      {auction.itemImage && auction.itemImage !== '🎁' ? (
-                        <img
-                          src={auction.itemImage}
-                          alt={auction.itemName}
-                          className="w-full h-full object-cover"
-                          onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'block'; }}
-                        />
-                      ) : null}
-                      <Diamond
-                        size={28}
-                        weight="fill"
-                        style={{
-                          color: RARITY_COLORS[auction.itemRarity],
-                          display: auction.itemImage && auction.itemImage !== '🎁' ? 'none' : 'block'
-                        }}
-                      />
-                    </div>
-                  </WowheadTooltip>
-
-                  {/* Item Name + BIS Badge */}
-                  <div className="flex-1 min-w-0">
-                    <h4
-                      className="text-lg mb-0 truncate"
-                      style={{ color: RARITY_COLORS[auction.itemRarity] }}
-                    >
-                      {auction.itemName}
-                    </h4>
-                    {bisData[auction.id]?.length > 0 && (
-                      <div className="flex items-center gap-1 mt-1" title={bisData[auction.id].map(b => `${b.character_name}${b.priority ? ` #${b.priority}` : ''}`).join(', ')}>
-                        <Crosshair size={12} className="text-yellow-400" />
-                        <span className="text-xs text-yellow-400">
-                          {bisData[auction.id].length} {t('bis_raiders_want')}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Highest Bidder / Tie Info */}
-                  <div className="text-center min-w-[120px]">
-                    <p className="text-xs text-lavender m-0 mb-1">
-                      {auction.hasTie ? t('tied_bidders') : t('highest_bidder')}
-                    </p>
-                    {auction.hasTie ? (
-                      <div className="flex items-center justify-center gap-1">
-                        <DiceFive size={16} weight="fill" className="text-yellow-400 animate-pulse" />
-                        <span className="text-yellow-400 font-bold">{auction.tiedBidders?.length || 0}</span>
-                        <span className="text-xs text-lavender">{t('players_tied')}</span>
-                      </div>
-                    ) : auction.highestBidder ? (
-                      <p
-                        className="font-bold m-0 truncate"
-                        style={{ color: CLASS_COLORS[auction.highestBidder.characterClass] || '#FFF' }}
+              return (
+                <div
+                  key={auction.id}
+                  className={`rounded-xl border border-lavender-20/50 bg-indigo p-4 ${isExpired ? 'opacity-60' : ''}`}
+                >
+                  <div className="flex flex-col gap-4 lg:flex-row lg:items-center">
+                    {/* Item Icon */}
+                    <WowheadTooltip itemId={auction.itemId}>
+                      <div
+                        className="h-14 w-14 flex-shrink-0 overflow-hidden rounded-lg border-2 bg-indigo"
+                        style={{ borderColor: RARITY_COLORS[auction.itemRarity] }}
                       >
-                        {auction.highestBidder.characterName}
+                        {auction.itemImage && auction.itemImage !== '🎁' ? (
+                          <img
+                            src={auction.itemImage}
+                            alt={auction.itemName}
+                            className="h-full w-full object-cover"
+                            onError={(e) => { e.target.style.display = 'none'; e.target.nextSibling.style.display = 'block'; }}
+                          />
+                        ) : null}
+                        <Diamond
+                          size={28}
+                          weight="fill"
+                          style={{
+                            color: RARITY_COLORS[auction.itemRarity],
+                            display: auction.itemImage && auction.itemImage !== '🎁' ? 'none' : 'block'
+                          }}
+                          className="mx-auto mt-3"
+                        />
+                      </div>
+                    </WowheadTooltip>
+
+                    {/* Item Name + BIS Badge */}
+                    <div className="min-w-0 flex-1">
+                      <h4
+                        className="mb-0 truncate text-lg"
+                        style={{ color: RARITY_COLORS[auction.itemRarity] }}
+                      >
+                        {auction.itemName}
+                      </h4>
+                      {bisData[auction.id]?.length > 0 && (
+                        <div className="mt-1 flex items-center gap-1" title={bisData[auction.id].map(b => `${b.character_name}${b.priority ? ` #${b.priority}` : ''}`).join(', ')}>
+                          <Crosshair size={12} className="text-yellow-400" />
+                          <span className="text-xs text-yellow-400">
+                            {bisData[auction.id].length} {t('bis_raiders_want')}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Highest Bidder / Tie Info */}
+                    <div className="min-w-[120px] text-left lg:text-center">
+                      <p className="m-0 mb-1 text-xs text-lavender">
+                        {auction.hasTie ? t('tied_bidders') : t('highest_bidder')}
                       </p>
-                    ) : (
-                      <p className="text-gray-500 m-0">-</p>
-                    )}
-                  </div>
+                      {auction.hasTie ? (
+                        <div className="flex items-center justify-center gap-1">
+                          <DiceFive size={16} weight="fill" className="animate-pulse text-yellow-400" />
+                          <span className="font-bold text-yellow-400">{auction.tiedBidders?.length || 0}</span>
+                          <span className="text-xs text-lavender">{t('players_tied')}</span>
+                        </div>
+                      ) : auction.highestBidder ? (
+                        <p
+                          className="m-0 truncate font-bold"
+                          style={{ color: CLASS_COLORS[auction.highestBidder.characterClass] || '#FFF' }}
+                        >
+                          {auction.highestBidder.characterName}
+                        </p>
+                      ) : (
+                        <p className="m-0 text-lavender/60">-</p>
+                      )}
+                    </div>
 
-                  {/* Current Bid */}
-                  <div className="text-center min-w-[100px]">
-                    <p className="text-xs text-lavender m-0 mb-1">{t('current_bid')}</p>
-                    <p className="text-xl font-bold text-green-400 m-0">
-                      {auction.currentBid || 0} <span className="text-sm">DKP</span>
-                    </p>
-                  </div>
+                    {/* Current Bid */}
+                    <div className="min-w-[100px] text-left lg:text-center">
+                      <p className="m-0 mb-1 text-xs text-lavender">{t('current_bid')}</p>
+                      <p className="m-0 text-xl font-bold text-green-400">
+                        {auction.currentBid || 0} <span className="text-sm">DKP</span>
+                      </p>
+                    </div>
 
-                  {/* Time Remaining */}
-                  <div className="text-center min-w-[80px]">
-                    <p className="text-xs text-lavender m-0 mb-1 flex items-center justify-center gap-1">
-                      {t('time_remaining')}
-                      <ShieldStar
-                        size={12}
-                        weight="fill"
-                        className="text-blue-400 cursor-help"
-                        title={t('anti_snipe_info')}
-                      />
-                    </p>
-                    <p className={`text-xl font-mono font-bold m-0 ${getTimeColor(time)}`}>
-                      {formatTime(time)}
-                    </p>
-                  </div>
+                    {/* Time Remaining */}
+                    <div className="min-w-[80px] text-left lg:text-center">
+                      <p className="m-0 mb-1 flex items-center justify-center gap-1 text-xs text-lavender">
+                        {t('time_remaining')}
+                        <ShieldStar
+                          size={12}
+                          weight="fill"
+                          className="cursor-help text-blue-400"
+                          title={t('anti_snipe_info')}
+                        />
+                      </p>
+                      <p className={`m-0 font-mono text-xl font-bold ${getTimeColor(time)}`}>
+                        {formatTime(time)}
+                      </p>
+                    </div>
 
-                  {/* Bid Button */}
-                  <button
-                    onClick={() => setBidModal({ open: true, auction })}
-                    disabled={isExpired}
-                    className="px-6 py-3 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-500 hover:to-green-600 text-cream rounded-lg font-bold transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
-                  >
-                    <HandCoins size={20} weight="fill" />
-                    {t('place_bid')}
-                  </button>
+                    {/* Bid Button */}
+                    <Button
+                      onClick={() => setBidModal({ open: true, auction })}
+                      disabled={isExpired}
+                      variant="success"
+                      size="md"
+                      radius="pill"
+                      icon={HandCoins}
+                      className="w-full shrink-0 font-bold lg:w-auto"
+                    >
+                      {t('place_bid')}
+                    </Button>
+                  </div>
                 </div>
-              </div>
-            )
-          })}
-        </div>
-      )}
+              )
+            })}
+          </div>
+        )}
+      </SurfaceCard>
 
       {/* Create Auction Modal */}
       {showCreateModal && (

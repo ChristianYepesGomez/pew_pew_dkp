@@ -7,6 +7,8 @@ import { auctionsAPI } from '../../services/api'
 import WowheadTooltip from '../Common/WowheadTooltip'
 import CLASS_COLORS from '../../utils/classColors'
 import RARITY_COLORS from '../../utils/rarityColors'
+import SectionHeader from '../UI/SectionHeader'
+import SurfaceCard from '../UI/SurfaceCard'
 
 const HistoryTab = () => {
   const { t, language } = useLanguage()
@@ -60,14 +62,15 @@ const HistoryTab = () => {
   if (loading) return <div className="text-center py-20"><CircleNotch className="animate-spin text-6xl text-coral inline-block" /></div>
 
   return (
-    <div>
-      <h3 className="flex items-center"><ClockCounterClockwise className="mr-3" />{t('auction_history_title')}</h3>
+    <div className="space-y-6">
+      <SectionHeader icon={ClockCounterClockwise} title={t('auction_history_title')} />
 
-      {auctions.length === 0 ? (
-        <p className="text-center text-gray-400 py-8">{t('no_auction_history')}</p>
-      ) : (
-        <div className="space-y-3 mt-6">
-          {auctions.map((a) => {
+      <SurfaceCard className="space-y-3 p-5 sm:p-6">
+        {auctions.length === 0 ? (
+          <p className="py-8 text-center text-lavender">{t('no_auction_history')}</p>
+        ) : (
+          <div className="space-y-3">
+            {auctions.map((a) => {
             // Farewell entry
             if (a.farewell) {
               const fw = a.farewell
@@ -75,7 +78,7 @@ const HistoryTab = () => {
                 <div
                   key={a.id}
                   onClick={() => setFarewellModal(a)}
-                  className="bg-gradient-to-r from-red-900 to-red-800 rounded-lg p-4 flex items-center gap-4 cursor-pointer hover:from-red-800 hover:to-red-700 transition-all border border-red-500/30"
+                  className="flex cursor-pointer items-center gap-4 rounded-xl border border-red-500/30 bg-gradient-to-r from-red-900 to-red-800 p-4 transition-all hover:from-red-800 hover:to-red-700"
                 >
                   <div className="w-12 h-12 rounded-lg bg-indigo flex items-center justify-center border-2 border-red-500 flex-shrink-0">
                     <DoorOpen className="text-xl text-red-400" />
@@ -110,7 +113,7 @@ const HistoryTab = () => {
             const isLoading = bidsData === 'loading'
 
             return (
-              <div key={a.id} className="bg-lavender-12/50 rounded-lg overflow-hidden">
+              <div key={a.id} className="overflow-hidden rounded-xl bg-indigo outline outline-2 outline-lavender-20">
                 <div className="p-4 flex items-center gap-4">
                 {/* Item Icon */}
                 <WowheadTooltip itemId={a.item_id}>
@@ -163,7 +166,7 @@ const HistoryTab = () => {
                           {a.rolls.map((roll, idx) => (
                             <p
                               key={idx}
-                              className={`text-xs m-0 ${roll.isWinner ? 'text-yellow-400 font-bold' : 'text-gray-500'}`}
+                              className={`m-0 text-xs ${roll.isWinner ? 'font-bold text-yellow-400' : 'text-lavender/60'}`}
                             >
                               <span style={{ color: roll.isWinner ? CLASS_COLORS[roll.characterClass] : undefined }}>
                                 {roll.characterName}
@@ -240,9 +243,10 @@ const HistoryTab = () => {
               )}
             </div>
             )
-          })}
-        </div>
-      )}
+            })}
+          </div>
+        )}
+      </SurfaceCard>
 
       {/* Farewell Modal */}
       {farewellModal && createPortal(
@@ -282,7 +286,7 @@ const FarewellModal = ({ auction, onClose, t, formatDate }) => {
                 </p>
               </div>
             </div>
-            <button onClick={onClose} className="text-gray-400 hover:text-cream text-2xl">
+            <button onClick={onClose} className="text-2xl text-lavender transition-colors hover:text-cream">
               <X />
             </button>
           </div>
@@ -336,13 +340,13 @@ const FarewellModal = ({ auction, onClose, t, formatDate }) => {
               </div>
             </>
           ) : (
-            <p className="text-center text-gray-500 py-4">{t('no_items_obtained')}</p>
+            <p className="py-4 text-center text-lavender/70">{t('no_items_obtained')}</p>
           )}
         </div>
 
         {/* Footer */}
         <div className="p-4 border-t border-lavender-20/20 text-center">
-          <p className="text-sm text-gray-500 m-0 italic">{t('farewell_message')}</p>
+          <p className="m-0 text-sm italic text-lavender/70">{t('farewell_message')}</p>
         </div>
       </div>
     </div>

@@ -54,7 +54,7 @@ const PopoverMenu = ({
           id={menuId}
           role="menu"
           className={cn(
-            'absolute z-50 mt-2 rounded-2xl border-2 border-lavender-20 bg-lavender-12-solid p-2 shadow-xl',
+            'absolute z-50 mt-2 rounded-2xl border-2 border-lavender-20 bg-indigo bg-lavender-12-solid p-2 shadow-xl',
             placement === 'left' ? 'left-0' : 'right-0',
             menuClassName,
           )}

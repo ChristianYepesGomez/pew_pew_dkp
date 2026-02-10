@@ -2,6 +2,10 @@ import { useState, useEffect } from 'react'
 import { useLanguage } from '../../hooks/useLanguage'
 import { membersAPI, dkpAPI, warcraftLogsAPI, calendarAPI } from '../../services/api'
 import { CheckCircle, WarningCircle, Users, CircleNotch, Eye, Check, ClockCounterClockwise, CalendarBlank, Sword, Coins, User, CaretUp, CaretDown, ArrowCounterClockwise, Warning, Bell, ArrowsClockwise, Lightning, ArrowSquareOut, FloppyDisk, CalendarDots, Note } from '@phosphor-icons/react'
+import SectionHeader from '../UI/SectionHeader'
+import SurfaceCard from '../UI/SurfaceCard'
+import Input from '../UI/Input'
+import Button from '../UI/Button'
 
 const WCL_ICON = 'https://assets.rpglogs.com/img/warcraft/favicon.png'
 
@@ -251,6 +255,8 @@ const AdminTab = () => {
 
   return (
     <div className="space-y-6">
+      <SectionHeader icon={Note} title={t('admin')} />
+
       {/* Notification */}
       {notification && (
         <div className={`flex items-center gap-3 px-5 py-4 rounded-xl border shadow-lg animate-fade-in ${
@@ -264,24 +270,38 @@ const AdminTab = () => {
       )}
 
       {/* Bulk Adjustment */}
-      <div className="rounded-2xl bg-lavender-12 p-8">
-        <h3 className="flex items-center gap-3"><Users size={20} />{t('bulk_adjustment')}</h3>
+      <SurfaceCard className="p-6 sm:p-8">
+        <h3 className="flex items-center gap-3 text-xl font-bold text-coral"><Users size={20} />{t('bulk_adjustment')}</h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
-          <input type="number" value={bulkAmount} onChange={(e) => setBulkAmount(e.target.value)} placeholder={t('amount')} className="px-4 py-3 rounded-lg bg-indigo border border-lavender-20 text-lavender focus:outline-none focus:ring-2 focus:ring-coral" />
-          <input type="text" value={bulkReason} onChange={(e) => setBulkReason(e.target.value)} placeholder={t('reason')} className="px-4 py-3 rounded-lg bg-indigo border border-lavender-20 text-lavender focus:outline-none focus:ring-2 focus:ring-coral" />
-          <button onClick={handleBulkAdjust} disabled={bulkLoading} className="px-6 py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg font-bold disabled:opacity-50 transition-all">
+          <Input
+            type="number"
+            value={bulkAmount}
+            onChange={(e) => setBulkAmount(e.target.value)}
+            placeholder={t('amount')}
+            size="md"
+            radius="round"
+          />
+          <Input
+            type="text"
+            value={bulkReason}
+            onChange={(e) => setBulkReason(e.target.value)}
+            placeholder={t('reason')}
+            size="md"
+            radius="round"
+          />
+          <Button onClick={handleBulkAdjust} disabled={bulkLoading} variant="success" size="md" radius="round" className="font-bold">
             {bulkLoading ? (
               <><CircleNotch size={18} className="inline animate-spin mr-2" />{t('loading')}...</>
             ) : (
               <><Users size={18} className="inline mr-2" />{t('apply_to_all')}</>
             )}
-          </button>
+          </Button>
         </div>
-      </div>
+      </SurfaceCard>
 
       {/* Warcraft Logs */}
-      <div className="rounded-2xl bg-lavender-12 p-8">
-        <h3 className="flex items-center gap-3"><img src={WCL_ICON} alt="WCL" className="inline-block w-6 h-6" />{t('wcl_integration')}</h3>
+      <SurfaceCard className="p-6 sm:p-8">
+        <h3 className="flex items-center gap-3 text-xl font-bold text-coral"><img src={WCL_ICON} alt="WCL" className="inline-block w-6 h-6" />{t('wcl_integration')}</h3>
 
         {/* Pending Reports - Auto-detected */}
         {pendingReports.length > 0 && (
@@ -295,24 +315,24 @@ const AdminTab = () => {
               <button
                 onClick={checkPendingReports}
                 disabled={pendingLoading}
-                className="text-sm text-yellow-400 hover:text-yellow-300"
+                className="rounded-full border border-yellow-500/40 bg-yellow-500/10 px-3 py-1.5 text-sm text-yellow-300 transition-colors hover:bg-yellow-500/20"
               >
                 {pendingLoading ? <CircleNotch size={14} className="inline animate-spin mr-1" /> : <ArrowsClockwise size={14} className="inline mr-1" />}
                 {t('refresh')}
               </button>
             </div>
-            <p className="text-xs text-gray-400 mb-3">
+            <p className="mb-3 text-xs text-lavender/80">
               {t('logs_from') || 'Logs de'}: <span className="text-yellow-400">{pendingUploaderName}</span>
             </p>
             <div className="space-y-2">
               {pendingReports.map(report => (
                 <div
                   key={report.code}
-                  className="flex items-center justify-between bg-indigo/50 rounded-lg px-4 py-3"
+                  className="flex items-center justify-between rounded-xl border border-lavender-20/40 bg-indigo/50 px-4 py-3"
                 >
                   <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-white truncate">{report.title}</p>
-                    <p className="text-xs text-gray-400 flex items-center gap-3">
+                    <p className="truncate font-semibold text-cream">{report.title}</p>
+                    <p className="flex items-center gap-3 text-xs text-lavender/80">
                       <span><CalendarBlank size={12} className="inline mr-1" />{report.raidDate}</span>
                       <span><Sword size={12} className="inline mr-1" />{report.zone}</span>
                     </p>
@@ -322,14 +342,14 @@ const AdminTab = () => {
                       href={`https://www.warcraftlogs.com/reports/${report.code}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="px-3 py-2 bg-blue-600/30 hover:bg-blue-600/50 rounded-lg text-sm transition-all"
+                      className="rounded-full bg-blue-600/25 px-3 py-2 text-sm text-blue-200 transition-colors hover:bg-blue-600/40"
                       title={t('view_on_wcl') || 'Ver en WCL'}
                     >
                       <ArrowSquareOut size={16} />
                     </a>
                     <button
                       onClick={() => handleAutoProcess(report.code)}
-                      className="px-4 py-2 bg-green-600/30 hover:bg-green-600/50 text-green-400 rounded-lg text-sm font-semibold transition-all flex items-center gap-2"
+                      className="flex items-center gap-2 rounded-full bg-green-600/25 px-4 py-2 text-sm font-semibold text-green-300 transition-colors hover:bg-green-600/40"
                     >
                       <Lightning size={16} />
                       {t('process') || 'Procesar'}
@@ -343,17 +363,25 @@ const AdminTab = () => {
 
         {/* Manual URL Input */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-4">
-          <input type="text" value={wclUrl} onChange={(e) => setWclUrl(e.target.value)} placeholder={t('wcl_url')} className="md:col-span-3 px-4 py-3 rounded-lg bg-indigo border border-lavender-20 text-lavender focus:outline-none focus:ring-2 focus:ring-coral" />
-          <button onClick={handleWclPreview} disabled={loading} className="px-6 py-3 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg font-bold disabled:opacity-50">
+          <Input
+            type="text"
+            value={wclUrl}
+            onChange={(e) => setWclUrl(e.target.value)}
+            placeholder={t('wcl_url')}
+            size="md"
+            radius="round"
+            className="md:col-span-3"
+          />
+          <Button onClick={handleWclPreview} disabled={loading} variant="warning" size="md" radius="round" className="font-bold">
             {loading ? <CircleNotch size={18} className="inline animate-spin" /> : <><Eye size={18} className="inline mr-2" />{t('preview')}</>}
-          </button>
+          </Button>
         </div>
 
         {wclPreview && (
           <div className="mt-6 space-y-4">
-            <div className="bg-blue-900/50 rounded-lg p-4">
-              <h6 className="font-bold mb-2"><img src={WCL_ICON} alt="WCL" className="inline-block mr-2 w-5 h-5" />{wclPreview.report.title}</h6>
-              <p>{t('bosses')}: {wclPreview.report.bossesKilled}/{wclPreview.report.totalBosses} | {t('participants')}: {wclPreview.report.participantCount} | {t('dkp_per_player')}: {dkpPerPlayer}</p>
+            <div className="rounded-xl border border-blue-500/30 bg-blue-900/40 p-4">
+              <h6 className="mb-2 font-bold text-cream"><img src={WCL_ICON} alt="WCL" className="inline-block mr-2 w-5 h-5" />{wclPreview.report.title}</h6>
+              <p className="text-sm text-lavender">{t('bosses')}: {wclPreview.report.bossesKilled}/{wclPreview.report.totalBosses} | {t('participants')}: {wclPreview.report.participantCount} | {t('dkp_per_player')}: {dkpPerPlayer}</p>
             </div>
 
             {matchedParticipants.length > 0 && (
@@ -388,21 +416,21 @@ const AdminTab = () => {
             )}
 
             {wclPreview.can_proceed && matchedParticipants.length > 0 && (
-              <button onClick={handleWclConfirm} disabled={loading} className="px-6 py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg font-bold disabled:opacity-50 transition-all">
+              <Button onClick={handleWclConfirm} disabled={loading} variant="success" size="md" radius="round" className="font-bold">
                 {loading ? (
                   <><CircleNotch size={18} className="inline animate-spin mr-2" />{t('loading')}...</>
                 ) : (
                   <><Check size={18} className="inline mr-2" />{t('confirm_apply_to')} {matchedParticipants.length} {t('players')}</>
                 )}
-              </button>
+              </Button>
             )}
           </div>
         )}
-      </div>
+      </SurfaceCard>
 
       {/* WCL History */}
-      <div className="rounded-2xl bg-lavender-12 p-8">
-        <h3 className="flex items-center gap-3"><ClockCounterClockwise size={20} />{t('wcl_history')}</h3>
+      <SurfaceCard className="p-6 sm:p-8">
+        <h3 className="flex items-center gap-3 text-xl font-bold text-coral"><ClockCounterClockwise size={20} />{t('wcl_history')}</h3>
         {loadingHistory ? (
           <div className="text-center py-8"><CircleNotch size={24} className="animate-spin text-coral mx-auto" /></div>
         ) : wclHistory.length === 0 ? (
@@ -423,7 +451,7 @@ const AdminTab = () => {
                   <img src={WCL_ICON} alt="WCL" className={`inline-block w-5 h-5 ${report.is_reverted ? 'opacity-40 grayscale' : ''}`} />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <span className="font-semibold text-white text-sm truncate">{report.report_title}</span>
+                      <span className="truncate text-sm font-semibold text-cream">{report.report_title}</span>
                       {report.is_reverted && (
                         <span className="text-xs bg-red-500/20 text-red-400 px-2 py-0.5 rounded">{t('reverted')}</span>
                       )}
@@ -476,7 +504,7 @@ const AdminTab = () => {
             ))}
           </div>
         )}
-      </div>
+      </SurfaceCard>
 
       {/* Raid Days Configuration - Hidden for now, keeping code for future use */}
       {false && (
@@ -502,7 +530,7 @@ const AdminTab = () => {
                       {DAY_NAMES[day.dayOfWeek]?.[t('lang_code') || 'en'] || DAY_NAMES[day.dayOfWeek]?.en}
                     </span>
                     <div className={`w-5 h-5 rounded-full flex items-center justify-center ${
-                      day.isActive ? 'bg-coral' : 'bg-gray-600'
+                      day.isActive ? 'bg-coral' : 'bg-lavender-20'
                     }`}>
                       {day.isActive && <Check size={12} className="text-white" />}
                     </div>
@@ -548,19 +576,25 @@ const AdminTab = () => {
               <h3 className="text-lg font-bold text-white">{t('revert_dkp')}</h3>
               <p className="text-lavender text-sm">{t('confirm_revert')}</p>
               <div className="flex gap-3">
-                <button
+                <Button
                   onClick={() => setRevertConfirm(null)}
-                  className="flex-1 py-2 px-4 border border-lavender-20 text-lavender rounded-lg hover:bg-lavender-12/20 transition-all"
+                  variant="outline"
+                  size="sm"
+                  radius="round"
+                  className="flex-1"
                 >
                   {t('cancel')}
-                </button>
-                <button
+                </Button>
+                <Button
                   onClick={() => handleRevert(revertConfirm)}
                   disabled={reverting}
-                  className="flex-1 py-2 px-4 bg-red-600 text-white rounded-lg font-bold hover:bg-red-700 transition-all disabled:opacity-50"
+                  variant="danger"
+                  size="sm"
+                  radius="round"
+                  className="flex-1 font-bold"
                 >
                   {reverting ? <CircleNotch size={18} className="inline animate-spin" /> : <><ArrowCounterClockwise size={16} className="inline mr-2" />{t('revert_dkp')}</>}
-                </button>
+                </Button>
               </div>
             </div>
           </div>

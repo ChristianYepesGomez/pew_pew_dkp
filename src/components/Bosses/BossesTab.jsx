@@ -4,6 +4,9 @@ import { useLanguage } from '../../hooks/useLanguage'
 import { bossesAPI } from '../../services/api'
 import CLASS_COLORS from '../../utils/classColors'
 import { CircleNotch, WarningCircle, Skull, Book, BookOpen, ArrowsClockwise, CaretDown, CaretRight, CheckCircle, XCircle, Lightning, ArrowSquareOut, X, ChartBar, Trophy, Heart, ShieldStar, Fire, Flag, ClockCounterClockwise, Sword } from '@phosphor-icons/react'
+import SectionHeader from '../UI/SectionHeader'
+import SurfaceCard from '../UI/SurfaceCard'
+import Button from '../UI/Button'
 
 // Difficulty colors
 const DIFFICULTY_COLORS = {
@@ -110,8 +113,8 @@ const BossesTab = () => {
 
   if (error) {
     return (
-      <div className="bg-red-500/20 border border-red-500 rounded-lg p-4 text-center">
-        <WarningCircle size={18} className="inline mr-2" />{error}
+      <div className="rounded-2xl border border-red-500/50 bg-red-500/15 px-5 py-4 text-center text-red-300">
+        <WarningCircle size={18} className="mr-2 inline" />{error}
       </div>
     )
   }
@@ -119,115 +122,114 @@ const BossesTab = () => {
   const zones = activeTab === 'current' ? data.current : data.legacy
 
   return (
-    <div className="space-y-4">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex gap-2">
-          <button
+    <div className="space-y-6">
+      <SectionHeader icon={Skull} title={t('bosses')}>
+        <div className="flex items-center gap-2">
+          <Button
             onClick={() => setActiveTab('current')}
-            className={`px-4 py-2 rounded-lg font-semibold transition-all ${
-              activeTab === 'current'
-                ? 'bg-lavender-12 text-white'
-                : 'bg-white/10 text-gray-300 hover:bg-white/20'
-            }`}
+            variant={activeTab === 'current' ? 'primary' : 'secondary'}
+            size="md"
+            radius="pill"
+            className="font-semibold"
           >
-            <Skull size={16} className="inline mr-2" />
+            <Skull size={16} />
             {t('current_raids')}
             {data.current.length > 0 && (
-              <span className="ml-2 bg-coral text-indigo px-2 py-0.5 rounded-full text-xs">
+              <span className="rounded-full bg-indigo px-2 py-0.5 text-xs text-coral">
                 {data.current.length}
               </span>
             )}
-          </button>
-          <button
+          </Button>
+          <Button
             onClick={() => setActiveTab('legacy')}
-            className={`px-4 py-2 rounded-lg font-semibold transition-all ${
-              activeTab === 'legacy'
-                ? 'bg-lavender-12 text-white'
-                : 'bg-white/10 text-gray-300 hover:bg-white/20'
-            }`}
+            variant={activeTab === 'legacy' ? 'primary' : 'secondary'}
+            size="md"
+            radius="pill"
+            className="font-semibold"
           >
-            <Book size={16} className="inline mr-2" />
+            <Book size={16} />
             {t('legacy_raids')}
             {data.legacy.length > 0 && (
-              <span className="ml-2 bg-gray-600 text-gray-200 px-2 py-0.5 rounded-full text-xs">
+              <span className="rounded-full bg-indigo px-2 py-0.5 text-xs text-lavender">
                 {data.legacy.length}
               </span>
             )}
-          </button>
+          </Button>
+          {isAdmin && (
+            <Button
+              onClick={handleSync}
+              variant="outline"
+              size="md"
+              radius="pill"
+              icon={ArrowsClockwise}
+            >
+              {t('sync_zones')}
+            </Button>
+          )}
         </div>
+      </SectionHeader>
 
-        {isAdmin && (
-          <button
-            onClick={handleSync}
-            className="px-3 py-2 bg-white/10 hover:bg-white/20 rounded-lg text-sm transition-all"
-          >
-            <ArrowsClockwise size={14} className="inline mr-2" />
-            {t('sync_zones')}
-          </button>
+      <SurfaceCard className="space-y-4 p-5 sm:p-6">
+        {zones.length === 0 ? (
+          <div className="py-10 text-center text-lavender">
+            <Sword size={40} className="mx-auto mb-4 opacity-60" />
+            <p>{t('no_bosses')}</p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {zones.map(zone => (
+              <div key={zone.id} className="overflow-hidden rounded-2xl bg-indigo outline outline-2 outline-lavender-20">
+                {/* Zone Header */}
+                <button
+                  onClick={() => toggleZone(zone.id)}
+                  className="flex w-full items-center justify-between px-4 py-3 transition-colors hover:bg-lavender-12"
+                >
+                  <div className="flex items-center gap-3">
+                    {expandedZones[zone.id] ? <CaretDown size={16} className="text-lavender" /> : <CaretRight size={16} className="text-lavender" />}
+                    <span className="text-lg font-bold text-cream">{zone.name}</span>
+                    {zone.progress && (
+                      <span
+                        className="rounded px-2 py-0.5 text-sm font-bold"
+                        style={{ color: DIFFICULTY_COLORS[zone.highestDifficulty] || '#fff' }}
+                      >
+                        {zone.progress}
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="text-sm text-lavender">{zone.bossCount} bosses</span>
+                    {isAdmin && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleToggleLegacy(zone.id, activeTab === 'legacy')
+                        }}
+                        className="rounded-full bg-lavender-12 px-3 py-1 text-xs text-cream transition-colors hover:bg-lavender-20"
+                      >
+                        {activeTab === 'legacy' ? t('mark_current') : t('mark_legacy')}
+                      </button>
+                    )}
+                  </div>
+                </button>
+
+                {/* Boss Grid */}
+                {expandedZones[zone.id] && (
+                  <div className="grid grid-cols-1 gap-4 px-4 pb-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                    {zone.bosses.map(boss => (
+                      <BossCard
+                        key={boss.id}
+                        boss={boss}
+                        onClick={() => openBossDetails(boss)}
+                        t={t}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
         )}
-      </div>
-
-      {/* Zones */}
-      {zones.length === 0 ? (
-        <div className="text-center py-8 text-gray-400">
-          <Sword size={40} className="mx-auto mb-4" />
-          <p>{t('no_bosses')}</p>
-        </div>
-      ) : (
-        <div className="space-y-4">
-          {zones.map(zone => (
-            <div key={zone.id} className="bg-white/5 rounded-xl overflow-hidden">
-              {/* Zone Header */}
-              <button
-                onClick={() => toggleZone(zone.id)}
-                className="w-full px-4 py-3 flex items-center justify-between hover:bg-white/5 transition-all"
-              >
-                <div className="flex items-center gap-3">
-                  {expandedZones[zone.id] ? <CaretDown size={16} className="text-gray-400" /> : <CaretRight size={16} className="text-gray-400" />}
-                  <span className="font-bold text-lg">{zone.name}</span>
-                  {zone.progress && (
-                    <span
-                      className="px-2 py-0.5 rounded text-sm font-bold"
-                      style={{ color: DIFFICULTY_COLORS[zone.highestDifficulty] || '#fff' }}
-                    >
-                      {zone.progress}
-                    </span>
-                  )}
-                </div>
-                <div className="flex items-center gap-3">
-                  <span className="text-gray-400 text-sm">{zone.bossCount} bosses</span>
-                  {isAdmin && (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        handleToggleLegacy(zone.id, activeTab === 'legacy')
-                      }}
-                      className="text-xs px-2 py-1 bg-white/10 hover:bg-white/20 rounded transition-all"
-                    >
-                      {activeTab === 'legacy' ? t('mark_current') : t('mark_legacy')}
-                    </button>
-                  )}
-                </div>
-              </button>
-
-              {/* Boss Grid */}
-              {expandedZones[zone.id] && (
-                <div className="px-4 pb-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                  {zone.bosses.map(boss => (
-                    <BossCard
-                      key={boss.id}
-                      boss={boss}
-                      onClick={() => openBossDetails(boss)}
-                      t={t}
-                    />
-                  ))}
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
+      </SurfaceCard>
 
       {/* Boss Details Modal */}
       {selectedBoss && (
@@ -291,14 +293,14 @@ const BossCard = ({ boss, onClick, t }) => {
         {/* Stats Row - Always show, even with 0 values */}
         <div className="flex items-center gap-4 text-sm">
           <div className="flex items-center gap-1">
-            <CheckCircle size={14} className={boss.kills > 0 ? 'text-green-400' : 'text-gray-500'} />
-            <span className={`font-semibold ${boss.kills > 0 ? 'text-green-400' : 'text-gray-500'}`}>{boss.kills || 0}</span>
-            <span className="text-gray-400 text-xs">{t('kills')}</span>
+            <CheckCircle size={14} className={boss.kills > 0 ? 'text-green-400' : 'text-lavender/50'} />
+            <span className={`font-semibold ${boss.kills > 0 ? 'text-green-400' : 'text-lavender/50'}`}>{boss.kills || 0}</span>
+            <span className="text-xs text-lavender/80">{t('kills')}</span>
           </div>
           <div className="flex items-center gap-1">
-            <XCircle size={14} className={boss.wipes > 0 ? 'text-red-400' : 'text-gray-500'} />
-            <span className={`font-semibold ${boss.wipes > 0 ? 'text-red-400' : 'text-gray-500'}`}>{boss.wipes || 0}</span>
-            <span className="text-gray-400 text-xs">{t('wipes')}</span>
+            <XCircle size={14} className={boss.wipes > 0 ? 'text-red-400' : 'text-lavender/50'} />
+            <span className={`font-semibold ${boss.wipes > 0 ? 'text-red-400' : 'text-lavender/50'}`}>{boss.wipes || 0}</span>
+            <span className="text-xs text-lavender/80">{t('wipes')}</span>
           </div>
           {boss.fastestKill && (
             <div className="flex items-center gap-1">
@@ -354,7 +356,7 @@ const BossDetailModal = ({ boss, details, loading, onClose, onChangeDifficulty, 
           {/* Close Button */}
           <button
             onClick={onClose}
-            className="absolute top-4 right-4 w-10 h-10 rounded-full bg-black/50 backdrop-blur-sm flex items-center justify-center text-gray-300 hover:text-white hover:bg-black/70 transition-all"
+            className="absolute top-4 right-4 flex h-10 w-10 items-center justify-center rounded-full bg-black/50 text-lavender backdrop-blur-sm transition-all hover:bg-black/70 hover:text-cream"
           >
             <X size={20} />
           </button>
@@ -363,7 +365,7 @@ const BossDetailModal = ({ boss, details, loading, onClose, onChangeDifficulty, 
           <div className="absolute bottom-0 left-0 right-0 p-6">
             <h2 className="font-bold text-3xl text-white drop-shadow-lg">{boss.name}</h2>
             {details?.boss?.raid && (
-              <p className="text-gray-300 mt-1">{details.boss.raid}</p>
+              <p className="mt-1 text-lavender">{details.boss.raid}</p>
             )}
           </div>
         </div>
@@ -386,7 +388,7 @@ const BossDetailModal = ({ boss, details, loading, onClose, onChangeDifficulty, 
                       <button
                         key={d.difficulty}
                         onClick={() => !isActive && onChangeDifficulty(d.difficulty)}
-                        className={`px-3 py-1.5 rounded-lg text-sm font-semibold transition-all flex items-center gap-2 ${
+                        className={`flex items-center gap-2 rounded-full px-3 py-1.5 text-sm font-semibold transition-all ${
                           isActive
                             ? 'ring-1 ring-opacity-60'
                             : 'opacity-50 hover:opacity-80'
@@ -408,7 +410,7 @@ const BossDetailModal = ({ boss, details, loading, onClose, onChangeDifficulty, 
 
               {/* Statistics */}
               {details.statistics && (
-                <div className="bg-white/5 rounded-xl p-4">
+                <div className="rounded-xl border border-lavender-20/30 bg-indigo/60 p-4">
                   <h3 className="font-semibold mb-3 flex items-center gap-2">
                     <ChartBar size={18} className="text-coral" />
                     {t('statistics')}
@@ -433,8 +435,8 @@ const BossDetailModal = ({ boss, details, loading, onClose, onChangeDifficulty, 
 
                   {/* Progression Stats Row */}
                   {(details.statistics.wipesToFirstKill !== null || details.statistics.firstKillDate) && (
-                    <div className="mt-4 pt-4 border-t border-white/10">
-                      <h4 className="text-xs text-gray-400 mb-2 flex items-center gap-2">
+                    <div className="mt-4 border-t border-lavender-20/30 pt-4">
+                      <h4 className="mb-2 flex items-center gap-2 text-xs text-lavender/80">
                         <Flag size={14} className="text-yellow-400" />
                         {t('progression_stats')}
                       </h4>
@@ -442,14 +444,14 @@ const BossDetailModal = ({ boss, details, loading, onClose, onChangeDifficulty, 
                         {details.statistics.wipesToFirstKill !== null && (
                           <div className="flex items-center gap-2 bg-red-500/10 px-3 py-2 rounded-lg">
                             <Skull size={16} className="text-red-400" />
-                            <span className="text-sm text-gray-300">{t('wipes_to_first_kill')}:</span>
+                            <span className="text-sm text-lavender">{t('wipes_to_first_kill')}:</span>
                             <span className="font-bold text-red-400">{details.statistics.wipesToFirstKill}</span>
                           </div>
                         )}
                         {details.statistics.firstKillDate && (
                           <div className="flex items-center gap-2 bg-green-500/10 px-3 py-2 rounded-lg">
                             <Trophy size={16} className="text-green-400" />
-                            <span className="text-sm text-gray-300">{t('first_kill')}:</span>
+                            <span className="text-sm text-lavender">{t('first_kill')}:</span>
                             <span className="font-bold text-green-400">{details.statistics.firstKillDate}</span>
                           </div>
                         )}
@@ -458,7 +460,7 @@ const BossDetailModal = ({ boss, details, loading, onClose, onChangeDifficulty, 
                   )}
 
                   {details.statistics.lastKill && (
-                    <p className="text-xs text-gray-400 mt-3">
+                    <p className="mt-3 text-xs text-lavender/80">
                       {t('last_kill')}: {details.statistics.lastKill}
                     </p>
                   )}
@@ -467,7 +469,7 @@ const BossDetailModal = ({ boss, details, loading, onClose, onChangeDifficulty, 
 
               {/* Records (Top Performers) */}
               {details.records && (details.records.topDamage || details.records.topHealing || details.records.mostDeaths) && (
-                <div className="bg-white/5 rounded-xl p-4">
+                <div className="rounded-xl border border-lavender-20/30 bg-indigo/60 p-4">
                   <h3 className="font-semibold mb-3 flex items-center gap-2">
                     <Trophy size={18} className="text-yellow-400" />
                     {t('records')}
@@ -511,7 +513,7 @@ const BossDetailModal = ({ boss, details, loading, onClose, onChangeDifficulty, 
 
               {/* Death Leaderboard */}
               {details.deathLeaderboard && details.deathLeaderboard.length > 0 && (
-                <div className="bg-white/5 rounded-xl p-4">
+                <div className="rounded-xl border border-lavender-20/30 bg-indigo/60 p-4">
                   <h3 className="font-semibold mb-3 flex items-center gap-2">
                     <Skull size={18} className="text-red-400" />
                     {t('hall_of_shame')}
@@ -520,10 +522,10 @@ const BossDetailModal = ({ boss, details, loading, onClose, onChangeDifficulty, 
                     {details.deathLeaderboard.slice(0, 10).map((player, idx) => (
                       <div
                         key={player.userId}
-                        className="flex items-center justify-between py-2 px-3 bg-white/5 rounded-lg"
+                        className="flex items-center justify-between rounded-lg bg-indigo/40 px-3 py-2"
                       >
                         <div className="flex items-center gap-3">
-                          <span className={`w-6 text-center font-bold ${idx < 3 ? 'text-red-400' : 'text-gray-500'}`}>
+                          <span className={`w-6 text-center font-bold ${idx < 3 ? 'text-red-400' : 'text-lavender/60'}`}>
                             #{player.rank}
                           </span>
                           <span style={{ color: CLASS_COLORS[player.characterClass] || '#fff' }}>
@@ -535,7 +537,7 @@ const BossDetailModal = ({ boss, details, loading, onClose, onChangeDifficulty, 
                             <Skull size={14} className="inline mr-1" />
                             {player.deaths}
                           </span>
-                          <span className="text-gray-400">
+                          <span className="text-lavender/80">
                             {player.fights} {t('fights')}
                           </span>
                           <span className="text-yellow-400 font-semibold">
@@ -550,7 +552,7 @@ const BossDetailModal = ({ boss, details, loading, onClose, onChangeDifficulty, 
 
               {/* Recent Kills */}
               {details.recentKills && details.recentKills.length > 0 && (
-                <div className="bg-white/5 rounded-xl p-4">
+                <div className="rounded-xl border border-lavender-20/30 bg-indigo/60 p-4">
                   <h3 className="font-semibold mb-3 flex items-center gap-2">
                     <ClockCounterClockwise size={18} className="text-green-400" />
                     {t('recent_kills')}
@@ -562,7 +564,7 @@ const BossDetailModal = ({ boss, details, loading, onClose, onChangeDifficulty, 
                         href={kill.wclUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="flex items-center justify-between py-2 px-3 bg-white/5 rounded-lg hover:bg-white/10 transition-all"
+                        className="flex items-center justify-between rounded-lg bg-indigo/40 px-3 py-2 transition-all hover:bg-indigo/70"
                       >
                         <span>{kill.date}</span>
                         <span>{kill.killTime}</span>
@@ -591,7 +593,7 @@ const BossDetailModal = ({ boss, details, loading, onClose, onChangeDifficulty, 
               )}
             </div>
           ) : (
-            <div className="text-center text-gray-400 py-8">
+            <div className="py-8 text-center text-lavender">
               {t('no_stats_yet')}
             </div>
           )}
@@ -605,16 +607,16 @@ const BossDetailModal = ({ boss, details, loading, onClose, onChangeDifficulty, 
 const StatBox = ({ label, value, color }) => (
   <div className="text-center">
     <div className={`text-2xl font-bold ${color}`}>{value}</div>
-    <div className="text-xs text-gray-400">{label}</div>
+    <div className="text-xs text-lavender/80">{label}</div>
   </div>
 )
 
 // Record Card Component
 const RecordCard = ({ Icon, iconColor, title, record }) => (
-  <div className="bg-white/5 rounded-lg p-3">
+  <div className="rounded-lg border border-lavender-20/30 bg-indigo/40 p-3">
     <div className="flex items-center gap-2 mb-2">
       <Icon size={16} className={iconColor} />
-      <span className="text-xs text-gray-400">{title}</span>
+      <span className="text-xs text-lavender/80">{title}</span>
     </div>
     <div className="flex items-center justify-between">
       <span

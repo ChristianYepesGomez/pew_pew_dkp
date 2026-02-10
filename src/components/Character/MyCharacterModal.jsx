@@ -5,6 +5,9 @@ import { useLanguage } from '../../hooks/useLanguage'
 import { dkpAPI, authAPI, charactersAPI, blizzardAPI } from '../../services/api'
 import WowheadTooltip from '../Common/WowheadTooltip'
 import { X, CircleNotch, PencilSimple, Crop, MagnifyingGlassMinus, MagnifyingGlassPlus, User, Users, Coins, Envelope, Key, FloppyDisk, Gavel, ClockCounterClockwise, WarningCircle, DownloadSimple, ArrowsClockwise, Trash, Star, Info } from '@phosphor-icons/react'
+import Button from '../UI/Button'
+import Input from '../UI/Input'
+import Select from '../UI/Select'
 import {
   CHARACTER_MODAL_VIEW,
   CHARACTER_MODAL_VIEW_ORDER,
@@ -233,18 +236,24 @@ const AvatarCropModal = ({ imageSrc, onConfirm, onCancel, t }) => {
 
         {/* Buttons */}
         <div className="flex gap-3">
-          <button
+          <Button
             onClick={onCancel}
-            className="flex-1 py-2 rounded-lg bg-gray-700 text-white hover:bg-gray-600 transition-all"
+            variant="outline"
+            size="sm"
+            radius="round"
+            className="flex-1"
           >
             {t('cancel')}
-          </button>
-          <button
+          </Button>
+          <Button
             onClick={handleConfirm}
-            className="flex-1 py-2 rounded-lg bg-coral text-indigo font-bold hover:shadow-lg transition-all"
+            variant="primary"
+            size="sm"
+            radius="round"
+            className="flex-1 font-bold"
           >
             {t('confirm')}
-          </button>
+          </Button>
         </div>
       </div>
     </div>
@@ -679,7 +688,7 @@ const MyCharacterModal = ({
                 )}
               </div>
             </div>
-            <button onClick={onClose} className="text-gray-400 hover:text-white text-2xl">
+            <button onClick={onClose} className="text-2xl text-lavender transition-colors hover:text-cream">
               <X size={24} />
             </button>
           </div>
@@ -718,20 +727,25 @@ const MyCharacterModal = ({
                   <Envelope size={14} className="inline mr-2" />{t('email')}
                 </h4>
                 <div className="flex gap-2">
-                  <input
+                  <Input
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder={t('email_placeholder')}
-                    className="flex-1 bg-lavender-12/30 border border-lavender-20/30 rounded-lg px-3 py-2 text-white text-sm placeholder-gray-500 focus:outline-none focus:border-coral"
+                    size="sm"
+                    radius="round"
+                    className="flex-1"
                   />
-                  <button
+                  <Button
                     onClick={handleSaveEmail}
                     disabled={emailSaving}
-                    className="px-4 py-2 rounded-lg bg-lavender-20 text-white text-sm font-bold hover:bg-lavender-20/80 transition-all disabled:opacity-50"
+                    variant="secondary"
+                    size="sm"
+                    radius="round"
+                    className="font-bold"
                   >
                     {emailSaving ? <CircleNotch size={16} className="animate-spin" /> : t('save')}
-                  </button>
+                  </Button>
                 </div>
                 {emailMsg && (
                   <p className={`text-xs mt-2 ${emailMsg === t('email_saved') ? 'text-green-400' : 'text-red-400'}`}>
@@ -746,35 +760,42 @@ const MyCharacterModal = ({
                   <Key size={14} className="inline mr-2" />{t('change_password')}
                 </h4>
                 <div className="space-y-3">
-                  <input
+                  <Input
                     type="password"
                     value={currentPassword}
                     onChange={(e) => setCurrentPassword(e.target.value)}
                     placeholder={t('password_placeholder')}
-                    className="w-full bg-lavender-12/30 border border-lavender-20/30 rounded-lg px-3 py-2 text-white text-sm placeholder-gray-500 focus:outline-none focus:border-coral"
+                    size="sm"
+                    radius="round"
                   />
-                  <input
+                  <Input
                     type="password"
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
                     placeholder={t('password_placeholder')}
-                    className="w-full bg-lavender-12/30 border border-lavender-20/30 rounded-lg px-3 py-2 text-white text-sm placeholder-gray-500 focus:outline-none focus:border-coral"
+                    size="sm"
+                    radius="round"
                   />
-                  <input
+                  <Input
                     type="password"
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     placeholder={t('password_placeholder')}
-                    className="w-full bg-lavender-12/30 border border-lavender-20/30 rounded-lg px-3 py-2 text-white text-sm placeholder-gray-500 focus:outline-none focus:border-coral"
+                    size="sm"
+                    radius="round"
                   />
-                  <button
+                  <Button
                     onClick={handleChangePassword}
                     disabled={passwordSaving || !currentPassword || !newPassword || !confirmPassword}
-                    className="w-full py-2 rounded-lg bg-coral text-indigo text-sm font-bold hover:shadow-lg transition-all disabled:opacity-50"
+                    variant="primary"
+                    size="sm"
+                    radius="round"
+                    fullWidth
+                    className="font-bold"
                   >
                     {passwordSaving ? <CircleNotch size={16} className="inline animate-spin mr-2" /> : <FloppyDisk size={16} className="inline mr-2" />}
                     {t('change_password')}
-                  </button>
+                  </Button>
                 </div>
                 {passwordMsg && (
                   <p className={`text-xs mt-2 ${passwordMsg === t('password_changed') ? 'text-green-400' : 'text-red-400'}`}>
@@ -792,10 +813,13 @@ const MyCharacterModal = ({
                 <h4 className="text-sm text-coral m-0">
                   <Users size={14} className="inline mr-2" />{t('my_characters')}
                 </h4>
-                <button
+                <Button
                   onClick={handleBlizzardImport}
                   disabled={blizzardLoading}
-                  className="text-xs px-3 py-1 rounded-lg bg-blue-700/60 text-blue-200 hover:bg-blue-700/80 transition-all disabled:opacity-50"
+                  variant="outline"
+                  size="sm"
+                  radius="round"
+                  className="text-xs"
                   title={t('blizzard_import_hint')}
                 >
                   {blizzardLoading ? (
@@ -803,7 +827,7 @@ const MyCharacterModal = ({
                   ) : (
                     <><DownloadSimple size={12} className="inline mr-1" />{t('import_from_blizzard')}</>
                   )}
-                </button>
+                </Button>
               </div>
 
             {charError && (
@@ -823,7 +847,7 @@ const MyCharacterModal = ({
                     {t('blizzard_characters_found')} ({blizzardChars.length})
                   </p>
                   <button onClick={() => { setBlizzardChars([]); setSelectedChars(new Set()) }}
-                    className="text-xs text-gray-400 hover:text-white transition-all">
+                    className="text-xs text-lavender transition-colors hover:text-cream">
                     <X size={14} />
                   </button>
                 </div>
@@ -844,24 +868,28 @@ const MyCharacterModal = ({
                           {char.name}
                         </span>
                         <span className="text-xs text-lavender flex-shrink-0">{char.className}{char.spec ? ` - ${char.spec}` : ''}</span>
-                        <span className="text-xs text-gray-500 truncate hidden sm:inline">{char.realm}</span>
-                        <span className="text-xs text-gray-500 ml-auto flex-shrink-0">Lv.{char.level}</span>
+                        <span className="hidden truncate text-xs text-lavender/70 sm:inline">{char.realm}</span>
+                        <span className="ml-auto flex-shrink-0 text-xs text-lavender/70">Lv.{char.level}</span>
                         {alreadyExists && <span className="text-xs text-blue-400 flex-shrink-0"><ArrowsClockwise size={10} className="inline mr-0.5" />{t('will_update')}</span>}
                       </label>
                     )
                   })}
                 </div>
-                <button
+                <Button
                   onClick={handleImportSelected}
                   disabled={selectedChars.size === 0 || importing}
-                  className="w-full py-2 rounded-lg bg-gradient-to-r from-blue-600 to-blue-800 text-white text-sm font-bold hover:shadow-lg transition-all disabled:opacity-50"
+                  variant="teal"
+                  size="sm"
+                  radius="round"
+                  fullWidth
+                  className="font-bold"
                 >
                   {importing ? (
                     <><CircleNotch size={14} className="inline animate-spin mr-1" />{t('importing')}</>
                   ) : (
                     <><DownloadSimple size={14} className="inline mr-1" />{t('import_selected')} ({selectedChars.size})</>
                   )}
-                </button>
+                </Button>
               </div>
             )}
 
@@ -894,7 +922,7 @@ const MyCharacterModal = ({
                         className={`text-lg flex-shrink-0 transition-all ${
                           char.isPrimary
                             ? 'text-yellow-400 cursor-default'
-                            : 'text-gray-600 hover:text-yellow-400 cursor-pointer'
+                            : 'cursor-pointer text-lavender/60 hover:text-yellow-400'
                         }`}
                         title={char.isPrimary ? t('primary_character') : t('set_as_primary')}
                       >
@@ -902,11 +930,11 @@ const MyCharacterModal = ({
                       </button>
 
                       {/* Spec icon */}
-                      {SPEC_ICONS[char.spec] && (
+                        {SPEC_ICONS[char.spec] && (
                         <img
                           src={SPEC_ICONS[char.spec]}
                           alt={char.spec}
-                          className="w-8 h-8 rounded-full flex-shrink-0 border border-gray-600"
+                          className="h-8 w-8 flex-shrink-0 rounded-full border border-lavender-20/60"
                         />
                       )}
 
@@ -922,8 +950,10 @@ const MyCharacterModal = ({
                         </p>
                         {isEditing ? (
                           <div className="flex items-center gap-2 mt-1">
-                            <select
-                              className="text-xs bg-indigo border border-lavender-20 rounded px-2 py-1 text-white focus:outline-none focus:border-coral"
+                            <Select
+                              size="sm"
+                              radius="round"
+                              className="text-xs"
                               defaultValue={char.spec || ''}
                               onChange={(e) => handleChangeSpec(char.id, e.target.value)}
                               disabled={editingSaving}
@@ -934,10 +964,10 @@ const MyCharacterModal = ({
                                   {spec} ({classSpecs.defaultRoles[idx]})
                                 </option>
                               ))}
-                            </select>
+                            </Select>
                             <button
                               onClick={() => setEditingCharId(null)}
-                              className="text-gray-400 hover:text-white text-xs"
+                              className="text-xs text-lavender transition-colors hover:text-cream"
                               disabled={editingSaving}
                             >
                               <X size={12} />
@@ -955,7 +985,7 @@ const MyCharacterModal = ({
                       {!isEditing && classSpecs && (
                         <button
                           onClick={() => setEditingCharId(char.id)}
-                          className="text-gray-600 hover:text-coral text-sm flex-shrink-0 transition-all"
+                          className="text-sm text-lavender/60 transition-colors hover:text-coral"
                           title={t('change_spec')}
                         >
                           <PencilSimple size={16} />
@@ -966,7 +996,7 @@ const MyCharacterModal = ({
                       {!char.isPrimary && characters.length > 1 && !isEditing && (
                         <button
                           onClick={() => handleDeleteCharacter(char.id)}
-                          className="text-gray-600 hover:text-red-400 text-sm flex-shrink-0 transition-all"
+                          className="text-sm text-lavender/60 transition-colors hover:text-red-400"
                           title={t('delete_character')}
                         >
                           <Trash size={16} />
@@ -1012,7 +1042,7 @@ const MyCharacterModal = ({
                     <CircleNotch size={24} className="animate-spin text-coral mx-auto" />
                   </div>
                 ) : history.length === 0 ? (
-                  <p className="text-center text-gray-400 py-4 text-sm">{t('no_transactions')}</p>
+                  <p className="py-4 text-center text-sm text-lavender/70">{t('no_transactions')}</p>
                 ) : (
                   <div className="space-y-2 max-h-80 overflow-auto">
                     {history.map((tx) => (

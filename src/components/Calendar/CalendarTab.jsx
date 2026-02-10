@@ -5,6 +5,10 @@ import { useLanguage } from '../../hooks/useLanguage'
 import { calendarAPI, warcraftLogsAPI } from '../../services/api'
 import CLASS_COLORS from '../../utils/classColors'
 import { CheckCircle, XCircle, Question, MinusCircle, ShieldStar, Heart, Crosshair, CircleNotch, CalendarDots, CalendarX, Users, ClockCounterClockwise, Coins, WarningCircle, Warning, X, Clock, Lock, FloppyDisk, Skull, Check, ChatDots, Note, MagnifyingGlass, ArrowLeft, Link, ArrowSquareOut, Info } from '@phosphor-icons/react'
+import SectionHeader from '../UI/SectionHeader'
+import SurfaceCard from '../UI/SurfaceCard'
+import Button from '../UI/Button'
+import Input from '../UI/Input'
 
 const WCL_ICON = 'https://assets.rpglogs.com/img/warcraft/favicon.png'
 
@@ -320,37 +324,28 @@ const CalendarTab = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold text-white">{t('raid_calendar')}</h2>
-          <p className="text-lavender">{t('raid_signup')}</p>
-        </div>
-
+      <SectionHeader icon={CalendarDots} title={t('raid_calendar')}>
         <div className="flex items-center gap-2">
-          <button
+          <Button
             onClick={() => { setShowHistory(!showHistory); setAdminView(false) }}
-            className={`px-4 py-2 rounded-lg transition-all ${
-              showHistory
-                ? 'bg-orange-500/80 text-white'
-                : 'bg-lavender-12/30 text-white hover:bg-lavender-12/50'
-            }`}
+            variant={showHistory ? 'warning' : 'secondary'}
+            size="md"
+            radius="pill"
+            icon={ClockCounterClockwise}
           >
-            <ClockCounterClockwise size={16} className="inline mr-2" />
             {t('raid_history')}
-          </button>
-          <button
+          </Button>
+          <Button
             onClick={() => { setAdminView(!adminView); setShowHistory(false) }}
-            className={`px-4 py-2 rounded-lg transition-all ${
-              adminView
-                ? 'bg-coral text-indigo'
-                : 'bg-lavender-12/30 text-white hover:bg-lavender-12/50'
-            }`}
+            variant={adminView ? 'primary' : 'secondary'}
+            size="md"
+            radius="pill"
+            icon={adminView ? CalendarDots : Users}
           >
-            {adminView ? <CalendarDots size={16} className="inline mr-2" /> : <Users size={16} className="inline mr-2" />}
             {adminView ? t('raid_calendar') : t('team_overview')}
-          </button>
+          </Button>
         </div>
-      </div>
+      </SectionHeader>
 
       {/* Notification */}
       {notification && (
@@ -364,13 +359,14 @@ const CalendarTab = () => {
         </div>
       )}
 
-      {/* Team Overview */}
-      {adminView && overview ? (
-        <AdminOverview overview={overview} t={t} language={language} isAdmin={isAdmin} />
-      ) : showHistory ? (
-        <RaidHistory history={raidHistory} loading={loadingHistory} t={t} language={language} isAdmin={isAdmin} onLinkWcl={setWclModal} />
-      ) : (
-        <>
+      <SurfaceCard className="space-y-6 p-5 sm:p-6">
+        {/* Team Overview */}
+        {adminView && overview ? (
+          <AdminOverview overview={overview} t={t} language={language} isAdmin={isAdmin} />
+        ) : showHistory ? (
+          <RaidHistory history={raidHistory} loading={loadingHistory} t={t} language={language} isAdmin={isAdmin} onLinkWcl={setWclModal} />
+        ) : (
+          <>
           {/* Unconfirmed days alert */}
           {unconfirmedCount > 0 && !bannerDismissed && (
             <div className="flex items-center gap-3 px-4 py-3 bg-orange-500/15 border border-orange-500/40 rounded-xl text-sm animate-pulse-subtle">
@@ -563,12 +559,14 @@ const CalendarTab = () => {
                                 </div>
                                 {currentStatus === 'tentative' && (
                                   <div className="space-y-2">
-                                    <input
+                                    <Input
                                       type="text"
                                       value={notes[signup.date] || ''}
                                       onChange={(e) => setNotes(prev => ({ ...prev, [signup.date]: e.target.value }))}
                                       placeholder={t('note_placeholder')}
-                                      className="w-full px-3 py-2 bg-indigo border border-lavender-20 rounded-lg text-white text-sm placeholder-gray-500 focus:outline-none focus:border-coral"
+                                      size="sm"
+                                      radius="round"
+                                      className="text-sm"
                                     />
                                     {notes[signup.date] !== signup.notes && (
                                       <button
@@ -648,12 +646,14 @@ const CalendarTab = () => {
                               </div>
                               {currentStatus === 'tentative' && cardSize === 'medium' && (
                                 <div className="space-y-2" onClick={(e) => e.stopPropagation()}>
-                                  <input
+                                  <Input
                                     type="text"
                                     value={notes[signup.date] || ''}
                                     onChange={(e) => setNotes(prev => ({ ...prev, [signup.date]: e.target.value }))}
                                     placeholder={t('note_placeholder')}
-                                    className="w-full px-3 py-2 bg-indigo border border-lavender-20 rounded-lg text-white text-sm placeholder-gray-500 focus:outline-none focus:border-coral"
+                                    size="sm"
+                                    radius="round"
+                                    className="text-sm"
                                   />
                                   {notes[signup.date] !== signup.notes && (
                                     <button
@@ -693,8 +693,9 @@ const CalendarTab = () => {
               <p>{t('no_raids_scheduled')}</p>
             </div>
           )}
-        </>
-      )}
+          </>
+        )}
+      </SurfaceCard>
       {/* Summary Modal */}
       {expandedDate && (
         <SummaryModal
@@ -728,7 +729,7 @@ const MEMBER_STATUS = {
   confirmed: { Icon: CheckCircle, color: 'text-green-400', opacity: '' },
   tentative: { Icon: Question, color: 'text-yellow-400', opacity: '' },
   declined: { Icon: XCircle, color: 'text-red-400', opacity: 'opacity-40' },
-  noResponse: { Icon: MinusCircle, color: 'text-gray-500', opacity: 'opacity-30' },
+  noResponse: { Icon: MinusCircle, color: 'text-lavender/60', opacity: 'opacity-30' },
 }
 
 // Mythic raid composition requirements
@@ -807,7 +808,7 @@ const InlineAttendance = ({ attendance, t }) => {
                   <div className="text-lavender text-xs">+{members.length - 8} {t('more')}</div>
                 )}
                 {members.length === 0 && (
-                  <div className="text-gray-600 italic">-</div>
+                  <div className="italic text-lavender/50">-</div>
                 )}
               </div>
             </div>
@@ -877,7 +878,7 @@ const RoleSection = ({ role, members, t, isAdmin, columns = 1 }) => {
         <span className="text-xs ml-auto flex items-center gap-1.5">
           <span className={`font-bold ${countColor}`}>{confirmedCount}</span>
           {tentativeCount > 0 && <span className="text-yellow-400">+{tentativeCount}</span>}
-          <span className="text-gray-500">/ {reqLabel}</span>
+          <span className="text-lavender/60">/ {reqLabel}</span>
           {isFilled && <Check size={9} className="text-green-400" />}
         </span>
       </div>
@@ -887,7 +888,7 @@ const RoleSection = ({ role, members, t, isAdmin, columns = 1 }) => {
           <MemberEntry key={member.id} member={member} statusKey={member.statusKey} isAdmin={isAdmin} />
         ))}
         {allMembers.length === 0 && (
-          <div className="text-xs text-gray-600 italic py-1">-</div>
+          <div className="py-1 text-xs italic text-lavender/50">-</div>
         )}
       </div>
     </div>
@@ -941,8 +942,8 @@ const SummaryView = ({ summary, t, isAdmin }) => {
         </div>
         {/* Slot markers at key thresholds */}
         <div className="relative h-0">
-          <div className="absolute top-[-10px] text-xs text-gray-600" style={{ left: `${(15/MYTHIC_SIZE)*100}%`, transform: 'translateX(-50%)' }}>15</div>
-          <div className="absolute top-[-10px] text-xs text-gray-600" style={{ left: '100%', transform: 'translateX(-100%)' }}>20</div>
+          <div className="absolute top-[-10px] text-xs text-lavender/50" style={{ left: `${(15/MYTHIC_SIZE)*100}%`, transform: 'translateX(-50%)' }}>15</div>
+          <div className="absolute top-[-10px] text-xs text-lavender/50" style={{ left: '100%', transform: 'translateX(-100%)' }}>20</div>
         </div>
       </div>
 
@@ -960,7 +961,7 @@ const SummaryView = ({ summary, t, isAdmin }) => {
         <span className="flex items-center gap-1"><CheckCircle size={10} className="text-green-400" />{t('confirmed')}</span>
         <span className="flex items-center gap-1"><Question size={10} className="text-yellow-400" />{t('tentative')}</span>
         <span className="flex items-center gap-1 opacity-50"><XCircle size={10} className="text-red-400" />{t('declined')}</span>
-        <span className="flex items-center gap-1 opacity-30"><MinusCircle size={10} className="text-gray-500" />{t('members_no_response')}</span>
+        <span className="flex items-center gap-1 opacity-30"><MinusCircle size={10} className="text-lavender/60" />{t('members_no_response')}</span>
       </div>
     </div>
   )
@@ -1105,7 +1106,7 @@ const AdminOverview = ({ overview, t, language, isAdmin }) => {
                           )}
                         </div>
                       ) : (
-                        <span className="text-gray-600">-</span>
+                        <span className="text-lavender/50">-</span>
                       )}
                     </div>
                   )
@@ -1250,11 +1251,11 @@ const WCLLinkModal = ({ date, onClose, onLinked, t, language }) => {
               <WclIcon size={24} />
             </div>
             <div>
-              <h3 className="text-lg font-bold text-white">{t('link_wcl_report')}</h3>
+              <h3 className="text-lg font-bold text-cream">{t('link_wcl_report')}</h3>
               <p className="text-sm text-lavender">{dateInfo.dayName} {dateInfo.dayNum} {dateInfo.month}</p>
             </div>
           </div>
-          <button onClick={onClose} className="w-8 h-8 rounded-lg bg-lavender-12/30 text-lavender hover:text-white hover:bg-lavender-12/50 transition-all flex items-center justify-center">
+          <button onClick={onClose} className="flex h-8 w-8 items-center justify-center rounded-lg bg-lavender-12/30 text-lavender transition-colors hover:bg-lavender-12/50 hover:text-cream">
             <X size={16} />
           </button>
         </div>
@@ -1262,8 +1263,11 @@ const WCLLinkModal = ({ date, onClose, onLinked, t, language }) => {
         {/* Body */}
         <div className="p-6 overflow-y-auto flex-1 space-y-4">
           {error && (
-            <div className="bg-red-500/20 border border-red-500 text-red-400 px-4 py-3 rounded-lg text-sm">
-              <WarningCircle size={14} className="inline mr-2" />{error}
+            <div className="rounded-xl border border-red-500 bg-red-500/20 px-4 py-3 text-sm text-red-300">
+              <div className="flex items-center gap-2">
+                <WarningCircle size={14} />
+                <span>{error}</span>
+              </div>
             </div>
           )}
 
@@ -1278,35 +1282,44 @@ const WCLLinkModal = ({ date, onClose, onLinked, t, language }) => {
                 {loadingAuto ? (
                   <div className="text-center py-6"><CircleNotch size={24} className="animate-spin text-coral mx-auto" /></div>
                 ) : autoError === 'guild_not_configured' ? (
-                  <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-3 text-sm text-yellow-300">
-                    <Info size={14} className="inline mr-2" />{t('wcl_guild_not_configured')}
+                  <div className="rounded-xl border border-yellow-500/30 bg-yellow-500/10 p-3 text-sm text-yellow-300">
+                    <div className="flex items-center gap-2">
+                      <Info size={14} />
+                      <span>{t('wcl_guild_not_configured')}</span>
+                    </div>
                   </div>
                 ) : autoError ? (
-                  <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3 text-sm text-red-300">
-                    <Warning size={14} className="inline mr-2" />{autoError}
+                  <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-300">
+                    <div className="flex items-center gap-2">
+                      <Warning size={14} />
+                      <span>{autoError}</span>
+                    </div>
                   </div>
                 ) : autoReports.length === 0 ? (
                   <div className="text-center py-4 text-lavender text-sm">{t('no_reports_found')}</div>
                 ) : (
                   <div className="space-y-2">
                     {autoReports.map(report => (
-                      <div key={report.code} className="flex items-center justify-between bg-lavender-12/20 rounded-lg p-3 border border-lavender-20/20">
+                      <div key={report.code} className="flex items-center justify-between rounded-xl border border-lavender-20/20 bg-lavender-12/20 p-3">
                         <div className="flex-1 min-w-0">
-                          <div className="text-sm font-semibold text-white truncate">{report.title}</div>
+                          <div className="truncate text-sm font-semibold text-cream">{report.title}</div>
                           <div className="text-xs text-lavender">{report.zone} &middot; {report.owner}</div>
                         </div>
                         {report.alreadyProcessed ? (
                           <span className="text-xs text-yellow-400 px-2 py-1 bg-yellow-500/10 rounded">{t('report_already_processed')}</span>
                         ) : report.wasReverted ? (
-                          <span className="text-xs text-gray-400 px-2 py-1 bg-gray-500/10 rounded">{t('report_was_reverted')}</span>
+                          <span className="rounded bg-lavender-12/30 px-2 py-1 text-xs text-lavender/80">{t('report_was_reverted')}</span>
                         ) : (
-                          <button
+                          <Button
                             onClick={() => handleSelectReport(report.code)}
                             disabled={loadingPreview}
-                            className="ml-3 px-3 py-1.5 bg-orange-500/20 text-orange-400 rounded-lg text-sm hover:bg-orange-500/30 transition-all flex-shrink-0"
+                            variant="warning"
+                            size="sm"
+                            radius="round"
+                            className="ml-3 shrink-0"
                           >
                             {loadingPreview ? <CircleNotch size={14} className="animate-spin" /> : <><Link size={14} className="inline mr-1" />{t('link_this_report')}</>}
-                          </button>
+                          </Button>
                         )}
                       </div>
                     ))}
@@ -1323,35 +1336,46 @@ const WCLLinkModal = ({ date, onClose, onLinked, t, language }) => {
 
               {/* Manual URL Input */}
               <div className="flex gap-2">
-                <input
+                <Input
                   type="text"
                   value={manualUrl}
                   onChange={(e) => setManualUrl(e.target.value)}
                   placeholder="https://www.warcraftlogs.com/reports/..."
-                  className="flex-1 px-3 py-2 bg-lavender-12/30 border border-lavender-20 rounded-lg text-white text-sm placeholder-gray-500 focus:outline-none focus:border-coral"
+                  size="sm"
+                  radius="round"
+                  className="flex-1"
                   onKeyDown={(e) => e.key === 'Enter' && handleManualSubmit()}
                 />
-                <button
+                <Button
                   onClick={handleManualSubmit}
                   disabled={!manualUrl.trim() || loadingPreview}
-                  className="px-4 py-2 bg-coral/20 text-coral rounded-lg text-sm hover:bg-coral/30 transition-all disabled:opacity-50"
+                  variant="secondary"
+                  size="sm"
+                  radius="round"
                 >
                   {loadingPreview ? <CircleNotch size={14} className="animate-spin" /> : <MagnifyingGlass size={16} />}
-                </button>
+                </Button>
               </div>
             </>
           ) : (
             /* Preview step */
             <>
-              <button onClick={() => { setStep('select'); setPreview(null) }} className="text-sm text-lavender hover:text-white transition-colors">
-                <ArrowLeft size={14} className="inline mr-2" />{t('back') || 'Volver'}
-              </button>
+              <Button
+                onClick={() => { setStep('select'); setPreview(null) }}
+                variant="ghost"
+                size="sm"
+                radius="round"
+                icon={ArrowLeft}
+                className="w-fit"
+              >
+                {t('back') || 'Volver'}
+              </Button>
 
               {preview && (
                 <div className="space-y-4">
                   {/* Report info */}
-                  <div className="bg-lavender-12/20 rounded-lg p-4 border border-lavender-20/20">
-                    <h4 className="font-bold text-white">{preview.report.title}</h4>
+                  <div className="rounded-xl border border-lavender-20/20 bg-lavender-12/20 p-4">
+                    <h4 className="font-bold text-cream">{preview.report.title}</h4>
                     <div className="text-sm text-lavender mt-1">
                       {preview.report.bossesKilled}/{preview.report.totalBosses} {t('bosses')} &middot; {preview.report.participantCount} {t('participants')}
                     </div>
@@ -1389,17 +1413,21 @@ const WCLLinkModal = ({ date, onClose, onLinked, t, language }) => {
                   </div>
 
                   {/* Confirm button */}
-                  <button
+                  <Button
                     onClick={handleConfirm}
                     disabled={confirming || matchedCount === 0}
-                    className="w-full py-3 bg-gradient-to-r from-orange-600 to-orange-700 text-white font-bold rounded-lg hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    variant="warning"
+                    size="lg"
+                    radius="round"
+                    fullWidth
+                    className="font-bold"
                   >
                     {confirming ? (
                       <><CircleNotch size={18} className="inline animate-spin mr-2" />{t('loading')}...</>
                     ) : (
                       <><Check size={18} className="inline mr-2" />{t('confirm_apply_to')} {matchedCount} {t('players')}</>
                     )}
-                  </button>
+                  </Button>
                 </div>
               )}
             </>
