@@ -81,7 +81,7 @@ const RARITY_COLORS = {
 }
 
 const TAB_ICONS = {
-  [CHARACTER_MODAL_VIEW.PROFILE]: User,
+  [CHARACTER_MODAL_VIEW.ACCOUNT]: User,
   [CHARACTER_MODAL_VIEW.CHARACTERS]: Users,
   [CHARACTER_MODAL_VIEW.DKP]: Coins,
 }
@@ -253,7 +253,7 @@ const AvatarCropModal = ({ imageSrc, onConfirm, onCancel, t }) => {
 
 const MyCharacterModal = ({
   onClose,
-  initialTab = CHARACTER_MODAL_VIEW.PROFILE,
+  initialTab = CHARACTER_MODAL_VIEW.ACCOUNT,
   showTabs = true,
 }) => {
   const { user, refreshUser } = useAuth()
@@ -609,8 +609,8 @@ const MyCharacterModal = ({
   }
 
   return createPortal(
-    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[100] p-4">
-      <div className="bg-indigo border-2 border-lavender-20 rounded-2xl w-full max-w-2xl shadow-2xl max-h-[90vh] flex flex-col">
+    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[100] p-4" onClick={onClose}>
+      <div className="bg-indigo border-2 border-lavender-20 rounded-2xl w-full max-w-2xl shadow-2xl max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
         {/* Header */}
         <div className="p-6 border-b border-lavender-20/30 flex-shrink-0">
           <div className="flex items-center justify-between">
@@ -709,8 +709,8 @@ const MyCharacterModal = ({
 
         {/* Scrollable content */}
         <div className="flex-1 overflow-auto">
-          {/* ========== PROFILE TAB ========== */}
-          {activeTab === 'profile' && (
+          {/* ========== ACCOUNT TAB ========== */}
+          {activeTab === 'account' && (
             <>
               {/* Email Section */}
               <div className="p-6 border-b border-lavender-20/30">
@@ -1058,15 +1058,6 @@ const MyCharacterModal = ({
           )}
         </div>
 
-        {/* Footer */}
-        <div className="p-4 border-t border-lavender-20/30 flex-shrink-0">
-          <button
-            onClick={onClose}
-            className="w-full px-4 py-3 rounded-lg bg-coral text-indigo font-bold hover:shadow-lg transition-all"
-          >
-            {t('close')}
-          </button>
-        </div>
       </div>
 
       {/* Avatar Crop Modal */}

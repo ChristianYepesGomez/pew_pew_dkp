@@ -11,13 +11,13 @@ import PopoverMenu, { PopoverMenuDivider, PopoverMenuItem } from '../UI/PopoverM
 const USER_MENU_ID = 'header-user-menu'
 
 const VIEW_ICON_MAP = {
-  [CHARACTER_MODAL_VIEW.PROFILE]: User,
+  [CHARACTER_MODAL_VIEW.ACCOUNT]: User,
   [CHARACTER_MODAL_VIEW.CHARACTERS]: Users,
   [CHARACTER_MODAL_VIEW.DKP]: Coins,
 }
 
 const VIEW_LABEL_KEY_MAP = {
-  [CHARACTER_MODAL_VIEW.PROFILE]: 'tab_profile',
+  [CHARACTER_MODAL_VIEW.ACCOUNT]: 'tab_account',
   [CHARACTER_MODAL_VIEW.CHARACTERS]: 'tab_characters',
   [CHARACTER_MODAL_VIEW.DKP]: 'tab_dkp',
 }
@@ -27,7 +27,7 @@ const Header = ({ tabs = [], activeTab, onTabChange }) => {
   const { t, language, changeLanguage } = useLanguage()
   const [showUserMenu, setShowUserMenu] = useState(false)
   const [showCharacterModal, setShowCharacterModal] = useState(false)
-  const [characterModalTab, setCharacterModalTab] = useState(CHARACTER_MODAL_VIEW.PROFILE)
+  const [characterModalTab, setCharacterModalTab] = useState(CHARACTER_MODAL_VIEW.ACCOUNT)
   const isAdmin = user?.role === 'admin'
 
   useSocket({

@@ -184,7 +184,7 @@ export const translations = {
     password_reset_success: 'Contraseña cambiada correctamente. Redirigiendo...',
     error_generic: 'Ha ocurrido un error. Inténtalo de nuevo.',
     // Profile Modal Tabs
-    tab_profile: 'Perfil',
+    tab_account: 'Cuenta',
     tab_characters: 'Personajes',
     tab_dkp: 'DKP',
     current_password: 'Contraseña actual',
@@ -754,7 +754,7 @@ export const translations = {
     password_reset_success: 'Password changed successfully. Redirecting...',
     error_generic: 'An error occurred. Please try again.',
     // Profile Modal Tabs
-    tab_profile: 'Profile',
+    tab_account: 'Account',
     tab_characters: 'Characters',
     tab_dkp: 'DKP',
     current_password: 'Current password',
