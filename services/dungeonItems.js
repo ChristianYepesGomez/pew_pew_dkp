@@ -2,7 +2,6 @@
 // Fetches M+ dungeon items from Blizzard API
 // Mirrors raidItems.js pattern with cache chain
 
-import blizzardAPI from './blizzardAPI.js';
 import { discoverMythicDungeons, fetchRaidItemsMultiLang } from './blizzardAPI.js';
 import fs from 'fs';
 import path from 'path';

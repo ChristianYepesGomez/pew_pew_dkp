@@ -46,7 +46,7 @@ async function getAccessToken() {
 
   } catch (error) {
     console.error('❌ Failed to get Warcraft Logs access token:', error.response?.data || error.message);
-    throw new Error('Failed to authenticate with Warcraft Logs API');
+    throw new Error('Failed to authenticate with Warcraft Logs API', { cause: error });
   }
 }
 
@@ -102,7 +102,7 @@ async function executeGraphQL(query, variables = {}) {
 
   } catch (error) {
     console.error('❌ GraphQL query failed:', error.response?.data || error.message);
-    throw new Error(`Warcraft Logs API error: ${error.message}`);
+    throw new Error(`Warcraft Logs API error: ${error.message}`, { cause: error });
   }
 }
 
@@ -625,7 +625,7 @@ export async function getFightStatsWithDeathEvents(reportCode, fightInfo) {
     }
   `;
 
-  let playerIdToName = {};
+  const playerIdToName = {};
   try {
     const actorsData = await executeGraphQL(actorsQuery, { reportCode });
     const actors = actorsData.reportData?.report?.masterData?.actors || [];

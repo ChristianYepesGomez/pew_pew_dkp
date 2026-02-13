@@ -318,8 +318,6 @@ async function fetchRaidItemsMultiLang(instanceId) {
 
   CONFIG.locale = originalLocale;
 
-  // Create maps for faster lookup
-  const englishItemsMap = new Map(englishItems.map(item => [item.id, item]));
   const spanishItemsMap = new Map(spanishItems.map(item => [item.id, item]));
 
   // Merge translations - use English as base for consistent slot names

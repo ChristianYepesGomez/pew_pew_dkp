@@ -96,8 +96,8 @@ async function initDatabase() {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       username TEXT UNIQUE NOT NULL,
       password TEXT NOT NULL,
-      character_name TEXT NOT NULL,
-      character_class TEXT NOT NULL,
+      character_name TEXT,
+      character_class TEXT,
       raid_role TEXT DEFAULT 'DPS' CHECK(raid_role IN ('Tank', 'Healer', 'DPS')),
       role TEXT DEFAULT 'raider' CHECK(role IN ('admin', 'officer', 'raider')),
       server TEXT,
@@ -555,7 +555,7 @@ async function initDatabase() {
   ];
 
   for (const sql of columnMigrations) {
-    try { await db.exec(sql); } catch (e) { /* column already exists */ }
+    try { await db.exec(sql); } catch (_e) { /* column already exists */ }
   }
 
   // Migration: Recreate member_availability if it has the old schema

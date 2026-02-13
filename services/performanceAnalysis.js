@@ -18,7 +18,7 @@ const BUFF_PATTERNS = {
  * Called during the import loop for each fight
  */
 export async function processExtendedFightData(reportCode, bossInfo, basicStats, extendedStats, participantUserMap, reportDate) {
-  const { bossId, fightId, difficulty, startTime, endTime, kill } = bossInfo;
+  const { bossId, fightId, difficulty, startTime, endTime } = bossInfo;
   const fightDurationMs = endTime - startTime;
   const fightDurationSec = fightDurationMs / 1000;
 

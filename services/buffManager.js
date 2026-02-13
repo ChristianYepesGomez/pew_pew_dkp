@@ -11,36 +11,6 @@ const clients = new Map();
 // Active buffs (memberId -> { buff, expiresAt, casterName })
 const activeBuffs = new Map();
 
-// Spec to expected role mapping - used for validation
-const SPEC_ROLES = {
-  // Warrior
-  'Arms': 'DPS', 'Fury': 'DPS', 'Protection Warrior': 'Tank',
-  // Paladin
-  'Holy Paladin': 'Healer', 'Protection Paladin': 'Tank', 'Retribution': 'DPS',
-  // Hunter (all DPS)
-  'Beast Mastery': 'DPS', 'Marksmanship': 'DPS', 'Survival': 'DPS',
-  // Rogue (all DPS)
-  'Assassination': 'DPS', 'Outlaw': 'DPS', 'Subtlety': 'DPS',
-  // Priest
-  'Discipline': 'Healer', 'Holy Priest': 'Healer', 'Shadow': 'DPS',
-  // Shaman
-  'Elemental': 'DPS', 'Enhancement': 'DPS', 'Restoration Shaman': 'Healer',
-  // Mage (all DPS)
-  'Arcane': 'DPS', 'Fire': 'DPS', 'Frost Mage': 'DPS',
-  // Warlock (all DPS)
-  'Affliction': 'DPS', 'Demonology': 'DPS', 'Destruction': 'DPS',
-  // Druid
-  'Balance': 'DPS', 'Feral': 'DPS', 'Guardian': 'Tank', 'Restoration Druid': 'Healer',
-  // Death Knight
-  'Blood': 'Tank', 'Frost DK': 'DPS', 'Unholy': 'DPS',
-  // Monk
-  'Brewmaster': 'Tank', 'Mistweaver': 'Healer', 'Windwalker': 'DPS',
-  // Demon Hunter
-  'Havoc': 'DPS', 'Vengeance': 'Tank',
-  // Evoker
-  'Devastation': 'DPS', 'Preservation': 'Healer', 'Augmentation': 'DPS',
-};
-
 // Buff definitions - using role + spec filtering for accuracy
 // casterRole: required role to cast this buff (null = any role)
 // casterSpecs: if set, caster's spec must be one of these (overrides casterRole for multi-spec classes)

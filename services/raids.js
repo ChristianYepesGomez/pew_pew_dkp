@@ -620,7 +620,7 @@ async function updatePlayerPerformance(userId, bossId, difficulty, stats) {
 /**
  * Check and update boss records (all-time top performers)
  */
-async function checkAndUpdateRecord(bossId, difficulty, recordType, userId, value, characterName, reportCode, fightId, participantUserMap) {
+async function checkAndUpdateRecord(bossId, difficulty, recordType, userId, value, characterName, reportCode, fightId, _participantUserMap) {
   const existing = await db.get(
     'SELECT * FROM boss_records WHERE boss_id = ? AND difficulty = ? AND record_type = ?',
     bossId, difficulty, recordType
