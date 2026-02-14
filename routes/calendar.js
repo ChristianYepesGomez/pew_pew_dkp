@@ -1,13 +1,14 @@
 import { Router } from 'express';
-import { db } from '../database.js';
 import { authenticateToken, authorizeRole } from '../middleware/auth.js';
+import { success, error } from '../lib/response.js';
+import { ErrorCodes } from '../lib/errorCodes.js';
 import { createLogger } from '../lib/logger.js';
 
 const log = createLogger('Route:Calendar');
 const router = Router();
 
 // Helper: Get raid dates for the next N weeks
-async function getRaidDates(weeks = 2) {
+async function getRaidDates(db, weeks = 2) {
   const raidDays = await db.all(`
     SELECT day_of_week, day_name, raid_time
     FROM raid_days
@@ -74,17 +75,17 @@ export { getRaidDates };
 router.get('/raid-days', authenticateToken, async (req, res) => {
   try {
     const includeInactive = req.query.all === 'true';
-    const raidDays = await db.all(`
+    const raidDays = await req.db.all(`
       SELECT day_of_week, day_name, is_active, raid_time
       FROM raid_days
       ${includeInactive ? '' : 'WHERE is_active = 1'}
       ORDER BY day_of_week
     `);
 
-    res.json(raidDays);
-  } catch (error) {
-    log.error('Get raid days error', error);
-    res.status(500).json({ error: 'Failed to get raid days' });
+    return success(res, raidDays);
+  } catch (err) {
+    log.error('Get raid days error', err);
+    return error(res, 'Failed to get raid days', 500, ErrorCodes.INTERNAL_ERROR);
   }
 });
 
@@ -94,7 +95,7 @@ router.put('/raid-days', authenticateToken, authorizeRole(['admin']), async (req
     const { days } = req.body;
 
     if (!days || !Array.isArray(days)) {
-      return res.status(400).json({ error: 'days array required' });
+      return error(res, 'days array required', 400, ErrorCodes.VALIDATION_ERROR);
     }
 
     const dayNames = {
@@ -103,7 +104,7 @@ router.put('/raid-days', authenticateToken, authorizeRole(['admin']), async (req
     };
 
     // Atomic: deactivate all + activate new ones in one transaction
-    await db.transaction(async (tx) => {
+    await req.db.transaction(async (tx) => {
       await tx.run('UPDATE raid_days SET is_active = 0');
 
       for (const day of days) {
@@ -118,10 +119,10 @@ router.put('/raid-days', authenticateToken, authorizeRole(['admin']), async (req
       }
     });
 
-    res.json({ message: 'Raid days updated' });
-  } catch (error) {
-    log.error('Update raid days error', error);
-    res.status(500).json({ error: 'Failed to update raid days' });
+    return success(res, null, 'Raid days updated');
+  } catch (err) {
+    log.error('Update raid days error', err);
+    return error(res, 'Failed to update raid days', 500, ErrorCodes.INTERNAL_ERROR);
   }
 });
 
@@ -129,11 +130,11 @@ router.put('/raid-days', authenticateToken, authorizeRole(['admin']), async (req
 router.get('/dates', authenticateToken, async (req, res) => {
   try {
     const weeks = parseInt(req.query.weeks) || 2;
-    const dates = await getRaidDates(Math.min(weeks, 4));
-    res.json(dates);
-  } catch (error) {
-    log.error('Get calendar dates error', error);
-    res.status(500).json({ error: 'Failed to get calendar dates' });
+    const dates = await getRaidDates(req.db, Math.min(weeks, 4));
+    return success(res, dates);
+  } catch (err) {
+    log.error('Get calendar dates error', err);
+    return error(res, 'Failed to get calendar dates', 500, ErrorCodes.INTERNAL_ERROR);
   }
 });
 
@@ -143,15 +144,15 @@ router.get('/my-signups', authenticateToken, async (req, res) => {
     const userId = req.user.userId;
     const weeks = parseInt(req.query.weeks) || 2;
 
-    const raidDates = await getRaidDates(weeks);
+    const raidDates = await getRaidDates(req.db, weeks);
     const dateStrings = raidDates.map(d => d.date);
 
     if (dateStrings.length === 0) {
-      return res.json({ dates: [] });
+      return success(res, { dates: [] });
     }
 
     const placeholders = dateStrings.map(() => '?').join(',');
-    const signups = await db.all(`
+    const signups = await req.db.all(`
       SELECT raid_date, status, notes, dkp_awarded, updated_at
       FROM member_availability
       WHERE user_id = ? AND raid_date IN (${placeholders})
@@ -168,10 +169,10 @@ router.get('/my-signups', authenticateToken, async (req, res) => {
       };
     });
 
-    res.json({ dates: result });
-  } catch (error) {
-    log.error('Get my signups error', error);
-    res.status(500).json({ error: 'Failed to get signups' });
+    return success(res, { dates: result });
+  } catch (err) {
+    log.error('Get my signups error', err);
+    return error(res, 'Failed to get signups', 500, ErrorCodes.INTERNAL_ERROR);
   }
 });
 
@@ -182,20 +183,22 @@ router.post('/signup', authenticateToken, async (req, res) => {
     const userId = req.user.userId;
 
     if (!date || !status) {
-      return res.status(400).json({ error: 'date and status are required' });
+      return error(res, 'date and status are required', 400, ErrorCodes.VALIDATION_ERROR);
     }
 
     if (!['confirmed', 'declined', 'tentative'].includes(status)) {
-      return res.status(400).json({ error: 'Invalid status. Must be: confirmed, declined, or tentative' });
+      return error(res, 'Invalid status. Must be: confirmed, declined, or tentative', 400, ErrorCodes.VALIDATION_ERROR);
     }
 
     const dateObj = new Date(date + 'T12:00:00');
     const jsDay = dateObj.getDay();
     const dbDay = jsDay === 0 ? 7 : jsDay;
 
-    const raidDay = await db.get('SELECT * FROM raid_days WHERE day_of_week = ? AND is_active = 1', dbDay);
+    const raidDay = await req.db.get(
+      'SELECT id, day_of_week, day_name, raid_time FROM raid_days WHERE day_of_week = ? AND is_active = 1', dbDay
+    );
     if (!raidDay) {
-      return res.status(400).json({ error: 'Selected date is not a raid day' });
+      return error(res, 'Selected date is not a raid day', 400, ErrorCodes.VALIDATION_ERROR);
     }
 
     const raidTimeStr = raidDay.raid_time || '21:00';
@@ -205,11 +208,11 @@ router.post('/signup', authenticateToken, async (req, res) => {
     const cutoff = new Date(raidStart.getTime() - 8 * 60 * 60 * 1000);
 
     if (new Date() > cutoff) {
-      return res.status(400).json({ error: 'Signup deadline has passed (8 hours before raid start)' });
+      return error(res, 'Signup deadline has passed (8 hours before raid start)', 400, ErrorCodes.SIGNUP_LOCKED);
     }
 
     // Atomic signup: check + insert/update + DKP in one transaction to prevent duplicate DKP
-    const signupResult = await db.transaction(async (tx) => {
+    const signupResult = await req.db.transaction(async (tx) => {
       const existing = await tx.get(`
         SELECT id, dkp_awarded FROM member_availability WHERE user_id = ? AND raid_date = ?
       `, userId, date);
@@ -265,16 +268,15 @@ router.post('/signup', authenticateToken, async (req, res) => {
       req.app.get('io').emit('dkp_updated', { userId, amount: dkpAwarded, reason: 'calendar_signup' });
     }
 
-    res.json({
-      message: isFirstSignup ? 'Signup created' : 'Signup updated',
+    return success(res, {
       date,
       status,
       dkpAwarded,
       isFirstSignup
-    });
-  } catch (error) {
-    log.error('Calendar signup error', error);
-    res.status(500).json({ error: 'Failed to save signup' });
+    }, isFirstSignup ? 'Signup created' : 'Signup updated');
+  } catch (err) {
+    log.error('Calendar signup error', err);
+    return error(res, 'Failed to save signup', 500, ErrorCodes.INTERNAL_ERROR);
   }
 });
 
@@ -284,14 +286,14 @@ router.get('/summary/:date', authenticateToken, async (req, res) => {
     const { date } = req.params;
     const isAdmin = ['admin', 'officer'].includes(req.user.role);
 
-    const users = await db.all(`
+    const users = await req.db.all(`
       SELECT u.id, u.character_name, u.character_class, u.raid_role, u.spec
       FROM users u
       WHERE u.is_active = 1
       ORDER BY u.character_name
     `);
 
-    const signups = await db.all(`
+    const signups = await req.db.all(`
       SELECT user_id, status, notes
       FROM member_availability
       WHERE raid_date = ?
@@ -335,10 +337,10 @@ router.get('/summary/:date', authenticateToken, async (req, res) => {
       total: users.length
     };
 
-    res.json(summary);
-  } catch (error) {
-    log.error('Calendar summary error', error);
-    res.status(500).json({ error: 'Failed to get calendar summary' });
+    return success(res, summary);
+  } catch (err) {
+    log.error('Calendar summary error', err);
+    return error(res, 'Failed to get calendar summary', 500, ErrorCodes.INTERNAL_ERROR);
   }
 });
 
@@ -346,9 +348,9 @@ router.get('/summary/:date', authenticateToken, async (req, res) => {
 router.get('/overview', authenticateToken, async (req, res) => {
   try {
     const weeks = parseInt(req.query.weeks) || 2;
-    const raidDates = await getRaidDates(weeks);
+    const raidDates = await getRaidDates(req.db, weeks);
 
-    const users = await db.all(`
+    const users = await req.db.all(`
       SELECT id, character_name, character_class, raid_role, spec
       FROM users
       WHERE is_active = 1
@@ -356,12 +358,12 @@ router.get('/overview', authenticateToken, async (req, res) => {
     `);
 
     if (raidDates.length === 0) {
-      return res.json({ dates: [], members: [] });
+      return success(res, { dates: [], members: [] });
     }
 
     const dateStrings = raidDates.map(d => d.date);
     const placeholders = dateStrings.map(() => '?').join(',');
-    const allSignups = await db.all(`
+    const allSignups = await req.db.all(`
       SELECT user_id, raid_date, status, notes
       FROM member_availability
       WHERE raid_date IN (${placeholders})
@@ -400,13 +402,13 @@ router.get('/overview', authenticateToken, async (req, res) => {
       };
     });
 
-    res.json({
+    return success(res, {
       dates: datesOverview,
       members
     });
-  } catch (error) {
-    log.error('Calendar overview error', error);
-    res.status(500).json({ error: 'Failed to get calendar overview' });
+  } catch (err) {
+    log.error('Calendar overview error', err);
+    return error(res, 'Failed to get calendar overview', 500, ErrorCodes.INTERNAL_ERROR);
   }
 });
 
@@ -417,7 +419,7 @@ router.get('/history', authenticateToken, async (req, res) => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    const raidDays = await db.all('SELECT day_of_week, day_name, raid_time FROM raid_days WHERE is_active = 1 ORDER BY day_of_week');
+    const raidDays = await req.db.all('SELECT day_of_week, day_name, raid_time FROM raid_days WHERE is_active = 1 ORDER BY day_of_week');
 
     // Collect past raid dates
     const pastDates = [];
@@ -436,21 +438,21 @@ router.get('/history', authenticateToken, async (req, res) => {
     }
 
     if (pastDates.length === 0) {
-      return res.json([]);
+      return success(res, []);
     }
 
     // Get WCL reports linked to these dates
     const dateStrings = pastDates.map(d => d.date);
     const placeholders = dateStrings.map(() => '?').join(',');
 
-    const linkedReports = await db.all(`
+    const linkedReports = await req.db.all(`
       SELECT report_code, report_title, raid_date, dkp_assigned, participants_count, is_reverted
       FROM warcraft_logs_processed
       WHERE raid_date IN (${placeholders})
     `, ...dateStrings);
 
     // Get attendance counts for each date
-    const attendanceCounts = await db.all(`
+    const attendanceCounts = await req.db.all(`
       SELECT raid_date,
              SUM(CASE WHEN status = 'confirmed' THEN 1 ELSE 0 END) as confirmed,
              SUM(CASE WHEN status = 'tentative' THEN 1 ELSE 0 END) as tentative,
@@ -479,10 +481,10 @@ router.get('/history', authenticateToken, async (req, res) => {
       };
     });
 
-    res.json(enriched);
-  } catch (error) {
-    log.error('Calendar history error', error);
-    res.status(500).json({ error: 'Failed to get raid history' });
+    return success(res, enriched);
+  } catch (err) {
+    log.error('Calendar history error', err);
+    return error(res, 'Failed to get raid history', 500, ErrorCodes.INTERNAL_ERROR);
   }
 });
 
@@ -490,17 +492,17 @@ router.get('/history', authenticateToken, async (req, res) => {
 router.get('/dates-with-logs', authenticateToken, async (req, res) => {
   try {
     const weeks = parseInt(req.query.weeks) || 4;
-    const raidDates = await getRaidDates(weeks);
+    const raidDates = await getRaidDates(req.db, weeks);
 
     if (raidDates.length === 0) {
-      return res.json([]);
+      return success(res, []);
     }
 
     // Also look back 2 weeks for past raid dates
     const pastWeeks = 2;
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const raidDays = await db.all('SELECT day_of_week, day_name, raid_time FROM raid_days WHERE is_active = 1 ORDER BY day_of_week');
+    const raidDays = await req.db.all('SELECT day_of_week, day_name, raid_time FROM raid_days WHERE is_active = 1 ORDER BY day_of_week');
     const pastDates = [];
     for (let i = pastWeeks * 7; i > 0; i--) {
       const d = new Date(today);
@@ -522,7 +524,7 @@ router.get('/dates-with-logs', authenticateToken, async (req, res) => {
     const allDateStrings = allDates.map(d => d.date);
     const placeholders = allDateStrings.map(() => '?').join(',');
 
-    const linkedReports = allDateStrings.length > 0 ? await db.all(`
+    const linkedReports = allDateStrings.length > 0 ? await req.db.all(`
       SELECT report_code, report_title, raid_date, dkp_assigned, participants_count, is_reverted
       FROM warcraft_logs_processed
       WHERE raid_date IN (${placeholders})
@@ -541,10 +543,10 @@ router.get('/dates-with-logs', authenticateToken, async (req, res) => {
       };
     });
 
-    res.json(enriched);
-  } catch (error) {
-    log.error('Dates with logs error', error);
-    res.status(500).json({ error: 'Failed to get dates with logs' });
+    return success(res, enriched);
+  } catch (err) {
+    log.error('Dates with logs error', err);
+    return error(res, 'Failed to get dates with logs', 500, ErrorCodes.INTERNAL_ERROR);
   }
 });
 

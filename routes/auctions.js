@@ -1,18 +1,42 @@
 import { Router } from 'express';
-import { db } from '../database.js';
 import { authenticateToken, authorizeRole } from '../middleware/auth.js';
 import { adminLimiter, userLimiter } from '../lib/rateLimiters.js';
-import { scheduleAuctionClose, SNIPE_THRESHOLD_MS, SNIPE_EXTENSION_MS } from '../lib/auctionScheduler.js';
+import { scheduleAuctionClose, SNIPE_THRESHOLD_MS, SNIPE_EXTENSION_MS, MAX_SNIPE_EXTENSION_MS } from '../lib/auctionScheduler.js';
 import { createLogger } from '../lib/logger.js';
+import { success, error, paginated } from '../lib/response.js';
+import { ErrorCodes } from '../lib/errorCodes.js';
+import { validateParams } from '../middleware/validate.js';
+import { parsePagination } from '../lib/pagination.js';
 
 const log = createLogger('Route:Auctions');
 const router = Router();
 
+// Helper: calculate DKP committed in active auction bids
+async function getCommittedBids(db, userId, excludeAuctionId = null) {
+  const sql = excludeAuctionId
+    ? `SELECT COALESCE(SUM(ab.amount), 0) as total
+       FROM auction_bids ab
+       JOIN auctions a ON ab.auction_id = a.id
+       WHERE ab.user_id = ? AND a.status = 'active' AND a.id != ?
+       AND ab.amount = (SELECT MAX(ab2.amount) FROM auction_bids ab2 WHERE ab2.auction_id = ab.auction_id)`
+    : `SELECT COALESCE(SUM(ab.amount), 0) as total
+       FROM auction_bids ab
+       JOIN auctions a ON ab.auction_id = a.id
+       WHERE ab.user_id = ? AND a.status = 'active'
+       AND ab.amount = (SELECT MAX(ab2.amount) FROM auction_bids ab2 WHERE ab2.auction_id = ab.auction_id)`;
+  const args = excludeAuctionId ? [userId, excludeAuctionId] : [userId];
+  const result = await db.get(sql, ...args);
+  return result?.total || 0;
+}
+
 // Get all active auctions
 router.get('/active', authenticateToken, async (req, res) => {
   try {
-    const auctions = await db.all(`
-      SELECT a.*, u.character_name as created_by_name
+    const auctions = await req.db.all(`
+      SELECT a.id, a.item_name, a.item_image, a.item_rarity, a.item_id, a.min_bid,
+             a.status, a.winner_id, a.winning_bid, a.created_by, a.created_at,
+             a.ended_at, a.ends_at, a.duration_minutes,
+             u.character_name as created_by_name
       FROM auctions a
       LEFT JOIN users u ON a.created_by = u.id
       WHERE a.status = 'active'
@@ -20,22 +44,35 @@ router.get('/active', authenticateToken, async (req, res) => {
     `);
 
     if (auctions.length === 0) {
-      return res.json({ auctions: [] });
+      return success(res, { auctions: [] });
     }
 
-    const auctionsWithBids = await Promise.all(auctions.map(async (auction) => {
-      const bids = await db.all(`
-        SELECT ab.*, u.character_name, u.character_class
-        FROM auction_bids ab
-        JOIN users u ON ab.user_id = u.id
-        WHERE ab.auction_id = ?
-        ORDER BY ab.amount DESC
-      `, auction.id);
+    // Batch-load ALL bids for ALL active auctions in one query (eliminates N+1)
+    const auctionIds = auctions.map(a => a.id);
+    const placeholders = auctionIds.map(() => '?').join(',');
+    const allBids = await req.db.all(`
+      SELECT ab.id, ab.auction_id, ab.user_id, ab.amount, ab.created_at,
+             u.character_name, u.character_class
+      FROM auction_bids ab
+      JOIN users u ON ab.user_id = u.id
+      WHERE ab.auction_id IN (${placeholders})
+      ORDER BY ab.auction_id, ab.amount DESC
+    `, ...auctionIds);
 
+    // Group bids by auction_id
+    const bidsByAuction = new Map();
+    for (const bid of allBids) {
+      if (!bidsByAuction.has(bid.auction_id)) {
+        bidsByAuction.set(bid.auction_id, []);
+      }
+      bidsByAuction.get(bid.auction_id).push(bid);
+    }
+
+    const auctionsWithBids = auctions.map(auction => {
+      const bids = bidsByAuction.get(auction.id) || [];
       const highestBid = bids.length > 0 ? bids[0].amount : 0;
       const highestBidder = bids.length > 0 ? bids[0] : null;
 
-      // Check for ties at highest bid
       const tiedBidders = bids.filter(b => b.amount === highestBid);
       const hasTie = tiedBidders.length > 1;
 
@@ -86,27 +123,17 @@ router.get('/active', authenticateToken, async (req, res) => {
           isTied: b.amount === highestBid && hasTie
         }))
       };
-    }));
+    });
 
     const userId = req.user.userId;
-    const userDkp = await db.get('SELECT current_dkp FROM member_dkp WHERE user_id = ?', userId);
-    const committedBids = await db.get(`
-      SELECT COALESCE(SUM(ab.amount), 0) as total
-      FROM auction_bids ab
-      JOIN auctions a ON ab.auction_id = a.id
-      WHERE ab.user_id = ? AND a.status = 'active'
-      AND ab.amount = (
-        SELECT MAX(ab2.amount) FROM auction_bids ab2
-        WHERE ab2.auction_id = ab.auction_id
-      )
-    `, userId);
+    const userDkp = await req.db.get('SELECT current_dkp FROM member_dkp WHERE user_id = ?', userId);
+    const committed = await getCommittedBids(req.db, userId);
+    const availableDkp = (userDkp?.current_dkp || 0) - committed;
 
-    const availableDkp = (userDkp?.current_dkp || 0) - (committedBids?.total || 0);
-
-    res.json({ auctions: auctionsWithBids, availableDkp });
-  } catch (error) {
-    log.error('Get active auctions error', error);
-    res.status(500).json({ error: 'Failed to get active auctions' });
+    return success(res, { auctions: auctionsWithBids, availableDkp });
+  } catch (err) {
+    log.error('Get active auctions error', err);
+    return error(res, 'Failed to get active auctions', 500, ErrorCodes.INTERNAL_ERROR);
   }
 });
 
@@ -116,69 +143,66 @@ router.post('/', adminLimiter, authenticateToken, authorizeRole(['admin', 'offic
     const { itemName, itemNameEN, itemImage, minBid, itemRarity, itemId, durationMinutes } = req.body;
 
     if (!itemName) {
-      return res.status(400).json({ error: 'Item name is required' });
+      return error(res, 'Item name is required', 400, ErrorCodes.VALIDATION_ERROR);
     }
 
     const duration = durationMinutes || 5;
     const endsAt = new Date(Date.now() + duration * 60 * 1000).toISOString();
 
-    const result = await db.run(`
+    const result = await req.db.run(`
       INSERT INTO auctions (item_name, item_name_en, item_image, item_rarity, min_bid, created_by, status, duration_minutes, ends_at, item_id)
       VALUES (?, ?, ?, ?, ?, ?, 'active', ?, ?, ?)
     `, itemName, itemNameEN || itemName, itemImage || '\uD83C\uDF81', itemRarity || 'epic', minBid || 0, req.user.userId, duration, endsAt, itemId || null);
 
-    const auction = await db.get('SELECT * FROM auctions WHERE id = ?', result.lastInsertRowid);
+    const auction = await req.db.get(`
+      SELECT id, item_name, item_name_en, item_image, item_rarity, item_id, min_bid,
+             status, winner_id, winning_bid, created_by, created_at, ended_at,
+             duration_minutes, ends_at, farewell_data, was_tie, winning_roll
+      FROM auctions WHERE id = ?
+    `, result.lastInsertRowid);
 
     // Schedule auto-close using centralized function (enables anti-snipe rescheduling)
-    scheduleAuctionClose(auction.id, new Date(endsAt).getTime());
+    scheduleAuctionClose(req.db, auction.id, new Date(endsAt).getTime());
 
     req.app.get('io').emit('auction_started', auction);
-    res.status(201).json(auction);
-  } catch (error) {
-    log.error('Create auction error', error);
-    res.status(500).json({ error: 'Failed to create auction' });
+    return success(res, auction, null, 201);
+  } catch (err) {
+    log.error('Create auction error', err);
+    return error(res, 'Failed to create auction', 500, ErrorCodes.INTERNAL_ERROR);
   }
 });
 
 // Place bid
-router.post('/:auctionId/bid', userLimiter, authenticateToken, async (req, res) => {
+router.post('/:auctionId/bid', userLimiter, authenticateToken, validateParams({ auctionId: 'integer' }), async (req, res) => {
   try {
-    const { auctionId } = req.params;
+    const auctionId = parseInt(req.params.auctionId, 10);
     const { amount } = req.body;
     const userId = req.user.userId;
 
-    const auction = await db.get('SELECT * FROM auctions WHERE id = ? AND status = ?', auctionId, 'active');
+    const auction = await req.db.get(
+      'SELECT id, ends_at, created_at, duration_minutes FROM auctions WHERE id = ? AND status = ?', auctionId, 'active'
+    );
     if (!auction) {
-      return res.status(404).json({ error: 'Active auction not found' });
+      return error(res, 'Active auction not found', 404, ErrorCodes.AUCTION_CLOSED);
     }
 
     if (!amount || amount < 1) {
-      return res.status(400).json({ error: 'Bid must be at least 1 DKP' });
+      return error(res, 'Bid must be at least 1 DKP', 400, ErrorCodes.VALIDATION_ERROR);
     }
 
-    const userDkp = await db.get('SELECT current_dkp FROM member_dkp WHERE user_id = ?', userId);
+    const userDkp = await req.db.get('SELECT current_dkp FROM member_dkp WHERE user_id = ?', userId);
     if (!userDkp) {
-      return res.status(400).json({ error: 'Insufficient DKP' });
+      return error(res, 'Insufficient DKP', 400, ErrorCodes.INSUFFICIENT_DKP);
     }
 
-    const committedBids = await db.get(`
-      SELECT COALESCE(SUM(ab.amount), 0) as total
-      FROM auction_bids ab
-      JOIN auctions a ON ab.auction_id = a.id
-      WHERE ab.user_id = ? AND a.status = 'active' AND a.id != ?
-      AND ab.amount = (
-        SELECT MAX(ab2.amount) FROM auction_bids ab2
-        WHERE ab2.auction_id = ab.auction_id
-      )
-    `, userId, auctionId);
-
-    const availableDkp = userDkp.current_dkp - (committedBids?.total || 0);
+    const committed = await getCommittedBids(req.db, userId, auctionId);
+    const availableDkp = userDkp.current_dkp - committed;
     if (availableDkp < amount) {
-      return res.status(400).json({ error: 'Insufficient DKP (accounting for your bids on other active auctions)' });
+      return error(res, 'Insufficient DKP (accounting for your bids on other active auctions)', 400, ErrorCodes.INSUFFICIENT_DKP);
     }
 
     // Atomic bid placement: validate + delete old + insert new in one transaction
-    const bidResult = await db.transaction(async (tx) => {
+    const bidResult = await req.db.transaction(async (tx) => {
       const highestBid = await tx.get(`
         SELECT MAX(amount) as max_bid FROM auction_bids WHERE auction_id = ?
       `, auctionId);
@@ -209,7 +233,7 @@ router.post('/:auctionId/bid', userLimiter, authenticateToken, async (req, res) 
 
     const { previousTopBid } = bidResult;
 
-    const user = await db.get('SELECT character_name, character_class FROM users WHERE id = ?', userId);
+    const user = await req.db.get('SELECT character_name, character_class FROM users WHERE id = ?', userId);
 
     // Check if this bid is a tie or outbid
     const isTie = previousTopBid && previousTopBid.amount === amount && previousTopBid.user_id !== userId;
@@ -223,12 +247,21 @@ router.post('/:auctionId/bid', userLimiter, authenticateToken, async (req, res) 
     const timeRemaining = endsAt - now;
 
     if (timeRemaining > 0 && timeRemaining <= SNIPE_THRESHOLD_MS) {
-      // Extend the auction by 30 seconds
-      newEndsAt = new Date(endsAt + SNIPE_EXTENSION_MS).toISOString();
-      await db.run('UPDATE auctions SET ends_at = ? WHERE id = ?', newEndsAt, auctionId);
-      scheduleAuctionClose(auctionId, new Date(newEndsAt).getTime());
-      timeExtended = true;
-      log.info(`Anti-snipe: Auction ${auctionId} extended to ${newEndsAt}`);
+      // Check if max extension cap has been reached
+      // SQLite CURRENT_TIMESTAMP is UTC but lacks 'Z' suffix — ensure UTC parsing
+      const createdAtUtc = auction.created_at.endsWith('Z') ? auction.created_at : auction.created_at + 'Z';
+      const originalEndTime = new Date(createdAtUtc).getTime() + (auction.duration_minutes || 5) * 60 * 1000;
+      const totalExtended = (endsAt + SNIPE_EXTENSION_MS) - originalEndTime;
+
+      if (totalExtended <= MAX_SNIPE_EXTENSION_MS) {
+        newEndsAt = new Date(endsAt + SNIPE_EXTENSION_MS).toISOString();
+        await req.db.run('UPDATE auctions SET ends_at = ? WHERE id = ?', newEndsAt, auctionId);
+        scheduleAuctionClose(req.db, auctionId, new Date(newEndsAt).getTime());
+        timeExtended = true;
+        log.info(`Anti-snipe: Auction ${auctionId} extended to ${newEndsAt}`);
+      } else {
+        log.info(`Anti-snipe: Auction ${auctionId} max extension reached (${MAX_SNIPE_EXTENSION_MS / 1000}s cap)`);
+      }
     }
 
     req.app.get('io').emit('bid_placed', {
@@ -247,43 +280,54 @@ router.post('/:auctionId/bid', userLimiter, authenticateToken, async (req, res) 
       newEndsAt,
     });
 
-    res.json({ message: 'Bid placed successfully', timeExtended, newEndsAt });
-  } catch (error) {
-    if (error.message === 'Bid must be higher than current highest bid') {
-      return res.status(400).json({ error: error.message });
+    return success(res, { timeExtended, newEndsAt }, 'Bid placed successfully');
+  } catch (err) {
+    if (err.message === 'Bid must be higher than current highest bid') {
+      return error(res, err.message, 400, ErrorCodes.BID_TOO_LOW);
     }
-    log.error('Place bid error', error);
-    res.status(500).json({ error: 'Failed to place bid' });
+    log.error('Place bid error', err);
+    return error(res, 'Failed to place bid', 500, ErrorCodes.INTERNAL_ERROR);
   }
 });
 
 // End auction (officer+) - with tie-breaking rolls
-router.post('/:auctionId/end', adminLimiter, authenticateToken, authorizeRole(['admin', 'officer']), async (req, res) => {
+router.post('/:auctionId/end', adminLimiter, authenticateToken, authorizeRole(['admin', 'officer']), validateParams({ auctionId: 'integer' }), async (req, res) => {
   try {
-    const { auctionId } = req.params;
+    const auctionId = parseInt(req.params.auctionId, 10);
 
-    const auction = await db.get('SELECT * FROM auctions WHERE id = ? AND status = ?', auctionId, 'active');
+    const auction = await req.db.get(
+      'SELECT id, item_name, item_image, status FROM auctions WHERE id = ? AND status = ?', auctionId, 'active'
+    );
     if (!auction) {
-      return res.status(404).json({ error: 'Active auction not found' });
+      return error(res, 'Active auction not found', 404, ErrorCodes.AUCTION_CLOSED);
     }
 
-    const allBids = await db.all(`
-      SELECT ab.*, u.character_name, u.character_class
+    const allBids = await req.db.all(`
+      SELECT ab.user_id, ab.amount, u.character_name, u.character_class
       FROM auction_bids ab
       JOIN users u ON ab.user_id = u.id
       WHERE ab.auction_id = ?
       ORDER BY ab.amount DESC
     `, auctionId);
 
-    const result = await db.transaction(async (tx) => {
-      // Find valid bids (bidders with enough DKP)
-      const validBids = [];
-      for (const bid of allBids) {
-        const bidderDkp = await tx.get('SELECT current_dkp FROM member_dkp WHERE user_id = ?', bid.user_id);
-        if (bidderDkp && bidderDkp.current_dkp >= bid.amount) {
-          validBids.push({ ...bid, currentDkp: bidderDkp.current_dkp });
-        }
+    const result = await req.db.transaction(async (tx) => {
+      // Batch-load all bidder DKP in one query (eliminates N+1)
+      const bidderIds = [...new Set(allBids.map(b => b.user_id))];
+      const dkpMap = new Map();
+      if (bidderIds.length > 0) {
+        const ph = bidderIds.map(() => '?').join(',');
+        const dkpRows = await tx.all(
+          `SELECT user_id, current_dkp FROM member_dkp WHERE user_id IN (${ph})`, ...bidderIds
+        );
+        for (const row of dkpRows) dkpMap.set(row.user_id, row.current_dkp);
       }
+
+      const validBids = allBids
+        .filter(bid => {
+          const dkp = dkpMap.get(bid.user_id);
+          return dkp !== undefined && dkp >= bid.amount;
+        })
+        .map(bid => ({ ...bid, currentDkp: dkpMap.get(bid.user_id) }));
 
       if (validBids.length === 0) {
         // No valid bids - cancel auction
@@ -386,52 +430,59 @@ router.post('/:auctionId/end', adminLimiter, authenticateToken, authorizeRole(['
     };
 
     req.app.get('io').emit('auction_ended', eventData);
-    res.json(eventData);
-  } catch (error) {
-    log.error('End auction error', error);
-    res.status(500).json({ error: 'Failed to end auction' });
+    return success(res, eventData);
+  } catch (err) {
+    log.error('End auction error', err);
+    return error(res, 'Failed to end auction', 500, ErrorCodes.INTERNAL_ERROR);
   }
 });
 
 // Cancel auction (officer+)
-router.post('/:auctionId/cancel', adminLimiter, authenticateToken, authorizeRole(['admin', 'officer']), async (req, res) => {
+router.post('/:auctionId/cancel', adminLimiter, authenticateToken, authorizeRole(['admin', 'officer']), validateParams({ auctionId: 'integer' }), async (req, res) => {
   try {
-    const { auctionId } = req.params;
+    const auctionId = parseInt(req.params.auctionId, 10);
 
-    await db.run(`
+    await req.db.run(`
       UPDATE auctions SET status = 'cancelled', ended_at = CURRENT_TIMESTAMP WHERE id = ? AND status = 'active'
     `, auctionId);
 
     req.app.get('io').emit('auction_cancelled', { auctionId });
-    res.json({ message: 'Auction cancelled' });
-  } catch (error) {
-    log.error('Cancel auction error', error);
-    res.status(500).json({ error: 'Failed to cancel auction' });
+    return success(res, null, 'Auction cancelled');
+  } catch (err) {
+    log.error('Cancel auction error', err);
+    return error(res, 'Failed to cancel auction', 500, ErrorCodes.INTERNAL_ERROR);
   }
 });
 
 // Cancel ALL active auctions (admin only) - for cleanup
 router.post('/cancel-all', adminLimiter, authenticateToken, authorizeRole(['admin']), async (req, res) => {
   try {
-    const result = await db.run(`
+    const result = await req.db.run(`
       UPDATE auctions SET status = 'cancelled', ended_at = CURRENT_TIMESTAMP WHERE status = 'active'
     `);
 
     req.app.get('io').emit('auctions_cleared', { count: result.changes });
-    res.json({ message: `Cancelled ${result.changes} active auctions` });
-  } catch (error) {
-    log.error('Cancel all auctions error', error);
-    res.status(500).json({ error: 'Failed to cancel auctions' });
+    return success(res, null, `Cancelled ${result.changes} active auctions`);
+  } catch (err) {
+    log.error('Cancel all auctions error', err);
+    return error(res, 'Failed to cancel auctions', 500, ErrorCodes.INTERNAL_ERROR);
   }
 });
 
 // Get auction history
 router.get('/history', authenticateToken, async (req, res) => {
   try {
-    const limit = parseInt(req.query.limit) || 50;
+    const { limit, offset } = parsePagination(req.query);
 
-    const auctions = await db.all(`
-      SELECT a.*,
+    const totalRow = await req.db.get(`
+      SELECT COUNT(*) as total FROM auctions WHERE status IN ('completed', 'cancelled')
+    `);
+    const total = totalRow.total;
+
+    const auctions = await req.db.all(`
+      SELECT a.id, a.item_name, a.item_image, a.item_rarity, a.item_id,
+             a.status, a.winning_bid, a.created_at, a.ended_at,
+             a.was_tie, a.winning_roll, a.farewell_data,
              creator.character_name as created_by_name,
              winner.character_name as winner_name,
              winner.character_class as winner_class
@@ -440,13 +491,48 @@ router.get('/history', authenticateToken, async (req, res) => {
       LEFT JOIN users winner ON a.winner_id = winner.id
       WHERE a.status IN ('completed', 'cancelled')
       ORDER BY a.ended_at DESC
-      LIMIT ?
-    `, limit);
+      LIMIT ? OFFSET ?
+    `, limit, offset);
 
-    const formatted = await Promise.all(auctions.map(async a => {
-      // Get bid count for expandable history
-      const bidCount = await db.get('SELECT COUNT(*) as count FROM auction_bids WHERE auction_id = ?', a.id);
+    if (auctions.length === 0) {
+      return paginated(res, [], { limit, offset, total });
+    }
 
+    // Batch-load bid counts for all auctions (eliminates N+1)
+    const auctionIds = auctions.map(a => a.id);
+    const ph = auctionIds.map(() => '?').join(',');
+    const bidCounts = await req.db.all(
+      `SELECT auction_id, COUNT(*) as count FROM auction_bids WHERE auction_id IN (${ph}) GROUP BY auction_id`,
+      ...auctionIds
+    );
+    const bidCountMap = new Map(bidCounts.map(r => [r.auction_id, r.count]));
+
+    // Batch-load rolls for all tie auctions (eliminates N+1)
+    const tieAuctionIds = auctions.filter(a => a.was_tie === 1).map(a => a.id);
+    const rollsByAuction = new Map();
+    if (tieAuctionIds.length > 0) {
+      const tiePh = tieAuctionIds.map(() => '?').join(',');
+      const allRolls = await req.db.all(`
+        SELECT ar.auction_id, ar.bid_amount, ar.roll_result, ar.is_winner,
+               u.character_name, u.character_class
+        FROM auction_rolls ar
+        JOIN users u ON ar.user_id = u.id
+        WHERE ar.auction_id IN (${tiePh})
+        ORDER BY ar.auction_id, ar.roll_result DESC
+      `, ...tieAuctionIds);
+      for (const r of allRolls) {
+        if (!rollsByAuction.has(r.auction_id)) rollsByAuction.set(r.auction_id, []);
+        rollsByAuction.get(r.auction_id).push({
+          characterName: r.character_name,
+          characterClass: r.character_class,
+          bidAmount: r.bid_amount,
+          roll: r.roll_result,
+          isWinner: r.is_winner === 1
+        });
+      }
+    }
+
+    const formatted = auctions.map(a => {
       const entry = {
         id: a.id,
         item_name: a.item_name,
@@ -459,59 +545,45 @@ router.get('/history', authenticateToken, async (req, res) => {
         ended_at: a.ended_at,
         was_tie: a.was_tie === 1,
         winning_roll: a.winning_roll,
-        bid_count: bidCount?.count || 0,
+        bid_count: bidCountMap.get(a.id) || 0,
         winner: a.winner_name ? {
           characterName: a.winner_name,
           characterClass: a.winner_class
         } : null
       };
 
-      // If it was a tie, include the rolls
       if (a.was_tie === 1) {
-        const rolls = await db.all(`
-          SELECT ar.*, u.character_name, u.character_class
-          FROM auction_rolls ar
-          JOIN users u ON ar.user_id = u.id
-          WHERE ar.auction_id = ?
-          ORDER BY ar.roll_result DESC
-        `, a.id);
-
-        entry.rolls = rolls.map(r => ({
-          characterName: r.character_name,
-          characterClass: r.character_class,
-          bidAmount: r.bid_amount,
-          roll: r.roll_result,
-          isWinner: r.is_winner === 1
-        }));
+        entry.rolls = rollsByAuction.get(a.id) || [];
       }
 
       if (a.farewell_data) {
         try { entry.farewell = JSON.parse(a.farewell_data); } catch (_e) {}
       }
       return entry;
-    }));
+    });
 
-    res.json(formatted);
-  } catch (error) {
-    log.error('Auction history error', error);
-    res.status(500).json({ error: 'Failed to get auction history' });
+    return paginated(res, formatted, { limit, offset, total });
+  } catch (err) {
+    log.error('Auction history error', err);
+    return error(res, 'Failed to get auction history', 500, ErrorCodes.INTERNAL_ERROR);
   }
 });
 
 // Get rolls for a specific auction
-router.get('/:auctionId/rolls', authenticateToken, async (req, res) => {
+router.get('/:auctionId/rolls', authenticateToken, validateParams({ auctionId: 'integer' }), async (req, res) => {
   try {
-    const { auctionId } = req.params;
+    const auctionId = parseInt(req.params.auctionId, 10);
 
-    const rolls = await db.all(`
-      SELECT ar.*, u.character_name, u.character_class
+    const rolls = await req.db.all(`
+      SELECT ar.bid_amount, ar.roll_result, ar.is_winner, ar.created_at,
+             u.character_name, u.character_class
       FROM auction_rolls ar
       JOIN users u ON ar.user_id = u.id
       WHERE ar.auction_id = ?
       ORDER BY ar.roll_result DESC
     `, auctionId);
 
-    res.json(rolls.map(r => ({
+    return success(res, rolls.map(r => ({
       characterName: r.character_name,
       characterClass: r.character_class,
       bidAmount: r.bid_amount,
@@ -519,18 +591,18 @@ router.get('/:auctionId/rolls', authenticateToken, async (req, res) => {
       isWinner: r.is_winner === 1,
       createdAt: r.created_at
     })));
-  } catch (error) {
-    log.error('Get auction rolls error', error);
-    res.status(500).json({ error: 'Failed to get auction rolls' });
+  } catch (err) {
+    log.error('Get auction rolls error', err);
+    return error(res, 'Failed to get auction rolls', 500, ErrorCodes.INTERNAL_ERROR);
   }
 });
 
 // Get all bids for a specific auction (for history expansion)
-router.get('/:auctionId/bids', authenticateToken, async (req, res) => {
+router.get('/:auctionId/bids', authenticateToken, validateParams({ auctionId: 'integer' }), async (req, res) => {
   try {
-    const { auctionId } = req.params;
+    const auctionId = parseInt(req.params.auctionId, 10);
 
-    const bids = await db.all(`
+    const bids = await req.db.all(`
       SELECT ab.amount, ab.created_at, u.id as user_id, u.character_name, u.character_class
       FROM auction_bids ab
       JOIN users u ON ab.user_id = u.id
@@ -538,16 +610,16 @@ router.get('/:auctionId/bids', authenticateToken, async (req, res) => {
       ORDER BY ab.amount DESC
     `, auctionId);
 
-    res.json(bids.map(b => ({
+    return success(res, bids.map(b => ({
       amount: b.amount,
       characterName: b.character_name,
       characterClass: b.character_class,
       userId: b.user_id,
       createdAt: b.created_at
     })));
-  } catch (error) {
-    log.error('Get auction bids error', error);
-    res.status(500).json({ error: 'Failed to get auction bids' });
+  } catch (err) {
+    log.error('Get auction bids error', err);
+    return error(res, 'Failed to get auction bids', 500, ErrorCodes.INTERNAL_ERROR);
   }
 });
 

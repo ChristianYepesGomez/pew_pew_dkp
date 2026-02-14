@@ -1,8 +1,9 @@
 import { Router } from 'express';
-import { db } from '../database.js';
 import { authenticateToken, authorizeRole } from '../middleware/auth.js';
 import { adminLimiter } from '../lib/rateLimiters.js';
 import { getAllZonesWithBosses, getBossDetails, seedRaidData, setZoneLegacy } from '../services/raids.js';
+import { success, error } from '../lib/response.js';
+import { ErrorCodes } from '../lib/errorCodes.js';
 import { createLogger } from '../lib/logger.js';
 
 const log = createLogger('Route:Bosses');
@@ -11,21 +12,29 @@ const router = Router();
 // Get all zones with bosses (current + legacy)
 router.get('/', authenticateToken, async (req, res) => {
   try {
-    const data = await getAllZonesWithBosses();
-    res.json(data);
-  } catch (error) {
-    log.error('Get bosses error', error);
-    res.status(500).json({ error: 'Failed to get boss data' });
+    const data = await getAllZonesWithBosses(req.db);
+    return success(res, data);
+  } catch (err) {
+    log.error('Get bosses error', err);
+    return error(res, 'Failed to get boss data', 500, ErrorCodes.INTERNAL_ERROR);
   }
 });
 
 // DEBUG: Check raw boss_statistics data
 router.get('/debug/stats', authenticateToken, authorizeRole(['admin']), async (req, res) => {
   try {
-    const stats = await db.all('SELECT * FROM boss_statistics ORDER BY boss_id');
-    const bosses = await db.all('SELECT id, wcl_encounter_id, name FROM wcl_bosses ORDER BY id');
-    const processed = await db.all('SELECT * FROM boss_stats_processed ORDER BY id DESC LIMIT 20');
-    res.json({
+    const stats = await req.db.all(`
+      SELECT id, boss_id, difficulty, total_kills, total_wipes, fastest_kill_ms,
+             avg_kill_time_ms, total_kill_time_ms, last_kill_date, updated_at,
+             wipes_to_first_kill, first_kill_date
+      FROM boss_statistics ORDER BY boss_id
+    `);
+    const bosses = await req.db.all('SELECT id, wcl_encounter_id, name FROM wcl_bosses ORDER BY id');
+    const processed = await req.db.all(`
+      SELECT id, report_code, encounter_id, fight_id, difficulty, kill, fight_time_ms, processed_at
+      FROM boss_stats_processed ORDER BY id DESC LIMIT 20
+    `);
+    return success(res, {
       boss_statistics: stats,
       wcl_bosses: bosses,
       recent_processed: processed,
@@ -35,9 +44,9 @@ router.get('/debug/stats', authenticateToken, authorizeRole(['admin']), async (r
         processed: processed.length
       }
     });
-  } catch (error) {
-    log.error('Debug stats error', error);
-    res.status(500).json({ error: error.message });
+  } catch (err) {
+    log.error('Debug stats error', err);
+    return error(res, err.message, 500, ErrorCodes.INTERNAL_ERROR);
   }
 });
 
@@ -45,30 +54,30 @@ router.get('/debug/stats', authenticateToken, authorizeRole(['admin']), async (r
 router.get('/:bossId', authenticateToken, async (req, res) => {
   try {
     const bossId = parseInt(req.params.bossId, 10);
-    if (isNaN(bossId)) return res.status(400).json({ error: 'Invalid boss ID' });
+    if (isNaN(bossId)) return error(res, 'Invalid boss ID', 400, ErrorCodes.VALIDATION_ERROR);
 
     const { difficulty } = req.query;
-    const data = await getBossDetails(bossId, difficulty || null);
+    const data = await getBossDetails(req.db, bossId, difficulty || null);
 
     if (!data) {
-      return res.status(404).json({ error: 'Boss not found' });
+      return error(res, 'Boss not found', 404, ErrorCodes.NOT_FOUND);
     }
 
-    res.json(data);
-  } catch (error) {
-    log.error('Get boss details error', error);
-    res.status(500).json({ error: 'Failed to get boss details' });
+    return success(res, data);
+  } catch (err) {
+    log.error('Get boss details error', err);
+    return error(res, 'Failed to get boss details', 500, ErrorCodes.INTERNAL_ERROR);
   }
 });
 
 // Reseed raid data from static definitions (admin only)
 router.post('/sync', adminLimiter, authenticateToken, authorizeRole(['admin']), async (req, res) => {
   try {
-    await seedRaidData();
-    res.json({ message: 'Raid data synced successfully' });
-  } catch (error) {
-    log.error('Sync raid data error', error);
-    res.status(500).json({ error: 'Failed to sync raid data' });
+    await seedRaidData(req.db);
+    return success(res, null, 'Raid data synced successfully');
+  } catch (err) {
+    log.error('Sync raid data error', err);
+    return error(res, 'Failed to sync raid data', 500, ErrorCodes.INTERNAL_ERROR);
   }
 });
 
@@ -76,15 +85,15 @@ router.post('/sync', adminLimiter, authenticateToken, authorizeRole(['admin']), 
 router.put('/zones/:zoneId/legacy', adminLimiter, authenticateToken, authorizeRole(['admin']), async (req, res) => {
   try {
     const zoneId = parseInt(req.params.zoneId, 10);
-    if (isNaN(zoneId)) return res.status(400).json({ error: 'Invalid zone ID' });
+    if (isNaN(zoneId)) return error(res, 'Invalid zone ID', 400, ErrorCodes.VALIDATION_ERROR);
 
     const { isLegacy } = req.body;
 
-    await setZoneLegacy(zoneId, isLegacy);
-    res.json({ message: `Zone marked as ${isLegacy ? 'legacy' : 'current'}` });
-  } catch (error) {
-    log.error('Set zone legacy error', error);
-    res.status(500).json({ error: 'Failed to update zone status' });
+    await setZoneLegacy(req.db, zoneId, isLegacy);
+    return success(res, null, `Zone marked as ${isLegacy ? 'legacy' : 'current'}`);
+  } catch (err) {
+    log.error('Set zone legacy error', err);
+    return error(res, 'Failed to update zone status', 500, ErrorCodes.INTERNAL_ERROR);
   }
 });
 

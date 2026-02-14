@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { request, setupTestDb, cleanupTestDb, createTestUser } from './helpers.js';
+import { request, setupTestDb, cleanupTestDb, createTestUser, expectSuccess, expectError } from './helpers.js';
 
 describe('Routes: Health, Bosses, Analytics', () => {
   let adminToken;
@@ -26,26 +26,28 @@ describe('Routes: Health, Bosses, Analytics', () => {
     it('GET /health returns 200 with status, timestamp, and uptime', async () => {
       const res = await request.get('/health');
 
-      expect(res.status).toBe(200);
-      expect(res.body.status).toBe('healthy');
-      expect(res.body.timestamp).toBeDefined();
-      expect(res.body.uptime).toBeGreaterThan(0);
+      const data = expectSuccess(res);
+      expect(data.status).toBe('healthy');
+      expect(data.timestamp).toBeDefined();
+      expect(data.uptime).toBeGreaterThan(0);
     });
 
     it('GET /health does NOT require auth', async () => {
       const res = await request.get('/health');
 
-      expect(res.status).toBe(200);
-      expect(res.body.status).toBe('healthy');
+      const data = expectSuccess(res);
+      expect(data.status).toBe('healthy');
     });
 
     it('GET /health has correct response shape', async () => {
       const res = await request.get('/health');
 
-      expect(res.body).toEqual({
+      const data = expectSuccess(res);
+      expect(data).toEqual({
         status: expect.any(String),
         timestamp: expect.stringMatching(/^\d{4}-\d{2}-\d{2}T/),
         uptime: expect.any(Number),
+        checks: { database: expect.any(String) },
       });
     });
   });
@@ -64,11 +66,11 @@ describe('Routes: Health, Bosses, Analytics', () => {
         .get('/api/bosses')
         .set('Authorization', `Bearer ${raiderToken}`);
 
-      expect(res.status).toBe(200);
-      expect(res.body).toHaveProperty('current');
-      expect(res.body).toHaveProperty('legacy');
-      expect(Array.isArray(res.body.current)).toBe(true);
-      expect(Array.isArray(res.body.legacy)).toBe(true);
+      const data = expectSuccess(res);
+      expect(data).toHaveProperty('current');
+      expect(data).toHaveProperty('legacy');
+      expect(Array.isArray(data.current)).toBe(true);
+      expect(Array.isArray(data.legacy)).toBe(true);
     });
 
     it('GET /api/bosses/:bossId validates ID (NaN -> 400)', async () => {
@@ -76,8 +78,8 @@ describe('Routes: Health, Bosses, Analytics', () => {
         .get('/api/bosses/notanumber')
         .set('Authorization', `Bearer ${raiderToken}`);
 
-      expect(res.status).toBe(400);
-      expect(res.body.error).toContain('Invalid boss ID');
+      const msg = expectError(res, 400);
+      expect(msg).toContain('Invalid boss ID');
     });
 
     it('GET /api/bosses/99999 returns 404 for non-existent boss', async () => {
@@ -85,8 +87,8 @@ describe('Routes: Health, Bosses, Analytics', () => {
         .get('/api/bosses/99999')
         .set('Authorization', `Bearer ${raiderToken}`);
 
-      expect(res.status).toBe(404);
-      expect(res.body.error).toContain('not found');
+      const msg = expectError(res, 404);
+      expect(msg).toContain('not found');
     });
 
     it('GET /api/bosses/debug/stats requires admin (403 for raider)', async () => {
@@ -102,11 +104,11 @@ describe('Routes: Health, Bosses, Analytics', () => {
         .get('/api/bosses/debug/stats')
         .set('Authorization', `Bearer ${adminToken}`);
 
-      expect(res.status).toBe(200);
-      expect(res.body).toHaveProperty('boss_statistics');
-      expect(res.body).toHaveProperty('wcl_bosses');
-      expect(res.body).toHaveProperty('recent_processed');
-      expect(res.body).toHaveProperty('counts');
+      const data = expectSuccess(res);
+      expect(data).toHaveProperty('boss_statistics');
+      expect(data).toHaveProperty('wcl_bosses');
+      expect(data).toHaveProperty('recent_processed');
+      expect(data).toHaveProperty('counts');
     });
 
     it('POST /api/bosses/sync requires admin (403 for raider)', async () => {
@@ -151,11 +153,11 @@ describe('Routes: Health, Bosses, Analytics', () => {
         .get('/api/analytics/attendance')
         .set('Authorization', `Bearer ${raiderToken}`);
 
-      expect(res.status).toBe(200);
-      expect(res.body).toHaveProperty('members');
-      expect(res.body).toHaveProperty('totalRaidDays');
-      expect(res.body).toHaveProperty('weeks');
-      expect(Array.isArray(res.body.members)).toBe(true);
+      const data = expectSuccess(res);
+      expect(data).toHaveProperty('members');
+      expect(data).toHaveProperty('totalRaidDays');
+      expect(data).toHaveProperty('weeks');
+      expect(Array.isArray(data.members)).toBe(true);
     });
 
     it('GET /api/analytics/attendance accepts weeks param', async () => {
@@ -163,8 +165,8 @@ describe('Routes: Health, Bosses, Analytics', () => {
         .get('/api/analytics/attendance?weeks=4')
         .set('Authorization', `Bearer ${raiderToken}`);
 
-      expect(res.status).toBe(200);
-      expect(res.body.weeks).toBe(4);
+      const data = expectSuccess(res);
+      expect(data.weeks).toBe(4);
     });
 
     // -- DKP Trends --
@@ -174,8 +176,8 @@ describe('Routes: Health, Bosses, Analytics', () => {
         .get('/api/analytics/dkp-trends')
         .set('Authorization', `Bearer ${raiderToken}`);
 
-      expect(res.status).toBe(200);
-      expect(Array.isArray(res.body)).toBe(true);
+      const data = expectSuccess(res);
+      expect(Array.isArray(data)).toBe(true);
       // Empty DB -> empty array is fine
     });
 
@@ -186,13 +188,13 @@ describe('Routes: Health, Bosses, Analytics', () => {
         .get('/api/analytics/economy')
         .set('Authorization', `Bearer ${raiderToken}`);
 
-      expect(res.status).toBe(200);
-      expect(res.body).toHaveProperty('topMembers');
-      expect(Array.isArray(res.body.topMembers)).toBe(true);
-      expect(res.body).toHaveProperty('total_circulation');
-      expect(res.body).toHaveProperty('avg_dkp');
-      expect(res.body).toHaveProperty('gained_this_week');
-      expect(res.body).toHaveProperty('spent_this_week');
+      const data = expectSuccess(res);
+      expect(data).toHaveProperty('topMembers');
+      expect(Array.isArray(data.topMembers)).toBe(true);
+      expect(data).toHaveProperty('total_circulation');
+      expect(data).toHaveProperty('avg_dkp');
+      expect(data).toHaveProperty('gained_this_week');
+      expect(data).toHaveProperty('spent_this_week');
     });
 
     it('GET /api/analytics/economy returns zero values on empty DB', async () => {
@@ -200,9 +202,9 @@ describe('Routes: Health, Bosses, Analytics', () => {
         .get('/api/analytics/economy')
         .set('Authorization', `Bearer ${raiderToken}`);
 
-      expect(res.status).toBe(200);
-      expect(res.body.gained_this_week).toBe(0);
-      expect(res.body.spent_this_week).toBe(0);
+      const data = expectSuccess(res);
+      expect(data.gained_this_week).toBe(0);
+      expect(data.spent_this_week).toBe(0);
     });
 
     // -- Auctions --
@@ -212,16 +214,16 @@ describe('Routes: Health, Bosses, Analytics', () => {
         .get('/api/analytics/auctions')
         .set('Authorization', `Bearer ${raiderToken}`);
 
-      expect(res.status).toBe(200);
-      expect(res.body).toHaveProperty('total_auctions');
-      expect(res.body).toHaveProperty('avg_price');
-      expect(res.body).toHaveProperty('byRarity');
-      expect(res.body).toHaveProperty('weeklyTrend');
-      expect(res.body).toHaveProperty('topItems');
-      expect(res.body).toHaveProperty('weeks');
-      expect(Array.isArray(res.body.byRarity)).toBe(true);
-      expect(Array.isArray(res.body.weeklyTrend)).toBe(true);
-      expect(Array.isArray(res.body.topItems)).toBe(true);
+      const data = expectSuccess(res);
+      expect(data).toHaveProperty('total_auctions');
+      expect(data).toHaveProperty('avg_price');
+      expect(data).toHaveProperty('byRarity');
+      expect(data).toHaveProperty('weeklyTrend');
+      expect(data).toHaveProperty('topItems');
+      expect(data).toHaveProperty('weeks');
+      expect(Array.isArray(data.byRarity)).toBe(true);
+      expect(Array.isArray(data.weeklyTrend)).toBe(true);
+      expect(Array.isArray(data.topItems)).toBe(true);
     });
 
     // -- Progression --
@@ -231,8 +233,8 @@ describe('Routes: Health, Bosses, Analytics', () => {
         .get('/api/analytics/progression')
         .set('Authorization', `Bearer ${raiderToken}`);
 
-      expect(res.status).toBe(200);
-      expect(Array.isArray(res.body)).toBe(true);
+      const data = expectSuccess(res);
+      expect(Array.isArray(data)).toBe(true);
     });
 
     // -- Superlatives --
@@ -242,12 +244,12 @@ describe('Routes: Health, Bosses, Analytics', () => {
         .get('/api/analytics/superlatives')
         .set('Authorization', `Bearer ${raiderToken}`);
 
-      expect(res.status).toBe(200);
-      expect(res.body).toHaveProperty('topDps');
-      expect(res.body).toHaveProperty('topHps');
-      expect(res.body).toHaveProperty('mostDeaths');
-      expect(res.body).toHaveProperty('mostFights');
-      expect(res.body).toHaveProperty('mostDamageTaken');
+      const data = expectSuccess(res);
+      expect(data).toHaveProperty('topDps');
+      expect(data).toHaveProperty('topHps');
+      expect(data).toHaveProperty('mostDeaths');
+      expect(data).toHaveProperty('mostFights');
+      expect(data).toHaveProperty('mostDamageTaken');
     });
 
     // -- My Performance --
@@ -257,14 +259,14 @@ describe('Routes: Health, Bosses, Analytics', () => {
         .get('/api/analytics/my-performance')
         .set('Authorization', `Bearer ${raiderToken}`);
 
-      expect(res.status).toBe(200);
-      expect(res.body).toHaveProperty('totalFights');
-      expect(res.body).toHaveProperty('totalDeaths');
-      expect(res.body).toHaveProperty('deathsPerFight');
-      expect(res.body).toHaveProperty('bossBreakdown');
-      expect(res.body).toHaveProperty('recentReports');
-      expect(Array.isArray(res.body.bossBreakdown)).toBe(true);
-      expect(Array.isArray(res.body.recentReports)).toBe(true);
+      const data = expectSuccess(res);
+      expect(data).toHaveProperty('totalFights');
+      expect(data).toHaveProperty('totalDeaths');
+      expect(data).toHaveProperty('deathsPerFight');
+      expect(data).toHaveProperty('bossBreakdown');
+      expect(data).toHaveProperty('recentReports');
+      expect(Array.isArray(data.bossBreakdown)).toBe(true);
+      expect(Array.isArray(data.recentReports)).toBe(true);
     });
 
     it('GET /api/analytics/my-performance returns zeros with no raid data', async () => {
@@ -272,11 +274,11 @@ describe('Routes: Health, Bosses, Analytics', () => {
         .get('/api/analytics/my-performance')
         .set('Authorization', `Bearer ${raiderToken}`);
 
-      expect(res.status).toBe(200);
-      expect(res.body.totalFights).toBe(0);
-      expect(res.body.totalDeaths).toBe(0);
-      expect(res.body.deathsPerFight).toBe(0);
-      expect(res.body.bossBreakdown).toHaveLength(0);
+      const data = expectSuccess(res);
+      expect(data.totalFights).toBe(0);
+      expect(data.totalDeaths).toBe(0);
+      expect(data.deathsPerFight).toBe(0);
+      expect(data.bossBreakdown).toHaveLength(0);
     });
 
     // -- My Performance Detail --
@@ -286,15 +288,15 @@ describe('Routes: Health, Bosses, Analytics', () => {
         .get('/api/analytics/my-performance-detail')
         .set('Authorization', `Bearer ${raiderToken}`);
 
-      expect(res.status).toBe(200);
-      expect(res.body).toHaveProperty('summary');
-      expect(res.body).toHaveProperty('bossBreakdown');
-      expect(res.body).toHaveProperty('weeklyTrends');
-      expect(res.body).toHaveProperty('recentFights');
-      expect(res.body).toHaveProperty('recommendations');
-      expect(res.body.summary).toHaveProperty('totalFights');
-      expect(res.body.summary).toHaveProperty('avgDps');
-      expect(res.body.summary).toHaveProperty('consumableScore');
+      const data = expectSuccess(res);
+      expect(data).toHaveProperty('summary');
+      expect(data).toHaveProperty('bossBreakdown');
+      expect(data).toHaveProperty('weeklyTrends');
+      expect(data).toHaveProperty('recentFights');
+      expect(data).toHaveProperty('recommendations');
+      expect(data.summary).toHaveProperty('totalFights');
+      expect(data.summary).toHaveProperty('avgDps');
+      expect(data.summary).toHaveProperty('consumableScore');
     });
 
     // -- Guild Insights --
@@ -304,18 +306,18 @@ describe('Routes: Health, Bosses, Analytics', () => {
         .get('/api/analytics/guild-insights')
         .set('Authorization', `Bearer ${raiderToken}`);
 
-      expect(res.status).toBe(200);
-      expect(res.body).toHaveProperty('raidHealth');
-      expect(res.body.raidHealth).toHaveProperty('totalKills');
-      expect(res.body.raidHealth).toHaveProperty('totalWipes');
-      expect(res.body.raidHealth).toHaveProperty('killRate');
-      expect(res.body.raidHealth).toHaveProperty('avgFightTime');
-      expect(res.body).toHaveProperty('topPerformers');
-      expect(res.body).toHaveProperty('deathLeaders');
-      expect(res.body).toHaveProperty('progressionBlockers');
-      expect(res.body).toHaveProperty('recentReports');
-      expect(Array.isArray(res.body.topPerformers)).toBe(true);
-      expect(Array.isArray(res.body.deathLeaders)).toBe(true);
+      const data = expectSuccess(res);
+      expect(data).toHaveProperty('raidHealth');
+      expect(data.raidHealth).toHaveProperty('totalKills');
+      expect(data.raidHealth).toHaveProperty('totalWipes');
+      expect(data.raidHealth).toHaveProperty('killRate');
+      expect(data.raidHealth).toHaveProperty('avgFightTime');
+      expect(data).toHaveProperty('topPerformers');
+      expect(data).toHaveProperty('deathLeaders');
+      expect(data).toHaveProperty('progressionBlockers');
+      expect(data).toHaveProperty('recentReports');
+      expect(Array.isArray(data.topPerformers)).toBe(true);
+      expect(Array.isArray(data.deathLeaders)).toBe(true);
     });
   });
 });

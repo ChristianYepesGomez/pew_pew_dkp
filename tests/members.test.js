@@ -1,16 +1,20 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { request, setupTestDb, cleanupTestDb, createTestUser } from './helpers.js';
+import { request, setupTestDb, cleanupTestDb, createTestUser, expectSuccess, expectError } from './helpers.js';
 
 describe('Member management — /api/members', () => {
   let adminToken, adminId;
+  let officerToken, officerId;
   let userToken, userId;
 
   beforeAll(async () => {
     await setupTestDb();
     const admin = await createTestUser({ role: 'admin' });
+    const officer = await createTestUser({ role: 'officer' });
     const user = await createTestUser({ role: 'raider' });
     adminToken = admin.token;
     adminId = admin.userId;
+    officerToken = officer.token;
+    officerId = officer.userId;
     userToken = user.token;
     userId = user.userId;
   });
@@ -32,9 +36,9 @@ describe('Member management — /api/members', () => {
         .get('/api/members')
         .set('Authorization', `Bearer ${userToken}`);
 
-      expect(res.status).toBe(200);
-      expect(Array.isArray(res.body)).toBe(true);
-      expect(res.body.length).toBeGreaterThanOrEqual(2); // admin + user
+      const data = expectSuccess(res);
+      expect(Array.isArray(data)).toBe(true);
+      expect(data.length).toBeGreaterThanOrEqual(2); // admin + user
     });
 
     it('each member has expected fields', async () => {
@@ -42,8 +46,8 @@ describe('Member management — /api/members', () => {
         .get('/api/members')
         .set('Authorization', `Bearer ${adminToken}`);
 
-      expect(res.status).toBe(200);
-      const member = res.body[0];
+      const data = expectSuccess(res);
+      const member = data[0];
       expect(member).toHaveProperty('id');
       expect(member).toHaveProperty('username');
       expect(member).toHaveProperty('role');
@@ -61,7 +65,7 @@ describe('Member management — /api/members', () => {
         .set('Authorization', `Bearer ${adminToken}`)
         .send({ role: 'officer' });
 
-      expect(res.status).toBe(200);
+      expectSuccess(res);
       expect(res.body.message).toMatch(/role updated/i);
     });
 
@@ -80,8 +84,8 @@ describe('Member management — /api/members', () => {
         .set('Authorization', `Bearer ${adminToken}`)
         .send({ role: 'superadmin' });
 
-      expect(res.status).toBe(400);
-      expect(res.body.error).toMatch(/invalid role/i);
+      const msg = expectError(res, 400);
+      expect(msg).toMatch(/invalid role/i);
     });
 
     it('rejects invalid member ID', async () => {
@@ -90,8 +94,8 @@ describe('Member management — /api/members', () => {
         .set('Authorization', `Bearer ${adminToken}`)
         .send({ role: 'raider' });
 
-      expect(res.status).toBe(400);
-      expect(res.body.error).toMatch(/invalid member id/i);
+      const msg = expectError(res, 400);
+      expect(msg).toMatch(/invalid member id/i);
     });
 
     it('returns 401 without auth', async () => {
@@ -122,8 +126,8 @@ describe('Member management — /api/members', () => {
         .delete('/api/members/99999')
         .set('Authorization', `Bearer ${adminToken}`);
 
-      expect(res.status).toBe(404);
-      expect(res.body.error).toMatch(/member not found/i);
+      const msg = expectError(res, 404);
+      expect(msg).toMatch(/member not found/i);
     });
 
     it('rejects invalid member ID', async () => {
@@ -131,8 +135,8 @@ describe('Member management — /api/members', () => {
         .delete('/api/members/abc')
         .set('Authorization', `Bearer ${adminToken}`);
 
-      expect(res.status).toBe(400);
-      expect(res.body.error).toMatch(/invalid member id/i);
+      const msg = expectError(res, 400);
+      expect(msg).toMatch(/invalid member id/i);
     });
 
     it('admin can deactivate a member', async () => {
@@ -142,7 +146,7 @@ describe('Member management — /api/members', () => {
         .delete(`/api/members/${victim.userId}`)
         .set('Authorization', `Bearer ${adminToken}`);
 
-      expect(res.status).toBe(200);
+      expectSuccess(res);
       expect(res.body.message).toMatch(/deactivated/i);
 
       // Verify the member no longer appears in active list
@@ -150,8 +154,160 @@ describe('Member management — /api/members', () => {
         .get('/api/members')
         .set('Authorization', `Bearer ${adminToken}`);
 
-      const ids = listRes.body.map((m) => m.id);
+      const listData = expectSuccess(listRes);
+      const ids = listData.map((m) => m.id);
       expect(ids).not.toContain(victim.userId);
+    });
+  });
+
+  // ── PUT /api/members/:id/vault ──────────────────────────────────
+  describe('PUT /api/members/:id/vault', () => {
+    it('officer can mark vault as completed', async () => {
+      const res = await request
+        .put(`/api/members/${userId}/vault`)
+        .set('Authorization', `Bearer ${officerToken}`);
+
+      const data = expectSuccess(res);
+      expect(data.completed).toBe(true);
+      expect(res.body.message).toMatch(/marked/i);
+    });
+
+    it('toggling again unmarks vault', async () => {
+      const res = await request
+        .put(`/api/members/${userId}/vault`)
+        .set('Authorization', `Bearer ${officerToken}`);
+
+      const data = expectSuccess(res);
+      expect(data.completed).toBe(false);
+      expect(res.body.message).toMatch(/unmarked/i);
+    });
+
+    it('admin can mark vault', async () => {
+      const res = await request
+        .put(`/api/members/${userId}/vault`)
+        .set('Authorization', `Bearer ${adminToken}`);
+
+      const data = expectSuccess(res);
+      expect(data.completed).toBe(true);
+    });
+
+    it('raider cannot toggle vault (403)', async () => {
+      const res = await request
+        .put(`/api/members/${adminId}/vault`)
+        .set('Authorization', `Bearer ${userToken}`);
+
+      expect(res.status).toBe(403);
+    });
+
+    it('rejects invalid member ID (400)', async () => {
+      const res = await request
+        .put('/api/members/abc/vault')
+        .set('Authorization', `Bearer ${adminToken}`);
+
+      expect(res.status).toBe(400);
+    });
+
+    it('returns 404 for non-existent member', async () => {
+      const res = await request
+        .put('/api/members/99999/vault')
+        .set('Authorization', `Bearer ${adminToken}`);
+
+      expect(res.status).toBe(404);
+    });
+  });
+
+  // ── POST /api/members ──────────────────────────────────────────
+  describe('POST /api/members', () => {
+    it('admin can create a member', async () => {
+      const res = await request
+        .post('/api/members')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({
+          username: `newmember_${Date.now()}`,
+          password: 'testpass123',
+          characterName: 'NewWarrior',
+          characterClass: 'Warrior',
+          spec: 'Arms',
+          raidRole: 'DPS',
+          initialDkp: 50,
+        });
+
+      const data = expectSuccess(res, 201);
+      expect(data).toHaveProperty('member');
+      expect(data.member.characterName).toBe('NewWarrior');
+      expect(data.member.characterClass).toBe('Warrior');
+      expect(data.member.currentDkp).toBe(50);
+      expect(data.member.role).toBe('raider');
+    });
+
+    it('officer can create a member', async () => {
+      const res = await request
+        .post('/api/members')
+        .set('Authorization', `Bearer ${officerToken}`)
+        .send({
+          username: `offmember_${Date.now()}`,
+          password: 'testpass123',
+          characterName: 'OfficerCreated',
+          characterClass: 'Priest',
+        });
+
+      expectSuccess(res, 201);
+    });
+
+    it('raider cannot create a member (403)', async () => {
+      const res = await request
+        .post('/api/members')
+        .set('Authorization', `Bearer ${userToken}`)
+        .send({
+          username: 'nopeuser',
+          password: 'testpass123',
+          characterName: 'Nope',
+          characterClass: 'Mage',
+        });
+
+      expect(res.status).toBe(403);
+    });
+
+    it('rejects missing required fields (400)', async () => {
+      const res = await request
+        .post('/api/members')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ username: 'incomplete' });
+
+      const msg = expectError(res, 400);
+      expect(msg).toMatch(/required/i);
+    });
+
+    it('rejects duplicate username (409)', async () => {
+      const username = `dupmember_${Date.now()}`;
+      await request
+        .post('/api/members')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ username, password: 'test123', characterName: 'Dup1', characterClass: 'Rogue' });
+
+      const res = await request
+        .post('/api/members')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ username, password: 'test123', characterName: 'Dup2', characterClass: 'Rogue' });
+
+      const msg = expectError(res, 409);
+      expect(msg).toMatch(/already exists/i);
+    });
+
+    it('defaults to raider role and DPS raid role', async () => {
+      const res = await request
+        .post('/api/members')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({
+          username: `defaultrole_${Date.now()}`,
+          password: 'testpass123',
+          characterName: 'DefaultRole',
+          characterClass: 'Mage',
+        });
+
+      const data = expectSuccess(res, 201);
+      expect(data.member.role).toBe('raider');
+      expect(data.member.raidRole).toBe('DPS');
     });
   });
 });

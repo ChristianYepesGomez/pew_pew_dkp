@@ -1,26 +1,28 @@
 import { Router } from 'express';
-import { db } from '../database.js';
 import { authenticateToken } from '../middleware/auth.js';
 import { getCharacterEquipment, getCharacterMedia, isBlizzardOAuthConfigured } from '../services/blizzardAPI.js';
+import { success, error } from '../lib/response.js';
+import { ErrorCodes } from '../lib/errorCodes.js';
+import { validateParams } from '../middleware/validate.js';
 import { createLogger } from '../lib/logger.js';
 
 const log = createLogger('Route:Armory');
 const router = Router();
 
 // Get player's loot history (items won from auctions)
-router.get('/:userId/loot', authenticateToken, async (req, res) => {
+router.get('/:userId/loot', authenticateToken, validateParams({ userId: 'integer' }), async (req, res) => {
   try {
     const { userId } = req.params;
 
     // Get all auctions won by this user
-    const loot = await db.all(`
+    const loot = await req.db.all(`
       SELECT a.id, a.item_id, a.item_name, a.item_image, a.item_rarity, a.winning_bid, a.ended_at
       FROM auctions a
       WHERE a.winner_id = ? AND a.status = 'completed'
       ORDER BY a.ended_at DESC
     `, userId);
 
-    res.json(loot.map(item => ({
+    return success(res, loot.map(item => ({
       id: item.id,
       itemId: item.item_id,
       itemName: item.item_name,
@@ -29,9 +31,9 @@ router.get('/:userId/loot', authenticateToken, async (req, res) => {
       dkpSpent: item.winning_bid,
       wonAt: item.ended_at,
     })));
-  } catch (error) {
-    log.error('Get loot history error', error);
-    res.status(500).json({ error: 'Failed to get loot history' });
+  } catch (err) {
+    log.error('Get loot history error', err);
+    return error(res, 'Failed to get loot history', 500, ErrorCodes.INTERNAL_ERROR);
   }
 });
 
@@ -41,18 +43,18 @@ router.get('/equipment/:realm/:character', authenticateToken, async (req, res) =
     const { realm, character } = req.params;
 
     if (!isBlizzardOAuthConfigured()) {
-      return res.status(503).json({ error: 'Blizzard API not configured' });
+      return error(res, 'Blizzard API not configured', 503, ErrorCodes.EXTERNAL_API_ERROR);
     }
 
     const equipment = await getCharacterEquipment(realm, character);
     if (equipment.error) {
-      return res.status(404).json({ error: equipment.error });
+      return error(res, equipment.error, 404, ErrorCodes.NOT_FOUND);
     }
 
-    res.json(equipment);
-  } catch (error) {
-    log.error('Get character equipment error', error);
-    res.status(500).json({ error: 'Failed to get character equipment' });
+    return success(res, equipment);
+  } catch (err) {
+    log.error('Get character equipment error', err);
+    return error(res, 'Failed to get character equipment', 500, ErrorCodes.INTERNAL_ERROR);
   }
 });
 
@@ -62,27 +64,27 @@ router.get('/media/:realm/:character', authenticateToken, async (req, res) => {
     const { realm, character } = req.params;
 
     if (!isBlizzardOAuthConfigured()) {
-      return res.status(503).json({ error: 'Blizzard API not configured' });
+      return error(res, 'Blizzard API not configured', 503, ErrorCodes.EXTERNAL_API_ERROR);
     }
 
     const media = await getCharacterMedia(realm, character);
     if (!media) {
-      return res.status(404).json({ error: 'Character media not found' });
+      return error(res, 'Character media not found', 404, ErrorCodes.NOT_FOUND);
     }
 
-    res.json(media);
-  } catch (error) {
-    log.error('Get character media error', error);
-    res.status(500).json({ error: 'Failed to get character media' });
+    return success(res, media);
+  } catch (err) {
+    log.error('Get character media error', err);
+    return error(res, 'Failed to get character media', 500, ErrorCodes.INTERNAL_ERROR);
   }
 });
 
 // Get member profile for armory view
-router.get('/:userId/profile', authenticateToken, async (req, res) => {
+router.get('/:userId/profile', authenticateToken, validateParams({ userId: 'integer' }), async (req, res) => {
   try {
     const { userId } = req.params;
 
-    const member = await db.get(`
+    const member = await req.db.get(`
       SELECT u.id, u.character_name, u.character_class, u.spec, u.raid_role, u.avatar, u.server,
              md.current_dkp, md.lifetime_gained, md.lifetime_spent
       FROM users u
@@ -91,16 +93,16 @@ router.get('/:userId/profile', authenticateToken, async (req, res) => {
     `, userId);
 
     if (!member) {
-      return res.status(404).json({ error: 'Member not found' });
+      return error(res, 'Member not found', 404, ErrorCodes.NOT_FOUND);
     }
 
     // Count items won
-    const lootCount = await db.get(
+    const lootCount = await req.db.get(
       'SELECT COUNT(*) as count FROM auctions WHERE winner_id = ? AND status = ?',
       userId, 'completed'
     );
 
-    res.json({
+    return success(res, {
       id: member.id,
       characterName: member.character_name,
       characterClass: member.character_class,
@@ -113,9 +115,9 @@ router.get('/:userId/profile', authenticateToken, async (req, res) => {
       lifetimeSpent: member.lifetime_spent || 0,
       itemsWon: lootCount?.count || 0,
     });
-  } catch (error) {
-    log.error('Get armory profile error', error);
-    res.status(500).json({ error: 'Failed to get armory profile' });
+  } catch (err) {
+    log.error('Get armory profile error', err);
+    return error(res, 'Failed to get armory profile', 500, ErrorCodes.INTERNAL_ERROR);
   }
 });
 

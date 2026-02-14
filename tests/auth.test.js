@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { request, setupTestDb, cleanupTestDb } from './helpers.js';
+import { request, setupTestDb, cleanupTestDb, expectSuccess, expectError } from './helpers.js';
 
 describe('Auth endpoints', () => {
   beforeAll(async () => {
@@ -19,9 +19,9 @@ describe('Auth endpoints', () => {
         .post('/api/auth/register')
         .send({ username: 'newuser', password: 'pass123', email: 'new@test.com' });
 
-      expect(res.status).toBe(201);
+      const data = expectSuccess(res, 201);
       expect(res.body.message).toBe('Account created successfully');
-      expect(res.body.userId).toBeDefined();
+      expect(data.userId).toBeDefined();
     });
 
     it('rejects missing fields', async () => {
@@ -29,8 +29,8 @@ describe('Auth endpoints', () => {
         .post('/api/auth/register')
         .send({ username: 'nopass' });
 
-      expect(res.status).toBe(400);
-      expect(res.body.error).toContain('required');
+      const msg = expectError(res, 400);
+      expect(msg).toContain('required');
     });
 
     it('rejects short username', async () => {
@@ -38,8 +38,8 @@ describe('Auth endpoints', () => {
         .post('/api/auth/register')
         .send({ username: 'ab', password: 'pass123', email: 'short@test.com' });
 
-      expect(res.status).toBe(400);
-      expect(res.body.error).toContain('at least 3');
+      const msg = expectError(res, 400);
+      expect(msg).toContain('at least 3');
     });
 
     it('rejects short password', async () => {
@@ -47,8 +47,8 @@ describe('Auth endpoints', () => {
         .post('/api/auth/register')
         .send({ username: 'validuser', password: '123', email: 'pw@test.com' });
 
-      expect(res.status).toBe(400);
-      expect(res.body.error).toContain('at least 6');
+      const msg = expectError(res, 400);
+      expect(msg).toContain('at least 6');
     });
 
     it('rejects invalid email', async () => {
@@ -56,8 +56,8 @@ describe('Auth endpoints', () => {
         .post('/api/auth/register')
         .send({ username: 'emailtest', password: 'pass123', email: 'notanemail' });
 
-      expect(res.status).toBe(400);
-      expect(res.body.error).toContain('email');
+      const msg = expectError(res, 400);
+      expect(msg).toContain('email');
     });
 
     it('rejects duplicate username', async () => {
@@ -65,8 +65,8 @@ describe('Auth endpoints', () => {
         .post('/api/auth/register')
         .send({ username: 'newuser', password: 'pass123', email: 'dupe@test.com' });
 
-      expect(res.status).toBe(409);
-      expect(res.body.error).toContain('already taken');
+      const msg = expectError(res, 409);
+      expect(msg).toContain('already taken');
     });
 
     it('rejects duplicate email', async () => {
@@ -74,8 +74,8 @@ describe('Auth endpoints', () => {
         .post('/api/auth/register')
         .send({ username: 'dupemail', password: 'pass123', email: 'new@test.com' });
 
-      expect(res.status).toBe(409);
-      expect(res.body.error).toContain('already in use');
+      const msg = expectError(res, 409);
+      expect(msg).toContain('already in use');
     });
   });
 
@@ -87,9 +87,9 @@ describe('Auth endpoints', () => {
         .post('/api/auth/login')
         .send({ username: 'newuser', password: 'pass123' });
 
-      expect(res.status).toBe(200);
-      expect(res.body.token).toBeDefined();
-      expect(res.body.user).toMatchObject({
+      const data = expectSuccess(res);
+      expect(data.token).toBeDefined();
+      expect(data.user).toMatchObject({
         username: 'newuser',
         role: 'raider',
       });
@@ -100,8 +100,8 @@ describe('Auth endpoints', () => {
         .post('/api/auth/login')
         .send({ username: 'NEWUSER', password: 'pass123' });
 
-      expect(res.status).toBe(200);
-      expect(res.body.token).toBeDefined();
+      const data = expectSuccess(res);
+      expect(data.token).toBeDefined();
     });
 
     it('rejects wrong password', async () => {
@@ -109,8 +109,8 @@ describe('Auth endpoints', () => {
         .post('/api/auth/login')
         .send({ username: 'newuser', password: 'wrongpass' });
 
-      expect(res.status).toBe(401);
-      expect(res.body.error).toContain('Invalid credentials');
+      const msg = expectError(res, 401);
+      expect(msg).toContain('Invalid credentials');
     });
 
     it('rejects non-existent user', async () => {
@@ -118,7 +118,7 @@ describe('Auth endpoints', () => {
         .post('/api/auth/login')
         .send({ username: 'ghost', password: 'pass123' });
 
-      expect(res.status).toBe(401);
+      expectError(res, 401);
     });
   });
 
@@ -131,7 +131,7 @@ describe('Auth endpoints', () => {
       const loginRes = await request
         .post('/api/auth/login')
         .send({ username: 'newuser', password: 'pass123' });
-      token = loginRes.body.token;
+      token = loginRes.body.data.token;
     });
 
     it('returns user data with valid token', async () => {
@@ -139,11 +139,11 @@ describe('Auth endpoints', () => {
         .get('/api/auth/me')
         .set('Authorization', `Bearer ${token}`);
 
-      expect(res.status).toBe(200);
-      expect(res.body.username).toBe('newuser');
-      expect(res.body.email).toBe('new@test.com');
-      expect(res.body.role).toBe('raider');
-      expect(res.body.currentDkp).toBeDefined();
+      const data = expectSuccess(res);
+      expect(data.username).toBe('newuser');
+      expect(data.email).toBe('new@test.com');
+      expect(data.role).toBe('raider');
+      expect(data.currentDkp).toBeDefined();
     });
 
     it('returns 401 without token', async () => {
@@ -170,7 +170,7 @@ describe('Auth endpoints', () => {
       const loginRes = await request
         .post('/api/auth/login')
         .send({ username: 'newuser', password: 'pass123' });
-      token = loginRes.body.token;
+      token = loginRes.body.data.token;
     });
 
     it('updates email', async () => {
@@ -179,13 +179,14 @@ describe('Auth endpoints', () => {
         .set('Authorization', `Bearer ${token}`)
         .send({ email: 'updated@test.com' });
 
-      expect(res.status).toBe(200);
+      expectSuccess(res);
 
       // Verify the change
       const me = await request
         .get('/api/auth/me')
         .set('Authorization', `Bearer ${token}`);
-      expect(me.body.email).toBe('updated@test.com');
+      const meData = expectSuccess(me);
+      expect(meData.email).toBe('updated@test.com');
     });
 
     it('rejects invalid email format', async () => {
@@ -194,7 +195,7 @@ describe('Auth endpoints', () => {
         .set('Authorization', `Bearer ${token}`)
         .send({ email: 'not-an-email' });
 
-      expect(res.status).toBe(400);
+      expectError(res, 400);
     });
 
     it('returns 401 without token', async () => {

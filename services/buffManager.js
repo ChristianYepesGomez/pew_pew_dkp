@@ -3,7 +3,6 @@
  * Manages random buffs that are synchronized across all connected clients via SSE
  */
 
-import { db } from '../database.js';
 import { createLogger } from '../lib/logger.js';
 
 const log = createLogger('Service:BuffManager');
@@ -85,7 +84,7 @@ let members = [];
 /**
  * Start the buff manager - begins randomly applying buffs
  */
-export function startBuffManager() {
+export function startBuffManager(db) {
   if (buffIntervalId) return; // Already running
 
   log.info('Starting global buff manager...');
@@ -97,7 +96,7 @@ export function startBuffManager() {
   const applyNextBuff = async () => {
     // Only refresh members periodically, not every buff
     if (Date.now() - lastMemberRefresh > MEMBER_REFRESH_INTERVAL) {
-      await refreshMembers();
+      await refreshMembers(db);
       lastMemberRefresh = Date.now();
     }
     if (members.length > 0) {
@@ -126,7 +125,7 @@ export function stopBuffManager() {
 /**
  * Refresh the member list from database
  */
-async function refreshMembers() {
+async function refreshMembers(db) {
   try {
     members = await db.all(`
       SELECT u.id, u.username, u.character_name, u.character_class,

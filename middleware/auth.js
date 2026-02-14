@@ -1,6 +1,8 @@
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import { JWT_SECRET, JWT_REFRESH_SECRET } from '../lib/config.js';
+import { error } from '../lib/response.js';
+import { ErrorCodes } from '../lib/errorCodes.js';
 
 /**
  * Middleware to verify JWT token
@@ -10,18 +12,18 @@ export function authenticateToken(req, res, next) {
   const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
 
   if (!token) {
-    return res.status(401).json({ error: 'Access token required' });
+    return error(res, 'Access token required', 401, ErrorCodes.UNAUTHORIZED);
   }
 
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
     req.user = decoded;
     next();
-  } catch (error) {
-    if (error.name === 'TokenExpiredError') {
-      return res.status(401).json({ error: 'Token expired' });
+  } catch (err) {
+    if (err.name === 'TokenExpiredError') {
+      return error(res, 'Token expired', 401, ErrorCodes.TOKEN_EXPIRED);
     }
-    return res.status(403).json({ error: 'Invalid token' });
+    return error(res, 'Invalid token', 403, ErrorCodes.INVALID_TOKEN);
   }
 }
 
@@ -32,14 +34,13 @@ export function authenticateToken(req, res, next) {
 export function authorizeRole(allowedRoles) {
   return (req, res, next) => {
     if (!req.user) {
-      return res.status(401).json({ error: 'Authentication required' });
+      return error(res, 'Authentication required', 401, ErrorCodes.UNAUTHORIZED);
     }
 
     if (!allowedRoles.includes(req.user.role)) {
-      return res.status(403).json({
-        error: 'Insufficient permissions',
+      return error(res, 'Insufficient permissions', 403, ErrorCodes.FORBIDDEN, {
         required: allowedRoles,
-        current: req.user.role
+        current: req.user.role,
       });
     }
 
@@ -50,23 +51,19 @@ export function authorizeRole(allowedRoles) {
 /**
  * Generate a short-lived access token (15 minutes)
  */
-export function generateAccessToken(user) {
-  return jwt.sign(
-    { userId: user.id, username: user.username, role: user.role },
-    JWT_SECRET,
-    { expiresIn: '15m' }
-  );
+export function generateAccessToken(user, guildId = null) {
+  const payload = { userId: user.id, username: user.username, role: user.role };
+  if (guildId) payload.guildId = guildId;
+  return jwt.sign(payload, JWT_SECRET, { expiresIn: '15m' });
 }
 
 /**
  * Generate a long-lived refresh token (30 days) with unique jti
  */
-export function generateRefreshToken(user) {
-  return jwt.sign(
-    { userId: user.id, type: 'refresh', jti: crypto.randomUUID() },
-    JWT_REFRESH_SECRET,
-    { expiresIn: '30d' }
-  );
+export function generateRefreshToken(user, guildId = null) {
+  const payload = { userId: user.id, type: 'refresh', jti: crypto.randomUUID() };
+  if (guildId) payload.guildId = guildId;
+  return jwt.sign(payload, JWT_REFRESH_SECRET, { expiresIn: '30d' });
 }
 
 /**

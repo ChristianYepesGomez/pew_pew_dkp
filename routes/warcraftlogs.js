@@ -1,14 +1,17 @@
 import { Router } from 'express';
-import { db } from '../database.js';
 import { authenticateToken, authorizeRole } from '../middleware/auth.js';
 import { adminLimiter } from '../lib/rateLimiters.js';
-import { invalidateConfigCache, addDkpWithCap } from '../lib/helpers.js';
+import { invalidateConfigCache, addDkpWithCap, getCachedConfig } from '../lib/helpers.js';
+import { getLootSystem, getLootSystemType } from '../lib/lootSystems/index.js';
 import { processWarcraftLog, isConfigured as isWCLConfigured, getGuildReports, getFightStats, getFightStatsWithDeathEvents, getExtendedFightStats } from '../services/warcraftlogs.js';
 import { processExtendedFightData } from '../services/performanceAnalysis.js';
 import { seedRaidData, processFightStats, recordPlayerDeaths, recordPlayerPerformance } from '../services/raids.js';
 import { processReportPopularity } from '../services/itemPopularity.js';
 import { createLogger } from '../lib/logger.js';
 import pLimit from 'p-limit';
+import { success, error, paginated } from '../lib/response.js';
+import { ErrorCodes } from '../lib/errorCodes.js';
+import { parsePagination } from '../lib/pagination.js';
 
 const log = createLogger('Route:WarcraftLogs');
 const router = Router();
@@ -16,7 +19,7 @@ const router = Router();
 // Get DKP configuration
 router.get('/config', authenticateToken, authorizeRole(['admin', 'officer']), async (req, res) => {
   try {
-    const configs = await db.all('SELECT * FROM dkp_config');
+    const configs = await req.db.all('SELECT config_key, config_value, description, updated_at FROM dkp_config');
 
     const configObj = {};
     for (const config of configs) {
@@ -27,13 +30,13 @@ router.get('/config', authenticateToken, authorizeRole(['admin', 'officer']), as
       };
     }
 
-    res.json({
+    return success(res, {
       configured: isWCLConfigured(),
       config: configObj
     });
-  } catch (error) {
-    log.error('Get WCL config error', error);
-    res.status(500).json({ error: 'Failed to get configuration' });
+  } catch (err) {
+    log.error('Get WCL config error', err);
+    return error(res, 'Failed to get configuration', 500, ErrorCodes.INTERNAL_ERROR);
   }
 });
 
@@ -43,10 +46,10 @@ router.put('/config', adminLimiter, authenticateToken, authorizeRole(['admin']),
     const { config_key, config_value } = req.body;
 
     if (!config_key || config_value === undefined) {
-      return res.status(400).json({ error: 'config_key and config_value required' });
+      return error(res, 'config_key and config_value required', 400, ErrorCodes.VALIDATION_ERROR);
     }
 
-    await db.run(`
+    await req.db.run(`
       UPDATE dkp_config
       SET config_value = ?, updated_at = CURRENT_TIMESTAMP, updated_by = ?
       WHERE config_key = ?
@@ -55,10 +58,10 @@ router.put('/config', adminLimiter, authenticateToken, authorizeRole(['admin']),
     // Invalidate config cache so new values take effect immediately
     invalidateConfigCache();
 
-    res.json({ message: 'Configuration updated', config_key, config_value });
-  } catch (error) {
-    log.error('Update WCL config error', error);
-    res.status(500).json({ error: 'Failed to update configuration' });
+    return success(res, { config_key, config_value }, 'Configuration updated');
+  } catch (err) {
+    log.error('Update WCL config error', err);
+    return error(res, 'Failed to update configuration', 500, ErrorCodes.INTERNAL_ERROR);
   }
 });
 
@@ -68,13 +71,11 @@ router.post('/preview', adminLimiter, authenticateToken, authorizeRole(['admin',
     const { url } = req.body;
 
     if (!url) {
-      return res.status(400).json({ error: 'URL required' });
+      return error(res, 'URL required', 400, ErrorCodes.VALIDATION_ERROR);
     }
 
     if (!isWCLConfigured()) {
-      return res.status(503).json({
-        error: 'Warcraft Logs API not configured. Please set credentials in .env'
-      });
+      return error(res, 'Warcraft Logs API not configured. Please set credentials in .env', 503, ErrorCodes.EXTERNAL_API_ERROR);
     }
 
     const reportData = await processWarcraftLog(url);
@@ -87,7 +88,7 @@ router.post('/preview', adminLimiter, authenticateToken, authorizeRole(['admin',
     for (const participant of reportData.participants) {
       // Check ALL characters (main + alts) for matching
       // First check characters table, then fallback to users.character_name (main)
-      const user = await db.get(`
+      const user = await req.db.get(`
         SELECT DISTINCT u.id, u.username, u.character_name, u.character_class, u.server, md.current_dkp,
                COALESCE(c.character_name, u.character_name) as matched_character
         FROM users u
@@ -156,7 +157,7 @@ router.post('/preview', adminLimiter, authenticateToken, authorizeRole(['admin',
     const matchedCount = matchResults.filter(r => r.matched).length;
     const totalDKP = matchResults.reduce((sum, r) => sum + r.dkp_to_assign, 0);
 
-    res.json({
+    return success(res, {
       report: {
         code: reportData.code,
         title: reportData.title,
@@ -188,11 +189,9 @@ router.post('/preview', adminLimiter, authenticateToken, authorizeRole(['admin',
       can_proceed: true
     });
 
-  } catch (error) {
-    log.error('Error previewing Warcraft Log', error);
-    res.status(500).json({
-      error: 'Failed to process Warcraft Log'
-    });
+  } catch (err) {
+    log.error('Error previewing Warcraft Log', err);
+    return error(res, 'Failed to process Warcraft Log', 500, ErrorCodes.EXTERNAL_API_ERROR);
   }
 });
 
@@ -202,13 +201,13 @@ router.post('/confirm', adminLimiter, authenticateToken, authorizeRole(['admin',
     const { reportCode, participants } = req.body;
 
     if (!reportCode || !participants || !Array.isArray(participants)) {
-      return res.status(400).json({ error: 'reportCode and participants array required' });
+      return error(res, 'reportCode and participants array required', 400, ErrorCodes.VALIDATION_ERROR);
     }
 
     const matchedParticipants = participants.filter(p => p.matched && p.user_id);
 
     if (matchedParticipants.length === 0) {
-      return res.status(400).json({ error: 'No matched participants to assign DKP' });
+      return error(res, 'No matched participants to assign DKP', 400, ErrorCodes.VALIDATION_ERROR);
     }
 
     const reportTitle = req.body.reportTitle || `Raid ${reportCode}`;
@@ -224,19 +223,20 @@ router.post('/confirm', adminLimiter, authenticateToken, authorizeRole(['admin',
 
     const io = req.app.get('io');
 
-    // Atomic: duplicate check + DKP assignment in one transaction to prevent double processing
-    const totalDKP = await db.transaction(async (tx) => {
+    // Determine active loot system to decide what to award (DKP vs EP)
+    const lootSystemType = await getLootSystemType(req.db);
+    const lootSystem = await getLootSystem(req.db);
+
+    // Atomic: duplicate check + points assignment in one transaction to prevent double processing
+    const totalDKP = await req.db.transaction(async (tx) => {
       // Duplicate check INSIDE transaction to prevent race condition
       const alreadyProcessed = await tx.get(
-        'SELECT * FROM warcraft_logs_processed WHERE report_code = ? AND is_reverted = 0', reportCode
+        'SELECT id FROM warcraft_logs_processed WHERE report_code = ? AND is_reverted = 0', reportCode
       );
 
       if (alreadyProcessed) {
         throw new Error('ALREADY_PROCESSED');
       }
-
-      const capConfig = await tx.get("SELECT config_value FROM dkp_config WHERE config_key = 'dkp_cap'");
-      const dkpCap = parseInt(capConfig?.config_value || '250', 10);
 
       const reportResult = await tx.run(`
         INSERT INTO warcraft_logs_processed
@@ -248,28 +248,43 @@ router.post('/confirm', adminLimiter, authenticateToken, authorizeRole(['admin',
       let totalAssigned = 0;
 
       for (const participant of matchedParticipants) {
-        const dkpAmount = participant.dkp_to_assign;
+        const pointsAmount = participant.dkp_to_assign;
 
-        // Use cap-aware DKP addition
-        const result = await addDkpWithCap(tx, participant.user_id, dkpAmount, dkpCap);
+        // Use the loot system's awardFromRaid method (DKP cap-aware or EPGP EP award)
+        const result = await lootSystem.awardFromRaid(tx, participant.user_id, pointsAmount);
 
-        await tx.run(`
-          INSERT INTO dkp_transactions (user_id, amount, reason, performed_by, wcl_report_id)
-          VALUES (?, ?, ?, ?, ?)
-        `, participant.user_id, result.actualGain, `Warcraft Logs: ${reportTitle}${result.wasCapped ? ' (capped)' : ''}`, req.user.userId, wclReportId);
+        if (lootSystemType === 'epgp') {
+          // Log EPGP transaction
+          await tx.run(`
+            INSERT INTO epgp_transactions (user_id, type, ep_change, gp_change, reason)
+            VALUES (?, 'ep_gain', ?, 0, ?)
+          `, participant.user_id, result.actualGain, `Warcraft Logs: ${reportTitle}`);
+
+          io.emit('epgp_updated', {
+            userId: participant.user_id,
+            type: 'ep_gain',
+            amount: result.actualGain,
+          });
+        } else {
+          // DKP or Loot Council: log DKP transaction as before
+          await tx.run(`
+            INSERT INTO dkp_transactions (user_id, amount, reason, performed_by, wcl_report_id)
+            VALUES (?, ?, ?, ?, ?)
+          `, participant.user_id, result.actualGain, `Warcraft Logs: ${reportTitle}${result.wasCapped ? ' (capped)' : ''}`, req.user.userId, wclReportId);
+
+          const newDkpRow = await tx.get('SELECT current_dkp FROM member_dkp WHERE user_id = ?', participant.user_id);
+
+          io.emit('dkp_updated', {
+            userId: participant.user_id,
+            newDkp: newDkpRow?.current_dkp || 0,
+            amount: pointsAmount
+          });
+        }
 
         totalAssigned += result.actualGain;
-
-        const newDkpRow = await tx.get('SELECT current_dkp FROM member_dkp WHERE user_id = ?', participant.user_id);
-
-        io.emit('dkp_updated', {
-          userId: participant.user_id,
-          newDkp: newDkpRow?.current_dkp || 0,
-          amount: dkpAmount
-        });
       }
 
-      // Update the total DKP assigned
+      // Update the total points assigned
       await tx.run('UPDATE warcraft_logs_processed SET dkp_assigned = ? WHERE id = ?', totalAssigned, wclReportId);
 
       return totalAssigned;
@@ -294,7 +309,7 @@ router.post('/confirm', adminLimiter, authenticateToken, authorizeRole(['admin',
           const processedBosses = [];
 
           for (const fight of fights) {
-            const result = await processFightStats(reportCode, fight, fight.difficulty);
+            const result = await processFightStats(req.db, reportCode, fight, fight.difficulty);
             if (!result.skipped) {
               statsProcessed++;
               // Include fight timing info for death filtering (15-second wipe threshold)
@@ -333,13 +348,14 @@ router.post('/confirm', adminLimiter, authenticateToken, authorizeRole(['admin',
               // Record deaths (already filtered if it was a wipe)
               if (fightStats.deaths.length > 0) {
                 const deathsFormatted = fightStats.deaths.map(d => ({ name: d.name, deaths: d.total }));
-                await recordPlayerDeaths(bossInfo.bossId, bossInfo.difficulty, deathsFormatted, participantUserMap);
+                await recordPlayerDeaths(req.db, bossInfo.bossId, bossInfo.difficulty, deathsFormatted, participantUserMap);
                 totalDeathsRecorded += fightStats.deaths.reduce((sum, d) => sum + d.total, 0);
               }
 
               // Record performance (damage, healing, damage taken) and update records
               if (fightStats.damage.length > 0 || fightStats.healing.length > 0) {
                 await recordPlayerPerformance(
+                  req.db,
                   bossInfo.bossId,
                   bossInfo.difficulty,
                   fightStats,
@@ -368,43 +384,46 @@ router.post('/confirm', adminLimiter, authenticateToken, authorizeRole(['admin',
       })();
     }
 
-    res.json({
-      message: 'DKP assigned successfully from Warcraft Logs',
+    return success(res, {
       report_code: reportCode,
       participants_count: matchedParticipants.length,
       total_dkp_assigned: totalDKP
-    });
+    }, 'DKP assigned successfully from Warcraft Logs');
 
-  } catch (error) {
-    if (error.message === 'ALREADY_PROCESSED') {
-      return res.status(409).json({ error: 'This report has already been processed' });
+  } catch (err) {
+    if (err.message === 'ALREADY_PROCESSED') {
+      return error(res, 'This report has already been processed', 409, ErrorCodes.ALREADY_EXISTS);
     }
-    log.error('Error confirming Warcraft Log', error);
-    res.status(500).json({
-      error: 'Failed to assign DKP'
-    });
+    log.error('Error confirming Warcraft Log', err);
+    return error(res, 'Failed to assign DKP', 500, ErrorCodes.INTERNAL_ERROR);
   }
 });
 
 // Get history of processed Warcraft Logs reports
 router.get('/history', authenticateToken, async (req, res) => {
   try {
-    const limit = parseInt(req.query.limit) || 50;
+    const { limit, offset } = parsePagination(req.query);
 
-    const history = await db.all(`
-      SELECT wlp.*, u.character_name as processed_by_name,
+    const totalRow = await req.db.get('SELECT COUNT(*) as total FROM warcraft_logs_processed');
+    const total = totalRow.total;
+
+    const history = await req.db.all(`
+      SELECT wlp.id, wlp.report_code, wlp.report_title, wlp.start_time, wlp.end_time,
+             wlp.region, wlp.guild_name, wlp.participants_count, wlp.dkp_assigned,
+             wlp.processed_at, wlp.raid_date, wlp.is_reverted, wlp.reverted_at,
+             u.character_name as processed_by_name,
              u2.character_name as reverted_by_name
       FROM warcraft_logs_processed wlp
       LEFT JOIN users u ON wlp.processed_by = u.id
       LEFT JOIN users u2 ON wlp.reverted_by = u2.id
       ORDER BY wlp.processed_at DESC
-      LIMIT ?
-    `, limit);
+      LIMIT ? OFFSET ?
+    `, limit, offset);
 
-    res.json(history);
-  } catch (error) {
-    log.error('WCL history error', error);
-    res.status(500).json({ error: 'Failed to get WCL history' });
+    return paginated(res, history, { limit, offset, total });
+  } catch (err) {
+    log.error('WCL history error', err);
+    return error(res, 'Failed to get WCL history', 500, ErrorCodes.INTERNAL_ERROR);
   }
 });
 
@@ -413,13 +432,13 @@ router.get('/report/:code/transactions', authenticateToken, async (req, res) => 
   try {
     const { code } = req.params;
 
-    const report = await db.get('SELECT id, report_code, report_title, is_reverted FROM warcraft_logs_processed WHERE report_code = ?', code);
+    const report = await req.db.get('SELECT id, report_code, report_title, is_reverted FROM warcraft_logs_processed WHERE report_code = ?', code);
     if (!report) {
-      return res.status(404).json({ error: 'Report not found' });
+      return error(res, 'Report not found', 404, ErrorCodes.NOT_FOUND);
     }
 
     // Try by wcl_report_id first, fall back to reason LIKE match
-    let transactions = await db.all(`
+    let transactions = await req.db.all(`
       SELECT dt.*, u.character_name, u.character_class
       FROM dkp_transactions dt
       LEFT JOIN users u ON dt.user_id = u.id
@@ -428,7 +447,7 @@ router.get('/report/:code/transactions', authenticateToken, async (req, res) => 
     `, report.id);
 
     if (transactions.length === 0) {
-      transactions = await db.all(`
+      transactions = await req.db.all(`
         SELECT dt.*, u.character_name, u.character_class
         FROM dkp_transactions dt
         LEFT JOIN users u ON dt.user_id = u.id
@@ -437,10 +456,10 @@ router.get('/report/:code/transactions', authenticateToken, async (req, res) => 
       `, `Warcraft Logs: ${report.report_title}%`);
     }
 
-    res.json({ report, transactions });
-  } catch (error) {
-    log.error('WCL report transactions error', error);
-    res.status(500).json({ error: 'Failed to get report transactions' });
+    return success(res, { report, transactions });
+  } catch (err) {
+    log.error('WCL report transactions error', err);
+    return error(res, 'Failed to get report transactions', 500, ErrorCodes.INTERNAL_ERROR);
   }
 });
 
@@ -449,27 +468,27 @@ router.post('/revert/:reportCode', adminLimiter, authenticateToken, authorizeRol
   try {
     const { reportCode } = req.params;
 
-    const report = await db.get(
-      'SELECT * FROM warcraft_logs_processed WHERE report_code = ? AND is_reverted = 0',
+    const report = await req.db.get(
+      'SELECT id, report_code, report_title FROM warcraft_logs_processed WHERE report_code = ? AND is_reverted = 0',
       reportCode
     );
 
     if (!report) {
-      return res.status(404).json({ error: 'Report not found or already reverted' });
+      return error(res, 'Report not found or already reverted', 404, ErrorCodes.NOT_FOUND);
     }
 
     const io = req.app.get('io');
 
-    await db.transaction(async (tx) => {
+    await req.db.transaction(async (tx) => {
       // Find all transactions linked to this report
       let transactions = await tx.all(
-        'SELECT * FROM dkp_transactions WHERE wcl_report_id = ?', report.id
+        'SELECT id, user_id, amount, reason FROM dkp_transactions WHERE wcl_report_id = ?', report.id
       );
 
       // Fallback to reason match for legacy records
       if (transactions.length === 0) {
         transactions = await tx.all(
-          'SELECT * FROM dkp_transactions WHERE reason LIKE ?',
+          'SELECT id, user_id, amount, reason FROM dkp_transactions WHERE reason LIKE ?',
           `Warcraft Logs: ${report.report_title}%`
         );
       }
@@ -506,10 +525,10 @@ router.post('/revert/:reportCode', adminLimiter, authenticateToken, authorizeRol
       `, req.user.userId, report.id);
     });
 
-    res.json({ message: 'DKP reverted successfully', report_code: reportCode });
-  } catch (error) {
-    log.error('WCL revert error', error);
-    res.status(500).json({ error: 'Failed to revert DKP' });
+    return success(res, { report_code: reportCode }, 'DKP reverted successfully');
+  } catch (err) {
+    log.error('WCL revert error', err);
+    return error(res, 'Failed to revert DKP', 500, ErrorCodes.INTERNAL_ERROR);
   }
 });
 
@@ -518,13 +537,13 @@ router.get('/guild-reports', authenticateToken, authorizeRole(['admin', 'officer
   try {
     const { date } = req.query;
     if (!date) {
-      return res.status(400).json({ error: 'date parameter required (YYYY-MM-DD)' });
+      return error(res, 'date parameter required (YYYY-MM-DD)', 400, ErrorCodes.VALIDATION_ERROR);
     }
 
     // Get guild ID from config
-    const guildConfig = await db.get("SELECT config_value FROM dkp_config WHERE config_key = 'wcl_guild_id'");
+    const guildConfig = await req.db.get("SELECT config_value FROM dkp_config WHERE config_key = 'wcl_guild_id'");
     if (!guildConfig) {
-      return res.status(400).json({ error: 'WCL guild ID not configured. Set wcl_guild_id in DKP config.' });
+      return error(res, 'WCL guild ID not configured. Set wcl_guild_id in DKP config.', 400, ErrorCodes.VALIDATION_ERROR);
     }
 
     const guildId = parseInt(guildConfig.config_value);
@@ -541,7 +560,7 @@ router.get('/guild-reports', authenticateToken, authorizeRole(['admin', 'officer
 
     // Check which reports are already processed
     for (const report of reports) {
-      const processed = await db.get(
+      const processed = await req.db.get(
         'SELECT id, is_reverted FROM warcraft_logs_processed WHERE report_code = ?',
         report.code
       );
@@ -549,10 +568,10 @@ router.get('/guild-reports', authenticateToken, authorizeRole(['admin', 'officer
       report.wasReverted = !!processed && !!processed.is_reverted;
     }
 
-    res.json(reports);
-  } catch (error) {
-    log.error('Guild reports error', error);
-    res.status(500).json({ error: 'Failed to fetch guild reports' });
+    return success(res, reports);
+  } catch (err) {
+    log.error('Guild reports error', err);
+    return error(res, 'Failed to fetch guild reports', 500, ErrorCodes.EXTERNAL_API_ERROR);
   }
 });
 
@@ -562,18 +581,18 @@ router.post('/import-boss-stats', adminLimiter, authenticateToken, authorizeRole
   try {
     const { url } = req.body;
     if (!url) {
-      return res.status(400).json({ error: 'WCL URL required' });
+      return error(res, 'WCL URL required', 400, ErrorCodes.VALIDATION_ERROR);
     }
 
     // Process the WCL log to get report data
     const reportData = await processWarcraftLog(url);
 
     // Ensure raid data is seeded
-    await seedRaidData();
+    await seedRaidData(req.db);
 
     // Build participant map from known users/characters in database
-    const allUsers = await db.all('SELECT id, character_name FROM users WHERE is_active = 1');
-    const allCharacters = await db.all('SELECT user_id, character_name FROM characters');
+    const allUsers = await req.db.all('SELECT id, character_name FROM users WHERE is_active = 1');
+    const allCharacters = await req.db.all('SELECT user_id, character_name FROM characters');
     const participantUserMap = {};
     for (const u of allUsers) {
       if (u.character_name) participantUserMap[u.character_name.toLowerCase()] = u.id;
@@ -591,7 +610,7 @@ router.post('/import-boss-stats', adminLimiter, authenticateToken, authorizeRole
     // Process each fight for boss statistics (kills, wipes, times) — parallelized
     const fightResults = await Promise.all(
       reportData.fights.map(fight => limit(async () => {
-        const result = await processFightStats(reportData.code, fight, fight.difficulty);
+        const result = await processFightStats(req.db, reportData.code, fight, fight.difficulty);
         return { fight, result };
       }))
     );
@@ -639,13 +658,14 @@ router.post('/import-boss-stats', adminLimiter, authenticateToken, authorizeRole
               // Record deaths
               if (fightStats.deaths && fightStats.deaths.length > 0) {
                 const deathsFormatted = fightStats.deaths.map(d => ({ name: d.name, deaths: d.total }));
-                await recordPlayerDeaths(bossInfo.bossId, bossInfo.difficulty, deathsFormatted, participantUserMap);
+                await recordPlayerDeaths(req.db, bossInfo.bossId, bossInfo.difficulty, deathsFormatted, participantUserMap);
                 bossDeaths = fightStats.deaths.reduce((sum, d) => sum + d.total, 0);
               }
 
               // Record performance (damage, healing, damage taken)
               if (fightStats.damage.length > 0 || fightStats.healing.length > 0) {
                 await recordPlayerPerformance(
+                  req.db,
                   bossInfo.bossId,
                   bossInfo.difficulty,
                   fightStats,
@@ -677,11 +697,11 @@ router.post('/import-boss-stats', adminLimiter, authenticateToken, authorizeRole
                 const extStats = await getExtendedFightStats(reportData.code, [bossInfo.fightId]);
                 const fightStats = await getFightStats(reportData.code, [bossInfo.fightId]);
                 const count = await processExtendedFightData(
-                  reportData.code, bossInfo, fightStats, extStats, participantUserMap, reportDate
+                  req.db, reportData.code, bossInfo, fightStats, extStats, participantUserMap, reportDate
                 );
                 return count;
               } catch (extErr) {
-                console.warn(`Extended stats failed for fight ${bossInfo.fightId}:`, extErr.message);
+                log.warn(`Extended stats failed for fight ${bossInfo.fightId}: ${extErr.message}`);
                 return 0;
               }
             }))
@@ -695,9 +715,9 @@ router.post('/import-boss-stats', adminLimiter, authenticateToken, authorizeRole
           const killFights = processedBosses.filter(b => b.kill);
           if (killFights.length > 0) {
             try {
-              await processReportPopularity(reportData.code, killFights);
+              await processReportPopularity(req.db, reportData.code, killFights);
             } catch (popErr) {
-              console.warn('Item popularity processing failed:', popErr.message);
+              log.warn('Item popularity processing failed: ' + popErr.message);
             }
           }
         } catch (err) {
@@ -706,8 +726,7 @@ router.post('/import-boss-stats', adminLimiter, authenticateToken, authorizeRole
       })();
     }
 
-    res.json({
-      message: 'Boss statistics imported successfully',
+    return success(res, {
       report: {
         code: reportData.code,
         title: reportData.title,
@@ -728,10 +747,10 @@ router.post('/import-boss-stats', adminLimiter, authenticateToken, authorizeRole
         kill: b.kill,
         duration: b.duration
       }))
-    });
-  } catch (error) {
-    log.error('Import boss stats error', error);
-    res.status(500).json({ error: error.message || 'Failed to import boss statistics' });
+    }, 'Boss statistics imported successfully');
+  } catch (err) {
+    log.error('Import boss stats error', err);
+    return error(res, err.message || 'Failed to import boss statistics', 500, ErrorCodes.EXTERNAL_API_ERROR);
   }
 });
 
@@ -739,9 +758,9 @@ router.post('/import-boss-stats', adminLimiter, authenticateToken, authorizeRole
 router.get('/pending-reports', authenticateToken, authorizeRole(['admin', 'officer']), async (req, res) => {
   try {
     // Get the configured uploader user ID
-    const uploaderConfig = await db.get("SELECT config_value FROM dkp_config WHERE config_key = 'wcl_uploader_id'");
+    const uploaderConfig = await req.db.get("SELECT config_value FROM dkp_config WHERE config_key = 'wcl_uploader_id'");
     if (!uploaderConfig?.config_value) {
-      return res.status(400).json({ error: 'WCL uploader ID not configured' });
+      return error(res, 'WCL uploader ID not configured', 400, ErrorCodes.VALIDATION_ERROR);
     }
 
     const uploaderId = parseInt(uploaderConfig.config_value);
@@ -751,11 +770,11 @@ router.get('/pending-reports', authenticateToken, authorizeRole(['admin', 'offic
     const { userName, reports } = await getUserReports(uploaderId, 20);
 
     // Get already processed report codes
-    const processedReports = await db.all('SELECT report_code FROM warcraft_logs_processed');
+    const processedReports = await req.db.all('SELECT report_code FROM warcraft_logs_processed');
     const processedCodes = new Set(processedReports.map(r => r.report_code));
 
     // Get raid days to match dates
-    const raidDays = await db.all('SELECT day_of_week FROM raid_days WHERE is_active = 1');
+    const raidDays = await req.db.all('SELECT day_of_week FROM raid_days WHERE is_active = 1');
     const raidDaysSet = new Set(raidDays.map(r => r.day_of_week));
 
     // Filter to unprocessed reports that match raid days
@@ -777,15 +796,15 @@ router.get('/pending-reports', authenticateToken, authorizeRole(['admin', 'offic
       })
       .filter(r => r.isRaidDay); // Only show reports from raid days
 
-    res.json({
+    return success(res, {
       uploaderName: userName,
       uploaderId,
       pending: pendingReports,
       processed: processedCodes.size,
     });
-  } catch (error) {
-    log.error('Get pending reports error', error);
-    res.status(500).json({ error: error.message || 'Failed to fetch pending reports' });
+  } catch (err) {
+    log.error('Get pending reports error', err);
+    return error(res, err.message || 'Failed to fetch pending reports', 500, ErrorCodes.EXTERNAL_API_ERROR);
   }
 });
 
@@ -795,20 +814,20 @@ router.post('/auto-process/:code', adminLimiter, authenticateToken, authorizeRol
     const { code } = req.params;
 
     // Check if already processed
-    const existing = await db.get('SELECT id FROM warcraft_logs_processed WHERE report_code = ?', code);
+    const existing = await req.db.get('SELECT id FROM warcraft_logs_processed WHERE report_code = ?', code);
     if (existing) {
-      return res.status(400).json({ error: 'Report already processed' });
+      return error(res, 'Report already processed', 400, ErrorCodes.ALREADY_EXISTS);
     }
 
     // Process the report (same as /api/warcraftlogs/preview)
     const reportData = await processWarcraftLog(code);
 
     // Get DKP config
-    const dkpConfig = await db.get("SELECT config_value FROM dkp_config WHERE config_key = 'raid_attendance_dkp'");
+    const dkpConfig = await req.db.get("SELECT config_value FROM dkp_config WHERE config_key = 'raid_attendance_dkp'");
     const dkpPerPlayer = parseInt(dkpConfig?.config_value) || 5;
 
     // Get all members to match participants
-    const members = await db.all(`
+    const members = await req.db.all(`
       SELECT m.user_id, m.current_dkp, u.character_name, u.username, u.server
       FROM member_dkp m
       JOIN users u ON m.user_id = u.id
@@ -816,7 +835,7 @@ router.post('/auto-process/:code', adminLimiter, authenticateToken, authorizeRol
     `);
 
     // Get alternative character names (alts)
-    const alts = await db.all(`
+    const alts = await req.db.all(`
       SELECT c.user_id, c.character_name, c.realm
       FROM characters c
       JOIN users u ON c.user_id = u.id
@@ -860,7 +879,7 @@ router.post('/auto-process/:code', adminLimiter, authenticateToken, authorizeRol
     // Auto-derive raid date from report timestamp
     const raidDate = new Date(reportData.startTime).toLocaleDateString('sv-SE', { timeZone: 'Europe/Madrid' });
 
-    res.json({
+    return success(res, {
       report: reportData,
       matching: {
         matched,
@@ -869,11 +888,10 @@ router.post('/auto-process/:code', adminLimiter, authenticateToken, authorizeRol
       },
       dkpPerPlayer,
       raidDate,
-      message: 'Report previewed. Call confirm endpoint to apply DKP.',
-    });
-  } catch (error) {
-    log.error('Auto-process report error', error);
-    res.status(500).json({ error: error.message || 'Failed to process report' });
+    }, 'Report previewed. Call confirm endpoint to apply DKP.');
+  } catch (err) {
+    log.error('Auto-process report error', err);
+    return error(res, err.message || 'Failed to process report', 500, ErrorCodes.EXTERNAL_API_ERROR);
   }
 });
 

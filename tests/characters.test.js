@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { request, setupTestDb, cleanupTestDb, createTestUser } from './helpers.js';
+import { request, setupTestDb, cleanupTestDb, createTestUser, expectSuccess, expectError } from './helpers.js';
 
 describe('Characters endpoints', () => {
   let user;
@@ -28,8 +28,8 @@ describe('Characters endpoints', () => {
         .get('/api/characters')
         .set('Authorization', `Bearer ${user.token}`);
 
-      expect(res.status).toBe(200);
-      expect(res.body).toEqual([]);
+      const data = expectSuccess(res);
+      expect(data).toEqual([]);
     });
   });
 
@@ -49,8 +49,8 @@ describe('Characters endpoints', () => {
           realmSlug: 'ragnaros',
         });
 
-      expect(res.status).toBe(201);
-      expect(res.body).toMatchObject({
+      const data = expectSuccess(res, 201);
+      expect(data).toMatchObject({
         characterName: 'Testchar',
         characterClass: 'Warrior',
         spec: 'Arms',
@@ -59,7 +59,7 @@ describe('Characters endpoints', () => {
         realmSlug: 'ragnaros',
         isPrimary: true,
       });
-      expect(res.body.id).toBeDefined();
+      expect(data.id).toBeDefined();
     });
 
     it('validates required fields (characterName, characterClass)', async () => {
@@ -68,8 +68,8 @@ describe('Characters endpoints', () => {
         .set('Authorization', `Bearer ${user.token}`)
         .send({ spec: 'Fire' });
 
-      expect(res.status).toBe(400);
-      expect(res.body.error).toContain('required');
+      const msg = expectError(res, 400);
+      expect(msg).toContain('required');
     });
 
     it('defaults raidRole to DPS if invalid', async () => {
@@ -82,8 +82,8 @@ describe('Characters endpoints', () => {
           raidRole: 'InvalidRole',
         });
 
-      expect(res.status).toBe(201);
-      expect(res.body.raidRole).toBe('DPS');
+      const data = expectSuccess(res, 201);
+      expect(data.raidRole).toBe('DPS');
     });
 
     it('second character is NOT primary', async () => {
@@ -97,8 +97,8 @@ describe('Characters endpoints', () => {
           raidRole: 'Healer',
         });
 
-      expect(res.status).toBe(201);
-      expect(res.body.isPrimary).toBe(false);
+      const data = expectSuccess(res, 201);
+      expect(data.isPrimary).toBe(false);
     });
 
     it('same name updates existing character', async () => {
@@ -114,9 +114,9 @@ describe('Characters endpoints', () => {
           realmSlug: 'ragnaros',
         });
 
-      expect(res.status).toBe(201);
-      expect(res.body.spec).toBe('Shadow');
-      expect(res.body.raidRole).toBe('DPS');
+      const data = expectSuccess(res, 201);
+      expect(data.spec).toBe('Shadow');
+      expect(data.raidRole).toBe('DPS');
 
       // Verify no duplicate was created - user should still have exactly 3 characters
       // (Testchar, Defaultrole, Altchar)
@@ -124,7 +124,8 @@ describe('Characters endpoints', () => {
         .get('/api/characters')
         .set('Authorization', `Bearer ${user.token}`);
 
-      const altchars = listRes.body.filter(c => c.characterName === 'Altchar');
+      const listData = expectSuccess(listRes);
+      const altchars = listData.filter(c => c.characterName === 'Altchar');
       expect(altchars).toHaveLength(1);
       expect(altchars[0].spec).toBe('Shadow');
     });
@@ -138,16 +139,16 @@ describe('Characters endpoints', () => {
         .get('/api/characters')
         .set('Authorization', `Bearer ${user.token}`);
 
-      expect(res.status).toBe(200);
-      expect(Array.isArray(res.body)).toBe(true);
-      expect(res.body.length).toBeGreaterThanOrEqual(3);
+      const data = expectSuccess(res);
+      expect(Array.isArray(data)).toBe(true);
+      expect(data.length).toBeGreaterThanOrEqual(3);
 
       // Primary character should be first (ORDER BY is_primary DESC)
-      expect(res.body[0].isPrimary).toBe(true);
-      expect(res.body[0].characterName).toBe('Testchar');
+      expect(data[0].isPrimary).toBe(true);
+      expect(data[0].characterName).toBe('Testchar');
 
       // Verify shape of each character
-      for (const char of res.body) {
+      for (const char of data) {
         expect(char).toHaveProperty('id');
         expect(char).toHaveProperty('characterName');
         expect(char).toHaveProperty('characterClass');
@@ -169,7 +170,8 @@ describe('Characters endpoints', () => {
       const res = await request
         .get('/api/characters')
         .set('Authorization', `Bearer ${user.token}`);
-      charId = res.body.find(c => c.isPrimary).id;
+      const data = expectSuccess(res);
+      charId = data.find(c => c.isPrimary).id;
     });
 
     it('updates character fields', async () => {
@@ -182,14 +184,15 @@ describe('Characters endpoints', () => {
           raidRole: 'Tank',
         });
 
-      expect(res.status).toBe(200);
+      expectSuccess(res);
       expect(res.body.message).toBe('Character updated');
 
       // Verify the update
       const listRes = await request
         .get('/api/characters')
         .set('Authorization', `Bearer ${user.token}`);
-      const updated = listRes.body.find(c => c.id === charId);
+      const listData = expectSuccess(listRes);
+      const updated = listData.find(c => c.id === charId);
       expect(updated.characterName).toBe('RenamedChar');
       expect(updated.spec).toBe('Fury');
       expect(updated.raidRole).toBe('Tank');
@@ -203,8 +206,8 @@ describe('Characters endpoints', () => {
         .set('Authorization', `Bearer ${otherUser.token}`)
         .send({ characterName: 'Hacked' });
 
-      expect(res.status).toBe(404);
-      expect(res.body.error).toContain('not found');
+      const msg = expectError(res, 404);
+      expect(msg).toContain('not found');
     });
 
     it('validates character ID (NaN -> 400)', async () => {
@@ -213,8 +216,8 @@ describe('Characters endpoints', () => {
         .set('Authorization', `Bearer ${user.token}`)
         .send({ characterName: 'Whatever' });
 
-      expect(res.status).toBe(400);
-      expect(res.body.error).toContain('Invalid character ID');
+      const msg = expectError(res, 400);
+      expect(msg).toContain('Invalid character ID');
     });
   });
 
@@ -228,8 +231,9 @@ describe('Characters endpoints', () => {
       const res = await request
         .get('/api/characters')
         .set('Authorization', `Bearer ${user.token}`);
-      primaryId = res.body.find(c => c.isPrimary).id;
-      nonPrimaryId = res.body.find(c => !c.isPrimary).id;
+      const data = expectSuccess(res);
+      primaryId = data.find(c => c.isPrimary).id;
+      nonPrimaryId = data.find(c => !c.isPrimary).id;
     });
 
     it('can\'t delete primary character (400)', async () => {
@@ -237,8 +241,8 @@ describe('Characters endpoints', () => {
         .delete(`/api/characters/${primaryId}`)
         .set('Authorization', `Bearer ${user.token}`);
 
-      expect(res.status).toBe(400);
-      expect(res.body.error).toContain('primary');
+      const msg = expectError(res, 400);
+      expect(msg).toContain('primary');
     });
 
     it('can delete non-primary character', async () => {
@@ -246,14 +250,15 @@ describe('Characters endpoints', () => {
         .delete(`/api/characters/${nonPrimaryId}`)
         .set('Authorization', `Bearer ${user.token}`);
 
-      expect(res.status).toBe(200);
+      expectSuccess(res);
       expect(res.body.message).toBe('Character deleted');
 
       // Verify it's gone
       const listRes = await request
         .get('/api/characters')
         .set('Authorization', `Bearer ${user.token}`);
-      const found = listRes.body.find(c => c.id === nonPrimaryId);
+      const listData = expectSuccess(listRes);
+      const found = listData.find(c => c.id === nonPrimaryId);
       expect(found).toBeUndefined();
     });
 
@@ -267,14 +272,15 @@ describe('Characters endpoints', () => {
         .set('Authorization', `Bearer ${singleCharUser.token}`)
         .send({ characterName: 'OnlyOne', characterClass: 'Rogue' });
 
-      const onlyCharId = createRes.body.id;
+      const createData = expectSuccess(createRes, 201);
+      const onlyCharId = createData.id;
 
       const res = await request
         .delete(`/api/characters/${onlyCharId}`)
         .set('Authorization', `Bearer ${singleCharUser.token}`);
 
-      expect(res.status).toBe(400);
-      expect(res.body.error).toContain('only character');
+      const msg = expectError(res, 400);
+      expect(msg).toContain('only character');
     });
   });
 
@@ -300,7 +306,8 @@ describe('Characters endpoints', () => {
           realm: 'Ragnaros',
           realmSlug: 'ragnaros',
         });
-      primaryCharId = primary.body.id;
+      const primaryData = expectSuccess(primary, 201);
+      primaryCharId = primaryData.id;
 
       // Create alt
       const alt = await request
@@ -314,7 +321,8 @@ describe('Characters endpoints', () => {
           realm: 'Ragnaros',
           realmSlug: 'ragnaros',
         });
-      altCharId = alt.body.id;
+      const altData = expectSuccess(alt, 201);
+      altCharId = altData.id;
     });
 
     it('sets new primary and updates user profile', async () => {
@@ -322,7 +330,7 @@ describe('Characters endpoints', () => {
         .put(`/api/characters/${altCharId}/primary`)
         .set('Authorization', `Bearer ${setUser.token}`);
 
-      expect(res.status).toBe(200);
+      expectSuccess(res);
       expect(res.body.message).toBe('Primary character updated');
 
       // Verify the alt is now primary
@@ -330,11 +338,12 @@ describe('Characters endpoints', () => {
         .get('/api/characters')
         .set('Authorization', `Bearer ${setUser.token}`);
 
-      const altChar = listRes.body.find(c => c.id === altCharId);
+      const listData = expectSuccess(listRes);
+      const altChar = listData.find(c => c.id === altCharId);
       expect(altChar.isPrimary).toBe(true);
 
       // Verify the old primary is no longer primary
-      const oldPrimary = listRes.body.find(c => c.id === primaryCharId);
+      const oldPrimary = listData.find(c => c.id === primaryCharId);
       expect(oldPrimary.isPrimary).toBe(false);
 
       // Verify user profile was updated via /auth/me
@@ -342,8 +351,9 @@ describe('Characters endpoints', () => {
         .get('/api/auth/me')
         .set('Authorization', `Bearer ${setUser.token}`);
 
-      expect(meRes.body.characterName).toBe('AltChar');
-      expect(meRes.body.characterClass).toBe('Druid');
+      const meData = expectSuccess(meRes);
+      expect(meData.characterName).toBe('AltChar');
+      expect(meData.characterClass).toBe('Druid');
     });
 
     it('returns 404 for non-existent character', async () => {
@@ -351,8 +361,8 @@ describe('Characters endpoints', () => {
         .put('/api/characters/999999/primary')
         .set('Authorization', `Bearer ${setUser.token}`);
 
-      expect(res.status).toBe(404);
-      expect(res.body.error).toContain('not found');
+      const msg = expectError(res, 404);
+      expect(msg).toContain('not found');
     });
   });
 });

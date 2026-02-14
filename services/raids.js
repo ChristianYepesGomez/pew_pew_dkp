@@ -3,7 +3,6 @@
  * Manages WCL zone data, boss statistics, and death tracking
  */
 
-import { db } from '../database.js';
 import { createLogger } from '../lib/logger.js';
 
 const log = createLogger('Service:Raids');
@@ -97,7 +96,7 @@ function getMythicTrapBossImage(raidSlug, bossSlug) {
 /**
  * Seed initial raid/boss data from static definitions
  */
-export async function seedRaidData() {
+export async function seedRaidData(db) {
   log.info('Seeding raid/boss data...');
 
   for (const [expansion, data] of Object.entries(EXPANSION_DATA)) {
@@ -172,7 +171,7 @@ export async function seedRaidData() {
 /**
  * Get all zones with bosses, separated by current/legacy
  */
-export async function getAllZonesWithBosses() {
+export async function getAllZonesWithBosses(db) {
   const zones = await db.all(`
     SELECT z.*,
            (SELECT COUNT(*) FROM wcl_bosses WHERE zone_id = z.id) as boss_count
@@ -260,7 +259,7 @@ export async function getAllZonesWithBosses() {
  * @param {number} bossId
  * @param {string|null} requestedDifficulty - Optional: 'Mythic', 'Heroic', 'Normal', 'LFR'. Defaults to highest available.
  */
-export async function getBossDetails(bossId, requestedDifficulty = null) {
+export async function getBossDetails(db, bossId, requestedDifficulty = null) {
   const boss = await db.get(`
     SELECT b.*, z.name as raid_name, z.slug as raid_slug
     FROM wcl_bosses b
@@ -291,13 +290,16 @@ export async function getBossDetails(bossId, requestedDifficulty = null) {
 
   // Get statistics for selected difficulty
   const stats = await db.get(`
-    SELECT * FROM boss_statistics
-    WHERE boss_id = ? AND difficulty = ?
+    SELECT id, boss_id, difficulty, total_kills, total_wipes, fastest_kill_ms,
+           avg_kill_time_ms, total_kill_time_ms, last_kill_date,
+           wipes_to_first_kill, first_kill_date, updated_at
+    FROM boss_statistics WHERE boss_id = ? AND difficulty = ?
   `, bossId, selectedDifficulty);
 
   // Get death leaderboard
   const deathLeaderboard = await db.all(`
-    SELECT pbd.*, u.character_name, u.character_class
+    SELECT pbd.user_id, pbd.total_deaths, pbd.total_fights,
+           u.character_name, u.character_class
     FROM player_boss_deaths pbd
     JOIN users u ON pbd.user_id = u.id
     WHERE pbd.boss_id = ? AND pbd.difficulty = ?
@@ -307,7 +309,8 @@ export async function getBossDetails(bossId, requestedDifficulty = null) {
 
   // Get recent kills
   const recentKills = await db.all(`
-    SELECT * FROM boss_kill_log
+    SELECT id, boss_id, difficulty, report_code, fight_id, kill_time_ms, kill_date, created_at
+    FROM boss_kill_log
     WHERE boss_id = ? AND difficulty = ?
     ORDER BY kill_date DESC, created_at DESC
     LIMIT 10
@@ -315,8 +318,9 @@ export async function getBossDetails(bossId, requestedDifficulty = null) {
 
   // Get boss records (top performers)
   const records = await db.all(`
-    SELECT * FROM boss_records
-    WHERE boss_id = ? AND difficulty = ?
+    SELECT id, boss_id, difficulty, record_type, user_id, value,
+           character_name, character_class, report_code, fight_id, recorded_at
+    FROM boss_records WHERE boss_id = ? AND difficulty = ?
   `, bossId, selectedDifficulty);
 
   // Format records by type
@@ -399,7 +403,7 @@ export async function getBossDetails(bossId, requestedDifficulty = null) {
 /**
  * Check if a fight has already been processed
  */
-export async function isFightProcessed(reportCode, encounterId, fightId) {
+export async function isFightProcessed(db, reportCode, encounterId, fightId) {
   const existing = await db.get(
     `SELECT id FROM boss_stats_processed
      WHERE report_code = ? AND encounter_id = ? AND fight_id = ?`,
@@ -411,9 +415,9 @@ export async function isFightProcessed(reportCode, encounterId, fightId) {
 /**
  * Process fight statistics from a WCL report
  */
-export async function processFightStats(reportCode, fight, difficulty) {
+export async function processFightStats(db, reportCode, fight, difficulty) {
   // Check for deduplication
-  if (await isFightProcessed(reportCode, fight.encounterID, fight.id)) {
+  if (await isFightProcessed(db, reportCode, fight.encounterID, fight.id)) {
     return { skipped: true, reason: 'already_processed' };
   }
 
@@ -439,7 +443,8 @@ export async function processFightStats(reportCode, fight, difficulty) {
 
   // Get or create statistics entry
   const existingStats = await db.get(
-    'SELECT * FROM boss_statistics WHERE boss_id = ? AND difficulty = ?',
+    `SELECT id, total_kills, total_wipes, fastest_kill_ms, total_kill_time_ms
+     FROM boss_statistics WHERE boss_id = ? AND difficulty = ?`,
     boss.id, normalizedDifficulty
   );
 
@@ -453,23 +458,22 @@ export async function processFightStats(reportCode, fight, difficulty) {
         ? Math.min(existingStats.fastest_kill_ms, fightDuration)
         : fightDuration;
 
-      // Check if this is the first kill - track wipes to first kill
-      const isFirstKill = existingStats.total_kills === 0;
+      // Atomic first-kill detection: UPDATE ... WHERE total_kills = 0
+      // Prevents race condition if concurrent imports both see total_kills === 0
+      const firstKillResult = await db.run(
+        `UPDATE boss_statistics SET
+          total_kills = ?, total_kill_time_ms = ?, avg_kill_time_ms = ?,
+          fastest_kill_ms = ?, last_kill_date = date('now'),
+          wipes_to_first_kill = total_wipes, first_kill_date = date('now'),
+          updated_at = CURRENT_TIMESTAMP
+         WHERE id = ? AND total_kills = 0`,
+        newKills, newTotalKillTime, newAvgKillTime, newFastest, existingStats.id
+      );
 
-      if (isFirstKill) {
-        // First kill! Record how many wipes it took
-        await db.run(
-          `UPDATE boss_statistics SET
-            total_kills = ?, total_kill_time_ms = ?, avg_kill_time_ms = ?,
-            fastest_kill_ms = ?, last_kill_date = date('now'),
-            wipes_to_first_kill = ?, first_kill_date = date('now'),
-            updated_at = CURRENT_TIMESTAMP
-           WHERE id = ?`,
-          newKills, newTotalKillTime, newAvgKillTime, newFastest,
-          existingStats.total_wipes, existingStats.id
-        );
+      if (firstKillResult.changes > 0) {
         log.info(`First kill on boss ${boss.id} (${normalizedDifficulty})! Took ${existingStats.total_wipes} wipes.`);
       } else {
+        // Not first kill (or already set by concurrent import)
         await db.run(
           `UPDATE boss_statistics SET
             total_kills = ?, total_kill_time_ms = ?, avg_kill_time_ms = ?,
@@ -526,7 +530,7 @@ export async function processFightStats(reportCode, fight, difficulty) {
  * Record player performance stats (damage, healing, damage taken)
  * Stats format from getFightStats: { damage: [{name, total}], healing: [{name, total}], damageTaken: [{name, total}] }
  */
-export async function recordPlayerPerformance(bossId, difficulty, fightStats, participantUserMap, reportCode, fightId) {
+export async function recordPlayerPerformance(db, bossId, difficulty, fightStats, participantUserMap, reportCode, fightId) {
   const normalizedDifficulty = normalizeDifficulty(difficulty);
 
   // Process damage dealers
@@ -534,12 +538,12 @@ export async function recordPlayerPerformance(bossId, difficulty, fightStats, pa
     const userId = participantUserMap[entry.name.toLowerCase()];
     if (!userId) continue;
 
-    await updatePlayerPerformance(userId, bossId, normalizedDifficulty, {
+    await updatePlayerPerformance(db, userId, bossId, normalizedDifficulty, {
       damage: entry.total,
     });
 
     // Check for record
-    await checkAndUpdateRecord(bossId, normalizedDifficulty, 'top_damage', userId, entry.total, entry.name, reportCode, fightId, participantUserMap);
+    await checkAndUpdateRecord(db, bossId, normalizedDifficulty, 'top_damage', userId, entry.total, entry.name, reportCode, fightId, participantUserMap);
   }
 
   // Process healers
@@ -547,12 +551,12 @@ export async function recordPlayerPerformance(bossId, difficulty, fightStats, pa
     const userId = participantUserMap[entry.name.toLowerCase()];
     if (!userId) continue;
 
-    await updatePlayerPerformance(userId, bossId, normalizedDifficulty, {
+    await updatePlayerPerformance(db, userId, bossId, normalizedDifficulty, {
       healing: entry.total,
     });
 
     // Check for record
-    await checkAndUpdateRecord(bossId, normalizedDifficulty, 'top_healing', userId, entry.total, entry.name, reportCode, fightId, participantUserMap);
+    await checkAndUpdateRecord(db, bossId, normalizedDifficulty, 'top_healing', userId, entry.total, entry.name, reportCode, fightId, participantUserMap);
   }
 
   // Process damage taken
@@ -560,21 +564,21 @@ export async function recordPlayerPerformance(bossId, difficulty, fightStats, pa
     const userId = participantUserMap[entry.name.toLowerCase()];
     if (!userId) continue;
 
-    await updatePlayerPerformance(userId, bossId, normalizedDifficulty, {
+    await updatePlayerPerformance(db, userId, bossId, normalizedDifficulty, {
       damageTaken: entry.total,
     });
 
     // Check for record (most damage taken - could be "shame" or "tank badge")
-    await checkAndUpdateRecord(bossId, normalizedDifficulty, 'most_damage_taken', userId, entry.total, entry.name, reportCode, fightId, participantUserMap);
+    await checkAndUpdateRecord(db, bossId, normalizedDifficulty, 'most_damage_taken', userId, entry.total, entry.name, reportCode, fightId, participantUserMap);
   }
 }
 
 /**
  * Update player performance aggregates
  */
-async function updatePlayerPerformance(userId, bossId, difficulty, stats) {
+async function updatePlayerPerformance(db, userId, bossId, difficulty, stats) {
   const existing = await db.get(
-    'SELECT * FROM player_boss_performance WHERE user_id = ? AND boss_id = ? AND difficulty = ?',
+    'SELECT id FROM player_boss_performance WHERE user_id = ? AND boss_id = ? AND difficulty = ?',
     userId, bossId, difficulty
   );
 
@@ -623,9 +627,9 @@ async function updatePlayerPerformance(userId, bossId, difficulty, stats) {
 /**
  * Check and update boss records (all-time top performers)
  */
-async function checkAndUpdateRecord(bossId, difficulty, recordType, userId, value, characterName, reportCode, fightId, _participantUserMap) {
+async function checkAndUpdateRecord(db, bossId, difficulty, recordType, userId, value, characterName, reportCode, fightId, _participantUserMap) {
   const existing = await db.get(
-    'SELECT * FROM boss_records WHERE boss_id = ? AND difficulty = ? AND record_type = ?',
+    'SELECT id, value FROM boss_records WHERE boss_id = ? AND difficulty = ? AND record_type = ?',
     bossId, difficulty, recordType
   );
 
@@ -658,7 +662,7 @@ async function checkAndUpdateRecord(bossId, difficulty, recordType, userId, valu
  * Record player deaths for a fight
  * Deaths format: [{ name: "PlayerName", deaths: 2 }, ...]
  */
-export async function recordPlayerDeaths(bossId, difficulty, deaths, participantUserMap) {
+export async function recordPlayerDeaths(db, bossId, difficulty, deaths, participantUserMap) {
   const normalizedDifficulty = normalizeDifficulty(difficulty);
 
   // Deaths already come with counts from WCL table API
@@ -675,7 +679,7 @@ export async function recordPlayerDeaths(bossId, difficulty, deaths, participant
     if (!userId) continue;
 
     const existing = await db.get(
-      'SELECT * FROM player_boss_deaths WHERE user_id = ? AND boss_id = ? AND difficulty = ?',
+      'SELECT id, total_deaths, total_fights FROM player_boss_deaths WHERE user_id = ? AND boss_id = ? AND difficulty = ?',
       userId, bossId, normalizedDifficulty
     );
 
@@ -700,7 +704,7 @@ export async function recordPlayerDeaths(bossId, difficulty, deaths, participant
   for (const [name, userId] of Object.entries(participantUserMap)) {
     if (!deathCounts[name]) {
       const existing = await db.get(
-        'SELECT * FROM player_boss_deaths WHERE user_id = ? AND boss_id = ? AND difficulty = ?',
+        'SELECT id, total_deaths, total_fights FROM player_boss_deaths WHERE user_id = ? AND boss_id = ? AND difficulty = ?',
         userId, bossId, normalizedDifficulty
       );
 
@@ -724,7 +728,7 @@ export async function recordPlayerDeaths(bossId, difficulty, deaths, participant
 /**
  * Mark a zone as legacy or current
  */
-export async function setZoneLegacy(zoneId, isLegacy) {
+export async function setZoneLegacy(db, zoneId, isLegacy) {
   await db.run(
     'UPDATE wcl_zones SET is_current = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
     isLegacy ? 0 : 1, zoneId
@@ -749,13 +753,14 @@ function formatNumber(num) {
   return num.toString();
 }
 
-function normalizeDifficulty(difficulty) {
+export function normalizeDifficulty(difficulty) {
   if (!difficulty) return 'Normal';
   const d = String(difficulty).toLowerCase();
   if (d.includes('mythic') || d === '5') return 'Mythic';
   if (d.includes('heroic') || d === '4') return 'Heroic';
   if (d.includes('normal') || d === '3') return 'Normal';
   if (d.includes('lfr') || d === '1') return 'LFR';
+  log.warn(`Unknown difficulty value: "${difficulty}", defaulting to Normal`);
   return 'Normal';
 }
 

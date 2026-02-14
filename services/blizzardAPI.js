@@ -73,6 +73,7 @@ const EXCLUDED_PATTERNS = [
 
 let accessToken = null;
 let tokenExpiry = 0;
+let tokenRefreshPromise = null; // Mutex: prevents concurrent token refreshes
 
 // Icon cache - persists while server runs, avoids repeated Blizzard API calls
 const iconCache = new Map();
@@ -81,38 +82,45 @@ const iconCache = new Map();
 const equipmentCache = createCache(60 * 60 * 1000); // 1 hour
 const mediaCache = createCache(24 * 60 * 60 * 1000); // 24 hours
 
-// Get OAuth access token
+// Get OAuth access token (with mutex to prevent concurrent refreshes)
 async function getAccessToken() {
   if (accessToken && Date.now() < tokenExpiry) {
     return accessToken;
   }
 
+  // If a refresh is already in progress, wait for it
+  if (tokenRefreshPromise) return tokenRefreshPromise;
+
   if (!CONFIG.clientId || !CONFIG.clientSecret) {
     throw new Error('Blizzard API credentials not configured. Set BLIZZARD_CLIENT_ID and BLIZZARD_CLIENT_SECRET environment variables.');
   }
 
-  try {
-    const response = await axios.post(
-      getOAuthUrl(CONFIG.region),
-      'grant_type=client_credentials',
-      {
-        auth: {
-          username: CONFIG.clientId,
-          password: CONFIG.clientSecret,
-        },
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-      }
-    );
+  tokenRefreshPromise = (async () => {
+    try {
+      const response = await axios.post(
+        getOAuthUrl(CONFIG.region),
+        'grant_type=client_credentials',
+        {
+          auth: {
+            username: CONFIG.clientId,
+            password: CONFIG.clientSecret,
+          },
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
+        }
+      );
 
-    accessToken = response.data.access_token;
-    tokenExpiry = Date.now() + (response.data.expires_in * 1000) - 60000; // Refresh 1 minute early
-    return accessToken;
-  } catch (error) {
-    log.error('Error getting Blizzard access token', error);
-    throw error;
-  }
+      accessToken = response.data.access_token;
+      tokenExpiry = Date.now() + (response.data.expires_in * 1000) - 60000; // Refresh 1 minute early
+      return accessToken;
+    } catch (error) {
+      log.error('Error getting Blizzard access token', error);
+      throw error;
+    }
+  })().finally(() => { tokenRefreshPromise = null; });
+
+  return tokenRefreshPromise;
 }
 
 // Make authenticated API request
@@ -300,7 +308,7 @@ async function fetchRaidItems(instanceId) {
         // Small delay to avoid rate limiting
         await new Promise(resolve => setTimeout(resolve, 50));
       } catch (error) {
-        console.warn(`    Failed to fetch item ${itemRef.item?.id}: ${error.message}`);
+        log.warn(`Failed to fetch item ${itemRef.item?.id}: ${error.message}`);
       }
     }
   }
@@ -392,7 +400,7 @@ function loadCache() {
       }
     }
   } catch (error) {
-    console.warn('Failed to load cache:', error.message);
+    log.warn('Failed to load cache: ' + error.message);
   }
   return null;
 }
@@ -410,7 +418,7 @@ function saveCache(items) {
     }, null, 2));
     log.info('Saved raid items to cache');
   } catch (error) {
-    console.warn('Failed to save cache:', error.message);
+    log.warn('Failed to save cache: ' + error.message);
   }
 }
 
@@ -434,7 +442,7 @@ export async function getCurrentRaidItems(forceRefresh = false) {
         }
       }
     } catch {}
-    console.warn('Blizzard API not configured and no cache available - using static fallback');
+    log.warn('Blizzard API not configured and no cache available - using static fallback');
     return null;
   }
 
@@ -457,7 +465,7 @@ export async function getCurrentRaidItems(forceRefresh = false) {
     try {
       if (fs.existsSync(CONFIG.cacheFile)) {
         const data = JSON.parse(fs.readFileSync(CONFIG.cacheFile, 'utf8'));
-        console.warn('Using stale cache due to API error');
+        log.warn('Using stale cache due to API error');
         return data.items;
       }
     } catch {}
@@ -624,7 +632,7 @@ async function getCharacterProfile(userToken, realmSlug, characterName) {
     );
     return response.data;
   } catch (error) {
-    console.warn(`Failed to fetch profile for ${characterName}-${realmSlug}: ${error.message}`);
+    log.warn(`Failed to fetch profile for ${characterName}-${realmSlug}: ${error.message}`);
     return null;
   }
 }
@@ -816,7 +824,7 @@ export async function getCharacterMedia(realmSlug, characterName) {
     mediaCache.set(cacheKey, result);
     return result;
   } catch (error) {
-    console.warn(`Failed to fetch media for ${characterName}-${realmSlug}:`, error.message);
+    log.warn(`Failed to fetch media for ${characterName}-${realmSlug}: ${error.message}`);
     return null;
   }
 }

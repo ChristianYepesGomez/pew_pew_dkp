@@ -130,7 +130,7 @@ export async function getAllRaidItems() {
         return apiItems;
       }
     } catch (error) {
-      console.warn('Failed to fetch from Blizzard API, using fallback:', error.message);
+      log.warn('Failed to fetch from Blizzard API, using fallback: ' + error.message);
     }
   }
 
@@ -183,7 +183,7 @@ export async function getAvailableRaids() {
   try {
     return await blizzardAPI.getAvailableRaids();
   } catch (error) {
-    console.warn('Failed to get available raids:', error.message);
+    log.warn('Failed to get available raids: ' + error.message);
     // Return current raids from static data
     return [{ id: 1296, name: 'Manaforge Omega', expansion: 'The War Within' }];
   }

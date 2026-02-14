@@ -3,6 +3,8 @@ import jwt from 'jsonwebtoken';
 import { authenticateToken } from '../middleware/auth.js';
 import { registerClient, unregisterClient, getActiveBuffs } from '../services/buffManager.js';
 import { JWT_SECRET } from '../lib/config.js';
+import { success, error } from '../lib/response.js';
+import { ErrorCodes } from '../lib/errorCodes.js';
 
 const router = Router();
 
@@ -13,14 +15,14 @@ router.get('/stream', (req, res) => {
   const token = req.query.token || req.headers.authorization?.replace('Bearer ', '');
 
   if (!token) {
-    return res.status(401).json({ error: 'No token provided' });
+    return error(res, 'No token provided', 401, ErrorCodes.UNAUTHORIZED);
   }
 
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
     req.user = decoded;
   } catch (_err) {
-    return res.status(401).json({ error: 'Invalid token' });
+    return error(res, 'Invalid token', 401, ErrorCodes.UNAUTHORIZED);
   }
 
   // Set headers for SSE
@@ -52,7 +54,7 @@ router.get('/stream', (req, res) => {
 
 // Get current active buffs (for initial load)
 router.get('/active', authenticateToken, (req, res) => {
-  res.json(getActiveBuffs());
+  return success(res, getActiveBuffs());
 });
 
 export default router;

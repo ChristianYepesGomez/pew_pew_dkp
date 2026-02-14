@@ -35,7 +35,7 @@ function saveCache(items) {
   try {
     fs.writeFileSync(CACHE_FILE, JSON.stringify({ timestamp: Date.now(), items }, null, 2));
   } catch (err) {
-    console.warn('Failed to save dungeon items cache:', err.message);
+    log.warn('Failed to save dungeon items cache: ' + err.message);
   }
 }
 
@@ -70,7 +70,7 @@ export async function getAllDungeonItems() {
         }));
         allItems.push(...tagged);
       } catch (err) {
-        console.warn(`Failed to fetch items for dungeon ${dungeon.name} (${dungeon.id}):`, err.message);
+        log.warn(`Failed to fetch items for dungeon ${dungeon.name} (${dungeon.id}): ${err.message}`);
       }
     }
 
@@ -83,7 +83,7 @@ export async function getAllDungeonItems() {
 
     return allItems;
   } catch (error) {
-    console.warn('Failed to fetch dungeon items:', error.message);
+    log.warn('Failed to fetch dungeon items: ' + error.message);
 
     // Try stale cache
     try {

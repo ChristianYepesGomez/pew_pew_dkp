@@ -1,7 +1,8 @@
 import { Router } from 'express';
-import { db } from '../database.js';
 import { authenticateToken, authorizeRole } from '../middleware/auth.js';
 import { createLogger } from '../lib/logger.js';
+import { success, error } from '../lib/response.js';
+import { ErrorCodes } from '../lib/errorCodes.js';
 
 const log = createLogger('Route:Raids');
 const router = Router();
@@ -11,15 +12,15 @@ router.post('/', authenticateToken, authorizeRole(['admin', 'officer']), async (
   try {
     const { name, scheduledAt, dkpReward } = req.body;
 
-    const result = await db.run(`
+    const result = await req.db.run(`
       INSERT INTO raids (name, scheduled_at, dkp_reward, created_by)
       VALUES (?, ?, ?, ?)
     `, name, scheduledAt, dkpReward || 10, req.user.userId);
 
-    res.status(201).json({ id: result.lastInsertRowid, message: 'Raid created' });
-  } catch (error) {
-    log.error('Create raid error', error);
-    res.status(500).json({ error: 'Failed to create raid' });
+    return success(res, { id: result.lastInsertRowid }, 'Raid created', 201);
+  } catch (err) {
+    log.error('Create raid error', err);
+    return error(res, 'Failed to create raid', 500, ErrorCodes.INTERNAL_ERROR);
   }
 });
 
@@ -27,16 +28,16 @@ router.post('/', authenticateToken, authorizeRole(['admin', 'officer']), async (
 router.post('/:raidId/attendance', authenticateToken, authorizeRole(['admin', 'officer']), async (req, res) => {
   try {
     const raidId = parseInt(req.params.raidId, 10);
-    if (isNaN(raidId)) return res.status(400).json({ error: 'Invalid raid ID' });
+    if (isNaN(raidId)) return error(res, 'Invalid raid ID', 400, ErrorCodes.VALIDATION_ERROR);
 
     const { attendees } = req.body;
 
-    const raid = await db.get('SELECT * FROM raids WHERE id = ?', raidId);
+    const raid = await req.db.get('SELECT id, name, dkp_reward FROM raids WHERE id = ?', raidId);
     if (!raid) {
-      return res.status(404).json({ error: 'Raid not found' });
+      return error(res, 'Raid not found', 404, ErrorCodes.NOT_FOUND);
     }
 
-    await db.transaction(async (tx) => {
+    await req.db.transaction(async (tx) => {
       for (const userId of attendees) {
         await tx.run('INSERT OR IGNORE INTO raid_attendance (raid_id, user_id) VALUES (?, ?)', raidId, userId);
 
@@ -55,10 +56,10 @@ router.post('/:raidId/attendance', authenticateToken, authorizeRole(['admin', 'o
     });
 
     req.app.get('io').emit('attendance_recorded', { raidId, attendees, dkpReward: raid.dkp_reward });
-    res.json({ message: `Attendance recorded for ${attendees.length} members` });
-  } catch (error) {
-    log.error('Record attendance error', error);
-    res.status(500).json({ error: 'Failed to record attendance' });
+    return success(res, null, `Attendance recorded for ${attendees.length} members`);
+  } catch (err) {
+    log.error('Record attendance error', err);
+    return error(res, 'Failed to record attendance', 500, ErrorCodes.INTERNAL_ERROR);
   }
 });
 

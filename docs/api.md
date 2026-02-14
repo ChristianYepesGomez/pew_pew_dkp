@@ -1,6 +1,58 @@
 # API Endpoints
 
-106 endpoints across 17 route modules. All prefixed with `/api/` unless noted.
+106+ endpoints across 17+ route modules. All prefixed with `/api/` unless noted.
+
+> **API Version**: v1 (implicit). Current routes at `/api/*` are v1. Future breaking changes will use `/api/v2/`.
+
+## Response Format
+
+All endpoints return a standardized JSON envelope:
+
+```jsonc
+// Success (2xx)
+{ "success": true, "data": { ... }, "message": "optional" }
+
+// Error (4xx/5xx)
+{ "success": false, "error": "Human-readable message", "code": "ERROR_CODE", "details": { ... } }
+
+// Paginated (list endpoints)
+{ "success": true, "data": [ ... ], "pagination": { "limit": 50, "offset": 0, "total": 123, "hasMore": true } }
+```
+
+## Error Codes
+
+| Code | Description |
+|------|-------------|
+| `VALIDATION_ERROR` | Missing or invalid input |
+| `NOT_FOUND` | Resource not found |
+| `ALREADY_EXISTS` | Duplicate resource |
+| `UNAUTHORIZED` | Authentication required |
+| `FORBIDDEN` | Insufficient permissions |
+| `TOKEN_EXPIRED` | JWT access token expired |
+| `INVALID_TOKEN` | JWT token is invalid |
+| `INSUFFICIENT_DKP` | Not enough DKP for operation |
+| `AUCTION_CLOSED` | Auction is not active |
+| `BID_TOO_LOW` | Bid below minimum |
+| `SELF_BID` | Cannot bid on own auction |
+| `SIGNUP_LOCKED` | Calendar signup deadline passed |
+| `RATE_LIMITED` | Too many requests |
+| `EXTERNAL_API_ERROR` | Third-party API failure |
+| `INTERNAL_ERROR` | Server error |
+
+## Pagination
+
+Paginated endpoints accept `?limit=N&offset=N` query parameters:
+- `limit`: Items per page (default: 50, max: 100; members: default 200, max 500)
+- `offset`: Number of items to skip (default: 0)
+
+Paginated endpoints: `GET /members`, `GET /auctions/history`, `GET /dkp/history/:userId`, `GET /warcraftlogs/history`
+
+## Read Permissions
+
+- `GET /dkp/history/:userId`: Raiders can only view their own history. Officers/admins can view any user.
+- Other GET endpoints with `:userId` (armory, BIS): visible to all authenticated guild members.
+
+---
 
 ## Auth (`/api/auth`)
 | Method | Path | Description |

@@ -1,7 +1,8 @@
 import { Router } from 'express';
-import { db } from '../database.js';
 import { authenticateToken } from '../middleware/auth.js';
 import { getPlayerDetailedPerformance } from '../services/performanceAnalysis.js';
+import { success, error } from '../lib/response.js';
+import { ErrorCodes } from '../lib/errorCodes.js';
 import { createLogger } from '../lib/logger.js';
 
 const log = createLogger('Route:Analytics');
@@ -11,7 +12,7 @@ const router = Router();
 router.get('/attendance', authenticateToken, async (req, res) => {
   try {
     const weeks = parseInt(req.query.weeks) || 8;
-    const results = await db.all(`
+    const results = await req.db.all(`
       SELECT u.id, u.character_name, u.character_class,
         COUNT(CASE WHEN ma.status = 'confirmed' THEN 1 END) as confirmed,
         COUNT(CASE WHEN ma.status = 'tentative' THEN 1 END) as tentative,
@@ -26,20 +27,20 @@ router.get('/attendance', authenticateToken, async (req, res) => {
     `, weeks * 7);
 
     // Get total raid days in period
-    const raidDayCount = await db.get(`
+    const raidDayCount = await req.db.get(`
       SELECT COUNT(DISTINCT raid_date) as total
       FROM member_availability
       WHERE raid_date >= date('now', '-' || ? || ' days')
     `, weeks * 7);
 
-    res.json({
+    return success(res, {
       members: results,
       totalRaidDays: raidDayCount?.total || 0,
       weeks,
     });
-  } catch (error) {
-    log.error('Analytics attendance error', error);
-    res.status(500).json({ error: 'Failed to get attendance analytics' });
+  } catch (err) {
+    log.error('Analytics attendance error', err);
+    return error(res, 'Failed to get attendance analytics', 500, ErrorCodes.INTERNAL_ERROR);
   }
 });
 
@@ -47,7 +48,7 @@ router.get('/attendance', authenticateToken, async (req, res) => {
 router.get('/dkp-trends', authenticateToken, async (req, res) => {
   try {
     const weeks = parseInt(req.query.weeks) || 12;
-    const trends = await db.all(`
+    const trends = await req.db.all(`
       SELECT
         strftime('%Y-%W', created_at) as week,
         MIN(date(created_at)) as week_start,
@@ -61,17 +62,17 @@ router.get('/dkp-trends', authenticateToken, async (req, res) => {
       ORDER BY week ASC
     `, weeks * 7);
 
-    res.json(trends);
-  } catch (error) {
-    log.error('Analytics DKP trends error', error);
-    res.status(500).json({ error: 'Failed to get DKP trends' });
+    return success(res, trends);
+  } catch (err) {
+    log.error('Analytics DKP trends error', err);
+    return error(res, 'Failed to get DKP trends', 500, ErrorCodes.INTERNAL_ERROR);
   }
 });
 
 // DKP economy overview
 router.get('/economy', authenticateToken, async (req, res) => {
   try {
-    const economy = await db.get(`
+    const economy = await req.db.get(`
       SELECT
         COALESCE(SUM(current_dkp), 0) as total_circulation,
         COALESCE(AVG(current_dkp), 0) as avg_dkp,
@@ -82,7 +83,7 @@ router.get('/economy', authenticateToken, async (req, res) => {
     `);
 
     // This week's activity
-    const weekActivity = await db.get(`
+    const weekActivity = await req.db.get(`
       SELECT
         COALESCE(SUM(CASE WHEN amount > 0 THEN amount ELSE 0 END), 0) as gained_this_week,
         COALESCE(SUM(CASE WHEN amount < 0 THEN ABS(amount) ELSE 0 END), 0) as spent_this_week
@@ -91,7 +92,7 @@ router.get('/economy', authenticateToken, async (req, res) => {
     `);
 
     // Top 5 by DKP
-    const topMembers = await db.all(`
+    const topMembers = await req.db.all(`
       SELECT md.current_dkp, u.character_name, u.character_class
       FROM member_dkp md
       JOIN users u ON md.user_id = u.id
@@ -99,14 +100,14 @@ router.get('/economy', authenticateToken, async (req, res) => {
       LIMIT 5
     `);
 
-    res.json({
+    return success(res, {
       ...economy,
       ...weekActivity,
       topMembers,
     });
-  } catch (error) {
-    log.error('Analytics economy error', error);
-    res.status(500).json({ error: 'Failed to get economy analytics' });
+  } catch (err) {
+    log.error('Analytics economy error', err);
+    return error(res, 'Failed to get economy analytics', 500, ErrorCodes.INTERNAL_ERROR);
   }
 });
 
@@ -114,7 +115,7 @@ router.get('/economy', authenticateToken, async (req, res) => {
 router.get('/auctions', authenticateToken, async (req, res) => {
   try {
     const weeks = parseInt(req.query.weeks) || 8;
-    const stats = await db.get(`
+    const stats = await req.db.get(`
       SELECT
         COUNT(*) as total_auctions,
         COALESCE(AVG(winning_bid), 0) as avg_price,
@@ -125,7 +126,7 @@ router.get('/auctions', authenticateToken, async (req, res) => {
     `, weeks * 7);
 
     // By rarity
-    const byRarity = await db.all(`
+    const byRarity = await req.db.all(`
       SELECT item_rarity, COUNT(*) as count, COALESCE(AVG(winning_bid), 0) as avg_price
       FROM auctions
       WHERE status = 'completed' AND ended_at >= date('now', '-' || ? || ' days')
@@ -134,7 +135,7 @@ router.get('/auctions', authenticateToken, async (req, res) => {
     `, weeks * 7);
 
     // Weekly trend
-    const weeklyTrend = await db.all(`
+    const weeklyTrend = await req.db.all(`
       SELECT
         strftime('%Y-%W', ended_at) as week,
         MIN(date(ended_at)) as week_start,
@@ -147,7 +148,7 @@ router.get('/auctions', authenticateToken, async (req, res) => {
     `, weeks * 7);
 
     // Most expensive items
-    const topItems = await db.all(`
+    const topItems = await req.db.all(`
       SELECT item_name, item_rarity, winning_bid, ended_at,
              u.character_name as winner_name, u.character_class as winner_class
       FROM auctions a
@@ -157,17 +158,17 @@ router.get('/auctions', authenticateToken, async (req, res) => {
       LIMIT 5
     `, weeks * 7);
 
-    res.json({ ...stats, byRarity, weeklyTrend, topItems, weeks });
-  } catch (error) {
-    log.error('Analytics auctions error', error);
-    res.status(500).json({ error: 'Failed to get auction analytics' });
+    return success(res, { ...stats, byRarity, weeklyTrend, topItems, weeks });
+  } catch (err) {
+    log.error('Analytics auctions error', err);
+    return error(res, 'Failed to get auction analytics', 500, ErrorCodes.INTERNAL_ERROR);
   }
 });
 
 // Raid progression
 router.get('/progression', authenticateToken, async (req, res) => {
   try {
-    const progression = await db.all(`
+    const progression = await req.db.all(`
       SELECT bs.difficulty,
              wb.name as boss_name, wb.boss_order,
              bs.total_kills, bs.total_wipes,
@@ -197,17 +198,17 @@ router.get('/progression', authenticateToken, async (req, res) => {
       byDifficulty[row.difficulty].bosses.push(row)
     }
 
-    res.json(Object.values(byDifficulty));
-  } catch (error) {
-    log.error('Analytics progression error', error);
-    res.status(500).json({ error: 'Failed to get progression analytics' });
+    return success(res, Object.values(byDifficulty));
+  } catch (err) {
+    log.error('Analytics progression error', err);
+    return error(res, 'Failed to get progression analytics', 500, ErrorCodes.INTERNAL_ERROR);
   }
 });
 
 // Guild superlatives (top performers from boss data)
 router.get('/superlatives', authenticateToken, async (req, res) => {
   try {
-    const topDps = await db.get(`
+    const topDps = await req.db.get(`
       SELECT br.value, br.character_name, br.character_class, wb.name as boss_name, br.difficulty
       FROM boss_records br
       JOIN wcl_bosses wb ON br.boss_id = wb.id
@@ -215,7 +216,7 @@ router.get('/superlatives', authenticateToken, async (req, res) => {
       ORDER BY br.value DESC LIMIT 1
     `);
 
-    const topHps = await db.get(`
+    const topHps = await req.db.get(`
       SELECT br.value, br.character_name, br.character_class, wb.name as boss_name, br.difficulty
       FROM boss_records br
       JOIN wcl_bosses wb ON br.boss_id = wb.id
@@ -223,31 +224,31 @@ router.get('/superlatives', authenticateToken, async (req, res) => {
       ORDER BY br.value DESC LIMIT 1
     `);
 
-    const mostDeaths = await db.get(`
+    const mostDeaths = await req.db.get(`
       SELECT u.character_name, u.character_class, SUM(pbd.total_deaths) as total
       FROM player_boss_deaths pbd
       JOIN users u ON pbd.user_id = u.id
       GROUP BY pbd.user_id ORDER BY total DESC LIMIT 1
     `);
 
-    const mostFights = await db.get(`
+    const mostFights = await req.db.get(`
       SELECT u.character_name, u.character_class, SUM(pbp.fights_participated) as total
       FROM player_boss_performance pbp
       JOIN users u ON pbp.user_id = u.id
       GROUP BY pbp.user_id ORDER BY total DESC LIMIT 1
     `);
 
-    const mostDamageTaken = await db.get(`
+    const mostDamageTaken = await req.db.get(`
       SELECT u.character_name, u.character_class, SUM(pbp.total_damage_taken) as total
       FROM player_boss_performance pbp
       JOIN users u ON pbp.user_id = u.id
       GROUP BY pbp.user_id ORDER BY total DESC LIMIT 1
     `);
 
-    res.json({ topDps, topHps, mostDeaths, mostFights, mostDamageTaken });
-  } catch (error) {
-    log.error('Analytics superlatives error', error);
-    res.status(500).json({ error: 'Failed to get superlatives' });
+    return success(res, { topDps, topHps, mostDeaths, mostFights, mostDamageTaken });
+  } catch (err) {
+    log.error('Analytics superlatives error', err);
+    return error(res, 'Failed to get superlatives', 500, ErrorCodes.INTERNAL_ERROR);
   }
 });
 
@@ -257,7 +258,7 @@ router.get('/my-performance', authenticateToken, async (req, res) => {
     const userId = req.user.userId;
 
     // Per-boss performance breakdown
-    const bossBreakdown = await db.all(`
+    const bossBreakdown = await req.db.all(`
       SELECT wb.name as bossName, pbp.difficulty, pbp.fights_participated as fights,
              COALESCE(pbd.total_deaths, 0) as deaths,
              CASE WHEN pbp.fights_participated > 0 THEN ROUND(CAST(pbp.total_damage AS REAL) / pbp.fights_participated) ELSE 0 END as avgDps,
@@ -271,17 +272,17 @@ router.get('/my-performance', authenticateToken, async (req, res) => {
     `, userId);
 
     // Totals
-    const totals = await db.get(`
+    const totals = await req.db.get(`
       SELECT SUM(fights_participated) as totalFights, SUM(total_damage) as totalDamage, SUM(total_healing) as totalHealing
       FROM player_boss_performance WHERE user_id = ?
     `, userId);
 
-    const deathTotals = await db.get(`
+    const deathTotals = await req.db.get(`
       SELECT SUM(total_deaths) as totalDeaths FROM player_boss_deaths WHERE user_id = ?
     `, userId);
 
     // Recent reports
-    const recentReports = await db.all(`
+    const recentReports = await req.db.all(`
       SELECT report_code as code, report_title as title, raid_date as date
       FROM warcraft_logs_processed
       WHERE is_reverted = 0
@@ -291,16 +292,16 @@ router.get('/my-performance', authenticateToken, async (req, res) => {
     const totalFights = totals?.totalFights || 0;
     const totalDeaths = deathTotals?.totalDeaths || 0;
 
-    res.json({
+    return success(res, {
       totalFights,
       totalDeaths,
       deathsPerFight: totalFights > 0 ? Math.round((totalDeaths / totalFights) * 100) / 100 : 0,
       bossBreakdown,
       recentReports,
     });
-  } catch (error) {
-    log.error('My performance error', error);
-    res.status(500).json({ error: 'Failed to get performance data' });
+  } catch (err) {
+    log.error('My performance error', err);
+    return error(res, 'Failed to get performance data', 500, ErrorCodes.INTERNAL_ERROR);
   }
 });
 
@@ -312,11 +313,11 @@ router.get('/my-performance-detail', authenticateToken, async (req, res) => {
     const bossId = req.query.bossId ? parseInt(req.query.bossId) : undefined;
     const difficulty = req.query.difficulty || undefined;
 
-    const data = await getPlayerDetailedPerformance(userId, { weeks, bossId, difficulty });
-    res.json(data);
-  } catch (error) {
-    log.error('Performance detail error', error);
-    res.status(500).json({ error: 'Failed to get detailed performance' });
+    const data = await getPlayerDetailedPerformance(req.db, userId, { weeks, bossId, difficulty });
+    return success(res, data);
+  } catch (err) {
+    log.error('Performance detail error', err);
+    return error(res, 'Failed to get detailed performance', 500, ErrorCodes.INTERNAL_ERROR);
   }
 });
 
@@ -324,7 +325,7 @@ router.get('/my-performance-detail', authenticateToken, async (req, res) => {
 router.get('/guild-insights', authenticateToken, async (req, res) => {
   try {
     // Raid health from boss_statistics
-    const raidHealth = await db.get(`
+    const raidHealth = await req.db.get(`
       SELECT SUM(total_kills) as totalKills, SUM(total_wipes) as totalWipes,
              ROUND(AVG(fastest_kill_ms)) as avgFightTime
       FROM boss_statistics
@@ -334,7 +335,7 @@ router.get('/guild-insights', authenticateToken, async (req, res) => {
     const totalWipes = raidHealth?.totalWipes || 0;
 
     // Top performers by avg DPS (across all bosses)
-    const topPerformers = await db.all(`
+    const topPerformers = await req.db.all(`
       SELECT u.character_name as name, u.character_class as class,
              ROUND(SUM(pbp.total_damage) / NULLIF(SUM(pbp.fights_participated), 0)) as avgDps,
              SUM(pbp.fights_participated) as fights
@@ -347,7 +348,7 @@ router.get('/guild-insights', authenticateToken, async (req, res) => {
     `);
 
     // Death leaders
-    const deathLeaders = await db.all(`
+    const deathLeaders = await req.db.all(`
       SELECT u.character_name as name, u.character_class as class,
              SUM(pbd.total_deaths) as totalDeaths,
              SUM(pbd.total_fights) as totalFights,
@@ -360,7 +361,7 @@ router.get('/guild-insights', authenticateToken, async (req, res) => {
     `);
 
     // Progression blockers — bosses with most wipes and no kills on hardest difficulty
-    const blockers = await db.all(`
+    const blockers = await req.db.all(`
       SELECT wb.name as bossName, bs.difficulty, bs.total_wipes as wipes, bs.total_kills as kills,
              bs.fastest_kill_ms as bestTime
       FROM boss_statistics bs
@@ -370,14 +371,14 @@ router.get('/guild-insights', authenticateToken, async (req, res) => {
     `);
 
     // Recent reports
-    const recentReports = await db.all(`
+    const recentReports = await req.db.all(`
       SELECT report_code as code, report_title as title, raid_date as date
       FROM warcraft_logs_processed
       WHERE is_reverted = 0
       ORDER BY processed_at DESC LIMIT 10
     `);
 
-    res.json({
+    return success(res, {
       raidHealth: {
         totalKills,
         totalWipes,
@@ -389,9 +390,9 @@ router.get('/guild-insights', authenticateToken, async (req, res) => {
       progressionBlockers: blockers,
       recentReports,
     });
-  } catch (error) {
-    log.error('Guild insights error', error);
-    res.status(500).json({ error: 'Failed to get guild insights' });
+  } catch (err) {
+    log.error('Guild insights error', err);
+    return error(res, 'Failed to get guild insights', 500, ErrorCodes.INTERNAL_ERROR);
   }
 });
 

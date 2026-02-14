@@ -7,6 +7,9 @@ const log = createLogger('Service:WarcraftLogs');
 // TTL cache for WCL API responses (10 minutes)
 const wclCache = createCache(10 * 60 * 1000);
 
+// Cache for report actors (avoids redundant GraphQL queries for actor name resolution)
+const actorsCache = createCache(10 * 60 * 1000);
+
 // Warcraft Logs API Configuration
 const WCL_API_URL = 'https://www.warcraftlogs.com/api/v2/client';
 const WCL_TOKEN_URL = 'https://www.warcraftlogs.com/oauth/token';
@@ -245,6 +248,12 @@ export async function processWarcraftLog(urlOrCode) {
 
     // Fetch report data from API
     const reportData = await getReportData(reportCode);
+
+    // Cache actors for reuse by getFightStatsWithDeathEvents (avoids redundant GraphQL query)
+    const actors = reportData.masterData?.actors || [];
+    const actorMap = {};
+    for (const actor of actors) actorMap[actor.id] = actor.name;
+    actorsCache.set(`actors:${reportCode}`, actorMap);
 
     // Parse and return structured data
     const parsedData = parseReportData(reportData);
@@ -638,32 +647,34 @@ export async function getFightStatsWithDeathEvents(reportCode, fightInfo) {
     deathCountsByPlayer[event.targetID]++;
   }
 
-  // We need to map targetIDs back to player names
-  // Get the actors table to resolve IDs to names
-  const actorsQuery = `
-    query GetActors($reportCode: String!) {
-      reportData {
-        report(code: $reportCode) {
-          masterData {
-            actors(type: "Player") {
-              id
-              name
+  // Map targetIDs back to player names — use cached actors if available
+  let playerIdToName = actorsCache.get(`actors:${reportCode}`);
+  if (!playerIdToName) {
+    playerIdToName = {};
+    try {
+      const actorsQuery = `
+        query GetActors($reportCode: String!) {
+          reportData {
+            report(code: $reportCode) {
+              masterData {
+                actors(type: "Player") {
+                  id
+                  name
+                }
+              }
             }
           }
         }
+      `;
+      const actorsData = await executeGraphQL(actorsQuery, { reportCode });
+      const actors = actorsData.reportData?.report?.masterData?.actors || [];
+      for (const actor of actors) {
+        playerIdToName[actor.id] = actor.name;
       }
+      actorsCache.set(`actors:${reportCode}`, playerIdToName);
+    } catch (error) {
+      log.error('Error fetching actors', error);
     }
-  `;
-
-  const playerIdToName = {};
-  try {
-    const actorsData = await executeGraphQL(actorsQuery, { reportCode });
-    const actors = actorsData.reportData?.report?.masterData?.actors || [];
-    for (const actor of actors) {
-      playerIdToName[actor.id] = actor.name;
-    }
-  } catch (error) {
-    log.error('Error fetching actors', error);
   }
 
   // Convert filtered death counts to the expected format
@@ -848,7 +859,7 @@ export async function getFightCombatantInfo(reportCode, fightIds) {
 
     return allPlayers;
   } catch (error) {
-    console.warn('Error fetching combatant info:', error.message);
+    log.warn('Error fetching combatant info: ' + error.message);
     return [];
   }
 }

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll } from 'vitest';
-import { request, setupTestDb, createTestUser } from './helpers.js';
+import { request, setupTestDb, createTestUser, expectSuccess } from './helpers.js';
 
 describe('Public endpoints', () => {
   beforeAll(async () => {
@@ -12,10 +12,10 @@ describe('Public endpoints', () => {
     it('returns healthy status', async () => {
       const res = await request.get('/health');
 
-      expect(res.status).toBe(200);
-      expect(res.body.status).toBe('healthy');
-      expect(res.body.timestamp).toBeDefined();
-      expect(res.body.uptime).toBeGreaterThan(0);
+      const data = expectSuccess(res);
+      expect(data.status).toBe('healthy');
+      expect(data.timestamp).toBeDefined();
+      expect(data.uptime).toBeGreaterThan(0);
     });
   });
 
@@ -35,8 +35,8 @@ describe('Public endpoints', () => {
         .get('/api/members')
         .set('Authorization', `Bearer ${token}`);
 
-      expect(res.status).toBe(200);
-      expect(Array.isArray(res.body)).toBe(true);
+      const data = expectSuccess(res);
+      expect(Array.isArray(data)).toBe(true);
     });
   });
 
@@ -56,8 +56,8 @@ describe('Public endpoints', () => {
         .get('/api/characters')
         .set('Authorization', `Bearer ${token}`);
 
-      expect(res.status).toBe(200);
-      expect(Array.isArray(res.body)).toBe(true);
+      const data = expectSuccess(res);
+      expect(Array.isArray(data)).toBe(true);
     });
   });
 

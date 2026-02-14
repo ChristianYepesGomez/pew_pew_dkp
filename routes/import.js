@@ -1,8 +1,9 @@
 import { Router } from 'express';
 import bcrypt from 'bcryptjs';
-import { db } from '../database.js';
 import { authenticateToken, authorizeRole } from '../middleware/auth.js';
 import { createLogger } from '../lib/logger.js';
+import { success, error } from '../lib/response.js';
+import { ErrorCodes } from '../lib/errorCodes.js';
 
 const log = createLogger('Route:Import');
 const router = Router();
@@ -13,13 +14,13 @@ router.post('/roster', authenticateToken, authorizeRole(['admin']), async (req, 
     const { members } = req.body;
 
     if (!members || !Array.isArray(members)) {
-      return res.status(400).json({ error: 'Invalid data format' });
+      return error(res, 'Invalid data format', 400, ErrorCodes.VALIDATION_ERROR);
     }
 
     let imported = 0;
     const defaultPassword = bcrypt.hashSync('changeme123', 10);
 
-    await db.transaction(async (tx) => {
+    await req.db.transaction(async (tx) => {
       for (const member of members) {
         const result = await tx.run(`
           INSERT OR IGNORE INTO users (username, password, character_name, character_class, raid_role, role)
@@ -36,10 +37,10 @@ router.post('/roster', authenticateToken, authorizeRole(['admin']), async (req, 
       }
     });
 
-    res.json({ message: `Imported ${imported} members` });
-  } catch (error) {
-    log.error('Import roster error', error);
-    res.status(500).json({ error: 'Failed to import roster' });
+    return success(res, null, `Imported ${imported} members`);
+  } catch (err) {
+    log.error('Import roster error', err);
+    return error(res, 'Failed to import roster', 500, ErrorCodes.INTERNAL_ERROR);
   }
 });
 

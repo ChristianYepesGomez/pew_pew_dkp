@@ -14,11 +14,20 @@ import { createServer } from 'http';
 import { Server } from 'socket.io';
 import cors from 'cors';
 import jwt from 'jsonwebtoken';
-import { initDatabase } from './database.js';
+import { createLogger } from './lib/logger.js';
+import { requestId } from './middleware/requestId.js';
+import { db, initDatabase } from './database.js';
+import { initPlatformDatabase } from './platformDb.js';
+import { resolveTenant } from './middleware/tenant.js';
+import { getAllGuilds } from './lib/provisioning.js';
+import { getTenantDb } from './lib/tenantDb.js';
 import { seedRaidData } from './services/raids.js';
 import { startBuffManager } from './services/buffManager.js';
 import { scheduleExistingAuctions, setIO as setAuctionIO } from './lib/auctionScheduler.js';
-import { JWT_SECRET, FRONTEND_URL } from './lib/config.js';
+import { JWT_SECRET, FRONTEND_URL, DISCORD_TOKEN } from './lib/config.js';
+import { startBot } from './bot/index.js';
+
+const log = createLogger('Server');
 
 // Route modules
 import healthRoutes from './routes/health.js';
@@ -38,6 +47,10 @@ import itemsRoutes from './routes/items.js';
 import bisRoutes from './routes/bis.js';
 import warcraftlogsRoutes from './routes/warcraftlogs.js';
 import analyticsRoutes from './routes/analytics.js';
+import onboardingRoutes from './routes/onboarding.js';
+import notificationsRoutes from './routes/notifications.js';
+import lootCouncilRoutes from './routes/lootCouncil.js';
+import epgpRoutes from './routes/epgp.js';
 
 const app = express();
 
@@ -76,8 +89,48 @@ const PORT = process.env.PORT || 3000;
 app.use(cors(corsOptions));
 app.use(express.json({ limit: '1mb' }));
 
+// Correlation ID middleware — assigns x-request-id to every request
+app.use(requestId);
+
+// Request logging middleware — logs method, path, status, duration, requestId, userId
+app.use((req, res, next) => {
+  const start = Date.now();
+  res.on('finish', () => {
+    log.info('Request completed', {
+      requestId: req.id,
+      method: req.method,
+      path: req.path,
+      status: res.statusCode,
+      duration: Date.now() - start,
+      userId: req.user?.userId,
+    });
+  });
+  next();
+});
+
+// Sentry request context — attach user & request info for error reports
+if (process.env.SENTRY_DSN) {
+  app.use((req, res, next) => {
+    Sentry.setUser(req.user ? { id: req.user.userId, username: req.user.username } : null);
+    Sentry.setTag('requestId', req.id);
+    Sentry.setContext('request', {
+      method: req.method,
+      path: req.path,
+      requestId: req.id,
+    });
+    next();
+  });
+}
+
 // Make io accessible to routes via app.set('io', io) / req.app.get('io')
 app.set('io', io);
+
+// Base middleware: inject default guild DB into every request.
+// Tenant middleware (resolveTenant) overrides this for multi-tenant requests.
+app.use((req, _res, next) => {
+  req.db = db;
+  next();
+});
 
 // Mount extracted route modules
 app.use('/', healthRoutes);
@@ -98,6 +151,10 @@ app.use('/api', itemsRoutes);
 app.use('/api/bis', bisRoutes);
 app.use('/api/warcraftlogs', warcraftlogsRoutes);
 app.use('/api/analytics', analyticsRoutes);
+app.use('/api/onboarding', onboardingRoutes);
+app.use('/api/notifications', notificationsRoutes);
+app.use('/api/loot-council', lootCouncilRoutes);
+app.use('/api/epgp', epgpRoutes);
 
 // ============================================
 // WEBSOCKET HANDLING
@@ -119,14 +176,14 @@ io.use((socket, next) => {
 });
 
 io.on('connection', (socket) => {
-  console.log('Client connected:', socket.id, '- user:', socket.user?.userId);
+  log.info('Client connected', { socketId: socket.id, userId: socket.user?.userId });
 
   socket.on('join_guild', (guildId) => {
     socket.join(`guild_${guildId}`);
   });
 
   socket.on('disconnect', () => {
-    console.log('Client disconnected:', socket.id);
+    log.info('Client disconnected', { socketId: socket.id });
   });
 });
 
@@ -136,24 +193,74 @@ if (process.env.SENTRY_DSN) {
 }
 
 // ============================================
+// GRACEFUL SHUTDOWN
+// ============================================
+
+const gracefulShutdown = async (signal) => {
+  log.info(`${signal} received, shutting down gracefully`);
+
+  // Stop accepting new connections
+  server.close(() => {
+    log.info('HTTP server closed');
+  });
+
+  // Close Socket.IO connections
+  io.close();
+
+  // Force exit after timeout
+  setTimeout(() => {
+    log.error('Forced shutdown after timeout');
+    process.exit(1);
+  }, 30000);
+};
+
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+
+// ============================================
 // START SERVER
 // ============================================
 
 async function startServer() {
+  // Initialize platform database (guilds, platform_users, memberships)
+  await initPlatformDatabase();
+
+  // Initialize default guild database (backward compat / single-tenant)
   await initDatabase();
-  await seedRaidData();
-  await scheduleExistingAuctions();
+
+  // Startup tasks for the default guild DB
+  await seedRaidData(db);
+  await scheduleExistingAuctions(db);
+
+  // Also run startup tasks for all registered tenant guilds
+  try {
+    const guilds = await getAllGuilds();
+    for (const guild of guilds) {
+      try {
+        const guildDb = getTenantDb(guild.database_name);
+        await seedRaidData(guildDb);
+        await scheduleExistingAuctions(guildDb);
+      } catch (err) {
+        log.error(`Failed startup tasks for guild ${guild.name}`, err);
+      }
+    }
+    if (guilds.length > 0) {
+      log.info(`Completed startup tasks for ${guilds.length} tenant guild(s)`);
+    }
+  } catch (err) {
+    log.warn('Could not load tenant guilds (platform DB may be empty)', err);
+  }
 
   // Start global buff manager for synchronized buff effects
   startBuffManager();
 
+  // Start Discord bot (no-op if DISCORD_TOKEN not set)
+  if (DISCORD_TOKEN) {
+    startBot(io).catch(err => log.error('Discord bot failed to start', err));
+  }
+
   server.listen(PORT, () => {
-    console.log('==========================================');
-    console.log('  DKP Backend Server - BUILD v3.0 Turso');
-    console.log('==========================================');
-    console.log(`🎮 DKP Server running on port ${PORT}`);
-    console.log(`📡 WebSocket ready for real-time updates`);
-    console.log(`🌟 Global buff manager active`);
+    log.info('DKP Backend Server started', { port: PORT, build: 'v4.0 Multi-Tenant' });
   });
 }
 
@@ -164,13 +271,13 @@ if (isMainModule) {
 }
 
 // Global error handlers
-process.on('unhandledRejection', (reason, promise) => {
-  console.error('❌ Unhandled Rejection at:', promise, 'reason:', reason);
+process.on('unhandledRejection', (reason, _promise) => {
+  log.error('Unhandled Rejection', reason instanceof Error ? reason : new Error(String(reason)));
   Sentry.captureException(reason);
 });
 
 process.on('uncaughtException', (error) => {
-  console.error('❌ Uncaught Exception:', error);
+  log.error('Uncaught Exception', error);
   Sentry.captureException(error);
   Sentry.close(2000).then(() => process.exit(1));
 });

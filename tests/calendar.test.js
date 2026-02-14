@@ -1,5 +1,5 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
-import { request, setupTestDb, cleanupTestDb, createTestUser, setUserDkp } from './helpers.js';
+import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach } from 'vitest';
+import { request, setupTestDb, cleanupTestDb, createTestUser, setUserDkp, expectSuccess, expectError } from './helpers.js';
 import { db } from '../database.js';
 
 // Next Monday from 2026-02-14 (Saturday) is 2026-02-16
@@ -32,15 +32,15 @@ describe('Calendar endpoints', () => {
         .get('/api/calendar/raid-days')
         .set('Authorization', `Bearer ${admin.token}`);
 
-      expect(res.status).toBe(200);
-      expect(Array.isArray(res.body)).toBe(true);
-      expect(res.body).toHaveLength(3);
+      const data = expectSuccess(res);
+      expect(Array.isArray(data)).toBe(true);
+      expect(data).toHaveLength(3);
 
-      const daysOfWeek = res.body.map(d => d.day_of_week);
+      const daysOfWeek = data.map(d => d.day_of_week);
       expect(daysOfWeek).toEqual([1, 3, 4]); // Lunes, Miercoles, Jueves
 
       // Verify each day has the expected properties
-      for (const day of res.body) {
+      for (const day of data) {
         expect(day).toHaveProperty('day_of_week');
         expect(day).toHaveProperty('day_name');
         expect(day).toHaveProperty('is_active', 1);
@@ -51,7 +51,7 @@ describe('Calendar endpoints', () => {
     it('returns 401 without auth token', async () => {
       const res = await request.get('/api/calendar/raid-days');
 
-      expect(res.status).toBe(401);
+      expectError(res, 401);
     });
   });
 
@@ -77,7 +77,7 @@ describe('Calendar endpoints', () => {
         .set('Authorization', `Bearer ${admin.token}`)
         .send({ days: newDays });
 
-      expect(res.status).toBe(200);
+      expectSuccess(res);
       expect(res.body.message).toBe('Raid days updated');
 
       // Verify the change took effect
@@ -85,8 +85,9 @@ describe('Calendar endpoints', () => {
         .get('/api/calendar/raid-days')
         .set('Authorization', `Bearer ${admin.token}`);
 
-      expect(verify.body).toHaveLength(2);
-      expect(verify.body.map(d => d.day_of_week)).toEqual([2, 5]);
+      const verifyData = expectSuccess(verify);
+      expect(verifyData).toHaveLength(2);
+      expect(verifyData.map(d => d.day_of_week)).toEqual([2, 5]);
     });
 
     it('raider gets 403 trying to update raid days', async () => {
@@ -95,7 +96,7 @@ describe('Calendar endpoints', () => {
         .set('Authorization', `Bearer ${raider.token}`)
         .send({ days: [{ dayOfWeek: 1 }] });
 
-      expect(res.status).toBe(403);
+      expectError(res, 403);
     });
 
     it('validates days array is required', async () => {
@@ -104,8 +105,8 @@ describe('Calendar endpoints', () => {
         .set('Authorization', `Bearer ${admin.token}`)
         .send({});
 
-      expect(res.status).toBe(400);
-      expect(res.body.error).toContain('days array required');
+      const msg = expectError(res, 400);
+      expect(msg).toContain('days array required');
     });
 
     it('rejects non-array days', async () => {
@@ -114,8 +115,8 @@ describe('Calendar endpoints', () => {
         .set('Authorization', `Bearer ${admin.token}`)
         .send({ days: 'monday' });
 
-      expect(res.status).toBe(400);
-      expect(res.body.error).toContain('days array required');
+      const msg = expectError(res, 400);
+      expect(msg).toContain('days array required');
     });
   });
 
@@ -127,12 +128,12 @@ describe('Calendar endpoints', () => {
         .get('/api/calendar/dates')
         .set('Authorization', `Bearer ${raider.token}`);
 
-      expect(res.status).toBe(200);
-      expect(Array.isArray(res.body)).toBe(true);
-      expect(res.body.length).toBeGreaterThan(0);
+      const data = expectSuccess(res);
+      expect(Array.isArray(data)).toBe(true);
+      expect(data.length).toBeGreaterThan(0);
 
       // Verify shape of each date entry
-      const first = res.body[0];
+      const first = data[0];
       expect(first).toHaveProperty('date');
       expect(first).toHaveProperty('dayOfWeek');
       expect(first).toHaveProperty('dayName');
@@ -141,7 +142,7 @@ describe('Calendar endpoints', () => {
       expect(first).toHaveProperty('isLocked');
 
       // All dates should be raid days (Mon=1, Wed=3, Thu=4)
-      for (const d of res.body) {
+      for (const d of data) {
         expect([1, 3, 4]).toContain(d.dayOfWeek);
       }
     });
@@ -149,7 +150,7 @@ describe('Calendar endpoints', () => {
     it('returns 401 without auth token', async () => {
       const res = await request.get('/api/calendar/dates');
 
-      expect(res.status).toBe(401);
+      expectError(res, 401);
     });
   });
 
@@ -161,13 +162,13 @@ describe('Calendar endpoints', () => {
         .get('/api/calendar/my-signups')
         .set('Authorization', `Bearer ${raider.token}`);
 
-      expect(res.status).toBe(200);
-      expect(res.body).toHaveProperty('dates');
-      expect(Array.isArray(res.body.dates)).toBe(true);
+      const data = expectSuccess(res);
+      expect(data).toHaveProperty('dates');
+      expect(Array.isArray(data.dates)).toBe(true);
 
       // Each date should have signup fields even if no signup exists yet
-      if (res.body.dates.length > 0) {
-        const first = res.body.dates[0];
+      if (data.dates.length > 0) {
+        const first = data.dates[0];
         expect(first).toHaveProperty('date');
         expect(first).toHaveProperty('dayOfWeek');
         expect(first).toHaveProperty('status');
@@ -180,7 +181,7 @@ describe('Calendar endpoints', () => {
     it('returns 401 without auth token', async () => {
       const res = await request.get('/api/calendar/my-signups');
 
-      expect(res.status).toBe(401);
+      expectError(res, 401);
     });
   });
 
@@ -197,25 +198,27 @@ describe('Calendar endpoints', () => {
       const meBefore = await request
         .get('/api/auth/me')
         .set('Authorization', `Bearer ${raider.token}`);
-      const dkpBefore = meBefore.body.currentDkp;
+      const meBeforeData = expectSuccess(meBefore);
+      const dkpBefore = meBeforeData.currentDkp;
 
       const res = await request
         .post('/api/calendar/signup')
         .set('Authorization', `Bearer ${raider.token}`)
         .send({ date: NEXT_MONDAY, status: 'confirmed' });
 
-      expect(res.status).toBe(200);
+      const data = expectSuccess(res);
       expect(res.body.message).toBe('Signup created');
-      expect(res.body.date).toBe(NEXT_MONDAY);
-      expect(res.body.status).toBe('confirmed');
-      expect(res.body.isFirstSignup).toBe(true);
-      expect(res.body.dkpAwarded).toBe(1); // calendar_dkp_per_day default = 1
+      expect(data.date).toBe(NEXT_MONDAY);
+      expect(data.status).toBe('confirmed');
+      expect(data.isFirstSignup).toBe(true);
+      expect(data.dkpAwarded).toBe(1); // calendar_dkp_per_day default = 1
 
       // Verify DKP was actually added
       const meAfter = await request
         .get('/api/auth/me')
         .set('Authorization', `Bearer ${raider.token}`);
-      expect(meAfter.body.currentDkp).toBe(dkpBefore + 1);
+      const meAfterData = expectSuccess(meAfter);
+      expect(meAfterData.currentDkp).toBe(dkpBefore + 1);
     });
 
     it('second signup to the same date updates but does not give extra DKP', async () => {
@@ -229,7 +232,8 @@ describe('Calendar endpoints', () => {
       const meBetween = await request
         .get('/api/auth/me')
         .set('Authorization', `Bearer ${raider.token}`);
-      const dkpAfterFirst = meBetween.body.currentDkp;
+      const meBetweenData = expectSuccess(meBetween);
+      const dkpAfterFirst = meBetweenData.currentDkp;
 
       // Second signup (change status)
       const res = await request
@@ -237,16 +241,17 @@ describe('Calendar endpoints', () => {
         .set('Authorization', `Bearer ${raider.token}`)
         .send({ date: NEXT_MONDAY, status: 'tentative', notes: 'Might be late' });
 
-      expect(res.status).toBe(200);
+      const data = expectSuccess(res);
       expect(res.body.message).toBe('Signup updated');
-      expect(res.body.isFirstSignup).toBe(false);
-      expect(res.body.status).toBe('tentative');
+      expect(data.isFirstSignup).toBe(false);
+      expect(data.status).toBe('tentative');
 
       // DKP should not change on the second signup
       const meAfter = await request
         .get('/api/auth/me')
         .set('Authorization', `Bearer ${raider.token}`);
-      expect(meAfter.body.currentDkp).toBe(dkpAfterFirst);
+      const meAfterData = expectSuccess(meAfter);
+      expect(meAfterData.currentDkp).toBe(dkpAfterFirst);
     });
 
     it('validates required fields (date and status)', async () => {
@@ -256,8 +261,8 @@ describe('Calendar endpoints', () => {
         .set('Authorization', `Bearer ${raider.token}`)
         .send({});
 
-      expect(res1.status).toBe(400);
-      expect(res1.body.error).toContain('date and status are required');
+      const msg1 = expectError(res1, 400);
+      expect(msg1).toContain('date and status are required');
 
       // Missing status
       const res2 = await request
@@ -265,8 +270,8 @@ describe('Calendar endpoints', () => {
         .set('Authorization', `Bearer ${raider.token}`)
         .send({ date: NEXT_MONDAY });
 
-      expect(res2.status).toBe(400);
-      expect(res2.body.error).toContain('date and status are required');
+      const msg2 = expectError(res2, 400);
+      expect(msg2).toContain('date and status are required');
 
       // Missing date
       const res3 = await request
@@ -274,8 +279,8 @@ describe('Calendar endpoints', () => {
         .set('Authorization', `Bearer ${raider.token}`)
         .send({ status: 'confirmed' });
 
-      expect(res3.status).toBe(400);
-      expect(res3.body.error).toContain('date and status are required');
+      const msg3 = expectError(res3, 400);
+      expect(msg3).toContain('date and status are required');
     });
 
     it('validates status enum (confirmed, declined, tentative)', async () => {
@@ -284,8 +289,8 @@ describe('Calendar endpoints', () => {
         .set('Authorization', `Bearer ${raider.token}`)
         .send({ date: NEXT_MONDAY, status: 'maybe' });
 
-      expect(res.status).toBe(400);
-      expect(res.body.error).toContain('Invalid status');
+      const msg = expectError(res, 400);
+      expect(msg).toContain('Invalid status');
     });
 
     it('rejects signup for a non-raid-day date', async () => {
@@ -294,8 +299,8 @@ describe('Calendar endpoints', () => {
         .set('Authorization', `Bearer ${raider.token}`)
         .send({ date: NON_RAID_DAY, status: 'confirmed' });
 
-      expect(res.status).toBe(400);
-      expect(res.body.error).toContain('not a raid day');
+      const msg = expectError(res, 400);
+      expect(msg).toContain('not a raid day');
     });
 
     it('returns 401 without auth token', async () => {
@@ -303,7 +308,7 @@ describe('Calendar endpoints', () => {
         .post('/api/calendar/signup')
         .send({ date: NEXT_MONDAY, status: 'confirmed' });
 
-      expect(res.status).toBe(401);
+      expectError(res, 401);
     });
 
     it('supports all three valid statuses', async () => {
@@ -316,8 +321,8 @@ describe('Calendar endpoints', () => {
           .set('Authorization', `Bearer ${raider.token}`)
           .send({ date: NEXT_MONDAY, status });
 
-        expect(res.status).toBe(200);
-        expect(res.body.status).toBe(status);
+        const data = expectSuccess(res);
+        expect(data.status).toBe(status);
       }
     });
   });
@@ -339,29 +344,29 @@ describe('Calendar endpoints', () => {
         .get(`/api/calendar/summary/${NEXT_MONDAY}`)
         .set('Authorization', `Bearer ${raider.token}`);
 
-      expect(res.status).toBe(200);
-      expect(res.body.date).toBe(NEXT_MONDAY);
-      expect(res.body).toHaveProperty('confirmed');
-      expect(res.body).toHaveProperty('declined');
-      expect(res.body).toHaveProperty('tentative');
-      expect(res.body).toHaveProperty('noResponse');
-      expect(res.body).toHaveProperty('counts');
+      const data = expectSuccess(res);
+      expect(data.date).toBe(NEXT_MONDAY);
+      expect(data).toHaveProperty('confirmed');
+      expect(data).toHaveProperty('declined');
+      expect(data).toHaveProperty('tentative');
+      expect(data).toHaveProperty('noResponse');
+      expect(data).toHaveProperty('counts');
 
       // Arrays
-      expect(Array.isArray(res.body.confirmed)).toBe(true);
-      expect(Array.isArray(res.body.declined)).toBe(true);
-      expect(Array.isArray(res.body.tentative)).toBe(true);
-      expect(Array.isArray(res.body.noResponse)).toBe(true);
+      expect(Array.isArray(data.confirmed)).toBe(true);
+      expect(Array.isArray(data.declined)).toBe(true);
+      expect(Array.isArray(data.tentative)).toBe(true);
+      expect(Array.isArray(data.noResponse)).toBe(true);
 
       // Counts object
-      expect(res.body.counts).toHaveProperty('confirmed');
-      expect(res.body.counts).toHaveProperty('declined');
-      expect(res.body.counts).toHaveProperty('tentative');
-      expect(res.body.counts).toHaveProperty('noResponse');
-      expect(res.body.counts).toHaveProperty('total');
+      expect(data.counts).toHaveProperty('confirmed');
+      expect(data.counts).toHaveProperty('declined');
+      expect(data.counts).toHaveProperty('tentative');
+      expect(data.counts).toHaveProperty('noResponse');
+      expect(data.counts).toHaveProperty('total');
 
       // The raider signed up as confirmed
-      expect(res.body.counts.confirmed).toBeGreaterThanOrEqual(1);
+      expect(data.counts.confirmed).toBeGreaterThanOrEqual(1);
     });
 
     it('confirmed member has expected shape', async () => {
@@ -369,10 +374,10 @@ describe('Calendar endpoints', () => {
         .get(`/api/calendar/summary/${NEXT_MONDAY}`)
         .set('Authorization', `Bearer ${admin.token}`);
 
-      expect(res.status).toBe(200);
+      const data = expectSuccess(res);
 
-      if (res.body.confirmed.length > 0) {
-        const member = res.body.confirmed[0];
+      if (data.confirmed.length > 0) {
+        const member = data.confirmed[0];
         expect(member).toHaveProperty('id');
         expect(member).toHaveProperty('characterName');
         expect(member).toHaveProperty('characterClass');
@@ -383,7 +388,7 @@ describe('Calendar endpoints', () => {
     it('returns 401 without auth token', async () => {
       const res = await request.get(`/api/calendar/summary/${NEXT_MONDAY}`);
 
-      expect(res.status).toBe(401);
+      expectError(res, 401);
     });
   });
 
@@ -395,15 +400,15 @@ describe('Calendar endpoints', () => {
         .get('/api/calendar/overview')
         .set('Authorization', `Bearer ${raider.token}`);
 
-      expect(res.status).toBe(200);
-      expect(res.body).toHaveProperty('dates');
-      expect(res.body).toHaveProperty('members');
-      expect(Array.isArray(res.body.dates)).toBe(true);
-      expect(Array.isArray(res.body.members)).toBe(true);
+      const data = expectSuccess(res);
+      expect(data).toHaveProperty('dates');
+      expect(data).toHaveProperty('members');
+      expect(Array.isArray(data.dates)).toBe(true);
+      expect(Array.isArray(data.members)).toBe(true);
 
       // Each date should have counts
-      if (res.body.dates.length > 0) {
-        const firstDate = res.body.dates[0];
+      if (data.dates.length > 0) {
+        const firstDate = data.dates[0];
         expect(firstDate).toHaveProperty('date');
         expect(firstDate).toHaveProperty('dayOfWeek');
         expect(firstDate).toHaveProperty('counts');
@@ -414,8 +419,8 @@ describe('Calendar endpoints', () => {
       }
 
       // Each member should have signups keyed by date
-      if (res.body.members.length > 0) {
-        const member = res.body.members[0];
+      if (data.members.length > 0) {
+        const member = data.members[0];
         expect(member).toHaveProperty('id');
         expect(member).toHaveProperty('characterName');
         expect(member).toHaveProperty('signups');
@@ -426,7 +431,7 @@ describe('Calendar endpoints', () => {
     it('returns 401 without auth token', async () => {
       const res = await request.get('/api/calendar/overview');
 
-      expect(res.status).toBe(401);
+      expectError(res, 401);
     });
   });
 
@@ -438,12 +443,12 @@ describe('Calendar endpoints', () => {
         .get('/api/calendar/history')
         .set('Authorization', `Bearer ${raider.token}`);
 
-      expect(res.status).toBe(200);
-      expect(Array.isArray(res.body)).toBe(true);
+      const data = expectSuccess(res);
+      expect(Array.isArray(data)).toBe(true);
 
       // Each entry should have date info and optional WCL/attendance data
-      if (res.body.length > 0) {
-        const entry = res.body[0];
+      if (data.length > 0) {
+        const entry = data[0];
         expect(entry).toHaveProperty('date');
         expect(entry).toHaveProperty('dayName');
         expect(entry).toHaveProperty('raidTime');
@@ -456,7 +461,7 @@ describe('Calendar endpoints', () => {
     it('returns 401 without auth token', async () => {
       const res = await request.get('/api/calendar/history');
 
-      expect(res.status).toBe(401);
+      expectError(res, 401);
     });
   });
 
@@ -468,11 +473,11 @@ describe('Calendar endpoints', () => {
         .get('/api/calendar/dates-with-logs')
         .set('Authorization', `Bearer ${raider.token}`);
 
-      expect(res.status).toBe(200);
-      expect(Array.isArray(res.body)).toBe(true);
+      const data = expectSuccess(res);
+      expect(Array.isArray(data)).toBe(true);
 
-      if (res.body.length > 0) {
-        const entry = res.body[0];
+      if (data.length > 0) {
+        const entry = data[0];
         expect(entry).toHaveProperty('date');
         expect(entry).toHaveProperty('dayName');
         expect(entry).toHaveProperty('raidTime');
@@ -485,7 +490,7 @@ describe('Calendar endpoints', () => {
     it('returns 401 without auth token', async () => {
       const res = await request.get('/api/calendar/dates-with-logs');
 
-      expect(res.status).toBe(401);
+      expectError(res, 401);
     });
   });
 });

@@ -1,10 +1,12 @@
 import { Router } from 'express';
 import bcrypt from 'bcryptjs';
-import { db } from '../database.js';
 import { authenticateToken, authorizeRole } from '../middleware/auth.js';
 import { adminLimiter } from '../lib/rateLimiters.js';
 import { getCachedConfig, getCurrentRaidWeek, addDkpWithCap } from '../lib/helpers.js';
 import { createLogger } from '../lib/logger.js';
+import { success, error, paginated } from '../lib/response.js';
+import { ErrorCodes } from '../lib/errorCodes.js';
+import { parsePagination } from '../lib/pagination.js';
 
 const log = createLogger('Route:Members');
 const router = Router();
@@ -15,7 +17,11 @@ router.get('/', authenticateToken, async (req, res) => {
     // Get current raid week (Thursday-based)
     const currentWeek = getCurrentRaidWeek();
 
-    const members = await db.all(`
+    const { limit, offset } = parsePagination(req.query, { limit: 200, maxLimit: 500 });
+
+    const { total } = await req.db.get('SELECT COUNT(*) as total FROM users WHERE is_active = 1');
+
+    const members = await req.db.all(`
       SELECT u.id, u.username, u.character_name, u.character_class, u.role, u.raid_role, u.spec, u.avatar,
              md.current_dkp, md.lifetime_gained, md.lifetime_spent,
              md.weekly_vault_completed, md.vault_week
@@ -23,13 +29,14 @@ router.get('/', authenticateToken, async (req, res) => {
       LEFT JOIN member_dkp md ON u.id = md.user_id
       WHERE u.is_active = 1
       ORDER BY md.current_dkp DESC
-    `);
+      LIMIT ? OFFSET ?
+    `, limit, offset);
 
     // Get DKP cap from config
-    const capConfig = await db.get("SELECT config_value FROM dkp_config WHERE config_key = 'dkp_cap'");
+    const capConfig = await req.db.get("SELECT config_value FROM dkp_config WHERE config_key = 'dkp_cap'");
     const dkpCap = parseInt(capConfig?.config_value || '250', 10);
 
-    res.json(members.map(m => ({
+    return paginated(res, members.map(m => ({
       id: m.id,
       username: m.username,
       characterName: m.character_name,
@@ -43,10 +50,10 @@ router.get('/', authenticateToken, async (req, res) => {
       lifetimeSpent: m.lifetime_spent || 0,
       weeklyVaultCompleted: m.vault_week === currentWeek ? (m.weekly_vault_completed === 1) : false,
       dkpCap
-    })));
-  } catch (error) {
-    log.error('Get members error', error);
-    res.status(500).json({ error: 'Failed to get members' });
+    })), { limit, offset, total });
+  } catch (err) {
+    log.error('Get members error', err);
+    return error(res, 'Failed to get members', 500, ErrorCodes.INTERNAL_ERROR);
   }
 });
 
@@ -54,21 +61,21 @@ router.get('/', authenticateToken, async (req, res) => {
 router.put('/:id/role', adminLimiter, authenticateToken, authorizeRole(['admin']), async (req, res) => {
   try {
     const id = parseInt(req.params.id, 10);
-    if (isNaN(id)) return res.status(400).json({ error: 'Invalid member ID' });
+    if (isNaN(id)) return error(res, 'Invalid member ID', 400, ErrorCodes.VALIDATION_ERROR);
 
     const { role } = req.body;
 
     if (!['admin', 'officer', 'raider'].includes(role)) {
-      return res.status(400).json({ error: 'Invalid role' });
+      return error(res, 'Invalid role', 400, ErrorCodes.VALIDATION_ERROR);
     }
 
-    await db.run('UPDATE users SET role = ? WHERE id = ?', role, id);
+    await req.db.run('UPDATE users SET role = ? WHERE id = ?', role, id);
 
     req.app.get('io').emit('member_updated', { memberId: id });
-    res.json({ message: 'Role updated successfully' });
-  } catch (error) {
-    log.error('Update role error', error);
-    res.status(500).json({ error: 'Failed to update role' });
+    return success(res, null, 'Role updated successfully');
+  } catch (err) {
+    log.error('Update role error', err);
+    return error(res, 'Failed to update role', 500, ErrorCodes.INTERNAL_ERROR);
   }
 });
 
@@ -77,12 +84,12 @@ router.put('/:id/role', adminLimiter, authenticateToken, authorizeRole(['admin']
 router.put('/:id/vault', adminLimiter, authenticateToken, authorizeRole(['admin', 'officer']), async (req, res) => {
   try {
     const id = parseInt(req.params.id, 10);
-    if (isNaN(id)) return res.status(400).json({ error: 'Invalid member ID' });
+    if (isNaN(id)) return error(res, 'Invalid member ID', 400, ErrorCodes.VALIDATION_ERROR);
 
     const currentWeek = getCurrentRaidWeek();
 
     // Get current state
-    const member = await db.get(`
+    const member = await req.db.get(`
       SELECT md.weekly_vault_completed, md.vault_week, u.character_name
       FROM member_dkp md
       JOIN users u ON md.user_id = u.id
@@ -90,7 +97,7 @@ router.put('/:id/vault', adminLimiter, authenticateToken, authorizeRole(['admin'
     `, id);
 
     if (!member) {
-      return res.status(404).json({ error: 'Member not found' });
+      return error(res, 'Member not found', 404, ErrorCodes.NOT_FOUND);
     }
 
     // Check if already completed this week
@@ -98,17 +105,17 @@ router.put('/:id/vault', adminLimiter, authenticateToken, authorizeRole(['admin'
 
     if (wasCompleted) {
       // Remove vault mark (no DKP changes - DKP is processed at week end)
-      await db.run(`
+      await req.db.run(`
         UPDATE member_dkp
         SET weekly_vault_completed = 0
         WHERE user_id = ?
       `, id);
 
       req.app.get('io').emit('member_updated', { memberId: id });
-      res.json({ message: 'Vault unmarked', completed: false });
+      return success(res, { completed: false }, 'Vault unmarked');
     } else {
       // Mark as completed (no DKP yet - will be awarded when week is processed)
-      await db.run(`
+      await req.db.run(`
         UPDATE member_dkp
         SET weekly_vault_completed = 1,
             vault_completed_at = CURRENT_TIMESTAMP,
@@ -117,11 +124,11 @@ router.put('/:id/vault', adminLimiter, authenticateToken, authorizeRole(['admin'
       `, currentWeek, id);
 
       req.app.get('io').emit('member_updated', { memberId: id });
-      res.json({ message: 'Vault marked as completed', completed: true });
+      return success(res, { completed: true }, 'Vault marked as completed');
     }
-  } catch (error) {
-    log.error('Toggle vault error', error);
-    res.status(500).json({ error: 'Failed to toggle vault status' });
+  } catch (err) {
+    log.error('Toggle vault error', err);
+    return error(res, 'Failed to toggle vault status', 500, ErrorCodes.INTERNAL_ERROR);
   }
 });
 
@@ -141,17 +148,17 @@ vaultRouter.post('/cron/process-vault', async (req, res) => {
 
     if (!cronSecret || providedSecret !== cronSecret) {
       log.info('Cron vault: Invalid or missing secret');
-      return res.status(401).json({ error: 'Unauthorized' });
+      return error(res, 'Unauthorized', 401, ErrorCodes.UNAUTHORIZED);
     }
 
     log.info('Cron: Processing weekly vault rewards...');
 
     const currentWeek = getCurrentRaidWeek();
-    const vaultDkp = parseInt(await getCachedConfig('weekly_vault_dkp', '10'), 10);
-    const dkpCap = parseInt(await getCachedConfig('dkp_cap', '250'), 10);
+    const vaultDkp = parseInt(await getCachedConfig(req.db, 'weekly_vault_dkp', '10'), 10);
+    const dkpCap = parseInt(await getCachedConfig(req.db, 'dkp_cap', '250'), 10);
 
     // Get all members with vault completed for current week
-    const completedMembers = await db.all(`
+    const completedMembers = await req.db.all(`
       SELECT md.user_id, u.character_name
       FROM member_dkp md
       JOIN users u ON md.user_id = u.id
@@ -160,7 +167,7 @@ vaultRouter.post('/cron/process-vault', async (req, res) => {
 
     if (completedMembers.length === 0) {
       log.info('Cron: No vault completions to process');
-      return res.json({
+      return success(res, {
         message: 'No vault completions to process',
         processed: 0,
         totalDkpAwarded: 0
@@ -171,7 +178,7 @@ vaultRouter.post('/cron/process-vault', async (req, res) => {
     const processedMembers = [];
     const io = req.app.get('io');
 
-    await db.transaction(async (tx) => {
+    await req.db.transaction(async (tx) => {
       for (const member of completedMembers) {
         // Award DKP with cap
         const result = await addDkpWithCap(tx, member.user_id, vaultDkp, dkpCap);
@@ -205,15 +212,15 @@ vaultRouter.post('/cron/process-vault', async (req, res) => {
 
     log.info(`Cron: Processed ${completedMembers.length} vault completions, awarded ${totalDkpAwarded} DKP`);
 
-    res.json({
+    return success(res, {
       message: `Processed ${completedMembers.length} vault completions`,
       processed: completedMembers.length,
       totalDkpAwarded,
       members: processedMembers
     });
-  } catch (error) {
-    log.error('Cron process vault error', error);
-    res.status(500).json({ error: 'Failed to process weekly vault' });
+  } catch (err) {
+    log.error('Cron process vault error', err);
+    return error(res, 'Failed to process weekly vault', 500, ErrorCodes.INTERNAL_ERROR);
   }
 });
 
@@ -222,11 +229,11 @@ vaultRouter.post('/cron/process-vault', async (req, res) => {
 vaultRouter.post('/admin/vault/process-weekly', adminLimiter, authenticateToken, authorizeRole(['admin']), async (req, res) => {
   try {
     const currentWeek = getCurrentRaidWeek();
-    const vaultDkp = parseInt(await getCachedConfig('weekly_vault_dkp', '10'), 10);
-    const dkpCap = parseInt(await getCachedConfig('dkp_cap', '250'), 10);
+    const vaultDkp = parseInt(await getCachedConfig(req.db, 'weekly_vault_dkp', '10'), 10);
+    const dkpCap = parseInt(await getCachedConfig(req.db, 'dkp_cap', '250'), 10);
 
     // Get all members with vault completed for current week
-    const completedMembers = await db.all(`
+    const completedMembers = await req.db.all(`
       SELECT md.user_id, u.character_name
       FROM member_dkp md
       JOIN users u ON md.user_id = u.id
@@ -234,7 +241,7 @@ vaultRouter.post('/admin/vault/process-weekly', adminLimiter, authenticateToken,
     `, currentWeek);
 
     if (completedMembers.length === 0) {
-      return res.json({
+      return success(res, {
         message: 'No vault completions to process',
         processed: 0,
         totalDkpAwarded: 0
@@ -245,7 +252,7 @@ vaultRouter.post('/admin/vault/process-weekly', adminLimiter, authenticateToken,
     const processedMembers = [];
     const io = req.app.get('io');
 
-    await db.transaction(async (tx) => {
+    await req.db.transaction(async (tx) => {
       for (const member of completedMembers) {
         // Award DKP with cap
         const result = await addDkpWithCap(tx, member.user_id, vaultDkp, dkpCap);
@@ -277,15 +284,15 @@ vaultRouter.post('/admin/vault/process-weekly', adminLimiter, authenticateToken,
       `, currentWeek);
     });
 
-    res.json({
+    return success(res, {
       message: `Processed ${completedMembers.length} vault completions`,
       processed: completedMembers.length,
       totalDkpAwarded,
       members: processedMembers
     });
-  } catch (error) {
-    log.error('Process weekly vault error', error);
-    res.status(500).json({ error: 'Failed to process weekly vault' });
+  } catch (err) {
+    log.error('Process weekly vault error', err);
+    return error(res, 'Failed to process weekly vault', 500, ErrorCodes.INTERNAL_ERROR);
   }
 });
 
@@ -293,10 +300,10 @@ vaultRouter.post('/admin/vault/process-weekly', adminLimiter, authenticateToken,
 vaultRouter.get('/admin/vault/status', adminLimiter, authenticateToken, authorizeRole(['admin', 'officer']), async (req, res) => {
   try {
     const currentWeek = getCurrentRaidWeek();
-    const vaultDkp = parseInt(await getCachedConfig('weekly_vault_dkp', '10'), 10);
+    const vaultDkp = parseInt(await getCachedConfig(req.db, 'weekly_vault_dkp', '10'), 10);
 
     // Get counts
-    const stats = await db.get(`
+    const stats = await req.db.get(`
       SELECT
         COUNT(*) as totalMembers,
         SUM(CASE WHEN md.weekly_vault_completed = 1 AND md.vault_week = ? THEN 1 ELSE 0 END) as completedCount
@@ -306,7 +313,7 @@ vaultRouter.get('/admin/vault/status', adminLimiter, authenticateToken, authoriz
     `, currentWeek);
 
     // Get list of completed members
-    const completedMembers = await db.all(`
+    const completedMembers = await req.db.all(`
       SELECT u.id, u.character_name, u.character_class, md.vault_completed_at
       FROM member_dkp md
       JOIN users u ON md.user_id = u.id
@@ -314,7 +321,7 @@ vaultRouter.get('/admin/vault/status', adminLimiter, authenticateToken, authoriz
       ORDER BY md.vault_completed_at DESC
     `, currentWeek);
 
-    res.json({
+    return success(res, {
       currentWeek,
       vaultDkp,
       totalMembers: stats.totalMembers || 0,
@@ -327,9 +334,9 @@ vaultRouter.get('/admin/vault/status', adminLimiter, authenticateToken, authoriz
         completedAt: m.vault_completed_at
       }))
     });
-  } catch (error) {
-    log.error('Get vault status error', error);
-    res.status(500).json({ error: 'Failed to get vault status' });
+  } catch (err) {
+    log.error('Get vault status error', err);
+    return error(res, 'Failed to get vault status', 500, ErrorCodes.INTERNAL_ERROR);
   }
 });
 
@@ -337,9 +344,9 @@ vaultRouter.get('/admin/vault/status', adminLimiter, authenticateToken, authoriz
 router.delete('/:id', adminLimiter, authenticateToken, authorizeRole(['admin']), async (req, res) => {
   try {
     const id = parseInt(req.params.id, 10);
-    if (isNaN(id)) return res.status(400).json({ error: 'Invalid member ID' });
+    if (isNaN(id)) return error(res, 'Invalid member ID', 400, ErrorCodes.VALIDATION_ERROR);
 
-    const member = await db.get(`
+    const member = await req.db.get(`
       SELECT u.*, md.current_dkp, md.lifetime_gained, md.lifetime_spent
       FROM users u
       LEFT JOIN member_dkp md ON u.id = md.user_id
@@ -347,10 +354,10 @@ router.delete('/:id', adminLimiter, authenticateToken, authorizeRole(['admin']),
     `, id);
 
     if (!member) {
-      return res.status(404).json({ error: 'Member not found' });
+      return error(res, 'Member not found', 404, ErrorCodes.NOT_FOUND);
     }
 
-    const itemsWon = await db.all(`
+    const itemsWon = await req.db.all(`
       SELECT a.item_name, a.item_image, a.item_rarity, a.item_id, a.winning_bid, a.ended_at
       FROM auctions a
       WHERE a.winner_id = ? AND a.status = 'completed' AND a.farewell_data IS NULL
@@ -372,20 +379,20 @@ router.delete('/:id', adminLimiter, authenticateToken, authorizeRole(['admin']),
       removedBy: req.user.userId,
     });
 
-    await db.run(`
+    await req.db.run(`
       INSERT INTO auctions (item_name, item_image, item_rarity, status, winning_bid, winner_id, created_by, ended_at, duration_minutes, farewell_data)
       VALUES (?, ?, 'legendary', 'completed', ?, ?, ?, datetime('now'), 0, ?)
     `, `${member.character_name}`, null, member.lifetime_spent || 0, id, req.user.userId, farewellData);
 
-    await db.run('UPDATE users SET is_active = 0 WHERE id = ?', id);
+    await req.db.run('UPDATE users SET is_active = 0 WHERE id = ?', id);
 
     const io = req.app.get('io');
     io.emit('member_removed', { memberId: id });
     io.emit('auction_ended');
-    res.json({ message: 'Member deactivated', member: member.character_name });
-  } catch (error) {
-    log.error('Deactivate member error', error);
-    res.status(500).json({ error: 'Failed to deactivate member' });
+    return success(res, { member: member.character_name }, 'Member deactivated');
+  } catch (err) {
+    log.error('Deactivate member error', err);
+    return error(res, 'Failed to deactivate member', 500, ErrorCodes.INTERNAL_ERROR);
   }
 });
 
@@ -395,12 +402,12 @@ router.post('/', adminLimiter, authenticateToken, authorizeRole(['admin', 'offic
     const { username, password, characterName, characterClass, spec, raidRole, role, initialDkp } = req.body;
 
     if (!username || !password || !characterName || !characterClass) {
-      return res.status(400).json({ error: 'Username, password, character name and class are required' });
+      return error(res, 'Username, password, character name and class are required', 400, ErrorCodes.VALIDATION_ERROR);
     }
 
-    const existing = await db.get('SELECT id FROM users WHERE LOWER(username) = LOWER(?)', username);
+    const existing = await req.db.get('SELECT id FROM users WHERE LOWER(username) = LOWER(?)', username);
     if (existing) {
-      return res.status(409).json({ error: 'Username already exists' });
+      return error(res, 'Username already exists', 409, ErrorCodes.ALREADY_EXISTS);
     }
 
     const validRole = ['admin', 'officer', 'raider'].includes(role) ? role : 'raider';
@@ -408,21 +415,20 @@ router.post('/', adminLimiter, authenticateToken, authorizeRole(['admin', 'offic
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    const result = await db.run(`
+    const result = await req.db.run(`
       INSERT INTO users (username, password, character_name, character_class, spec, raid_role, role)
       VALUES (?, ?, ?, ?, ?, ?, ?)
     `, username, hashedPassword, characterName, characterClass, spec || null, validRaidRole, validRole);
 
     const dkp = parseInt(initialDkp) || 0;
-    await db.run(`
+    await req.db.run(`
       INSERT INTO member_dkp (user_id, current_dkp, lifetime_gained)
       VALUES (?, ?, ?)
     `, result.lastInsertRowid, dkp, dkp);
 
     req.app.get('io').emit('member_updated', { memberId: result.lastInsertRowid });
 
-    res.status(201).json({
-      message: 'Member created successfully',
+    return success(res, {
       member: {
         id: result.lastInsertRowid,
         username,
@@ -433,10 +439,10 @@ router.post('/', adminLimiter, authenticateToken, authorizeRole(['admin', 'offic
         role: validRole,
         currentDkp: dkp
       }
-    });
-  } catch (error) {
-    log.error('Create member error', error);
-    res.status(500).json({ error: 'Failed to create member' });
+    }, 'Member created successfully', 201);
+  } catch (err) {
+    log.error('Create member error', err);
+    return error(res, 'Failed to create member', 500, ErrorCodes.INTERNAL_ERROR);
   }
 });
 

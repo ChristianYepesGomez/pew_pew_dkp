@@ -1,9 +1,11 @@
 import { Router } from 'express';
-import { db } from '../database.js';
 import { authenticateToken, authorizeRole } from '../middleware/auth.js';
 import { adminLimiter } from '../lib/rateLimiters.js';
 import { addDkpWithCap } from '../lib/helpers.js';
 import { createLogger } from '../lib/logger.js';
+import { success, error } from '../lib/response.js';
+import { ErrorCodes } from '../lib/errorCodes.js';
+import { parsePagination } from '../lib/pagination.js';
 
 const log = createLogger('Route:DKP');
 const router = Router();
@@ -14,16 +16,16 @@ router.post('/adjust', adminLimiter, authenticateToken, authorizeRole(['admin', 
     const { userId, amount, reason } = req.body;
 
     if (!userId || amount === undefined) {
-      return res.status(400).json({ error: 'Missing userId or amount' });
+      return error(res, 'Missing userId or amount', 400, ErrorCodes.VALIDATION_ERROR);
     }
 
-    const currentDkp = await db.get('SELECT current_dkp FROM member_dkp WHERE user_id = ?', userId);
+    const currentDkp = await req.db.get('SELECT current_dkp FROM member_dkp WHERE user_id = ?', userId);
     if (!currentDkp) {
-      return res.status(404).json({ error: 'Member not found' });
+      return error(res, 'Member not found', 404, ErrorCodes.NOT_FOUND);
     }
 
     // Get DKP cap
-    const capConfig = await db.get("SELECT config_value FROM dkp_config WHERE config_key = 'dkp_cap'");
+    const capConfig = await req.db.get("SELECT config_value FROM dkp_config WHERE config_key = 'dkp_cap'");
     const dkpCap = parseInt(capConfig?.config_value || '250', 10);
 
     let newDkp;
@@ -34,7 +36,7 @@ router.post('/adjust', adminLimiter, authenticateToken, authorizeRole(['admin', 
       newDkp = Math.min(currentDkp.current_dkp + amount, dkpCap);
       actualAmount = newDkp - currentDkp.current_dkp;
 
-      await db.run(`
+      await req.db.run(`
         UPDATE member_dkp
         SET current_dkp = ?, lifetime_gained = lifetime_gained + ?
         WHERE user_id = ?
@@ -42,21 +44,21 @@ router.post('/adjust', adminLimiter, authenticateToken, authorizeRole(['admin', 
     } else {
       // No cap on removal
       newDkp = Math.max(0, currentDkp.current_dkp + amount);
-      await db.run(`
+      await req.db.run(`
         UPDATE member_dkp SET current_dkp = ? WHERE user_id = ?
       `, newDkp, userId);
     }
 
-    await db.run(`
+    await req.db.run(`
       INSERT INTO dkp_transactions (user_id, amount, reason, performed_by)
       VALUES (?, ?, ?, ?)
     `, userId, amount, reason || 'Manual adjustment', req.user.userId);
 
     req.app.get('io').emit('dkp_updated', { userId, newDkp, amount });
-    res.json({ message: 'DKP adjusted', newDkp });
-  } catch (error) {
-    log.error('Adjust DKP error', error);
-    res.status(500).json({ error: 'Failed to adjust DKP' });
+    return success(res, { newDkp }, 'DKP adjusted');
+  } catch (err) {
+    log.error('Adjust DKP error', err);
+    return error(res, 'Failed to adjust DKP', 500, ErrorCodes.INTERNAL_ERROR);
   }
 });
 
@@ -66,14 +68,14 @@ router.post('/bulk-adjust', adminLimiter, authenticateToken, authorizeRole(['adm
     const { userIds, amount, reason } = req.body;
 
     if (!userIds || !Array.isArray(userIds) || amount === undefined) {
-      return res.status(400).json({ error: 'Invalid request' });
+      return error(res, 'Invalid request', 400, ErrorCodes.VALIDATION_ERROR);
     }
 
     // Get DKP cap
-    const capConfig = await db.get("SELECT config_value FROM dkp_config WHERE config_key = 'dkp_cap'");
+    const capConfig = await req.db.get("SELECT config_value FROM dkp_config WHERE config_key = 'dkp_cap'");
     const dkpCap = parseInt(capConfig?.config_value || '250', 10);
 
-    await db.transaction(async (tx) => {
+    await req.db.transaction(async (tx) => {
       for (const userId of userIds) {
         if (amount > 0) {
           // Use cap-aware function for positive amounts
@@ -95,10 +97,10 @@ router.post('/bulk-adjust', adminLimiter, authenticateToken, authorizeRole(['adm
     });
 
     req.app.get('io').emit('dkp_bulk_updated', { userIds, amount });
-    res.json({ message: `DKP adjusted for ${userIds.length} members` });
-  } catch (error) {
-    log.error('Bulk adjust error', error);
-    res.status(500).json({ error: 'Failed to bulk adjust DKP' });
+    return success(res, null, `DKP adjusted for ${userIds.length} members`);
+  } catch (err) {
+    log.error('Bulk adjust error', err);
+    return error(res, 'Failed to bulk adjust DKP', 500, ErrorCodes.INTERNAL_ERROR);
   }
 });
 
@@ -108,13 +110,13 @@ router.post('/decay', adminLimiter, authenticateToken, authorizeRole(['admin']),
     const { percentage } = req.body;
 
     if (!percentage || percentage <= 0 || percentage > 100) {
-      return res.status(400).json({ error: 'Invalid decay percentage' });
+      return error(res, 'Invalid decay percentage', 400, ErrorCodes.VALIDATION_ERROR);
     }
 
     const multiplier = 1 - (percentage / 100);
 
     // Atomic decay: capture amounts BEFORE update, then update + log in one transaction
-    await db.transaction(async (tx) => {
+    await req.db.transaction(async (tx) => {
       // 1. Capture current DKP values before decay
       const members = await tx.all('SELECT user_id, current_dkp FROM member_dkp WHERE current_dkp > 0');
 
@@ -138,10 +140,10 @@ router.post('/decay', adminLimiter, authenticateToken, authorizeRole(['admin']),
     });
 
     req.app.get('io').emit('dkp_decay_applied', { percentage });
-    res.json({ message: `${percentage}% DKP decay applied` });
-  } catch (error) {
-    log.error('DKP decay error', error);
-    res.status(500).json({ error: 'Failed to apply DKP decay' });
+    return success(res, null, `${percentage}% DKP decay applied`);
+  } catch (err) {
+    log.error('DKP decay error', err);
+    return error(res, 'Failed to apply DKP decay', 500, ErrorCodes.INTERNAL_ERROR);
   }
 });
 
@@ -149,22 +151,22 @@ router.post('/decay', adminLimiter, authenticateToken, authorizeRole(['admin']),
 router.get('/history/:userId', authenticateToken, async (req, res) => {
   try {
     const userId = parseInt(req.params.userId, 10);
-    if (isNaN(userId)) return res.status(400).json({ error: 'Invalid user ID' });
+    if (isNaN(userId)) return error(res, 'Invalid user ID', 400, ErrorCodes.VALIDATION_ERROR);
 
-    const limit = parseInt(req.query.limit) || 50;
+    const { limit, offset } = parsePagination(req.query);
 
     // Access control: only own history, or admin/officer can view any
     if (req.user.userId !== userId && !['admin', 'officer'].includes(req.user.role)) {
-      return res.status(403).json({ error: 'Unauthorized to view this history' });
+      return error(res, 'Unauthorized to view this history', 403, ErrorCodes.FORBIDDEN);
     }
 
-    const dkpStats = await db.get(`
+    const dkpStats = await req.db.get(`
       SELECT current_dkp, lifetime_gained, lifetime_spent, last_decay_at
       FROM member_dkp
       WHERE user_id = ?
     `, userId);
 
-    const history = await db.all(`
+    const history = await req.db.all(`
       SELECT dt.*, u.character_name, u.username,
              a.item_name AS auction_item_name, a.item_image AS auction_item_image,
              a.item_rarity AS auction_item_rarity, a.item_id AS auction_item_id
@@ -173,10 +175,10 @@ router.get('/history/:userId', authenticateToken, async (req, res) => {
       LEFT JOIN auctions a ON dt.auction_id = a.id
       WHERE dt.user_id = ?
       ORDER BY dt.created_at DESC
-      LIMIT ?
-    `, userId, limit);
+      LIMIT ? OFFSET ?
+    `, userId, limit, offset);
 
-    res.json({
+    return success(res, {
       currentDkp: dkpStats?.current_dkp || 0,
       lifetimeGained: dkpStats?.lifetime_gained || 0,
       lifetimeSpent: dkpStats?.lifetime_spent || 0,
@@ -198,9 +200,9 @@ router.get('/history/:userId', authenticateToken, async (req, res) => {
         } : null
       }))
     });
-  } catch (error) {
-    log.error('DKP history error', error);
-    res.status(500).json({ error: 'Failed to get DKP history' });
+  } catch (err) {
+    log.error('DKP history error', err);
+    return error(res, 'Failed to get DKP history', 500, ErrorCodes.INTERNAL_ERROR);
   }
 });
 

@@ -5,6 +5,8 @@ import { authLimiter } from '../lib/rateLimiters.js';
 import { getBlizzardOAuthUrl, getUserToken, getUserCharacters, isBlizzardOAuthConfigured } from '../services/blizzardAPI.js';
 import { FRONTEND_URL } from '../lib/config.js';
 import { createLogger } from '../lib/logger.js';
+import { success, error } from '../lib/response.js';
+import { ErrorCodes } from '../lib/errorCodes.js';
 
 const log = createLogger('Route:Blizzard');
 const router = Router();
@@ -39,7 +41,7 @@ function toBase64Url(data) {
 // Get Blizzard OAuth authorization URL
 router.get('/url', authenticateToken, (req, res) => {
   if (!isBlizzardOAuthConfigured()) {
-    return res.status(503).json({ error: 'Blizzard API not configured' });
+    return error(res, 'Blizzard API not configured', 503, ErrorCodes.EXTERNAL_API_ERROR);
   }
 
   const state = signState({ userId: req.user.userId, ts: Date.now() });
@@ -49,7 +51,7 @@ router.get('/url', authenticateToken, (req, res) => {
   const redirectUri = `${protocol}://${host}/api/auth/blizzard/callback`;
 
   const url = getBlizzardOAuthUrl(redirectUri, state);
-  res.json({ url, configured: true });
+  return success(res, { url, configured: true });
 });
 
 // Blizzard OAuth callback - redirects popup to frontend for same-origin postMessage
