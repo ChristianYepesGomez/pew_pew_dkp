@@ -4,11 +4,13 @@ import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import { db } from '../database.js';
 import { authenticateToken, authorizeRole, generateAccessToken, generateRefreshToken, verifyRefreshToken } from '../middleware/auth.js';
-import { authLimiter } from '../lib/rateLimiters.js';
+import express from 'express';
+import { authLimiter, forgotPasswordLimiter } from '../lib/rateLimiters.js';
 import { isValidEmail } from '../lib/helpers.js';
 import { sendPasswordResetEmail } from '../services/email.js';
 import { JWT_SECRET, FRONTEND_URL } from '../lib/config.js';
 import { createLogger } from '../lib/logger.js';
+import { hashToken } from '../lib/encryption.js';
 
 const log = createLogger('Route:Auth');
 const router = Router();
@@ -37,10 +39,10 @@ router.post('/login', authLimiter, async (req, res) => {
     const accessToken = generateAccessToken(user);
     const refreshToken = generateRefreshToken(user);
 
-    // Store refresh token in DB with a new token family
+    // Store hashed refresh token in DB with a new token family
     await db.run(
       'INSERT INTO refresh_tokens (user_id, token, token_family, expires_at) VALUES (?, ?, ?, ?)',
-      user.id, refreshToken, crypto.randomUUID(), new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+      user.id, hashToken(refreshToken), crypto.randomUUID(), new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
     );
 
     res.json({
@@ -121,7 +123,7 @@ router.post('/register', authLimiter, async (req, res) => {
 
     await db.run(
       'INSERT INTO refresh_tokens (user_id, token, token_family, expires_at) VALUES (?, ?, ?, ?)',
-      userId, refreshToken, crypto.randomUUID(), new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+      userId, hashToken(refreshToken), crypto.randomUUID(), new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
     );
 
     res.status(201).json({
@@ -138,7 +140,7 @@ router.post('/register', authLimiter, async (req, res) => {
 });
 
 // Request password reset - searches by username or email
-router.post('/forgot-password', authLimiter, async (req, res) => {
+router.post('/forgot-password', forgotPasswordLimiter, async (req, res) => {
   try {
     const { usernameOrEmail } = req.body;
 
@@ -330,8 +332,8 @@ router.get('/me', authenticateToken, async (req, res) => {
   }
 });
 
-// Update own profile (email, password, avatar)
-router.put('/profile', authenticateToken, async (req, res) => {
+// Update own profile (email, password, avatar) — 5mb limit for avatar uploads
+router.put('/profile', express.json({ limit: '5mb' }), authenticateToken, async (req, res) => {
   try {
     const { email, currentPassword, newPassword, avatar } = req.body;
     const userId = req.user.userId;
@@ -410,7 +412,7 @@ router.post('/refresh', async (req, res) => {
     if (!decoded) return res.status(401).json({ error: 'Invalid refresh token' });
 
     const storedToken = await db.get(
-      'SELECT * FROM refresh_tokens WHERE token = ?', refreshToken
+      'SELECT * FROM refresh_tokens WHERE token = ?', hashToken(refreshToken)
     );
     if (!storedToken) return res.status(401).json({ error: 'Token not found' });
 
@@ -440,7 +442,7 @@ router.post('/refresh', async (req, res) => {
 
     await db.run(
       'INSERT INTO refresh_tokens (user_id, token, token_family, expires_at) VALUES (?, ?, ?, ?)',
-      user.id, newRefreshToken, storedToken.token_family, new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+      user.id, hashToken(newRefreshToken), storedToken.token_family, new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
     );
 
     res.json({ token: newAccessToken, refreshToken: newRefreshToken });
@@ -455,7 +457,7 @@ router.post('/logout', authenticateToken, async (req, res) => {
   try {
     const { refreshToken } = req.body;
     if (refreshToken) {
-      const stored = await db.get('SELECT token_family FROM refresh_tokens WHERE token = ?', refreshToken);
+      const stored = await db.get('SELECT token_family FROM refresh_tokens WHERE token = ?', hashToken(refreshToken));
       if (stored) {
         await db.run('DELETE FROM refresh_tokens WHERE token_family = ?', stored.token_family);
       }

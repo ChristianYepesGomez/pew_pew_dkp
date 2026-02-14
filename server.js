@@ -74,7 +74,7 @@ setAuctionIO(io);
 const PORT = process.env.PORT || 3000;
 
 app.use(cors(corsOptions));
-app.use(express.json());
+app.use(express.json({ limit: '1mb' }));
 
 // Make io accessible to routes via app.set('io', io) / req.app.get('io')
 app.set('io', io);
