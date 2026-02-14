@@ -24,7 +24,7 @@ vi.mock('../services/raidItems.js', () => ({
 }));
 
 vi.mock('../services/dungeonItems.js', () => ({
-  getAllDungeonItems: vi.fn(() => [
+  getAllDungeonItems: vi.fn(async () => [
     { id: 100, name: 'Dungeon Ring', sourceType: 'dungeon' },
   ]),
 }));

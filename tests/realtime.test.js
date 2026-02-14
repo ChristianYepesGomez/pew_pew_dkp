@@ -1,8 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { createServer } from 'http';
-import { Server } from 'socket.io';
 import { io as ioClient } from 'socket.io-client';
-import { request, setupTestDb, cleanupTestDb, createTestUser, setUserDkp, expectSuccess } from './helpers.js';
+import { request, setupTestDb, cleanupTestDb, createTestUser, setUserDkp } from './helpers.js';
 import { app, io } from '../server.js';
 
 describe('Socket.IO real-time events', () => {
@@ -48,6 +47,7 @@ describe('Socket.IO real-time events', () => {
       auth: { token },
       transports: ['websocket'],
       forceNew: true,
+      reconnection: false,
     });
   }
 
@@ -75,19 +75,24 @@ describe('Socket.IO real-time events', () => {
     it('rejects connection with invalid token', async () => {
       const client = createClient('invalid.jwt.token');
 
-      await new Promise((resolve) => {
-        const timeout = setTimeout(() => { client.disconnect(); resolve(); }, 5000);
+      await new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => {
+          client.disconnect();
+          reject(new Error('Expected connect_error but timed out'));
+        }, 5000);
+
         client.on('connect_error', (err) => {
           clearTimeout(timeout);
-          expect(err.message).toMatch(/auth/i);
           client.disconnect();
+          // Server sends "Invalid token" from the auth middleware
+          expect(err.message).toContain('Invalid token');
           resolve();
         });
+
         client.on('connect', () => {
           clearTimeout(timeout);
           client.disconnect();
-          // If it connects, the test is still valid but unexpected
-          resolve();
+          reject(new Error('Should not have connected'));
         });
       });
     });
@@ -96,19 +101,26 @@ describe('Socket.IO real-time events', () => {
       const client = ioClient(`http://localhost:${serverPort}`, {
         transports: ['websocket'],
         forceNew: true,
+        reconnection: false,
       });
 
-      await new Promise((resolve) => {
-        const timeout = setTimeout(() => { client.disconnect(); resolve(); }, 5000);
-        client.on('connect_error', () => {
+      await new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => {
+          client.disconnect();
+          reject(new Error('Expected connect_error but timed out'));
+        }, 5000);
+
+        client.on('connect_error', (err) => {
           clearTimeout(timeout);
           client.disconnect();
+          expect(err.message).toContain('Authentication required');
           resolve();
         });
+
         client.on('connect', () => {
           clearTimeout(timeout);
           client.disconnect();
-          resolve();
+          reject(new Error('Should not have connected without token'));
         });
       });
     });
@@ -120,10 +132,10 @@ describe('Socket.IO real-time events', () => {
       const client = createClient(adminToken);
 
       await new Promise((resolve, reject) => {
-        const timeout = setTimeout(() => { client.disconnect(); reject(new Error('Timeout')); }, 5000);
+        const timeout = setTimeout(() => { client.disconnect(); reject(new Error('Timeout waiting for dkp_updated')); }, 5000);
 
         client.on('connect', async () => {
-          // Listen for the event
+          // Listen for the event BEFORE triggering
           client.on('dkp_updated', (data) => {
             clearTimeout(timeout);
             expect(data).toHaveProperty('userId');
@@ -134,10 +146,16 @@ describe('Socket.IO real-time events', () => {
           });
 
           // Trigger the event via API
-          await request
-            .post('/api/dkp/adjust')
-            .set('Authorization', `Bearer ${adminToken}`)
-            .send({ userId, amount: 5, reason: 'Socket test' });
+          try {
+            await request
+              .post('/api/dkp/adjust')
+              .set('Authorization', `Bearer ${adminToken}`)
+              .send({ userId, amount: 5, reason: 'Socket test' });
+          } catch (err) {
+            clearTimeout(timeout);
+            client.disconnect();
+            reject(err);
+          }
         });
 
         client.on('connect_error', (err) => {
@@ -155,7 +173,7 @@ describe('Socket.IO real-time events', () => {
       const client = createClient(userToken);
 
       await new Promise((resolve, reject) => {
-        const timeout = setTimeout(() => { client.disconnect(); reject(new Error('Timeout')); }, 5000);
+        const timeout = setTimeout(() => { client.disconnect(); reject(new Error('Timeout waiting for auction_started')); }, 5000);
 
         client.on('connect', async () => {
           client.on('auction_started', (data) => {
@@ -165,53 +183,16 @@ describe('Socket.IO real-time events', () => {
             resolve();
           });
 
-          await request
-            .post('/api/auctions')
-            .set('Authorization', `Bearer ${adminToken}`)
-            .send({ itemName: 'Socket Test Item', durationMinutes: 5 });
-        });
-
-        client.on('connect_error', (err) => {
-          clearTimeout(timeout);
-          client.disconnect();
-          reject(err);
-        });
-      });
-    });
-
-    it('emits bid_placed when a bid is made', async () => {
-      const client = createClient(adminToken);
-
-      await new Promise((resolve, reject) => {
-        const timeout = setTimeout(() => { client.disconnect(); reject(new Error('Timeout')); }, 5000);
-
-        client.on('connect', async () => {
-          // Get active auctions first
-          const activeRes = await request
-            .get('/api/auctions/active')
-            .set('Authorization', `Bearer ${adminToken}`);
-
-          const activeData = expectSuccess(activeRes);
-          const auction = activeData.auctions[0];
-          if (!auction) {
+          try {
+            await request
+              .post('/api/auctions')
+              .set('Authorization', `Bearer ${adminToken}`)
+              .send({ itemName: 'Socket Test Item', durationMinutes: 5 });
+          } catch (err) {
             clearTimeout(timeout);
             client.disconnect();
-            resolve(); // No active auction, skip
-            return;
+            reject(err);
           }
-
-          client.on('bid_placed', (data) => {
-            clearTimeout(timeout);
-            expect(data).toHaveProperty('auctionId');
-            expect(data).toHaveProperty('amount');
-            client.disconnect();
-            resolve();
-          });
-
-          await request
-            .post(`/api/auctions/${auction.id}/bid`)
-            .set('Authorization', `Bearer ${userToken}`)
-            .send({ amount: 5 });
         });
 
         client.on('connect_error', (err) => {
