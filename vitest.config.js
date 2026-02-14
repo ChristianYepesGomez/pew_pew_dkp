@@ -3,11 +3,14 @@ import { defineConfig } from 'vitest/config';
 export default defineConfig({
   test: {
     globals: true,
+    globalSetup: ['./tests/globalSetup.js'],
     setupFiles: ['./tests/setup.js'],
     testTimeout: 15000,
     hookTimeout: 15000,
     sequence: { concurrent: false },
     fileParallelism: false,
+    pool: 'forks',
+    poolOptions: { forks: { singleFork: true } },
     coverage: {
       provider: 'v8',
       reporter: ['text', 'text-summary', 'json-summary'],

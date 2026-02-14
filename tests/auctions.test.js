@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { request, setupTestDb, cleanupTestDb, createTestUser, setUserDkp, expectSuccess, expectError } from './helpers.js';
+import { request, db, setupTestDb, cleanupTestDb, createTestUser, setUserDkp, expectSuccess, expectError } from './helpers.js';
 
 describe('Auctions — /api/auctions', () => {
   let adminToken, adminId;
@@ -397,20 +397,15 @@ describe('Auctions — /api/auctions', () => {
       await setUserDkp(userId, 100);
       await setUserDkp(otherId, 100);
 
-      // Both bid the same amount to force a tie
-      await request
-        .post(`/api/auctions/${tieAuctionId}/bid`)
-        .set('Authorization', `Bearer ${userToken}`)
-        .send({ amount: 25 });
-      await request
-        .post(`/api/auctions/${tieAuctionId}/bid`)
-        .set('Authorization', `Bearer ${otherToken}`)
-        .send({ amount: 30 });
-      // User re-bids to tie
-      await request
-        .post(`/api/auctions/${tieAuctionId}/bid`)
-        .set('Authorization', `Bearer ${userToken}`)
-        .send({ amount: 30 });
+      // Insert tied bids directly via DB (API rejects equal bids)
+      await db.run(
+        'INSERT INTO auction_bids (auction_id, user_id, amount) VALUES (?, ?, ?)',
+        tieAuctionId, userId, 30
+      );
+      await db.run(
+        'INSERT INTO auction_bids (auction_id, user_id, amount) VALUES (?, ?, ?)',
+        tieAuctionId, otherId, 30
+      );
 
       // End auction — should trigger tie-breaking rolls
       await request
