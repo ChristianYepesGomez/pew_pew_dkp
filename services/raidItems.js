@@ -3,6 +3,9 @@
 // When API is unavailable or credentials not configured, falls back to static data
 
 import blizzardAPI from './blizzardAPI.js';
+import { createLogger } from '../lib/logger.js';
+
+const log = createLogger('Service:RaidItems');
 
 // Static fallback data - Sourced from Blizzard API cache (February 2026)
 // Real item IDs and icons from Manaforge Omega (The War Within Season 3)
@@ -123,7 +126,7 @@ export async function getAllRaidItems() {
       const apiItems = await blizzardAPI.getCurrentRaidItems();
       if (apiItems && apiItems.length > 0) {
         cachedApiItems = apiItems;
-        console.log(`Loaded ${apiItems.length} items from Blizzard API`);
+        log.info(`Loaded ${apiItems.length} items from Blizzard API`);
         return apiItems;
       }
     } catch (error) {
@@ -137,7 +140,7 @@ export async function getAllRaidItems() {
   }
 
   // Fall back to static data
-  console.log('Using static fallback data for raid items');
+  log.info('Using static fallback data for raid items');
   return STATIC_FALLBACK_ITEMS;
 }
 

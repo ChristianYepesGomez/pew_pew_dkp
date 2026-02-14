@@ -3,7 +3,9 @@ import { db } from '../database.js';
 import { authenticateToken, authorizeRole } from '../middleware/auth.js';
 import { adminLimiter } from '../lib/rateLimiters.js';
 import { getAllZonesWithBosses, getBossDetails, seedRaidData, setZoneLegacy } from '../services/raids.js';
+import { createLogger } from '../lib/logger.js';
 
+const log = createLogger('Route:Bosses');
 const router = Router();
 
 // Get all zones with bosses (current + legacy)
@@ -12,7 +14,7 @@ router.get('/', authenticateToken, async (req, res) => {
     const data = await getAllZonesWithBosses();
     res.json(data);
   } catch (error) {
-    console.error('Get bosses error:', error);
+    log.error('Get bosses error', error);
     res.status(500).json({ error: 'Failed to get boss data' });
   }
 });
@@ -34,7 +36,7 @@ router.get('/debug/stats', authenticateToken, authorizeRole(['admin']), async (r
       }
     });
   } catch (error) {
-    console.error('Debug stats error:', error);
+    log.error('Debug stats error', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -54,7 +56,7 @@ router.get('/:bossId', authenticateToken, async (req, res) => {
 
     res.json(data);
   } catch (error) {
-    console.error('Get boss details error:', error);
+    log.error('Get boss details error', error);
     res.status(500).json({ error: 'Failed to get boss details' });
   }
 });
@@ -65,7 +67,7 @@ router.post('/sync', adminLimiter, authenticateToken, authorizeRole(['admin']), 
     await seedRaidData();
     res.json({ message: 'Raid data synced successfully' });
   } catch (error) {
-    console.error('Sync raid data error:', error);
+    log.error('Sync raid data error', error);
     res.status(500).json({ error: 'Failed to sync raid data' });
   }
 });
@@ -81,7 +83,7 @@ router.put('/zones/:zoneId/legacy', adminLimiter, authenticateToken, authorizeRo
     await setZoneLegacy(zoneId, isLegacy);
     res.json({ message: `Zone marked as ${isLegacy ? 'legacy' : 'current'}` });
   } catch (error) {
-    console.error('Set zone legacy error:', error);
+    log.error('Set zone legacy error', error);
     res.status(500).json({ error: 'Failed to update zone status' });
   }
 });

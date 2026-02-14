@@ -1,7 +1,9 @@
 import { Router } from 'express';
 import { db } from '../database.js';
 import { authenticateToken, authorizeRole } from '../middleware/auth.js';
+import { createLogger } from '../lib/logger.js';
 
+const log = createLogger('Route:Calendar');
 const router = Router();
 
 // Helper: Get raid dates for the next N weeks
@@ -81,7 +83,7 @@ router.get('/raid-days', authenticateToken, async (req, res) => {
 
     res.json(raidDays);
   } catch (error) {
-    console.error('Get raid days error:', error);
+    log.error('Get raid days error', error);
     res.status(500).json({ error: 'Failed to get raid days' });
   }
 });
@@ -118,7 +120,7 @@ router.put('/raid-days', authenticateToken, authorizeRole(['admin']), async (req
 
     res.json({ message: 'Raid days updated' });
   } catch (error) {
-    console.error('Update raid days error:', error);
+    log.error('Update raid days error', error);
     res.status(500).json({ error: 'Failed to update raid days' });
   }
 });
@@ -130,7 +132,7 @@ router.get('/dates', authenticateToken, async (req, res) => {
     const dates = await getRaidDates(Math.min(weeks, 4));
     res.json(dates);
   } catch (error) {
-    console.error('Get calendar dates error:', error);
+    log.error('Get calendar dates error', error);
     res.status(500).json({ error: 'Failed to get calendar dates' });
   }
 });
@@ -168,7 +170,7 @@ router.get('/my-signups', authenticateToken, async (req, res) => {
 
     res.json({ dates: result });
   } catch (error) {
-    console.error('Get my signups error:', error);
+    log.error('Get my signups error', error);
     res.status(500).json({ error: 'Failed to get signups' });
   }
 });
@@ -271,7 +273,7 @@ router.post('/signup', authenticateToken, async (req, res) => {
       isFirstSignup
     });
   } catch (error) {
-    console.error('Calendar signup error:', error);
+    log.error('Calendar signup error', error);
     res.status(500).json({ error: 'Failed to save signup' });
   }
 });
@@ -335,7 +337,7 @@ router.get('/summary/:date', authenticateToken, async (req, res) => {
 
     res.json(summary);
   } catch (error) {
-    console.error('Calendar summary error:', error);
+    log.error('Calendar summary error', error);
     res.status(500).json({ error: 'Failed to get calendar summary' });
   }
 });
@@ -403,7 +405,7 @@ router.get('/overview', authenticateToken, async (req, res) => {
       members
     });
   } catch (error) {
-    console.error('Calendar overview error:', error);
+    log.error('Calendar overview error', error);
     res.status(500).json({ error: 'Failed to get calendar overview' });
   }
 });
@@ -479,7 +481,7 @@ router.get('/history', authenticateToken, async (req, res) => {
 
     res.json(enriched);
   } catch (error) {
-    console.error('Calendar history error:', error);
+    log.error('Calendar history error', error);
     res.status(500).json({ error: 'Failed to get raid history' });
   }
 });
@@ -541,7 +543,7 @@ router.get('/dates-with-logs', authenticateToken, async (req, res) => {
 
     res.json(enriched);
   } catch (error) {
-    console.error('Dates with logs error:', error);
+    log.error('Dates with logs error', error);
     res.status(500).json({ error: 'Failed to get dates with logs' });
   }
 });

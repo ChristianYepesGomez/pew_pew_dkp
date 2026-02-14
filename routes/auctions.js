@@ -3,7 +3,9 @@ import { db } from '../database.js';
 import { authenticateToken, authorizeRole } from '../middleware/auth.js';
 import { adminLimiter, userLimiter } from '../lib/rateLimiters.js';
 import { scheduleAuctionClose, SNIPE_THRESHOLD_MS, SNIPE_EXTENSION_MS } from '../lib/auctionScheduler.js';
+import { createLogger } from '../lib/logger.js';
 
+const log = createLogger('Route:Auctions');
 const router = Router();
 
 // Get all active auctions
@@ -103,7 +105,7 @@ router.get('/active', authenticateToken, async (req, res) => {
 
     res.json({ auctions: auctionsWithBids, availableDkp });
   } catch (error) {
-    console.error('Get active auctions error:', error);
+    log.error('Get active auctions error', error);
     res.status(500).json({ error: 'Failed to get active auctions' });
   }
 });
@@ -133,7 +135,7 @@ router.post('/', adminLimiter, authenticateToken, authorizeRole(['admin', 'offic
     req.app.get('io').emit('auction_started', auction);
     res.status(201).json(auction);
   } catch (error) {
-    console.error('Create auction error:', error);
+    log.error('Create auction error', error);
     res.status(500).json({ error: 'Failed to create auction' });
   }
 });
@@ -226,7 +228,7 @@ router.post('/:auctionId/bid', userLimiter, authenticateToken, async (req, res) 
       await db.run('UPDATE auctions SET ends_at = ? WHERE id = ?', newEndsAt, auctionId);
       scheduleAuctionClose(auctionId, new Date(newEndsAt).getTime());
       timeExtended = true;
-      console.log(`⏰ Anti-snipe: Auction ${auctionId} extended to ${newEndsAt}`);
+      log.info(`Anti-snipe: Auction ${auctionId} extended to ${newEndsAt}`);
     }
 
     req.app.get('io').emit('bid_placed', {
@@ -250,7 +252,7 @@ router.post('/:auctionId/bid', userLimiter, authenticateToken, async (req, res) 
     if (error.message === 'Bid must be higher than current highest bid') {
       return res.status(400).json({ error: error.message });
     }
-    console.error('Place bid error:', error);
+    log.error('Place bid error', error);
     res.status(500).json({ error: 'Failed to place bid' });
   }
 });
@@ -304,7 +306,7 @@ router.post('/:auctionId/end', adminLimiter, authenticateToken, authorizeRole(['
       } else {
         // TIE! Generate rolls for each tied bidder
         wasTie = true;
-        console.log(`🎲 Tie detected for auction ${auctionId}: ${topBidders.length} bidders at ${highestAmount} DKP`);
+        log.info(`Tie detected for auction ${auctionId}: ${topBidders.length} bidders at ${highestAmount} DKP`);
 
         for (const bidder of topBidders) {
           const roll = Math.floor(Math.random() * 100) + 1; // 1-100
@@ -332,7 +334,7 @@ router.post('/:auctionId/end', adminLimiter, authenticateToken, authorizeRole(['
           );
         }
 
-        console.log(`🏆 Tie resolved: ${winner.character_name} wins with roll ${winningRoll}`);
+        log.info(`Tie resolved: ${winner.character_name} wins with roll ${winningRoll}`);
       }
 
       // Deduct DKP from winner
@@ -386,7 +388,7 @@ router.post('/:auctionId/end', adminLimiter, authenticateToken, authorizeRole(['
     req.app.get('io').emit('auction_ended', eventData);
     res.json(eventData);
   } catch (error) {
-    console.error('End auction error:', error);
+    log.error('End auction error', error);
     res.status(500).json({ error: 'Failed to end auction' });
   }
 });
@@ -403,7 +405,7 @@ router.post('/:auctionId/cancel', adminLimiter, authenticateToken, authorizeRole
     req.app.get('io').emit('auction_cancelled', { auctionId });
     res.json({ message: 'Auction cancelled' });
   } catch (error) {
-    console.error('Cancel auction error:', error);
+    log.error('Cancel auction error', error);
     res.status(500).json({ error: 'Failed to cancel auction' });
   }
 });
@@ -418,7 +420,7 @@ router.post('/cancel-all', adminLimiter, authenticateToken, authorizeRole(['admi
     req.app.get('io').emit('auctions_cleared', { count: result.changes });
     res.json({ message: `Cancelled ${result.changes} active auctions` });
   } catch (error) {
-    console.error('Cancel all auctions error:', error);
+    log.error('Cancel all auctions error', error);
     res.status(500).json({ error: 'Failed to cancel auctions' });
   }
 });
@@ -491,7 +493,7 @@ router.get('/history', authenticateToken, async (req, res) => {
 
     res.json(formatted);
   } catch (error) {
-    console.error('Auction history error:', error);
+    log.error('Auction history error', error);
     res.status(500).json({ error: 'Failed to get auction history' });
   }
 });
@@ -518,7 +520,7 @@ router.get('/:auctionId/rolls', authenticateToken, async (req, res) => {
       createdAt: r.created_at
     })));
   } catch (error) {
-    console.error('Get auction rolls error:', error);
+    log.error('Get auction rolls error', error);
     res.status(500).json({ error: 'Failed to get auction rolls' });
   }
 });
@@ -544,7 +546,7 @@ router.get('/:auctionId/bids', authenticateToken, async (req, res) => {
       createdAt: b.created_at
     })));
   } catch (error) {
-    console.error('Get auction bids error:', error);
+    log.error('Get auction bids error', error);
     res.status(500).json({ error: 'Failed to get auction bids' });
   }
 });

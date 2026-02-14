@@ -6,7 +6,9 @@ import { discoverMythicDungeons, fetchRaidItemsMultiLang } from './blizzardAPI.j
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { createLogger } from '../lib/logger.js';
 
+const log = createLogger('Service:DungeonItems');
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -76,7 +78,7 @@ export async function getAllDungeonItems() {
       saveCache(allItems);
       cachedItems = allItems;
       lastCheck = Date.now();
-      console.log(`Loaded ${allItems.length} M+ dungeon items from ${dungeons.length} dungeons`);
+      log.info(`Loaded ${allItems.length} M+ dungeon items from ${dungeons.length} dungeons`);
     }
 
     return allItems;

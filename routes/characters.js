@@ -1,6 +1,9 @@
 import { Router } from 'express';
 import { db } from '../database.js';
 import { authenticateToken } from '../middleware/auth.js';
+import { createLogger } from '../lib/logger.js';
+
+const log = createLogger('Route:Characters');
 const router = Router();
 
 // Get current user's characters
@@ -23,7 +26,7 @@ router.get('/', authenticateToken, async (req, res) => {
       createdAt: c.created_at
     })));
   } catch (error) {
-    console.error('Get characters error:', error);
+    log.error('Get characters error', error);
     res.status(500).json({ error: 'Failed to get characters' });
   }
 });
@@ -90,7 +93,7 @@ router.post('/', authenticateToken, async (req, res) => {
       isPrimary: !!charRecord?.is_primary
     });
   } catch (error) {
-    console.error('Create character error:', error);
+    log.error('Create character error', error);
     res.status(500).json({ error: 'Failed to create character' });
   }
 });
@@ -128,7 +131,7 @@ router.put('/:id', authenticateToken, async (req, res) => {
 
     res.json({ message: 'Character updated' });
   } catch (error) {
-    console.error('Update character error:', error);
+    log.error('Update character error', error);
     res.status(500).json({ error: 'Failed to update character' });
   }
 });
@@ -158,7 +161,7 @@ router.delete('/:id', authenticateToken, async (req, res) => {
     await db.run('DELETE FROM characters WHERE id = ?', id);
     res.json({ message: 'Character deleted' });
   } catch (error) {
-    console.error('Delete character error:', error);
+    log.error('Delete character error', error);
     res.status(500).json({ error: 'Failed to delete character' });
   }
 });
@@ -187,7 +190,7 @@ router.put('/:id/primary', authenticateToken, async (req, res) => {
     req.app.get('io').emit('member_updated', { memberId: userId });
     res.json({ message: 'Primary character updated' });
   } catch (error) {
-    console.error('Set primary character error:', error);
+    log.error('Set primary character error', error);
     res.status(500).json({ error: 'Failed to set primary character' });
   }
 });

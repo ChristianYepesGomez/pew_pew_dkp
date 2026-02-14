@@ -7,7 +7,9 @@ import { processWarcraftLog, isConfigured as isWCLConfigured, getGuildReports, g
 import { processExtendedFightData } from '../services/performanceAnalysis.js';
 import { seedRaidData, processFightStats, recordPlayerDeaths, recordPlayerPerformance } from '../services/raids.js';
 import { processReportPopularity } from '../services/itemPopularity.js';
+import { createLogger } from '../lib/logger.js';
 
+const log = createLogger('Route:WarcraftLogs');
 const router = Router();
 
 // Get DKP configuration
@@ -29,7 +31,7 @@ router.get('/config', authenticateToken, authorizeRole(['admin', 'officer']), as
       config: configObj
     });
   } catch (error) {
-    console.error('Get WCL config error:', error);
+    log.error('Get WCL config error', error);
     res.status(500).json({ error: 'Failed to get configuration' });
   }
 });
@@ -54,7 +56,7 @@ router.put('/config', adminLimiter, authenticateToken, authorizeRole(['admin']),
 
     res.json({ message: 'Configuration updated', config_key, config_value });
   } catch (error) {
-    console.error('Update WCL config error:', error);
+    log.error('Update WCL config error', error);
     res.status(500).json({ error: 'Failed to update configuration' });
   }
 });
@@ -186,7 +188,7 @@ router.post('/preview', adminLimiter, authenticateToken, authorizeRole(['admin',
     });
 
   } catch (error) {
-    console.error('Error previewing Warcraft Log:', error);
+    log.error('Error previewing Warcraft Log', error);
     res.status(500).json({
       error: 'Failed to process Warcraft Log'
     });
@@ -349,18 +351,18 @@ router.post('/confirm', adminLimiter, authenticateToken, authorizeRole(['admin',
             }
 
             if (totalDeathsRecorded > 0 || wipeDeathsFiltered > 0) {
-              console.log(`💀 Recorded ${totalDeathsRecorded} deaths from ${reportCode}${wipeDeathsFiltered > 0 ? ` (${wipeDeathsFiltered} wipe deaths filtered out)` : ''}`);
+              log.info(`Recorded ${totalDeathsRecorded} deaths from ${reportCode}${wipeDeathsFiltered > 0 ? ` (${wipeDeathsFiltered} wipe deaths filtered out)` : ''}`);
             }
             if (performanceRecorded > 0) {
-              console.log(`📈 Recorded performance for ${performanceRecorded} fights from ${reportCode}`);
+              log.info(`Recorded performance for ${performanceRecorded} fights from ${reportCode}`);
             }
           }
 
           if (statsProcessed > 0) {
-            console.log(`📊 Boss stats updated: ${statsProcessed} fights from ${reportCode}`);
+            log.info(`Boss stats updated: ${statsProcessed} fights from ${reportCode}`);
           }
         } catch (err) {
-          console.error('Error processing fight stats:', err);
+          log.error('Error processing fight stats', err);
         }
       })();
     }
@@ -376,7 +378,7 @@ router.post('/confirm', adminLimiter, authenticateToken, authorizeRole(['admin',
     if (error.message === 'ALREADY_PROCESSED') {
       return res.status(409).json({ error: 'This report has already been processed' });
     }
-    console.error('Error confirming Warcraft Log:', error);
+    log.error('Error confirming Warcraft Log', error);
     res.status(500).json({
       error: 'Failed to assign DKP'
     });
@@ -400,7 +402,7 @@ router.get('/history', authenticateToken, async (req, res) => {
 
     res.json(history);
   } catch (error) {
-    console.error('WCL history error:', error);
+    log.error('WCL history error', error);
     res.status(500).json({ error: 'Failed to get WCL history' });
   }
 });
@@ -436,7 +438,7 @@ router.get('/report/:code/transactions', authenticateToken, async (req, res) => 
 
     res.json({ report, transactions });
   } catch (error) {
-    console.error('WCL report transactions error:', error);
+    log.error('WCL report transactions error', error);
     res.status(500).json({ error: 'Failed to get report transactions' });
   }
 });
@@ -505,7 +507,7 @@ router.post('/revert/:reportCode', adminLimiter, authenticateToken, authorizeRol
 
     res.json({ message: 'DKP reverted successfully', report_code: reportCode });
   } catch (error) {
-    console.error('WCL revert error:', error);
+    log.error('WCL revert error', error);
     res.status(500).json({ error: 'Failed to revert DKP' });
   }
 });
@@ -548,7 +550,7 @@ router.get('/guild-reports', authenticateToken, authorizeRole(['admin', 'officer
 
     res.json(reports);
   } catch (error) {
-    console.error('Guild reports error:', error);
+    log.error('Guild reports error', error);
     res.status(500).json({ error: 'Failed to fetch guild reports' });
   }
 });
@@ -604,7 +606,7 @@ router.post('/import-boss-stats', adminLimiter, authenticateToken, authorizeRole
       }
     }
 
-    console.log(`📊 Boss stats imported from ${reportData.code}: ${statsProcessed} processed, ${statsSkipped} skipped`);
+    log.info(`Boss stats imported from ${reportData.code}: ${statsProcessed} processed, ${statsSkipped} skipped`);
 
     // Record player performance (damage, healing, deaths) in background
     if (processedBosses.length > 0 && Object.keys(participantUserMap).length > 0) {
@@ -643,7 +645,7 @@ router.post('/import-boss-stats', adminLimiter, authenticateToken, authorizeRole
           }
 
           if (performanceRecorded > 0 || deathsRecorded > 0) {
-            console.log(`📈 Import performance: ${performanceRecorded} fights, ${deathsRecorded} deaths from ${reportData.code}`);
+            log.info(`Import performance: ${performanceRecorded} fights, ${deathsRecorded} deaths from ${reportData.code}`);
           }
 
           // Process extended fight data for deep performance analysis
@@ -662,7 +664,7 @@ router.post('/import-boss-stats', adminLimiter, authenticateToken, authorizeRole
             }
           }
           if (extendedRecorded > 0) {
-            console.log(`🔬 Extended performance: ${extendedRecorded} player-fight records from ${reportData.code}`);
+            log.info(`Extended performance: ${extendedRecorded} player-fight records from ${reportData.code}`);
           }
 
           // Process item popularity from kill fights
@@ -675,7 +677,7 @@ router.post('/import-boss-stats', adminLimiter, authenticateToken, authorizeRole
             }
           }
         } catch (err) {
-          console.error('Error recording import performance:', err);
+          log.error('Error recording import performance', err);
         }
       })();
     }
@@ -704,7 +706,7 @@ router.post('/import-boss-stats', adminLimiter, authenticateToken, authorizeRole
       }))
     });
   } catch (error) {
-    console.error('Import boss stats error:', error);
+    log.error('Import boss stats error', error);
     res.status(500).json({ error: error.message || 'Failed to import boss statistics' });
   }
 });
@@ -758,7 +760,7 @@ router.get('/pending-reports', authenticateToken, authorizeRole(['admin', 'offic
       processed: processedCodes.size,
     });
   } catch (error) {
-    console.error('Get pending reports error:', error);
+    log.error('Get pending reports error', error);
     res.status(500).json({ error: error.message || 'Failed to fetch pending reports' });
   }
 });
@@ -846,7 +848,7 @@ router.post('/auto-process/:code', adminLimiter, authenticateToken, authorizeRol
       message: 'Report previewed. Call confirm endpoint to apply DKP.',
     });
   } catch (error) {
-    console.error('Auto-process report error:', error);
+    log.error('Auto-process report error', error);
     res.status(500).json({ error: error.message || 'Failed to process report' });
   }
 });

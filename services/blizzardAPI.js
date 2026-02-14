@@ -6,7 +6,9 @@ import axios from 'axios';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { createLogger } from '../lib/logger.js';
 
+const log = createLogger('Service:BlizzardAPI');
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -103,7 +105,7 @@ async function getAccessToken() {
     tokenExpiry = Date.now() + (response.data.expires_in * 1000) - 60000; // Refresh 1 minute early
     return accessToken;
   } catch (error) {
-    console.error('Error getting Blizzard access token:', error.message);
+    log.error('Error getting Blizzard access token', error);
     throw error;
   }
 }
@@ -126,7 +128,7 @@ async function apiRequest(endpoint, params = {}, namespace = null) {
     });
     return response.data;
   } catch (error) {
-    console.error(`API request failed for ${endpoint}:`, error.message);
+    log.error(`API request failed for ${endpoint}`, error);
     throw error;
   }
 }
@@ -246,17 +248,17 @@ function mapSlot(inventoryType) {
 
 // Fetch all items for a raid instance
 async function fetchRaidItems(instanceId) {
-  console.log(`Fetching items for raid instance ${instanceId}...`);
+  log.info(`Fetching items for raid instance ${instanceId}...`);
 
   const instance = await getJournalInstance(instanceId);
   const items = [];
   const seenIds = new Set();
 
-  console.log(`Found raid: ${instance.name} with ${instance.encounters?.length || 0} encounters`);
+  log.info(`Found raid: ${instance.name} with ${instance.encounters?.length || 0} encounters`);
 
   for (const encounterRef of instance.encounters || []) {
     const encounter = await getJournalEncounter(encounterRef.id);
-    console.log(`  Processing boss: ${encounter.name}`);
+    log.info(`  Processing boss: ${encounter.name}`);
 
     for (const itemRef of encounter.items || []) {
       try {
@@ -303,18 +305,18 @@ async function fetchRaidItems(instanceId) {
 
 // Fetch items in both languages
 async function fetchRaidItemsMultiLang(instanceId) {
-  console.log(`Fetching items in multiple languages for instance ${instanceId}...`);
+  log.info(`Fetching items in multiple languages for instance ${instanceId}...`);
 
   // Fetch in English first (for consistent slot names)
   const originalLocale = CONFIG.locale;
   CONFIG.locale = 'en_US';
   const englishItems = await fetchRaidItems(instanceId);
-  console.log(`  Fetched ${englishItems.length} items in English`);
+  log.info(`  Fetched ${englishItems.length} items in English`);
 
   // Fetch in Spanish
   CONFIG.locale = 'es_ES';
   const spanishItems = await fetchRaidItems(instanceId);
-  console.log(`  Fetched ${spanishItems.length} items in Spanish`);
+  log.info(`  Fetched ${spanishItems.length} items in Spanish`);
 
   CONFIG.locale = originalLocale;
 
@@ -370,7 +372,7 @@ async function fetchRaidItemsMultiLang(instanceId) {
     }
   }
 
-  console.log(`  Merged ${mergedItems.length} unique items`);
+  log.info(`  Merged ${mergedItems.length} unique items`);
   return mergedItems;
 }
 
@@ -380,7 +382,7 @@ function loadCache() {
     if (fs.existsSync(CONFIG.cacheFile)) {
       const data = JSON.parse(fs.readFileSync(CONFIG.cacheFile, 'utf8'));
       if (Date.now() - data.timestamp < CONFIG.cacheDuration) {
-        console.log('Using cached raid items data');
+        log.info('Using cached raid items data');
         return data.items;
       }
     }
@@ -401,7 +403,7 @@ function saveCache(items) {
       timestamp: Date.now(),
       items,
     }, null, 2));
-    console.log('Saved raid items to cache');
+    log.info('Saved raid items to cache');
   } catch (error) {
     console.warn('Failed to save cache:', error.message);
   }
@@ -422,7 +424,7 @@ export async function getCurrentRaidItems(forceRefresh = false) {
       if (fs.existsSync(CONFIG.cacheFile)) {
         const data = JSON.parse(fs.readFileSync(CONFIG.cacheFile, 'utf8'));
         if (data.items && data.items.length > 0) {
-          console.log(`Using cached raid items (${data.items.length} items) - API not configured`);
+          log.info(`Using cached raid items (${data.items.length} items) - API not configured`);
           return data.items;
         }
       }
@@ -444,7 +446,7 @@ export async function getCurrentRaidItems(forceRefresh = false) {
 
     return allItems;
   } catch (error) {
-    console.error('Failed to fetch raid items from Blizzard API:', error.message);
+    log.error('Failed to fetch raid items from Blizzard API', error);
 
     // Try to use stale cache
     try {
@@ -479,7 +481,7 @@ export async function getAvailableRaids() {
 
     return raids;
   } catch (error) {
-    console.error('Failed to get available raids:', error.message);
+    log.error('Failed to get available raids', error);
     return [];
   }
 }
@@ -761,7 +763,7 @@ export async function getCharacterEquipment(realmSlug, characterName) {
     if (error.response?.status === 404) {
       return { error: 'Character not found or profile is private' };
     }
-    console.error(`Failed to fetch equipment for ${characterName}-${realmSlug}:`, error.message);
+    log.error(`Failed to fetch equipment for ${characterName}-${realmSlug}`, error);
     throw error;
   }
 }

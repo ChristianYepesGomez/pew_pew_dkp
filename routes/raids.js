@@ -1,7 +1,9 @@
 import { Router } from 'express';
 import { db } from '../database.js';
 import { authenticateToken, authorizeRole } from '../middleware/auth.js';
+import { createLogger } from '../lib/logger.js';
 
+const log = createLogger('Route:Raids');
 const router = Router();
 
 // Create raid event (officer+)
@@ -16,7 +18,7 @@ router.post('/', authenticateToken, authorizeRole(['admin', 'officer']), async (
 
     res.status(201).json({ id: result.lastInsertRowid, message: 'Raid created' });
   } catch (error) {
-    console.error('Create raid error:', error);
+    log.error('Create raid error', error);
     res.status(500).json({ error: 'Failed to create raid' });
   }
 });
@@ -55,7 +57,7 @@ router.post('/:raidId/attendance', authenticateToken, authorizeRole(['admin', 'o
     req.app.get('io').emit('attendance_recorded', { raidId, attendees, dkpReward: raid.dkp_reward });
     res.json({ message: `Attendance recorded for ${attendees.length} members` });
   } catch (error) {
-    console.error('Record attendance error:', error);
+    log.error('Record attendance error', error);
     res.status(500).json({ error: 'Failed to record attendance' });
   }
 });

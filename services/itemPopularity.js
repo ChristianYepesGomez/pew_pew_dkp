@@ -3,6 +3,9 @@
 
 import { db } from '../database.js';
 import { getFightCombatantInfo } from './warcraftlogs.js';
+import { createLogger } from '../lib/logger.js';
+
+const log = createLogger('Service:ItemPopularity');
 
 // WCL gear slot index → slot name mapping
 const GEAR_SLOT_MAP = {
@@ -50,7 +53,7 @@ export async function processReportPopularity(reportCode, killFights) {
       }
     }
 
-    console.log(`📊 Item popularity: processed ${players.length} players from ${reportCode}`);
+    log.info(`Item popularity: processed ${players.length} players from ${reportCode}`);
   } catch (error) {
     console.warn('Error processing item popularity:', error.message);
   }

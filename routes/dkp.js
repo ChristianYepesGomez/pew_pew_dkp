@@ -3,7 +3,9 @@ import { db } from '../database.js';
 import { authenticateToken, authorizeRole } from '../middleware/auth.js';
 import { adminLimiter } from '../lib/rateLimiters.js';
 import { addDkpWithCap } from '../lib/helpers.js';
+import { createLogger } from '../lib/logger.js';
 
+const log = createLogger('Route:DKP');
 const router = Router();
 
 // Adjust DKP for single member (officer+)
@@ -53,7 +55,7 @@ router.post('/adjust', adminLimiter, authenticateToken, authorizeRole(['admin', 
     req.app.get('io').emit('dkp_updated', { userId, newDkp, amount });
     res.json({ message: 'DKP adjusted', newDkp });
   } catch (error) {
-    console.error('Adjust DKP error:', error);
+    log.error('Adjust DKP error', error);
     res.status(500).json({ error: 'Failed to adjust DKP' });
   }
 });
@@ -95,7 +97,7 @@ router.post('/bulk-adjust', adminLimiter, authenticateToken, authorizeRole(['adm
     req.app.get('io').emit('dkp_bulk_updated', { userIds, amount });
     res.json({ message: `DKP adjusted for ${userIds.length} members` });
   } catch (error) {
-    console.error('Bulk adjust error:', error);
+    log.error('Bulk adjust error', error);
     res.status(500).json({ error: 'Failed to bulk adjust DKP' });
   }
 });
@@ -138,7 +140,7 @@ router.post('/decay', adminLimiter, authenticateToken, authorizeRole(['admin']),
     req.app.get('io').emit('dkp_decay_applied', { percentage });
     res.json({ message: `${percentage}% DKP decay applied` });
   } catch (error) {
-    console.error('DKP decay error:', error);
+    log.error('DKP decay error', error);
     res.status(500).json({ error: 'Failed to apply DKP decay' });
   }
 });
@@ -197,7 +199,7 @@ router.get('/history/:userId', authenticateToken, async (req, res) => {
       }))
     });
   } catch (error) {
-    console.error('DKP history error:', error);
+    log.error('DKP history error', error);
     res.status(500).json({ error: 'Failed to get DKP history' });
   }
 });

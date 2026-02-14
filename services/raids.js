@@ -4,6 +4,9 @@
  */
 
 import { db } from '../database.js';
+import { createLogger } from '../lib/logger.js';
+
+const log = createLogger('Service:Raids');
 
 // ── Static Data: Current Expansion Raids ──────────────────────────────
 
@@ -95,7 +98,7 @@ function getMythicTrapBossImage(raidSlug, bossSlug) {
  * Seed initial raid/boss data from static definitions
  */
 export async function seedRaidData() {
-  console.log('🏰 Seeding raid/boss data...');
+  log.info('Seeding raid/boss data...');
 
   for (const [expansion, data] of Object.entries(EXPANSION_DATA)) {
     for (const tierData of data.tiers) {
@@ -163,7 +166,7 @@ export async function seedRaidData() {
     }
   }
 
-  console.log('✅ Raid/boss data seeded');
+  log.info('Raid/boss data seeded');
 }
 
 /**
@@ -465,7 +468,7 @@ export async function processFightStats(reportCode, fight, difficulty) {
           newKills, newTotalKillTime, newAvgKillTime, newFastest,
           existingStats.total_wipes, existingStats.id
         );
-        console.log(`🎉 First kill on boss ${boss.id} (${normalizedDifficulty})! Took ${existingStats.total_wipes} wipes.`);
+        log.info(`First kill on boss ${boss.id} (${normalizedDifficulty})! Took ${existingStats.total_wipes} wipes.`);
       } else {
         await db.run(
           `UPDATE boss_statistics SET
@@ -647,7 +650,7 @@ async function checkAndUpdateRecord(bossId, difficulty, recordType, userId, valu
        WHERE id = ?`,
       userId, value, characterName, characterClass, reportCode, fightId, existing.id
     );
-    console.log(`🏆 New ${recordType} record for boss ${bossId}: ${characterName} with ${formatNumber(value)}`);
+    log.info(`New ${recordType} record for boss ${bossId}: ${characterName} with ${formatNumber(value)}`);
   }
 }
 

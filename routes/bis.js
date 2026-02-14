@@ -1,7 +1,9 @@
 import { Router } from 'express';
 import { db } from '../database.js';
 import { authenticateToken } from '../middleware/auth.js';
+import { createLogger } from '../lib/logger.js';
 
+const log = createLogger('Route:BIS');
 const router = Router();
 
 // Get my BIS list
@@ -13,7 +15,7 @@ router.get('/my', authenticateToken, async (req, res) => {
     );
     res.json(items);
   } catch (error) {
-    console.error('Get my BIS error:', error);
+    log.error('Get my BIS error', error);
     res.status(500).json({ error: 'Failed to get BIS list' });
   }
 });
@@ -30,7 +32,7 @@ router.get('/user/:userId', authenticateToken, async (req, res) => {
     );
     res.json(items);
   } catch (error) {
-    console.error('Get user BIS error:', error);
+    log.error('Get user BIS error', error);
     res.status(500).json({ error: 'Failed to get BIS list' });
   }
 });
@@ -51,7 +53,7 @@ router.get('/item/:itemId', authenticateToken, async (req, res) => {
     `, itemId);
     res.json(results);
   } catch (error) {
-    console.error('Get BIS item users error:', error);
+    log.error('Get BIS item users error', error);
     res.status(500).json({ error: 'Failed to get BIS item data' });
   }
 });
@@ -76,7 +78,7 @@ router.post('/', authenticateToken, async (req, res) => {
     if (error.message?.includes('UNIQUE constraint')) {
       return res.status(409).json({ error: 'Item already in your BIS list' });
     }
-    console.error('Add BIS item error:', error);
+    log.error('Add BIS item error', error);
     res.status(500).json({ error: 'Failed to add BIS item' });
   }
 });
@@ -106,7 +108,7 @@ router.put('/reorder', authenticateToken, async (req, res) => {
     if (error.message === 'UNAUTHORIZED_ITEM') {
       return res.status(403).json({ error: 'Cannot reorder items that are not yours' });
     }
-    console.error('Reorder BIS error:', error);
+    log.error('Reorder BIS error', error);
     res.status(500).json({ error: 'Failed to reorder BIS items' });
   }
 });
@@ -134,7 +136,7 @@ router.put('/:id', authenticateToken, async (req, res) => {
     const updated = await db.get('SELECT * FROM bis_items WHERE id = ?', id);
     res.json(updated);
   } catch (error) {
-    console.error('Update BIS item error:', error);
+    log.error('Update BIS item error', error);
     res.status(500).json({ error: 'Failed to update BIS item' });
   }
 });
@@ -152,7 +154,7 @@ router.delete('/:id', authenticateToken, async (req, res) => {
     await db.run('DELETE FROM bis_items WHERE id = ?', id);
     res.json({ message: 'BIS item removed' });
   } catch (error) {
-    console.error('Delete BIS item error:', error);
+    log.error('Delete BIS item error', error);
     res.status(500).json({ error: 'Failed to delete BIS item' });
   }
 });

@@ -1,5 +1,7 @@
 import nodemailer from 'nodemailer';
+import { createLogger } from '../lib/logger.js';
 
+const log = createLogger('Service:Email');
 let transporter = null;
 
 function getTransporter() {
@@ -27,7 +29,7 @@ export async function sendPasswordResetEmail(toEmail, username, resetUrl) {
   const mail = getTransporter();
 
   if (!mail) {
-    console.log(`[Email not configured] Reset link for ${username}: ${resetUrl}`);
+    log.info(`[Email not configured] Reset link for ${username}: ${resetUrl}`);
     return false;
   }
 

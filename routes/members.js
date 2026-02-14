@@ -4,7 +4,9 @@ import { db } from '../database.js';
 import { authenticateToken, authorizeRole } from '../middleware/auth.js';
 import { adminLimiter } from '../lib/rateLimiters.js';
 import { getCachedConfig, getCurrentRaidWeek, addDkpWithCap } from '../lib/helpers.js';
+import { createLogger } from '../lib/logger.js';
 
+const log = createLogger('Route:Members');
 const router = Router();
 
 // Get all members with DKP (sorted by DKP descending)
@@ -43,7 +45,7 @@ router.get('/', authenticateToken, async (req, res) => {
       dkpCap
     })));
   } catch (error) {
-    console.error('Get members error:', error);
+    log.error('Get members error', error);
     res.status(500).json({ error: 'Failed to get members' });
   }
 });
@@ -65,7 +67,7 @@ router.put('/:id/role', adminLimiter, authenticateToken, authorizeRole(['admin']
     req.app.get('io').emit('member_updated', { memberId: id });
     res.json({ message: 'Role updated successfully' });
   } catch (error) {
-    console.error('Update role error:', error);
+    log.error('Update role error', error);
     res.status(500).json({ error: 'Failed to update role' });
   }
 });
@@ -118,7 +120,7 @@ router.put('/:id/vault', adminLimiter, authenticateToken, authorizeRole(['admin'
       res.json({ message: 'Vault marked as completed', completed: true });
     }
   } catch (error) {
-    console.error('Toggle vault error:', error);
+    log.error('Toggle vault error', error);
     res.status(500).json({ error: 'Failed to toggle vault status' });
   }
 });
@@ -138,11 +140,11 @@ vaultRouter.post('/cron/process-vault', async (req, res) => {
     const providedSecret = req.headers['x-cron-secret'] || req.query.secret;
 
     if (!cronSecret || providedSecret !== cronSecret) {
-      console.log('⚠️ Cron vault: Invalid or missing secret');
+      log.info('Cron vault: Invalid or missing secret');
       return res.status(401).json({ error: 'Unauthorized' });
     }
 
-    console.log('⏰ Cron: Processing weekly vault rewards...');
+    log.info('Cron: Processing weekly vault rewards...');
 
     const currentWeek = getCurrentRaidWeek();
     const vaultDkp = parseInt(await getCachedConfig('weekly_vault_dkp', '10'), 10);
@@ -157,7 +159,7 @@ vaultRouter.post('/cron/process-vault', async (req, res) => {
     `, currentWeek);
 
     if (completedMembers.length === 0) {
-      console.log('⏰ Cron: No vault completions to process');
+      log.info('Cron: No vault completions to process');
       return res.json({
         message: 'No vault completions to process',
         processed: 0,
@@ -201,7 +203,7 @@ vaultRouter.post('/cron/process-vault', async (req, res) => {
       `, currentWeek);
     });
 
-    console.log(`✅ Cron: Processed ${completedMembers.length} vault completions, awarded ${totalDkpAwarded} DKP`);
+    log.info(`Cron: Processed ${completedMembers.length} vault completions, awarded ${totalDkpAwarded} DKP`);
 
     res.json({
       message: `Processed ${completedMembers.length} vault completions`,
@@ -210,7 +212,7 @@ vaultRouter.post('/cron/process-vault', async (req, res) => {
       members: processedMembers
     });
   } catch (error) {
-    console.error('Cron process vault error:', error);
+    log.error('Cron process vault error', error);
     res.status(500).json({ error: 'Failed to process weekly vault' });
   }
 });
@@ -282,7 +284,7 @@ vaultRouter.post('/admin/vault/process-weekly', adminLimiter, authenticateToken,
       members: processedMembers
     });
   } catch (error) {
-    console.error('Process weekly vault error:', error);
+    log.error('Process weekly vault error', error);
     res.status(500).json({ error: 'Failed to process weekly vault' });
   }
 });
@@ -326,7 +328,7 @@ vaultRouter.get('/admin/vault/status', adminLimiter, authenticateToken, authoriz
       }))
     });
   } catch (error) {
-    console.error('Get vault status error:', error);
+    log.error('Get vault status error', error);
     res.status(500).json({ error: 'Failed to get vault status' });
   }
 });
@@ -382,7 +384,7 @@ router.delete('/:id', adminLimiter, authenticateToken, authorizeRole(['admin']),
     io.emit('auction_ended');
     res.json({ message: 'Member deactivated', member: member.character_name });
   } catch (error) {
-    console.error('Deactivate member error:', error);
+    log.error('Deactivate member error', error);
     res.status(500).json({ error: 'Failed to deactivate member' });
   }
 });
@@ -433,7 +435,7 @@ router.post('/', adminLimiter, authenticateToken, authorizeRole(['admin', 'offic
       }
     });
   } catch (error) {
-    console.error('Create member error:', error);
+    log.error('Create member error', error);
     res.status(500).json({ error: 'Failed to create member' });
   }
 });

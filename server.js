@@ -40,6 +40,12 @@ import warcraftlogsRoutes from './routes/warcraftlogs.js';
 import analyticsRoutes from './routes/analytics.js';
 
 const app = express();
+
+// Trust first proxy (required for rate limiting behind Render/Cloudflare)
+if (process.env.NODE_ENV === 'production') {
+  app.set('trust proxy', 1);
+}
+
 const server = createServer(app);
 
 // CORS - support comma-separated origins and strip trailing slashes

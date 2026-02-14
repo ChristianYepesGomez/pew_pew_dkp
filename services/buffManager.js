@@ -4,6 +4,9 @@
  */
 
 import { db } from '../database.js';
+import { createLogger } from '../lib/logger.js';
+
+const log = createLogger('Service:BuffManager');
 
 // Connected SSE clients
 const clients = new Map();
@@ -85,7 +88,7 @@ let members = [];
 export function startBuffManager() {
   if (buffIntervalId) return; // Already running
 
-  console.log('🎮 Starting global buff manager...');
+  log.info('Starting global buff manager...');
 
   let lastMemberRefresh = 0;
   const MEMBER_REFRESH_INTERVAL = 5 * 60 * 1000; // Refresh members every 5 minutes
@@ -116,7 +119,7 @@ export function stopBuffManager() {
   if (buffIntervalId) {
     clearTimeout(buffIntervalId);
     buffIntervalId = null;
-    console.log('🛑 Stopped global buff manager');
+    log.info('Stopped global buff manager');
   }
 }
 
@@ -131,9 +134,9 @@ async function refreshMembers() {
       FROM users u
       WHERE u.is_active = 1 AND u.character_name IS NOT NULL AND u.character_class IS NOT NULL
     `);
-    console.log(`📊 Buff manager: ${members.length} active members loaded`);
+    log.info(`Buff manager: ${members.length} active members loaded`);
   } catch (err) {
-    console.error('Error refreshing members for buff manager:', err);
+    log.error('Error refreshing members for buff manager', err);
     members = [];
   }
 }
@@ -143,14 +146,14 @@ async function refreshMembers() {
  */
 function applyRandomBuff() {
   if (members.length === 0) {
-    console.log('⚠️ Buff manager: No members available');
+    log.info('Buff manager: No members available');
     return;
   }
 
   // Pick a random caster
   const caster = members[Math.floor(Math.random() * members.length)];
   if (!caster.character_class) {
-    console.log(`⚠️ Buff manager: Caster ${caster.character_name} has no class`);
+    log.info(`Buff manager: Caster ${caster.character_name} has no class`);
     return;
   }
 
@@ -241,7 +244,7 @@ function applyRandomBuff() {
 
   broadcast(event);
 
-  console.log(`🌟 ${caster.character_name} cast ${buff.name}${buff.raidWide ? ' (RAID-WIDE)' : ''} on ${targets.length} target(s)`);
+  log.info(`${caster.character_name} cast ${buff.name}${buff.raidWide ? ' (RAID-WIDE)' : ''} on ${targets.length} target(s)`);
 
   // Schedule buff expiration cleanup
   setTimeout(() => {
@@ -259,7 +262,7 @@ function applyRandomBuff() {
  */
 export function registerClient(clientId, res) {
   clients.set(clientId, res);
-  console.log(`📡 SSE client connected: ${clientId} (total: ${clients.size})`);
+  log.info(`SSE client connected: ${clientId} (total: ${clients.size})`);
 
   // Send current active buffs to the new client
   const currentBuffs = {};
@@ -283,7 +286,7 @@ export function registerClient(clientId, res) {
  */
 export function unregisterClient(clientId) {
   clients.delete(clientId);
-  console.log(`📡 SSE client disconnected: ${clientId} (total: ${clients.size})`);
+  log.info(`SSE client disconnected: ${clientId} (total: ${clients.size})`);
 }
 
 /**
@@ -295,7 +298,7 @@ function sendToClient(clientId, data) {
     try {
       client.write(`data: ${JSON.stringify(data)}\n\n`);
     } catch (error) {
-      console.error(`SSE write error for client ${clientId}:`, error.message);
+      log.error(`SSE write error for client ${clientId}`, error);
       clients.delete(clientId);
     }
   }
@@ -310,7 +313,7 @@ function broadcast(data) {
     try {
       client.write(message);
     } catch (error) {
-      console.error(`SSE broadcast error for client ${clientId}:`, error.message);
+      log.error(`SSE broadcast error for client ${clientId}`, error);
       clients.delete(clientId);
     }
   }

@@ -4,7 +4,9 @@ import { authenticateToken } from '../middleware/auth.js';
 import { authLimiter } from '../lib/rateLimiters.js';
 import { getBlizzardOAuthUrl, getUserToken, getUserCharacters, isBlizzardOAuthConfigured } from '../services/blizzardAPI.js';
 import { JWT_SECRET, FRONTEND_URL } from '../lib/config.js';
+import { createLogger } from '../lib/logger.js';
 
+const log = createLogger('Route:Blizzard');
 const router = Router();
 
 function toBase64Url(data) {
@@ -62,10 +64,10 @@ router.get('/callback', authLimiter, async (req, res) => {
     const userToken = await getUserToken(code, redirectUri);
     const characters = await getUserCharacters(userToken);
 
-    console.log(`Blizzard OAuth: fetched ${characters.length} characters for user ${decoded.userId}`);
+    log.info(`Blizzard OAuth: fetched ${characters.length} characters for user ${decoded.userId}`);
     res.redirect(`${frontendUrl}/blizzard-callback.html#data=${toBase64Url({ characters })}`);
   } catch (err) {
-    console.error('Blizzard OAuth callback error:', err.message);
+    log.error('Blizzard OAuth callback error', err);
     res.redirect(`${frontendUrl}/blizzard-callback.html#data=${toBase64Url({ error: 'Failed to fetch characters from Blizzard. Please try again.' })}`);
   }
 });

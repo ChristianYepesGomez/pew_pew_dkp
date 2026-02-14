@@ -2,7 +2,9 @@ import { Router } from 'express';
 import { db } from '../database.js';
 import { authenticateToken } from '../middleware/auth.js';
 import { getPlayerDetailedPerformance } from '../services/performanceAnalysis.js';
+import { createLogger } from '../lib/logger.js';
 
+const log = createLogger('Route:Analytics');
 const router = Router();
 
 // Attendance analytics
@@ -36,7 +38,7 @@ router.get('/attendance', authenticateToken, async (req, res) => {
       weeks,
     });
   } catch (error) {
-    console.error('Analytics attendance error:', error);
+    log.error('Analytics attendance error', error);
     res.status(500).json({ error: 'Failed to get attendance analytics' });
   }
 });
@@ -61,7 +63,7 @@ router.get('/dkp-trends', authenticateToken, async (req, res) => {
 
     res.json(trends);
   } catch (error) {
-    console.error('Analytics DKP trends error:', error);
+    log.error('Analytics DKP trends error', error);
     res.status(500).json({ error: 'Failed to get DKP trends' });
   }
 });
@@ -103,7 +105,7 @@ router.get('/economy', authenticateToken, async (req, res) => {
       topMembers,
     });
   } catch (error) {
-    console.error('Analytics economy error:', error);
+    log.error('Analytics economy error', error);
     res.status(500).json({ error: 'Failed to get economy analytics' });
   }
 });
@@ -157,7 +159,7 @@ router.get('/auctions', authenticateToken, async (req, res) => {
 
     res.json({ ...stats, byRarity, weeklyTrend, topItems, weeks });
   } catch (error) {
-    console.error('Analytics auctions error:', error);
+    log.error('Analytics auctions error', error);
     res.status(500).json({ error: 'Failed to get auction analytics' });
   }
 });
@@ -197,7 +199,7 @@ router.get('/progression', authenticateToken, async (req, res) => {
 
     res.json(Object.values(byDifficulty));
   } catch (error) {
-    console.error('Analytics progression error:', error);
+    log.error('Analytics progression error', error);
     res.status(500).json({ error: 'Failed to get progression analytics' });
   }
 });
@@ -244,7 +246,7 @@ router.get('/superlatives', authenticateToken, async (req, res) => {
 
     res.json({ topDps, topHps, mostDeaths, mostFights, mostDamageTaken });
   } catch (error) {
-    console.error('Analytics superlatives error:', error);
+    log.error('Analytics superlatives error', error);
     res.status(500).json({ error: 'Failed to get superlatives' });
   }
 });
@@ -297,7 +299,7 @@ router.get('/my-performance', authenticateToken, async (req, res) => {
       recentReports,
     });
   } catch (error) {
-    console.error('My performance error:', error);
+    log.error('My performance error', error);
     res.status(500).json({ error: 'Failed to get performance data' });
   }
 });
@@ -313,7 +315,7 @@ router.get('/my-performance-detail', authenticateToken, async (req, res) => {
     const data = await getPlayerDetailedPerformance(userId, { weeks, bossId, difficulty });
     res.json(data);
   } catch (error) {
-    console.error('Performance detail error:', error);
+    log.error('Performance detail error', error);
     res.status(500).json({ error: 'Failed to get detailed performance' });
   }
 });
@@ -388,7 +390,7 @@ router.get('/guild-insights', authenticateToken, async (req, res) => {
       recentReports,
     });
   } catch (error) {
-    console.error('Guild insights error:', error);
+    log.error('Guild insights error', error);
     res.status(500).json({ error: 'Failed to get guild insights' });
   }
 });

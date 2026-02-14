@@ -7,7 +7,9 @@ import { authLimiter } from '../lib/rateLimiters.js';
 import { isValidEmail } from '../lib/helpers.js';
 import { sendPasswordResetEmail } from '../services/email.js';
 import { JWT_SECRET, FRONTEND_URL } from '../lib/config.js';
+import { createLogger } from '../lib/logger.js';
 
+const log = createLogger('Route:Auth');
 const router = Router();
 
 // Login
@@ -50,7 +52,7 @@ router.post('/login', authLimiter, async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Login error:', error);
+    log.error('Login error', error);
     res.status(500).json({ error: 'Login failed' });
   }
 });
@@ -105,7 +107,7 @@ router.post('/register', authLimiter, async (req, res) => {
       VALUES (?, 0, 0, 0, 'DPS')
     `, userId);
 
-    console.log(`New user registered: ${username} (email: ${email})`);
+    log.info(`New user registered: ${username} (email: ${email})`);
 
     res.status(201).json({
       message: 'Account created successfully',
@@ -113,7 +115,7 @@ router.post('/register', authLimiter, async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Registration error:', error);
+    log.error('Registration error', error);
     res.status(500).json({ error: 'Registration failed' });
   }
 });
@@ -156,7 +158,7 @@ router.post('/forgot-password', authLimiter, async (req, res) => {
     const emailSent = await sendPasswordResetEmail(user.email, user.username, resetUrl);
 
     if (!emailSent) {
-      console.log(`Password reset link for ${user.username}: ${resetUrl}`);
+      log.info(`Password reset link for ${user.username}: ${resetUrl}`);
     }
 
     res.json({
@@ -165,7 +167,7 @@ router.post('/forgot-password', authLimiter, async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Forgot password error:', error);
+    log.error('Forgot password error', error);
     res.status(500).json({ error: 'Request failed' });
   }
 });
@@ -207,7 +209,7 @@ router.post('/reset-password', authLimiter, async (req, res) => {
     res.json({ message: 'Password reset successfully' });
 
   } catch (error) {
-    console.error('Reset password error:', error);
+    log.error('Reset password error', error);
     res.status(500).json({ error: 'Password reset failed' });
   }
 });
@@ -242,7 +244,7 @@ router.post('/change-password', authenticateToken, async (req, res) => {
     res.json({ message: 'Password updated successfully' });
 
   } catch (error) {
-    console.error('Change password error:', error);
+    log.error('Change password error', error);
     res.status(500).json({ error: 'Failed to change password' });
   }
 });
@@ -271,7 +273,7 @@ router.post('/admin-reset-password', authenticateToken, authorizeRole(['admin', 
     res.json({ message: `Password reset successfully for ${user.character_name}` });
 
   } catch (error) {
-    console.error('Reset password error:', error);
+    log.error('Reset password error', error);
     res.status(500).json({ error: 'Failed to reset password' });
   }
 });
@@ -306,7 +308,7 @@ router.get('/me', authenticateToken, async (req, res) => {
       lifetimeSpent: user.lifetime_spent || 0
     });
   } catch (error) {
-    console.error('Get user error:', error);
+    log.error('Get user error', error);
     res.status(500).json({ error: 'Failed to get user info' });
   }
 });
@@ -376,7 +378,7 @@ router.put('/profile', authenticateToken, async (req, res) => {
 
     res.json({ message: 'Profile updated successfully' });
   } catch (error) {
-    console.error('Update profile error:', error);
+    log.error('Update profile error', error);
     res.status(500).json({ error: 'Failed to update profile' });
   }
 });

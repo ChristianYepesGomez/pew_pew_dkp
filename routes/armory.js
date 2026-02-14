@@ -2,7 +2,9 @@ import { Router } from 'express';
 import { db } from '../database.js';
 import { authenticateToken } from '../middleware/auth.js';
 import { getCharacterEquipment, getCharacterMedia, isBlizzardOAuthConfigured } from '../services/blizzardAPI.js';
+import { createLogger } from '../lib/logger.js';
 
+const log = createLogger('Route:Armory');
 const router = Router();
 
 // Get player's loot history (items won from auctions)
@@ -28,7 +30,7 @@ router.get('/:userId/loot', authenticateToken, async (req, res) => {
       wonAt: item.ended_at,
     })));
   } catch (error) {
-    console.error('Get loot history error:', error);
+    log.error('Get loot history error', error);
     res.status(500).json({ error: 'Failed to get loot history' });
   }
 });
@@ -49,7 +51,7 @@ router.get('/equipment/:realm/:character', authenticateToken, async (req, res) =
 
     res.json(equipment);
   } catch (error) {
-    console.error('Get character equipment error:', error);
+    log.error('Get character equipment error', error);
     res.status(500).json({ error: 'Failed to get character equipment' });
   }
 });
@@ -70,7 +72,7 @@ router.get('/media/:realm/:character', authenticateToken, async (req, res) => {
 
     res.json(media);
   } catch (error) {
-    console.error('Get character media error:', error);
+    log.error('Get character media error', error);
     res.status(500).json({ error: 'Failed to get character media' });
   }
 });
@@ -112,7 +114,7 @@ router.get('/:userId/profile', authenticateToken, async (req, res) => {
       itemsWon: lootCount?.count || 0,
     });
   } catch (error) {
-    console.error('Get armory profile error:', error);
+    log.error('Get armory profile error', error);
     res.status(500).json({ error: 'Failed to get armory profile' });
   }
 });

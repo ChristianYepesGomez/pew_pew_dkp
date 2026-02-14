@@ -3,7 +3,9 @@ import { authenticateToken, authorizeRole } from '../middleware/auth.js';
 import { getAllRaidItems, searchItems, getItemsByRaid, refreshFromAPI, getAvailableRaids, getDataSourceStatus, isAPIConfigured } from '../services/raidItems.js';
 import { getAllDungeonItems } from '../services/dungeonItems.js';
 import { getPopularItems } from '../services/itemPopularity.js';
+import { createLogger } from '../lib/logger.js';
 
+const log = createLogger('Route:Items');
 const router = Router();
 
 // Get all raid items
@@ -12,7 +14,7 @@ router.get('/raid-items', authenticateToken, async (req, res) => {
     const items = await getAllRaidItems();
     res.json({ items });
   } catch (error) {
-    console.error('Error fetching raid items:', error);
+    log.error('Error fetching raid items', error);
     res.status(500).json({ error: 'Failed to fetch raid items' });
   }
 });
@@ -24,7 +26,7 @@ router.get('/raid-items/search', authenticateToken, async (req, res) => {
     const items = query ? await searchItems(query) : await getAllRaidItems();
     res.json({ items });
   } catch (error) {
-    console.error('Error searching raid items:', error);
+    log.error('Error searching raid items', error);
     res.status(500).json({ error: 'Failed to search raid items' });
   }
 });
@@ -36,7 +38,7 @@ router.get('/raid-items/:raidName', authenticateToken, async (req, res) => {
     const items = await getItemsByRaid(raidName);
     res.json({ items });
   } catch (error) {
-    console.error('Error fetching raid items by raid:', error);
+    log.error('Error fetching raid items by raid', error);
     res.status(500).json({ error: 'Failed to fetch raid items' });
   }
 });
@@ -47,7 +49,7 @@ router.get('/raids-list', authenticateToken, async (req, res) => {
     const raids = await getAvailableRaids();
     res.json({ raids });
   } catch (error) {
-    console.error('Error fetching raids list:', error);
+    log.error('Error fetching raids list', error);
     res.status(500).json({ error: 'Failed to fetch raids list' });
   }
 });
@@ -73,7 +75,7 @@ router.post('/raid-items/refresh', authenticateToken, authorizeRole(['admin']), 
       res.status(500).json({ error: result.error });
     }
   } catch (error) {
-    console.error('Error refreshing raid items:', error);
+    log.error('Error refreshing raid items', error);
     res.status(500).json({ error: 'Failed to refresh raid items from API' });
   }
 });
@@ -84,7 +86,7 @@ router.get('/dungeon-items', authenticateToken, async (req, res) => {
     const items = await getAllDungeonItems();
     res.json({ items, count: items.length });
   } catch (error) {
-    console.error('Error fetching dungeon items:', error);
+    log.error('Error fetching dungeon items', error);
     res.json({ items: [], count: 0 });
   }
 });
@@ -108,7 +110,7 @@ router.get('/all-items', authenticateToken, async (req, res) => {
 
     res.json({ items: tagged, count: tagged.length });
   } catch (error) {
-    console.error('Error fetching all items:', error);
+    log.error('Error fetching all items', error);
     res.status(500).json({ error: 'Failed to fetch items' });
   }
 });
@@ -123,7 +125,7 @@ router.get('/item-popularity', authenticateToken, async (req, res) => {
     const items = await getPopularItems(className, spec || null, content || 'raid', slot || null);
     res.json(items);
   } catch (error) {
-    console.error('Error fetching item popularity:', error);
+    log.error('Error fetching item popularity', error);
     res.status(500).json({ error: 'Failed to fetch item popularity' });
   }
 });

@@ -2,7 +2,9 @@ import { Router } from 'express';
 import bcrypt from 'bcryptjs';
 import { db } from '../database.js';
 import { authenticateToken, authorizeRole } from '../middleware/auth.js';
+import { createLogger } from '../lib/logger.js';
 
+const log = createLogger('Route:Import');
 const router = Router();
 
 // Import roster from CSV (admin only)
@@ -36,7 +38,7 @@ router.post('/roster', authenticateToken, authorizeRole(['admin']), async (req, 
 
     res.json({ message: `Imported ${imported} members` });
   } catch (error) {
-    console.error('Import roster error:', error);
+    log.error('Import roster error', error);
     res.status(500).json({ error: 'Failed to import roster' });
   }
 });
