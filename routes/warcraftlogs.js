@@ -8,6 +8,7 @@ import { processExtendedFightData } from '../services/performanceAnalysis.js';
 import { seedRaidData, processFightStats, recordPlayerDeaths, recordPlayerPerformance } from '../services/raids.js';
 import { processReportPopularity } from '../services/itemPopularity.js';
 import { createLogger } from '../lib/logger.js';
+import pLimit from 'p-limit';
 
 const log = createLogger('Route:WarcraftLogs');
 const router = Router();
@@ -585,10 +586,17 @@ router.post('/import-boss-stats', adminLimiter, authenticateToken, authorizeRole
     let statsSkipped = 0;
     const processedBosses = [];
 
-    // Process each fight for boss statistics (kills, wipes, times)
-    for (const fight of reportData.fights) {
-      const result = await processFightStats(reportData.code, fight, fight.difficulty);
+    const limit = pLimit(3);
 
+    // Process each fight for boss statistics (kills, wipes, times) — parallelized
+    const fightResults = await Promise.all(
+      reportData.fights.map(fight => limit(async () => {
+        const result = await processFightStats(reportData.code, fight, fight.difficulty);
+        return { fight, result };
+      }))
+    );
+
+    for (const { fight, result } of fightResults) {
       if (result.skipped) {
         statsSkipped++;
       } else {
@@ -615,54 +623,70 @@ router.post('/import-boss-stats', adminLimiter, authenticateToken, authorizeRole
           let performanceRecorded = 0;
           let deathsRecorded = 0;
 
-          for (const bossInfo of processedBosses) {
-            const fightStats = await getFightStatsWithDeathEvents(reportData.code, {
-              id: bossInfo.fightId,
-              startTime: bossInfo.startTime,
-              endTime: bossInfo.endTime,
-              kill: bossInfo.kill,
-            });
+          // Parallelize performance recording across boss fights
+          const perfResults = await Promise.all(
+            processedBosses.map(bossInfo => limit(async () => {
+              const fightStats = await getFightStatsWithDeathEvents(reportData.code, {
+                id: bossInfo.fightId,
+                startTime: bossInfo.startTime,
+                endTime: bossInfo.endTime,
+                kill: bossInfo.kill,
+              });
 
-            // Record deaths
-            if (fightStats.deaths && fightStats.deaths.length > 0) {
-              const deathsFormatted = fightStats.deaths.map(d => ({ name: d.name, deaths: d.total }));
-              await recordPlayerDeaths(bossInfo.bossId, bossInfo.difficulty, deathsFormatted, participantUserMap);
-              deathsRecorded += fightStats.deaths.reduce((sum, d) => sum + d.total, 0);
-            }
+              let bossDeaths = 0;
+              let bossPerf = 0;
 
-            // Record performance (damage, healing, damage taken)
-            if (fightStats.damage.length > 0 || fightStats.healing.length > 0) {
-              await recordPlayerPerformance(
-                bossInfo.bossId,
-                bossInfo.difficulty,
-                fightStats,
-                participantUserMap,
-                reportData.code,
-                bossInfo.fightId
-              );
-              performanceRecorded++;
-            }
+              // Record deaths
+              if (fightStats.deaths && fightStats.deaths.length > 0) {
+                const deathsFormatted = fightStats.deaths.map(d => ({ name: d.name, deaths: d.total }));
+                await recordPlayerDeaths(bossInfo.bossId, bossInfo.difficulty, deathsFormatted, participantUserMap);
+                bossDeaths = fightStats.deaths.reduce((sum, d) => sum + d.total, 0);
+              }
+
+              // Record performance (damage, healing, damage taken)
+              if (fightStats.damage.length > 0 || fightStats.healing.length > 0) {
+                await recordPlayerPerformance(
+                  bossInfo.bossId,
+                  bossInfo.difficulty,
+                  fightStats,
+                  participantUserMap,
+                  reportData.code,
+                  bossInfo.fightId
+                );
+                bossPerf = 1;
+              }
+
+              return { bossDeaths, bossPerf };
+            }))
+          );
+
+          for (const { bossDeaths, bossPerf } of perfResults) {
+            deathsRecorded += bossDeaths;
+            performanceRecorded += bossPerf;
           }
 
           if (performanceRecorded > 0 || deathsRecorded > 0) {
             log.info(`Import performance: ${performanceRecorded} fights, ${deathsRecorded} deaths from ${reportData.code}`);
           }
 
-          // Process extended fight data for deep performance analysis
+          // Process extended fight data for deep performance analysis — parallelized
           const reportDate = new Date(reportData.startTime).toISOString().split('T')[0];
-          let extendedRecorded = 0;
-          for (const bossInfo of processedBosses) {
-            try {
-              const extStats = await getExtendedFightStats(reportData.code, [bossInfo.fightId]);
-              const fightStats = await getFightStats(reportData.code, [bossInfo.fightId]);
-              const count = await processExtendedFightData(
-                reportData.code, bossInfo, fightStats, extStats, participantUserMap, reportDate
-              );
-              extendedRecorded += count;
-            } catch (extErr) {
-              console.warn(`Extended stats failed for fight ${bossInfo.fightId}:`, extErr.message);
-            }
-          }
+          const extResults = await Promise.all(
+            processedBosses.map(bossInfo => limit(async () => {
+              try {
+                const extStats = await getExtendedFightStats(reportData.code, [bossInfo.fightId]);
+                const fightStats = await getFightStats(reportData.code, [bossInfo.fightId]);
+                const count = await processExtendedFightData(
+                  reportData.code, bossInfo, fightStats, extStats, participantUserMap, reportDate
+                );
+                return count;
+              } catch (extErr) {
+                console.warn(`Extended stats failed for fight ${bossInfo.fightId}:`, extErr.message);
+                return 0;
+              }
+            }))
+          );
+          const extendedRecorded = extResults.reduce((sum, c) => sum + c, 0);
           if (extendedRecorded > 0) {
             log.info(`Extended performance: ${extendedRecorded} player-fight records from ${reportData.code}`);
           }

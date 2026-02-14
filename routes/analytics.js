@@ -254,7 +254,7 @@ router.get('/superlatives', authenticateToken, async (req, res) => {
 // My Performance — individual player stats
 router.get('/my-performance', authenticateToken, async (req, res) => {
   try {
-    const userId = req.user.id;
+    const userId = req.user.userId;
 
     // Per-boss performance breakdown
     const bossBreakdown = await db.all(`
@@ -268,17 +268,17 @@ router.get('/my-performance', authenticateToken, async (req, res) => {
       LEFT JOIN player_boss_deaths pbd ON pbd.user_id = pbp.user_id AND pbd.boss_id = pbp.boss_id AND pbd.difficulty = pbp.difficulty
       WHERE pbp.user_id = ?
       ORDER BY pbp.difficulty DESC, wb.boss_order ASC
-    `, [userId]);
+    `, userId);
 
     // Totals
     const totals = await db.get(`
       SELECT SUM(fights_participated) as totalFights, SUM(total_damage) as totalDamage, SUM(total_healing) as totalHealing
       FROM player_boss_performance WHERE user_id = ?
-    `, [userId]);
+    `, userId);
 
     const deathTotals = await db.get(`
       SELECT SUM(total_deaths) as totalDeaths FROM player_boss_deaths WHERE user_id = ?
-    `, [userId]);
+    `, userId);
 
     // Recent reports
     const recentReports = await db.all(`
@@ -307,7 +307,7 @@ router.get('/my-performance', authenticateToken, async (req, res) => {
 // Detailed performance analysis — per-fight data, trends, recommendations
 router.get('/my-performance-detail', authenticateToken, async (req, res) => {
   try {
-    const userId = req.user.id;
+    const userId = req.user.userId;
     const weeks = parseInt(req.query.weeks) || 8;
     const bossId = req.query.bossId ? parseInt(req.query.bossId) : undefined;
     const difficulty = req.query.difficulty || undefined;

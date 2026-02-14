@@ -7,6 +7,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { createLogger } from '../lib/logger.js';
+import { createCache } from '../lib/cache.js';
 
 const log = createLogger('Service:BlizzardAPI');
 const __filename = fileURLToPath(import.meta.url);
@@ -75,6 +76,10 @@ let tokenExpiry = 0;
 
 // Icon cache - persists while server runs, avoids repeated Blizzard API calls
 const iconCache = new Map();
+
+// TTL caches for character armory data
+const equipmentCache = createCache(60 * 60 * 1000); // 1 hour
+const mediaCache = createCache(24 * 60 * 60 * 1000); // 24 hours
 
 // Get OAuth access token
 async function getAccessToken() {
@@ -710,6 +715,11 @@ export async function getUserCharacters(userToken) {
 
 // Get character equipment from public profile (uses app token)
 export async function getCharacterEquipment(realmSlug, characterName) {
+  // Check cache
+  const cacheKey = `equip:${realmSlug}:${characterName.toLowerCase()}`;
+  const cached = equipmentCache.get(cacheKey);
+  if (cached) return cached;
+
   const region = CONFIG.region;
   const token = await getAccessToken();
 
@@ -753,12 +763,15 @@ export async function getCharacterEquipment(realmSlug, characterName) {
     }));
     await Promise.race([iconFetch, iconTimeout]);
 
-    return {
+    const result = {
       character: response.data.character?.name,
       realm: response.data.character?.realm?.name,
       averageItemLevel: response.data.equipped_item_level,
       items,
     };
+
+    equipmentCache.set(cacheKey, result);
+    return result;
   } catch (error) {
     if (error.response?.status === 404) {
       return { error: 'Character not found or profile is private' };
@@ -770,6 +783,11 @@ export async function getCharacterEquipment(realmSlug, characterName) {
 
 // Get character media (avatar/render)
 export async function getCharacterMedia(realmSlug, characterName) {
+  // Check cache
+  const cacheKey = `media:${realmSlug}:${characterName.toLowerCase()}`;
+  const cached = mediaCache.get(cacheKey);
+  if (cached) return cached;
+
   const region = CONFIG.region;
   const token = await getAccessToken();
 
@@ -788,12 +806,15 @@ export async function getCharacterMedia(realmSlug, characterName) {
     );
 
     const assets = response.data.assets || [];
-    return {
+    const result = {
       avatar: assets.find(a => a.key === 'avatar')?.value,
       inset: assets.find(a => a.key === 'inset')?.value,
       main: assets.find(a => a.key === 'main')?.value,
       mainRaw: assets.find(a => a.key === 'main-raw')?.value,
     };
+
+    mediaCache.set(cacheKey, result);
+    return result;
   } catch (error) {
     console.warn(`Failed to fetch media for ${characterName}-${realmSlug}:`, error.message);
     return null;
