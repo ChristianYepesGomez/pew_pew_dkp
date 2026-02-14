@@ -3,11 +3,11 @@ import { createPortal } from 'react-dom'
 import { useAuth } from '../../hooks/useAuth'
 import { useSocket } from '../../hooks/useSocket'
 import { useLanguage } from '../../hooks/useLanguage'
-import { membersAPI, dkpAPI, buffsAPI } from '../../services/api'
+import { membersAPI, dkpAPI } from '../../services/api'
 import DKPAdjustModal from './DKPAdjustModal'
 import ArmoryModal from './ArmoryModal'
 import VaultIcon from '../Common/VaultIcon'
-import CLASS_COLORS from '../../utils/classColors'
+import { CLASS_COLORS } from '../../utils/constants'
 
 // Spec icons from Wowhead (WoW Classic/Retail icons)
 const SPEC_ICONS = {
@@ -249,7 +249,7 @@ const MembersTab = () => {
       await dkpAPI.adjust(adjustModal.member.id, amount, reason)
       loadMembers()
       setAdjustModal({ open: false, member: null })
-    } catch (error) {
+    } catch (_error) {
       alert(t('error_adjusting_dkp'))
     }
   }

@@ -1,9 +1,9 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { useAuth } from '../../hooks/useAuth'
 import { useLanguage } from '../../hooks/useLanguage'
 import { calendarAPI, warcraftLogsAPI } from '../../services/api'
-import CLASS_COLORS from '../../utils/classColors'
+import { CLASS_COLORS } from '../../utils/constants'
 
 const WCL_ICON = 'https://assets.rpglogs.com/img/warcraft/favicon.png'
 
@@ -157,7 +157,7 @@ const CalendarTab = () => {
   useEffect(() => {
     const loadInlineAttendance = async () => {
       // Find weeks with only 1 day (full-size cards)
-      for (const [weekKey, weekSignups] of groupedSignups) {
+      for (const [_weekKey, weekSignups] of groupedSignups) {
         if (weekSignups.length === 1) {
           const date = weekSignups[0].date
           if (!inlineAttendance[date]) {
@@ -754,7 +754,7 @@ const InlineAttendance = ({ attendance, t }) => {
 
   const confirmed = attendance.counts?.confirmed || 0
   const tentative = attendance.counts?.tentative || 0
-  const total = confirmed + tentative
+  const _total = confirmed + tentative
 
   return (
     <div className="space-y-3">
@@ -1038,7 +1038,7 @@ const SummaryModal = ({ date, summary, loadingSummary, onClose, t, language, isA
 }
 
 // Admin Overview Component
-const AdminOverview = ({ overview, t, language, isAdmin }) => {
+const AdminOverview = ({ overview, t, language, isAdmin: _isAdmin }) => {
   const [expandedMember, setExpandedMember] = useState(null)
 
   const formatDateShort = (dateStr) => {

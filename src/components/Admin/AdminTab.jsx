@@ -1,14 +1,9 @@
 import { useState, useEffect } from 'react'
 import { useLanguage } from '../../hooks/useLanguage'
 import { membersAPI, dkpAPI, warcraftLogsAPI, calendarAPI } from '../../services/api'
+import { CLASS_COLORS } from '../../utils/constants'
 
 const WCL_ICON = 'https://assets.rpglogs.com/img/warcraft/favicon.png'
-
-const CLASS_COLORS = {
-  Warrior: '#C79C6E', Paladin: '#F58CBA', Hunter: '#ABD473', Rogue: '#FFF569', Priest: '#FFFFFF',
-  Shaman: '#0070DE', Mage: '#3FC7EB', Warlock: '#8788EE', Druid: '#FF7D0A', 'Death Knight': '#C41F3B',
-  DeathKnight: '#C41F3B', DemonHunter: '#A330C9', Monk: '#00FF96', Evoker: '#33937F',
-}
 
 const AdminTab = () => {
   const { t } = useLanguage()
@@ -27,14 +22,14 @@ const AdminTab = () => {
   const [reverting, setReverting] = useState(false)
   // Raid days state
   const [raidDays, setRaidDays] = useState([])
-  const [raidDaysLoading, setRaidDaysLoading] = useState(true)
-  const [raidDaysSaving, setRaidDaysSaving] = useState(false)
+  const [_raidDaysLoading, setRaidDaysLoading] = useState(true)
+  const [_raidDaysSaving, setRaidDaysSaving] = useState(false)
   // Pending WCL reports state
   const [pendingReports, setPendingReports] = useState([])
   const [pendingLoading, setPendingLoading] = useState(false)
   const [pendingUploaderName, setPendingUploaderName] = useState('')
 
-  const DAY_NAMES = {
+  const _DAY_NAMES = {
     1: { es: 'Lunes', en: 'Monday' },
     2: { es: 'Martes', en: 'Tuesday' },
     3: { es: 'Miércoles', en: 'Wednesday' },
@@ -69,7 +64,7 @@ const AdminTab = () => {
       showNotification('success', t('dkp_adjusted_for_all'))
       setBulkAmount('')
       setBulkReason('')
-    } catch (error) {
+    } catch (_error) {
       showNotification('error', t('error_adjusting_dkp'))
     } finally {
       setBulkLoading(false)
@@ -169,7 +164,7 @@ const AdminTab = () => {
     }
   }
 
-  const toggleRaidDay = (dayOfWeek) => {
+  const _toggleRaidDay = (dayOfWeek) => {
     setRaidDays(prev =>
       prev.map(day =>
         day.dayOfWeek === dayOfWeek ? { ...day, isActive: !day.isActive } : day
@@ -177,7 +172,7 @@ const AdminTab = () => {
     )
   }
 
-  const updateRaidTime = (dayOfWeek, time) => {
+  const _updateRaidTime = (dayOfWeek, time) => {
     setRaidDays(prev =>
       prev.map(day =>
         day.dayOfWeek === dayOfWeek ? { ...day, raidTime: time } : day
@@ -185,7 +180,7 @@ const AdminTab = () => {
     )
   }
 
-  const saveRaidDays = async () => {
+  const _saveRaidDays = async () => {
     setRaidDaysSaving(true)
     try {
       const activeDays = raidDays
@@ -476,64 +471,6 @@ const AdminTab = () => {
           </div>
         )}
       </div>
-
-      {/* Raid Days Configuration - Hidden for now, keeping code for future use */}
-      {false && (
-      <div className="info-card">
-        <h3><i className="fas fa-calendar-alt mr-3"></i>{t('raid_schedule')}</h3>
-        {raidDaysLoading ? (
-          <div className="text-center py-8"><i className="fas fa-circle-notch fa-spin text-2xl text-midnight-glow"></i></div>
-        ) : (
-          <div className="mt-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-              {raidDays.map(day => (
-                <div
-                  key={day.dayOfWeek}
-                  className={`rounded-lg border p-4 transition-all cursor-pointer ${
-                    day.isActive
-                      ? 'border-midnight-glow bg-midnight-glow bg-opacity-10'
-                      : 'border-midnight-bright-purple border-opacity-30 bg-midnight-purple bg-opacity-10'
-                  }`}
-                  onClick={() => toggleRaidDay(day.dayOfWeek)}
-                >
-                  <div className="flex items-center justify-between mb-2">
-                    <span className={`font-bold ${day.isActive ? 'text-midnight-glow' : 'text-midnight-silver'}`}>
-                      {DAY_NAMES[day.dayOfWeek]?.[t('lang_code') || 'en'] || DAY_NAMES[day.dayOfWeek]?.en}
-                    </span>
-                    <div className={`w-5 h-5 rounded-full flex items-center justify-center ${
-                      day.isActive ? 'bg-midnight-glow' : 'bg-gray-600'
-                    }`}>
-                      {day.isActive && <i className="fas fa-check text-white text-xs"></i>}
-                    </div>
-                  </div>
-                  {day.isActive && (
-                    <div onClick={(e) => e.stopPropagation()}>
-                      <input
-                        type="time"
-                        value={day.raidTime}
-                        onChange={(e) => updateRaidTime(day.dayOfWeek, e.target.value)}
-                        className="w-full px-3 py-2 rounded-lg bg-midnight-spaceblue border border-midnight-bright-purple border-opacity-30 text-white text-sm focus:outline-none focus:border-midnight-glow"
-                      />
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-            <button
-              onClick={saveRaidDays}
-              disabled={raidDaysSaving}
-              className="mt-4 px-6 py-3 bg-midnight-bright-purple hover:bg-opacity-80 text-white rounded-lg font-bold disabled:opacity-50 transition-all"
-            >
-              {raidDaysSaving ? (
-                <><i className="fas fa-circle-notch fa-spin mr-2"></i>{t('loading')}...</>
-              ) : (
-                <><i className="fas fa-save mr-2"></i>{t('save_raid_days')}</>
-              )}
-            </button>
-          </div>
-        )}
-      </div>
-      )}
 
       {/* Revert Confirmation Dialog */}
       {revertConfirm && (

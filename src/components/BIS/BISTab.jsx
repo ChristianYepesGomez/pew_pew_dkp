@@ -2,8 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { useLanguage } from '../../hooks/useLanguage'
 import { useAuth } from '../../hooks/useAuth'
 import { bisAPI, membersAPI, raidItemsAPI } from '../../services/api'
-import RARITY_COLORS from '../../utils/rarityColors'
-import CLASS_COLORS from '../../utils/classColors'
+import { CLASS_COLORS, RARITY_COLORS } from '../../utils/constants'
 import WowheadTooltip from '../Common/WowheadTooltip'
 import PaperDoll, { PAPER_DOLL_SLOTS } from './PaperDoll'
 import SlotItemPicker from './SlotItemPicker'
@@ -24,9 +23,9 @@ const BISTab = () => {
   const [memberBIS, setMemberBIS] = useState([])
   const [memberLoading, setMemberLoading] = useState(false)
   const [guildSelectedSlot, setGuildSelectedSlot] = useState(null)
-  const [guildSearch, setGuildSearch] = useState('')
+  const [guildSearch, _setGuildSearch] = useState('')
   const [guildBIS, setGuildBIS] = useState({})
-  const [guildLoading, setGuildLoading] = useState(false)
+  const [_guildLoading, setGuildLoading] = useState(false)
 
   // Load my BIS list
   const loadMyBIS = async () => {
@@ -136,7 +135,7 @@ const BISTab = () => {
   }, [selectedMember])
 
   // Guild BIS filtered by search
-  const filteredGuildBIS = useMemo(() => {
+  const _filteredGuildBIS = useMemo(() => {
     const items = Object.values(guildBIS)
     if (!guildSearch) return items.sort((a, b) => b.wantedBy.length - a.wantedBy.length)
     const q = guildSearch.toLowerCase()
@@ -175,7 +174,7 @@ const BISTab = () => {
   }
 
   // Render a guild BIS item row
-  const renderGuildItemRow = (item) => (
+  const _renderGuildItemRow = (item) => (
     <div
       key={item.item_id}
       className="flex items-start gap-4 p-4 rounded-xl border border-midnight-bright-purple border-opacity-20 bg-midnight-deepblue bg-opacity-40"

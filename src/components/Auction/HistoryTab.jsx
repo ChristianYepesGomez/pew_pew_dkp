@@ -4,8 +4,7 @@ import { useSocket } from '../../hooks/useSocket'
 import { useLanguage } from '../../hooks/useLanguage'
 import { auctionsAPI } from '../../services/api'
 import WowheadTooltip from '../Common/WowheadTooltip'
-import CLASS_COLORS from '../../utils/classColors'
-import RARITY_COLORS from '../../utils/rarityColors'
+import { CLASS_COLORS, RARITY_COLORS } from '../../utils/constants'
 
 const HistoryTab = () => {
   const { t, language } = useLanguage()
@@ -256,7 +255,7 @@ const HistoryTab = () => {
   )
 }
 
-const FarewellModal = ({ auction, onClose, t, formatDate }) => {
+const FarewellModal = ({ auction, onClose, t, formatDate: _formatDate }) => {
   const fw = auction.farewell
   const member = fw.member
   const items = fw.itemsWon || []

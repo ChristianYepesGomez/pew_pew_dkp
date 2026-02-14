@@ -8,8 +8,7 @@ import { auctionsAPI, bisAPI } from '../../services/api'
 import CreateAuctionModal from './CreateAuctionModal'
 import BidModal from './BidModal'
 import WowheadTooltip from '../Common/WowheadTooltip'
-import CLASS_COLORS from '../../utils/classColors'
-import RARITY_COLORS from '../../utils/rarityColors'
+import { CLASS_COLORS, RARITY_COLORS } from '../../utils/constants'
 
 // Sound Settings Modal Component
 const SoundSettingsModal = ({

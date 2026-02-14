@@ -7,10 +7,7 @@ import {
   RadarChart, PolarGrid, PolarAngleAxis, Radar,
   XAxis, YAxis, Tooltip, CartesianGrid,
 } from 'recharts'
-
-const DIFFICULTY_COLORS = {
-  Mythic: '#ff8000', Heroic: '#a335ee', Normal: '#1eff00', LFR: '#0070dd',
-}
+import { DIFFICULTY_COLORS } from '../../utils/constants'
 
 const SEVERITY_STYLES = {
   positive: { bg: 'bg-green-900/20', border: 'border-green-500/30', icon: 'fa-check-circle', color: 'text-green-400' },
@@ -108,7 +105,7 @@ const PerformanceModal = ({ onClose }) => {
   }, [data])
 
   const formatDps = (v) => v >= 1000 ? `${(v / 1000).toFixed(1)}K` : Math.round(v)
-  const formatDmg = (v) => {
+  const _formatDmg = (v) => {
     if (v >= 1e9) return `${(v / 1e9).toFixed(1)}B`
     if (v >= 1e6) return `${(v / 1e6).toFixed(1)}M`
     if (v >= 1e3) return `${(v / 1e3).toFixed(0)}K`
@@ -238,7 +235,7 @@ const PerformanceModal = ({ onClose }) => {
                     <Tooltip
                       contentStyle={{ backgroundColor: '#1a1235', border: '1px solid #4a3a6b', borderRadius: 8, fontSize: 12 }}
                       labelFormatter={v => `${lang === 'es' ? 'Intento' : 'Attempt'} #${v}`}
-                      formatter={(v, name) => [formatDps(v), 'DPS']}
+                      formatter={(v, _name) => [formatDps(v), 'DPS']}
                     />
                     <Line type="monotone" dataKey="dps" stroke="#60a5fa" strokeWidth={2} dot={{ fill: '#60a5fa', r: 3 }} />
                   </LineChart>

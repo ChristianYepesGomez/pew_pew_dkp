@@ -4,7 +4,7 @@ import { useLanguage } from '../../hooks/useLanguage'
 import { useSocket } from '../../hooks/useSocket'
 import MyCharacterModal from '../Character/MyCharacterModal'
 import DKPInfoModal from '../Common/DKPInfoModal'
-import CLASS_COLORS from '../../utils/classColors'
+import { CLASS_COLORS } from '../../utils/constants'
 
 const Header = () => {
   const { user, logout, refreshUser } = useAuth()

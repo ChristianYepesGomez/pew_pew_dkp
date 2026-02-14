@@ -3,12 +3,7 @@ import { createPortal } from 'react-dom'
 import { useLanguage } from '../../hooks/useLanguage'
 import { armoryAPI } from '../../services/api'
 import WowheadTooltip from '../Common/WowheadTooltip'
-import CLASS_COLORS from '../../utils/classColors'
-
-const RARITY_COLORS = {
-  common: '#9d9d9d', uncommon: '#1eff00', rare: '#0070dd',
-  epic: '#a335ee', legendary: '#ff8000',
-}
+import { CLASS_COLORS, RARITY_COLORS } from '../../utils/constants'
 
 const SPEC_ICONS = {
   'Arms': 'https://wow.zamimg.com/images/wow/icons/medium/ability_warrior_savageblow.jpg',
@@ -53,7 +48,7 @@ const SPEC_ICONS = {
 }
 
 // Equipment slot order and display names
-const EQUIPMENT_SLOTS = [
+const _EQUIPMENT_SLOTS = [
   { slot: 'HEAD', icon: 'inv_helmet_03' },
   { slot: 'NECK', icon: 'inv_jewelry_necklace_01' },
   { slot: 'SHOULDER', icon: 'inv_shoulder_02' },

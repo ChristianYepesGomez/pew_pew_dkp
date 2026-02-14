@@ -4,14 +4,9 @@ import { useAuth } from '../../hooks/useAuth'
 import { useLanguage } from '../../hooks/useLanguage'
 import { dkpAPI, authAPI, charactersAPI, blizzardAPI } from '../../services/api'
 import WowheadTooltip from '../Common/WowheadTooltip'
+import { CLASS_COLORS, RARITY_COLORS } from '../../utils/constants'
 
 const TABS = ['profile', 'characters', 'dkp']
-
-const CLASS_COLORS = {
-  Warrior: '#C79C6E', Paladin: '#F58CBA', Hunter: '#ABD473', Rogue: '#FFF569', Priest: '#FFFFFF',
-  Shaman: '#0070DE', Mage: '#3FC7EB', Warlock: '#8788EE', Druid: '#FF7D0A', 'Death Knight': '#C41F3B',
-  DeathKnight: '#C41F3B', 'Demon Hunter': '#A330C9', DemonHunter: '#A330C9', Monk: '#00FF96', Evoker: '#33937F',
-}
 
 const SPEC_ICONS = {
   'Arms': 'https://wow.zamimg.com/images/wow/icons/medium/ability_warrior_savageblow.jpg',
@@ -69,11 +64,6 @@ const CLASS_SPECS = {
   Monk: { specs: ['Brewmaster', 'Mistweaver', 'Windwalker'], defaultRoles: ['Tank', 'Healer', 'DPS'] },
   'Demon Hunter': { specs: ['Havoc', 'Vengeance'], defaultRoles: ['DPS', 'Tank'] },
   Evoker: { specs: ['Devastation', 'Preservation', 'Augmentation'], defaultRoles: ['DPS', 'Healer', 'DPS'] },
-}
-
-const RARITY_COLORS = {
-  common: '#9d9d9d', uncommon: '#1eff00', rare: '#0070dd',
-  epic: '#a335ee', legendary: '#ff8000',
 }
 
 // CLASSES removed - manual character creation disabled, only Blizzard import allowed

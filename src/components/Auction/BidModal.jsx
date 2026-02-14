@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import { useLanguage } from '../../hooks/useLanguage'
 import { auctionsAPI } from '../../services/api'
 import WowheadTooltip from '../Common/WowheadTooltip'
-import RARITY_COLORS from '../../utils/rarityColors'
+import { RARITY_COLORS } from '../../utils/constants'
 
 const BidModal = ({ auction, userDkp, onClose, onSuccess }) => {
   const { t } = useLanguage()

@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { useLanguage } from '../../hooks/useLanguage'
 import { raidItemsAPI, auctionsAPI } from '../../services/api'
-import RARITY_COLORS from '../../utils/rarityColors'
+import { RARITY_COLORS } from '../../utils/constants'
 
 const RARITY_BG = {
   common: 'from-gray-600 to-gray-700',

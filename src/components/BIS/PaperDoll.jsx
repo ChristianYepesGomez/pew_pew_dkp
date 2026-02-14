@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { useLanguage } from '../../hooks/useLanguage'
-import RARITY_COLORS from '../../utils/rarityColors'
+import { RARITY_COLORS } from '../../utils/constants'
 
 // Paper doll slot definitions — WoW armory-style layout
 // matchSlots: item.slot values that can go in this slot
@@ -28,7 +28,7 @@ const PAPER_DOLL_SLOTS = {
 
 export { PAPER_DOLL_SLOTS }
 
-const RARITY_BORDER = {
+const _RARITY_BORDER = {
   common: 'border-gray-500',
   uncommon: 'border-green-500',
   rare: 'border-blue-500',
@@ -36,7 +36,7 @@ const RARITY_BORDER = {
   legendary: 'border-orange-500',
 }
 
-const PaperDoll = ({ bisItems = [], selectedSlot, onSlotClick, hasTwoHand = false }) => {
+const PaperDoll = ({ bisItems = [], selectedSlot, onSlotClick, hasTwoHand: _hasTwoHand = false }) => {
   const { t } = useLanguage()
 
   // Map BIS items to their slots

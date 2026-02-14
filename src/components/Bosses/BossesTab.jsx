@@ -2,15 +2,7 @@ import { useState, useEffect } from 'react'
 import { useAuth } from '../../hooks/useAuth'
 import { useLanguage } from '../../hooks/useLanguage'
 import { bossesAPI } from '../../services/api'
-import CLASS_COLORS from '../../utils/classColors'
-
-// Difficulty colors
-const DIFFICULTY_COLORS = {
-  Mythic: '#ff8000',
-  Heroic: '#a335ee',
-  Normal: '#1eff00',
-  LFR: '#0070dd',
-}
+import { CLASS_COLORS, DIFFICULTY_COLORS } from '../../utils/constants'
 
 const DIFFICULTY_SHORT = {
   Mythic: 'M',
@@ -246,7 +238,7 @@ const BossesTab = () => {
 // Boss Card Component - Cinematic design with full artwork
 const BossCard = ({ boss, onClick, t }) => {
   const diffColor = DIFFICULTY_COLORS[boss.highestDifficulty] || '#888'
-  const hasKillsOrWipes = boss.kills > 0 || boss.wipes > 0
+  const _hasKillsOrWipes = boss.kills > 0 || boss.wipes > 0
 
   return (
     <div

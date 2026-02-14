@@ -1,7 +1,7 @@
 import { useLanguage } from '../../hooks/useLanguage'
 
 const ReportLinks = ({ reportCode, characterName = null }) => {
-  const { t } = useLanguage()
+  const { t: _t } = useLanguage()
   if (!reportCode) return null
 
   const links = [

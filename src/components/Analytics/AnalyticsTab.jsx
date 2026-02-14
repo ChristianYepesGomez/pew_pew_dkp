@@ -2,16 +2,9 @@ import { useState, useEffect, useMemo } from 'react'
 import { useLanguage } from '../../hooks/useLanguage'
 import { useAuth } from '../../hooks/useAuth'
 import { analyticsAPI } from '../../services/api'
-import CLASS_COLORS from '../../utils/classColors'
+import { CLASS_COLORS, DIFFICULTY_COLORS } from '../../utils/constants'
 import ReportLinks from './ReportLinks'
 import PerformanceModal from './PerformanceModal'
-
-const DIFFICULTY_COLORS = {
-  Mythic: '#ff8000',
-  Heroic: '#a335ee',
-  Normal: '#1eff00',
-  LFR: '#0070dd',
-}
 
 const PERIOD_OPTIONS = [
   { value: 4, label: '4w' },
