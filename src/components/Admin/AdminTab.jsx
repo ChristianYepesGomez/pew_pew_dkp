@@ -366,8 +366,11 @@ const AdminTab = () => {
                       <tr key={i} className="border-b border-midnight-bright-purple border-opacity-20">
                         <td className="py-2">
                           <span className="font-bold" style={{ color: CLASS_COLORS[p.wcl_class] || '#FFF' }}>
-                            {p.character_name}
+                            {p.wcl_name || p.character_name}
                           </span>
+                          {p.is_alt_match && p.character_name && (
+                            <span className="text-midnight-silver text-xs ml-1">({p.character_name})</span>
+                          )}
                         </td>
                         <td className="py-2 text-right text-midnight-glow">{p.current_dkp || 0}</td>
                         <td className="py-2 text-right">
