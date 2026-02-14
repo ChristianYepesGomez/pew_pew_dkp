@@ -16,6 +16,7 @@ export async function setupTestDb() {
 export async function cleanupTestDb() {
   const tables = [
     'auction_bids', 'auction_rolls', 'auctions',
+    'bis_items',
     'dkp_transactions', 'member_availability',
     'member_dkp', 'characters', 'users',
   ];
@@ -44,17 +45,34 @@ export async function createTestUser(overrides = {}) {
     throw new Error(`Failed to create test user: ${res.body.error}`);
   }
 
-  // Login to get token
+  const userId = res.body.userId;
+
+  // If a role override is specified, promote the user in the DB before login
+  if (overrides.role && overrides.role !== 'raider') {
+    await db.run('UPDATE users SET role = ? WHERE id = ?', overrides.role, userId);
+  }
+
+  // Login to get token (token will reflect the updated role)
   const loginRes = await request
     .post('/api/auth/login')
     .send({ username, password });
 
   return {
-    userId: res.body.userId,
+    userId,
     username,
     password,
     email,
     token: loginRes.body.token,
     user: loginRes.body.user,
   };
+}
+
+/**
+ * Directly set a user's DKP in the database (useful for auction/bid tests).
+ */
+export async function setUserDkp(userId, amount) {
+  await db.run(
+    'UPDATE member_dkp SET current_dkp = ?, lifetime_gained = ? WHERE user_id = ?',
+    amount, amount, userId
+  );
 }

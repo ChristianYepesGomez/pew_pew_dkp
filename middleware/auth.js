@@ -1,5 +1,6 @@
 import jwt from 'jsonwebtoken';
-import { JWT_SECRET } from '../lib/config.js';
+import crypto from 'crypto';
+import { JWT_SECRET, JWT_REFRESH_SECRET } from '../lib/config.js';
 
 /**
  * Middleware to verify JWT token
@@ -44,4 +45,39 @@ export function authorizeRole(allowedRoles) {
 
     next();
   };
+}
+
+/**
+ * Generate a short-lived access token (15 minutes)
+ */
+export function generateAccessToken(user) {
+  return jwt.sign(
+    { userId: user.id, username: user.username, role: user.role },
+    JWT_SECRET,
+    { expiresIn: '15m' }
+  );
+}
+
+/**
+ * Generate a long-lived refresh token (30 days) with unique jti
+ */
+export function generateRefreshToken(user) {
+  return jwt.sign(
+    { userId: user.id, type: 'refresh', jti: crypto.randomUUID() },
+    JWT_REFRESH_SECRET,
+    { expiresIn: '30d' }
+  );
+}
+
+/**
+ * Verify and decode a refresh token. Returns decoded payload or null.
+ */
+export function verifyRefreshToken(token) {
+  try {
+    const decoded = jwt.verify(token, JWT_REFRESH_SECRET);
+    if (decoded.type !== 'refresh') return null;
+    return decoded;
+  } catch {
+    return null;
+  }
 }

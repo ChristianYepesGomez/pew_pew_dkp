@@ -1,13 +1,36 @@
 import { Router } from 'express';
-import jwt from 'jsonwebtoken';
+import crypto from 'crypto';
 import { authenticateToken } from '../middleware/auth.js';
 import { authLimiter } from '../lib/rateLimiters.js';
 import { getBlizzardOAuthUrl, getUserToken, getUserCharacters, isBlizzardOAuthConfigured } from '../services/blizzardAPI.js';
-import { JWT_SECRET, FRONTEND_URL } from '../lib/config.js';
+import { FRONTEND_URL } from '../lib/config.js';
 import { createLogger } from '../lib/logger.js';
 
 const log = createLogger('Route:Blizzard');
 const router = Router();
+
+// ── OAuth CSRF State Protection ──
+const OAUTH_STATE_SECRET = process.env.OAUTH_STATE_SECRET || 'dev-oauth-state-secret';
+
+function signState(data) {
+  const payload = JSON.stringify(data);
+  const hmac = crypto.createHmac('sha256', OAUTH_STATE_SECRET).update(payload).digest('base64url');
+  return Buffer.from(JSON.stringify({ payload, hmac })).toString('base64url');
+}
+
+function verifyState(state) {
+  try {
+    const { payload, hmac } = JSON.parse(Buffer.from(state, 'base64url').toString());
+    const expected = crypto.createHmac('sha256', OAUTH_STATE_SECRET).update(payload).digest('base64url');
+    if (!crypto.timingSafeEqual(Buffer.from(hmac), Buffer.from(expected))) return null;
+    const data = JSON.parse(payload);
+    // Reject states older than 10 minutes
+    if (Date.now() - data.ts > 10 * 60 * 1000) return null;
+    return data;
+  } catch {
+    return null;
+  }
+}
 
 function toBase64Url(data) {
   return Buffer.from(JSON.stringify(data)).toString('base64url');
@@ -19,11 +42,7 @@ router.get('/url', authenticateToken, (req, res) => {
     return res.status(503).json({ error: 'Blizzard API not configured' });
   }
 
-  const state = jwt.sign(
-    { userId: req.user.userId, type: 'blizzard_oauth' },
-    JWT_SECRET,
-    { expiresIn: '10m' }
-  );
+  const state = signState({ userId: req.user.userId, ts: Date.now() });
 
   const protocol = (req.get('x-forwarded-proto') || req.protocol).split(',')[0].trim();
   const host = req.get('host');
@@ -46,13 +65,9 @@ router.get('/callback', authLimiter, async (req, res) => {
     return res.redirect(`${frontendUrl}/blizzard-callback.html#data=${toBase64Url({ error: 'Missing authorization code' })}`);
   }
 
-  let decoded;
-  try {
-    decoded = jwt.verify(state, JWT_SECRET);
-    if (decoded.type !== 'blizzard_oauth') {
-      return res.redirect(`${frontendUrl}/blizzard-callback.html#data=${toBase64Url({ error: 'Invalid state parameter' })}`);
-    }
-  } catch {
+  // Verify CSRF state
+  const stateData = verifyState(state);
+  if (!stateData) {
     return res.redirect(`${frontendUrl}/blizzard-callback.html#data=${toBase64Url({ error: 'Expired or invalid state. Please try again.' })}`);
   }
 
@@ -64,7 +79,7 @@ router.get('/callback', authLimiter, async (req, res) => {
     const userToken = await getUserToken(code, redirectUri);
     const characters = await getUserCharacters(userToken);
 
-    log.info(`Blizzard OAuth: fetched ${characters.length} characters for user ${decoded.userId}`);
+    log.info(`Blizzard OAuth: fetched ${characters.length} characters for user ${stateData.userId}`);
     res.redirect(`${frontendUrl}/blizzard-callback.html#data=${toBase64Url({ characters })}`);
   } catch (err) {
     log.error('Blizzard OAuth callback error', err);

@@ -1,8 +1,9 @@
 import { Router } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import crypto from 'crypto';
 import { db } from '../database.js';
-import { authenticateToken, authorizeRole } from '../middleware/auth.js';
+import { authenticateToken, authorizeRole, generateAccessToken, generateRefreshToken, verifyRefreshToken } from '../middleware/auth.js';
 import { authLimiter } from '../lib/rateLimiters.js';
 import { isValidEmail } from '../lib/helpers.js';
 import { sendPasswordResetEmail } from '../services/email.js';
@@ -33,14 +34,18 @@ router.post('/login', authLimiter, async (req, res) => {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
-    const token = jwt.sign(
-      { userId: user.id, username: user.username, role: user.role },
-      JWT_SECRET,
-      { expiresIn: '7d' }
+    const accessToken = generateAccessToken(user);
+    const refreshToken = generateRefreshToken(user);
+
+    // Store refresh token in DB with a new token family
+    await db.run(
+      'INSERT INTO refresh_tokens (user_id, token, token_family, expires_at) VALUES (?, ?, ?, ?)',
+      user.id, refreshToken, crypto.randomUUID(), new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
     );
 
     res.json({
-      token,
+      token: accessToken,
+      refreshToken,
       user: {
         id: user.id,
         username: user.username,
@@ -109,9 +114,21 @@ router.post('/register', authLimiter, async (req, res) => {
 
     log.info(`New user registered: ${username} (email: ${email})`);
 
+    // Issue tokens on registration so user is immediately logged in
+    const newUser = { id: userId, username: username.trim(), role: 'raider' };
+    const accessToken = generateAccessToken(newUser);
+    const refreshToken = generateRefreshToken(newUser);
+
+    await db.run(
+      'INSERT INTO refresh_tokens (user_id, token, token_family, expires_at) VALUES (?, ?, ?, ?)',
+      userId, refreshToken, crypto.randomUUID(), new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+    );
+
     res.status(201).json({
       message: 'Account created successfully',
-      userId: userId
+      userId: userId,
+      token: accessToken,
+      refreshToken
     });
 
   } catch (error) {
@@ -380,6 +397,73 @@ router.put('/profile', authenticateToken, async (req, res) => {
   } catch (error) {
     log.error('Update profile error', error);
     res.status(500).json({ error: 'Failed to update profile' });
+  }
+});
+
+// Refresh token rotation
+router.post('/refresh', async (req, res) => {
+  try {
+    const { refreshToken } = req.body;
+    if (!refreshToken) return res.status(400).json({ error: 'Refresh token required' });
+
+    const decoded = verifyRefreshToken(refreshToken);
+    if (!decoded) return res.status(401).json({ error: 'Invalid refresh token' });
+
+    const storedToken = await db.get(
+      'SELECT * FROM refresh_tokens WHERE token = ?', refreshToken
+    );
+    if (!storedToken) return res.status(401).json({ error: 'Token not found' });
+
+    // Replay detection: if token already used, revoke entire family
+    if (storedToken.used) {
+      await db.run('DELETE FROM refresh_tokens WHERE token_family = ?', storedToken.token_family);
+      log.warn('Refresh token replay detected', { userId: storedToken.user_id, family: storedToken.token_family });
+      return res.status(401).json({ error: 'Token compromised, please login again' });
+    }
+
+    // Check expiry
+    if (new Date(storedToken.expires_at) < new Date()) {
+      await db.run('DELETE FROM refresh_tokens WHERE id = ?', storedToken.id);
+      return res.status(401).json({ error: 'Refresh token expired' });
+    }
+
+    // Mark old token as used
+    await db.run('UPDATE refresh_tokens SET used = 1 WHERE id = ?', storedToken.id);
+
+    // Get user data for new tokens
+    const user = await db.get('SELECT id, username, role FROM users WHERE id = ?', storedToken.user_id);
+    if (!user) return res.status(401).json({ error: 'User not found' });
+
+    // Issue new token pair (same family for rotation tracking)
+    const newAccessToken = generateAccessToken(user);
+    const newRefreshToken = generateRefreshToken(user);
+
+    await db.run(
+      'INSERT INTO refresh_tokens (user_id, token, token_family, expires_at) VALUES (?, ?, ?, ?)',
+      user.id, newRefreshToken, storedToken.token_family, new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+    );
+
+    res.json({ token: newAccessToken, refreshToken: newRefreshToken });
+  } catch (error) {
+    log.error('Token refresh failed', error);
+    res.status(500).json({ error: 'Token refresh failed' });
+  }
+});
+
+// Logout (revoke refresh token family)
+router.post('/logout', authenticateToken, async (req, res) => {
+  try {
+    const { refreshToken } = req.body;
+    if (refreshToken) {
+      const stored = await db.get('SELECT token_family FROM refresh_tokens WHERE token = ?', refreshToken);
+      if (stored) {
+        await db.run('DELETE FROM refresh_tokens WHERE token_family = ?', stored.token_family);
+      }
+    }
+    res.json({ message: 'Logged out successfully' });
+  } catch (error) {
+    log.error('Logout failed', error);
+    res.status(500).json({ error: 'Logout failed' });
   }
 });
 

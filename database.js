@@ -585,6 +585,21 @@ async function initDatabase() {
     console.warn('Migration warning:', e.message);
   }
 
+  // Migration: Create refresh_tokens table for JWT refresh token rotation
+  try {
+    await db.exec(`
+      CREATE TABLE IF NOT EXISTS refresh_tokens (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        token TEXT NOT NULL UNIQUE,
+        token_family TEXT NOT NULL,
+        used INTEGER DEFAULT 0,
+        expires_at TEXT NOT NULL,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+  } catch (_e) { /* table already exists */ }
+
   // ── Indexes ──────────────────────────────────────────────────────
 
   const indexes = [
@@ -619,6 +634,9 @@ async function initDatabase() {
     // Item popularity indexes
     'CREATE INDEX IF NOT EXISTS idx_item_popularity_class ON item_popularity(class, spec, content_type)',
     'CREATE INDEX IF NOT EXISTS idx_item_popularity_slot ON item_popularity(item_slot, class)',
+    // Refresh token indexes
+    'CREATE INDEX IF NOT EXISTS idx_refresh_tokens_family ON refresh_tokens(token_family)',
+    'CREATE INDEX IF NOT EXISTS idx_refresh_tokens_user ON refresh_tokens(user_id)',
   ];
 
   for (const sql of indexes) {
