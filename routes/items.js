@@ -33,6 +33,11 @@ router.get('/raid-items/search', authenticateToken, async (req, res) => {
   }
 });
 
+// Get raid items data source status (before :raidName to avoid param matching)
+router.get('/raid-items/status', authenticateToken, authorizeRole(['admin', 'officer']), (req, res) => {
+  return success(res, getDataSourceStatus());
+});
+
 // Get items by raid
 router.get('/raid-items/:raidName', authenticateToken, async (req, res) => {
   try {
@@ -54,11 +59,6 @@ router.get('/raids-list', authenticateToken, async (req, res) => {
     log.error('Error fetching raids list', err);
     return error(res, 'Failed to fetch raids list', 500, ErrorCodes.INTERNAL_ERROR);
   }
-});
-
-// Get raid items data source status
-router.get('/raid-items/status', authenticateToken, authorizeRole(['admin', 'officer']), (req, res) => {
-  return success(res, getDataSourceStatus());
 });
 
 // Force refresh raid items from Blizzard API
