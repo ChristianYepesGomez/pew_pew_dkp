@@ -641,7 +641,7 @@ export async function runMigrations(targetDb) {
   if (raidDaysCount.count === 0) {
     log.info('Creating default raid days');
     for (const [dow, name, time] of [[1, 'Lunes', '21:00'], [3, 'Miércoles', '21:00'], [4, 'Jueves', '21:00']]) {
-      await targetDb.run('INSERT INTO raid_days (day_of_week, day_name, is_active, raid_time) VALUES (?, ?, 1, ?)', dow, name, time);
+      await targetDb.run('INSERT OR IGNORE INTO raid_days (day_of_week, day_name, is_active, raid_time) VALUES (?, ?, 1, ?)', dow, name, time);
     }
     log.info('Default raid days created (Lunes, Miercoles, Jueves)');
   }
@@ -653,7 +653,7 @@ export async function runMigrations(targetDb) {
     log.info('Migrating raid days to Lunes/Miercoles/Jueves at 21:00');
     await targetDb.exec('DELETE FROM raid_days');
     for (const [dow, name, time] of [[1, 'Lunes', '21:00'], [3, 'Miércoles', '21:00'], [4, 'Jueves', '21:00']]) {
-      await targetDb.run('INSERT INTO raid_days (day_of_week, day_name, is_active, raid_time) VALUES (?, ?, 1, ?)', dow, name, time);
+      await targetDb.run('INSERT OR IGNORE INTO raid_days (day_of_week, day_name, is_active, raid_time) VALUES (?, ?, 1, ?)', dow, name, time);
     }
     log.info('Raid days migrated');
   }
