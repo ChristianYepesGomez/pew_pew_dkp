@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DKP - Manual Testing Checklist</title>
+<style>
+  :root {
+    --bg: #0f0f1a;
+    --card: #1a1a2e;
+    --card2: #16213e;
+    --border: #0f3460;
+    --accent: #e94560;
+    --accent2: #533483;
+    --text: #eee;
+    --muted: #777;
+    --pass: #2ecc71;
+    --fail: #e74c3c;
+    --skip: #f1c40f;
+    --note-bg: #1e2a3a;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    background: var(--bg); color: var(--text);
+    line-height: 1.55; padding: 16px; max-width: 900px; margin: 0 auto;
+  }
+  h1 { text-align: center; color: var(--accent); font-size: 1.6em; margin-bottom: 4px; }
+  .subtitle { text-align: center; color: var(--muted); font-size: 0.85em; margin-bottom: 16px; }
+
+  /* Sticky summary */
+  .summary {
+    position: sticky; top: 0; z-index: 100;
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 8px; padding: 10px 16px; margin-bottom: 16px;
+    display: flex; justify-content: space-between; align-items: center;
+    flex-wrap: wrap; gap: 8px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+  }
+  .stats { display: flex; gap: 16px; flex-wrap: wrap; align-items: center; }
+  .stat { font-size: 0.85em; display: flex; align-items: center; gap: 4px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+  .d-pass { background: var(--pass); } .d-fail { background: var(--fail); }
+  .d-skip { background: var(--skip); } .d-pend { background: var(--muted); }
+  .pbar { width: 140px; height: 6px; background: #333; border-radius: 3px; overflow: hidden; }
+  .pfill { height: 100%; background: var(--pass); transition: width .3s; }
+  .actions { display: flex; gap: 6px; }
+  .btn { padding: 5px 12px; border: none; border-radius: 5px; cursor: pointer; font-size: .8em; font-weight: 600; color: #fff; }
+  .btn:hover { opacity: .85; }
+  .b-save { background: var(--pass); } .b-exp { background: var(--accent2); }
+  .b-clr { background: var(--fail); } .b-print { background: #555; }
+
+  /* Section */
+  .section { background: var(--card); border: 1px solid var(--border); border-radius: 8px; margin-bottom: 14px; overflow: hidden; }
+  .sec-head {
+    padding: 12px 16px; cursor: pointer; user-select: none;
+    display: flex; justify-content: space-between; align-items: center;
+    background: linear-gradient(135deg, var(--card2), var(--accent2));
+  }
+  .sec-head h2 { font-size: 1em; }
+  .sec-head .badge { font-size: .7em; padding: 2px 8px; border-radius: 10px; background: rgba(255,255,255,.15); }
+  .sec-body { padding: 10px 16px; }
+  .sec-body.hide { display: none; }
+
+  /* Test item */
+  .test {
+    padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,.04);
+    display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: start;
+  }
+  .test:last-of-type { border-bottom: none; }
+  .t-label { font-size: .88em; }
+  .t-hint { font-size: .75em; color: var(--muted); margin-top: 2px; }
+  .t-role { font-size: .7em; color: var(--accent); font-weight: 600; }
+  .t-ctrl { display: flex; gap: 4px; flex-shrink: 0; }
+  .t-btn {
+    width: 28px; height: 28px; border: 2px solid #444; border-radius: 6px;
+    background: transparent; cursor: pointer; font-size: .75em; font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+    transition: all .15s;
+  }
+  .t-btn:hover { opacity: .8; }
+  .t-btn[data-v="pass"].on { background: var(--pass); border-color: var(--pass); color: #000; }
+  .t-btn[data-v="fail"].on { background: var(--fail); border-color: var(--fail); color: #fff; }
+  .t-btn[data-v="skip"].on { background: var(--skip); border-color: var(--skip); color: #000; }
+
+  .t-note {
+    grid-column: 1 / -1; width: 100%; padding: 5px 8px; margin-top: 4px;
+    background: var(--note-bg); border: 1px solid transparent; border-radius: 4px;
+    color: var(--text); font-family: inherit; font-size: .8em; resize: vertical;
+    min-height: 0; max-height: 200px; display: none;
+  }
+  .t-note.show { display: block; min-height: 28px; }
+  .t-note:focus { border-color: #3498db; outline: none; }
+  .t-note::placeholder { color: #555; }
+
+  .note-toggle {
+    width: 28px; height: 28px; border: 2px solid #333; border-radius: 6px;
+    background: transparent; cursor: pointer; font-size: .8em; color: var(--muted);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .note-toggle.has-note { color: #3498db; border-color: #3498db; }
+
+  /* Section general note */
+  .sec-note {
+    width: 100%; min-height: 40px; padding: 8px; margin-top: 10px;
+    background: var(--note-bg); border: 1px solid var(--border); border-radius: 6px;
+    color: var(--text); font-family: inherit; font-size: .82em; resize: vertical;
+  }
+  .sec-note::placeholder { color: var(--muted); }
+
+  /* Filter */
+  .filters { display: flex; gap: 6px; margin-bottom: 14px; flex-wrap: wrap; }
+  .fbtn {
+    padding: 4px 10px; border: 1px solid var(--border); border-radius: 14px;
+    background: transparent; color: var(--text); cursor: pointer; font-size: .78em;
+  }
+  .fbtn:hover, .fbtn.on { background: var(--accent); border-color: var(--accent); }
+
+  @media print {
+    body { background: #fff; color: #000; }
+    .summary { position: static; box-shadow: none; border: 1px solid #ccc; background: #f5f5f5; }
+    .section { break-inside: avoid; border: 1px solid #ccc; }
+    .sec-head { background: #ddd !important; color: #000; }
+    .sec-body.hide { display: block !important; }
+    .t-note.show, .sec-note { border: 1px solid #ccc; background: #fafafa; color: #000; }
+    .filters, .actions { display: none; }
+    .t-btn.on[data-v="pass"]::after { content: " PASS"; }
+    .t-btn.on[data-v="fail"]::after { content: " FAIL"; }
+  }
+</style>
+</head>
+<body>
+
+<h1>DKP - Testing Manual</h1>
+<p class="subtitle">Pew Pew Kittens with Guns &mdash; <span id="dateLabel"></span></p>
+
+<div class="summary">
+  <div class="stats">
+    <div class="stat"><span class="dot d-pass"></span> <strong id="cP">0</strong></div>
+    <div class="stat"><span class="dot d-fail"></span> <strong id="cF">0</strong></div>
+    <div class="stat"><span class="dot d-skip"></span> <strong id="cS">0</strong></div>
+    <div class="stat"><span class="dot d-pend"></span> <strong id="cN">0</strong></div>
+    <div class="stat"><div class="pbar"><div class="pfill" id="pf"></div></div> <span id="pp" style="font-size:.8em">0%</span></div>
+  </div>
+  <div class="actions">
+    <button class="btn b-save" onclick="save()">Guardar</button>
+    <button class="btn b-exp" onclick="exp()">Exportar JSON</button>
+    <button class="btn b-print" onclick="window.print()">Imprimir</button>
+    <button class="btn b-clr" onclick="clr()">Limpiar</button>
+  </div>
+</div>
+
+<div class="filters">
+  <button class="fbtn on" data-f="all">Todos</button>
+  <button class="fbtn" data-f="pass">Pass</button>
+  <button class="fbtn" data-f="fail">Fail</button>
+  <button class="fbtn" data-f="skip">Skip</button>
+  <button class="fbtn" data-f="pending">Pendientes</button>
+  <button class="fbtn" data-f="notes">Con notas</button>
+</div>
+
+<div id="root"></div>
+
+<script>
+const T = [
+  {
+    id:'login', title:'Login y Registro', tests:[
+      {l:'Abre la app sin estar logueado', h:'Debe redirigir a /login'},
+      {l:'Haz login con tu usuario y contrasena', h:'Debe entrar al dashboard y mostrar tu nombre + DKP'},
+      {l:'Intenta login con contrasena incorrecta', h:'Debe mostrar error, no dejar entrar'},
+      {l:'Intenta login con usuario que no existe', h:'Debe mostrar error generico (no revelar si existe)'},
+      {l:'Cambia el idioma en la pantalla de login (bandera ES/EN)', h:'Todo el texto debe cambiar'},
+      {l:'Haz click en "Registrarse" y crea una cuenta nueva', h:'Debe pedir usuario, email, password, confirmar password'},
+      {l:'Intenta registrar con passwords que no coinciden', h:'Debe mostrar error de validacion'},
+      {l:'Intenta registrar con un username que ya existe', h:'Debe mostrar error'},
+      {l:'Completa el registro correctamente', h:'Debe mostrar pantalla de exito y redirigir a login'},
+      {l:'Haz login con la cuenta recien creada', h:'Debe entrar correctamente'},
+      {l:'Haz click en "Olvide mi contrasena"', h:'Debe pedir username o email'},
+      {l:'Cierra sesion (boton logout en el header)', h:'Debe volver a /login, limpiar la sesion'},
+      {l:'Intenta acceder al dashboard sin token (URL directa)', h:'Debe redirigir a login'},
+    ]
+  },
+  {
+    id:'header', title:'Header y Navegacion General', tests:[
+      {l:'Verifica que se muestra tu nombre de personaje en su color de clase', h:'Color correcto segun tu clase (Mage=azul, Warrior=marron, etc.)'},
+      {l:'Verifica que se muestra tu DKP actual', h:'Numero correcto'},
+      {l:'Haz click en tu avatar/nombre en el header', h:'Debe abrir el modal "Mi Personaje"'},
+      {l:'Haz click en el icono "?" de DKP', h:'Debe abrir modal informativo de como funciona el DKP'},
+      {l:'Cambia el idioma con la bandera ES/EN', h:'Toda la app debe cambiar de idioma'},
+      {l:'Navega por todas las pestanas (Members, Calendar, Auction, History, Bosses, BIS, Stats)', h:'Cada tab debe cargar su contenido'},
+      {l:'Verifica la pestana "Admin" (solo si eres admin)', h:'Debe aparecer solo para admins', r:'admin'},
+      {l:'Verifica el badge en Calendar', h:'Debe mostrar numero de signups pendientes de confirmar'},
+    ]
+  },
+  {
+    id:'members', title:'Members / Roster', tests:[
+      {l:'Abre la pestana Members', h:'Debe cargar la lista de todos los miembros'},
+      {l:'Verifica que cada miembro muestra: avatar, nombre (color clase), spec, rol, DKP, vault', h:'Todo visible y correcto'},
+      {l:'Busca un miembro por nombre en el buscador', h:'Debe filtrar en tiempo real'},
+      {l:'Filtra por rol (Tank / Healer / DPS)', h:'Solo deben aparecer los del rol seleccionado'},
+      {l:'Ordena por nombre (click en columna)', h:'Debe ordenar A-Z / Z-A'},
+      {l:'Ordena por DKP (click en columna)', h:'Debe ordenar de mayor a menor y viceversa'},
+      {l:'Haz click en el nombre de un miembro', h:'Debe abrir el modal de Armory con su perfil'},
+      {l:'En el Armory modal, verifica: nombre, clase, items ganados, historial DKP', h:'Datos correctos y completos'},
+      {l:'Cierra el modal de Armory (X o ESC)', h:'Debe cerrar limpiamente'},
+      {l:'Toggle vault de un miembro (admin/officer)', h:'Debe cambiar el icono de vault inmediatamente', r:'admin/officer'},
+      {l:'Haz click en "Ajustar DKP" de un miembro (admin)', h:'Debe abrir modal para ajustar DKP', r:'admin'},
+      {l:'Ajusta DKP: pon un numero positivo y una razon', h:'DKP del miembro debe actualizarse en tiempo real', r:'admin'},
+      {l:'Ajusta DKP: pon un numero negativo', h:'DKP debe bajar, reflejarse en la lista', r:'admin'},
+      {l:'Elimina un miembro (boton X, admin)', h:'Debe pedir confirmacion, y al confirmar desaparecerlo', r:'admin'},
+    ]
+  },
+  {
+    id:'calendar', title:'Calendar / Signups', tests:[
+      {l:'Abre la pestana Calendar', h:'Debe mostrar las proximas 2 semanas de raids'},
+      {l:'Verifica que se muestran los dias de raid configurados (ej: Lun, Mie, Jue)', h:'Solo los dias correctos'},
+      {l:'Verifica el banner de "signups pendientes"', h:'Debe aparecer si tienes dias sin confirmar'},
+      {l:'Marca un dia como "Confirmed"', h:'Debe cambiar a verde, guardarse'},
+      {l:'Marca un dia como "Tentative"', h:'Debe cambiar a amarillo, mostrar campo de nota'},
+      {l:'Escribe una nota en un dia tentative', h:'Debe guardarse'},
+      {l:'Marca un dia como "Declined"', h:'Debe cambiar a rojo'},
+      {l:'Cambia un signup ya confirmado a declined', h:'Debe actualizarse correctamente'},
+      {l:'Verifica que raids pasados estan bloqueados (no se puede cambiar)', h:'No debe dejar modificar'},
+      {l:'Verifica el primer signup bonus (+1 DKP)', h:'Debe mostrar notificacion de bonus la primera vez de la semana'},
+      {l:'Haz click en una tarjeta compacta de dia', h:'Debe abrir el modal de asistencia con detalles'},
+      {l:'En el modal de asistencia: verifica roles (Tank/Healer/DPS), nombres, estados', h:'Datos correctos'},
+      {l:'Cambia a "Team Overview" (admin/officer)', h:'Debe mostrar tabla con todos los miembros x fechas', r:'admin/officer'},
+      {l:'Cambia a "Raid History"', h:'Debe mostrar raids pasados de las ultimas 8 semanas'},
+      {l:'Verifica links a Warcraft Logs en el historial', h:'Deben abrir WCL en nueva pestana'},
+      {l:'Linkea un WCL report a un dia de raid (admin)', h:'Debe abrir preview, mostrar DKP a asignar, confirmar', r:'admin'},
+    ]
+  },
+  {
+    id:'auctions', title:'Subastas Activas', tests:[
+      {l:'Abre la pestana "Active Auction"', h:'Debe mostrar las subastas activas (o mensaje vacio)'},
+      {l:'Crea una subasta nueva (admin/officer)', h:'Debe abrir modal con busqueda de items', r:'admin/officer'},
+      {l:'En crear subasta: filtra por boss', h:'Debe mostrar solo items de ese boss', r:'admin/officer'},
+      {l:'En crear subasta: busca un item por nombre', h:'Debe filtrar la lista', r:'admin/officer'},
+      {l:'Selecciona un item y pon duracion (5/10/15 min)', h:'Debe crearse y aparecer en la lista', r:'admin/officer'},
+      {l:'Verifica que la subasta nueva aparece a todos los usuarios conectados', h:'Socket.IO broadcast'},
+      {l:'Verifica el countdown: >2min verde, 1-2min amarillo, <1min rojo pulsando', h:'Colores correctos'},
+      {l:'Haz click en "Pujar" en una subasta activa', h:'Debe abrir modal de puja'},
+      {l:'Verifica que el modal muestra: tu DKP, puja actual, minimo', h:'Datos correctos'},
+      {l:'Introduce una puja valida y enviar', h:'Debe actualizar la subasta en tiempo real'},
+      {l:'Intenta pujar menos del minimo', h:'Debe mostrar error'},
+      {l:'Intenta pujar mas DKP de los que tienes', h:'Debe mostrar error'},
+      {l:'Haz que otro usuario te supere la puja', h:'Debes recibir notificacion de "outbid" (si estan activadas)'},
+      {l:'Crea un empate (misma cantidad que otro)', h:'Debe mostrar icono de dado + numero de empatados'},
+      {l:'Activa/desactiva notificaciones (icono campana)', h:'Debe togglear'},
+      {l:'Activa/desactiva sonido (icono altavoz)', h:'Debe togglear'},
+      {l:'Abre settings de sonido (icono engranaje)', h:'Debe abrir modal con lista de sonidos'},
+      {l:'Escucha un sonido de preview en el modal', h:'Debe sonar'},
+      {l:'Cierra una subasta (admin/officer)', h:'Debe determinar ganador, con rolls si hay empate', r:'admin/officer'},
+      {l:'Verifica el anti-snipe: puja en los ultimos 30s', h:'Debe extender el tiempo +30s y mostrar icono escudo'},
+      {l:'Cancela una subasta (admin/officer)', h:'Debe desaparecer de la lista activa', r:'admin/officer'},
+      {l:'Cancela TODAS las subastas (admin)', h:'Debe pedir confirmacion y limpiar todo', r:'admin'},
+    ]
+  },
+  {
+    id:'history', title:'Historial de Subastas', tests:[
+      {l:'Abre la pestana "Auction History"', h:'Debe cargar el historial de subastas pasadas'},
+      {l:'Verifica cada entrada: icono item, nombre (color rareza), fecha, ganador, DKP gastado', h:'Todo correcto'},
+      {l:'Verifica que el ganador se muestra en su color de clase', h:'Color correcto'},
+      {l:'Haz click en "Show bids (N)"', h:'Debe expandir y mostrar todas las pujas'},
+      {l:'Verifica que las pujas muestran: nombre, cantidad, la mayor resaltada', h:'Orden y colores correctos'},
+      {l:'Busca una subasta con empate resuelto (icono dado)', h:'Debe mostrar los rolls de cada jugador'},
+      {l:'Verifica las entradas de "farewell" (despedida)', h:'Fondo rojo, icono puerta, click abre modal con stats'},
+      {l:'Hover sobre un item', h:'Debe mostrar Wowhead tooltip con stats del item'},
+    ]
+  },
+  {
+    id:'bosses', title:'Bosses', tests:[
+      {l:'Abre la pestana "Bosses"', h:'Debe cargar las zonas con sus bosses'},
+      {l:'Verifica tab "Current Raids" vs "Legacy Raids"', h:'Deben mostrar las raids correctas en cada tab'},
+      {l:'Haz click en una zona para expandir/colapsar', h:'Debe mostrar/ocultar la grid de bosses'},
+      {l:'Verifica cada boss card: nombre, imagen, kills, wipes, badge dificultad', h:'Datos correctos'},
+      {l:'Haz click en un boss', h:'Debe abrir modal con stats detalladas'},
+      {l:'En el modal: verifica kills, wipes, kill mas rapido, media', h:'Numeros correctos'},
+      {l:'En el modal: cambia de dificultad (M/H/N)', h:'Stats deben cambiar segun dificultad'},
+      {l:'Verifica records del guild: top DPS, top HPS, mas muertes', h:'Nombres y valores correctos'},
+      {l:'Verifica la death leaderboard', h:'Top 10 con mas muertes en ese boss'},
+      {l:'Verifica links a Warcraft Logs en kills recientes', h:'Deben abrir WCL'},
+      {l:'Haz "Sync Zones" (admin)', h:'Debe resincronizar datos de bosses', r:'admin'},
+      {l:'Marca zona como legacy (admin)', h:'Debe mover la zona a la pestana Legacy', r:'admin'},
+    ]
+  },
+  {
+    id:'bis', title:'BIS (Best in Slot)', tests:[
+      {l:'Abre la pestana "BIS" > "My BIS List"', h:'Debe mostrar el paper doll con tus slots'},
+      {l:'Haz click en un slot vacio del paper doll', h:'Debe abrir el picker de items a la derecha'},
+      {l:'Filtra items por fuente (Raid / M+)', h:'Debe mostrar solo items de esa fuente'},
+      {l:'Busca un item por nombre', h:'Debe filtrar la lista'},
+      {l:'Anade un item a tu BIS list', h:'Debe aparecer en el slot del paper doll con su icono'},
+      {l:'Marca un item como "Obtained"', h:'Debe mostrar checkmark verde en el slot'},
+      {l:'Elimina un item de tu BIS list', h:'Slot debe volver a vacio'},
+      {l:'Verifica la popularidad ("X raiders quieren esto")', h:'Numero correcto'},
+      {l:'Hover sobre un item', h:'Wowhead tooltip con stats'},
+      {l:'Cambia a "Guild BIS List"', h:'Debe mostrar dropdown de miembros'},
+      {l:'Selecciona otro miembro', h:'Debe mostrar su paper doll (solo lectura)'},
+      {l:'Verifica que no puedes editar el BIS de otro usuario', h:'No deben aparecer botones de add/remove'},
+      {l:'Verifica los links de recursos (Archon, Murlok, etc.)', h:'Deben abrir en nueva pestana'},
+    ]
+  },
+  {
+    id:'analytics', title:'Analytics / Stats', tests:[
+      {l:'Abre la pestana "Stats"', h:'Debe cargar multiples tarjetas de analiticas'},
+      {l:'Cambia el periodo (4s / 8s / 12s)', h:'Todos los datos deben recalcularse'},
+      {l:'Verifica "My Performance": peleas, muertes, muertes/pelea', h:'Datos correctos, color segun ratio'},
+      {l:'Haz click en "Detailed Analysis"', h:'Debe abrir modal con analisis profundo'},
+      {l:'Verifica "Guild Insights": kills, wipes, kill rate', h:'Numeros correctos'},
+      {l:'Verifica "Guild Records": top DPS, HPS, muertes, peleas', h:'Nombres en color de clase, valores correctos'},
+      {l:'Verifica "Raid Progression": barras por dificultad (M/H/N)', h:'Progreso correcto'},
+      {l:'Verifica "Economy": DKP total, promedio, top 5 miembros', h:'Numeros correctos'},
+      {l:'Verifica "Attendance Ranking": miembros ordenados por asistencia', h:'Barras correctas (verde >=80%, amarillo >=50%, rojo <50%)'},
+    ]
+  },
+  {
+    id:'character', title:'Mi Personaje (Modal)', tests:[
+      {l:'Abre el modal de "Mi Personaje" (click avatar en header)', h:'Debe abrir con tus datos'},
+      {l:'Verifica tab "Profile": username, personaje, clase, spec, rol', h:'Datos correctos'},
+      {l:'Sube un avatar nuevo', h:'Debe mostrar interfaz de crop (arrastrar + zoom)'},
+      {l:'Ajusta el crop y confirma', h:'Avatar debe actualizarse en header y perfil'},
+      {l:'Cambia tu contrasena (vieja + nueva)', h:'Debe funcionar, puedes hacer logout y login con la nueva'},
+      {l:'Ve a tab "Characters"', h:'Debe mostrar tus personajes/alts'},
+      {l:'Importa un personaje de Blizzard: pon region, realm, nombre', h:'Debe buscar y mostrar datos del personaje'},
+      {l:'Confirma el import', h:'Debe actualizar tu nombre, clase, avatar, equipo'},
+      {l:'Anade un alt', h:'Mismo flujo de import, debe aparecer como alt'},
+      {l:'Marca un alt como primario', h:'Debe cambiar el personaje principal en toda la app'},
+      {l:'Elimina un alt', h:'Debe desaparecer de la lista'},
+      {l:'Ve a tab "DKP History"', h:'Debe mostrar todas tus transacciones'},
+      {l:'Verifica: fecha, cantidad (+/-), razon, DKP despues', h:'Colores verde/rojo, datos correctos'},
+    ]
+  },
+  {
+    id:'admin', title:'Admin Panel', tests:[
+      {l:'Abre la pestana "Admin"', h:'Solo visible para admins', r:'admin'},
+      {l:'Ajuste masivo de DKP: pon cantidad y razon, aplica', h:'Debe pedir confirmacion, aplicar a TODOS los miembros', r:'admin'},
+      {l:'Verifica que el DKP de todos los miembros cambio', h:'En la pestana Members debe reflejarse', r:'admin'},
+      {l:'Seccion "Pending Reports": verifica si hay reports WCL pendientes', h:'Lista de reports sin procesar', r:'admin'},
+      {l:'Refresca la lista de pending reports', h:'Debe buscar reports nuevos', r:'admin'},
+      {l:'Procesa un report WCL: abre preview', h:'Debe mostrar bosses, jugadores matched, DKP a asignar', r:'admin'},
+      {l:'Confirma el procesamiento del report', h:'DKP debe asignarse, report marcado como procesado', r:'admin'},
+      {l:'Pega una URL de WCL manualmente y haz preview', h:'Debe cargar el report y mostrar preview', r:'admin'},
+      {l:'Verifica el historial de WCL procesados', h:'Debe listar todos los reports procesados', r:'admin'},
+      {l:'Expande un report en el historial', h:'Debe mostrar todas las transacciones DKP', r:'admin'},
+      {l:'Revierte el DKP de un report', h:'Debe pedir confirmacion, quitar todo el DKP de ese report', r:'admin'},
+      {l:'DKP Decay: aplica un % de decay', h:'Debe reducir el DKP de todos segun el porcentaje', r:'admin'},
+    ]
+  },
+  {
+    id:'realtime', title:'Tiempo Real (Socket.IO)', tests:[
+      {l:'Abre la app en 2 navegadores/pestanas con usuarios distintos', h:'Ambos conectados'},
+      {l:'Desde admin: ajusta DKP de un miembro', h:'El otro navegador debe ver el cambio SIN recargar'},
+      {l:'Crea una subasta', h:'Debe aparecer instantaneamente en el otro navegador'},
+      {l:'Puja en una subasta', h:'La puja debe reflejarse en tiempo real para todos'},
+      {l:'Cierra una subasta', h:'Debe desaparecer/actualizarse en ambos navegadores'},
+      {l:'Cambia un signup en Calendar', h:'Admins deben ver el cambio en Team Overview en tiempo real'},
+      {l:'Toggle vault de un miembro', h:'Debe actualizarse en tiempo real para todos'},
+    ]
+  },
+  {
+    id:'ui', title:'UI General y Edge Cases', tests:[
+      {l:'Verifica Wowhead tooltips en items (hover sobre cualquier item)', h:'Tooltip con stats del item debe aparecer'},
+      {l:'Verifica colores de clase en TODA la app', h:'Cada nombre de personaje en su color de clase correcto'},
+      {l:'Verifica colores de rareza en items', h:'Common=gris, Uncommon=verde, Rare=azul, Epic=morado, Legendary=naranja'},
+      {l:'Prueba en movil o ventana estrecha', h:'Layout responsive, sin overflow, botones accesibles'},
+      {l:'Deja la app abierta 15+ minutos', h:'Token debe refrescarse automaticamente sin perder sesion'},
+      {l:'Desconecta internet y reconecta', h:'Debe reconectar Socket.IO, mostrar datos actualizados'},
+      {l:'Prueba con un usuario sin personaje importado', h:'Debe mostrar indicador "No character", funcionalidad basica OK'},
+      {l:'Prueba con un usuario nuevo (0 DKP, sin historial)', h:'Todas las secciones deben cargar sin errores'},
+      {l:'Verifica que las URLs directas funcionan (ej: /bosses, /calendar)', h:'Debe cargar la seccion correcta'},
+      {l:'Verifica estados de carga (spinners)', h:'Deben aparecer mientras cargan datos, desaparecer despues'},
+      {l:'Provoca un error de red (ej: backend apagado)', h:'Mensajes de error claros, no pantalla en blanco'},
+    ]
+  },
+  {
+    id:'buffs', title:'Buffs (SSE / Tiempo Real)', tests:[
+      {l:'Verifica iconos de buff junto a miembros en la lista', h:'Deben aparecer si hay buffs activos'},
+      {l:'Hover sobre icono de buff', h:'Tooltip con nombre del buff y quien lo puso'},
+      {l:'Verifica que los buffs se actualizan en tiempo real (SSE)', h:'Aparecen/desaparecen sin recargar'},
+    ]
+  },
+];
+
+// Build
+const root = document.getElementById('root');
+let total = 0;
+T.forEach(sec => {
+  total += sec.tests.length;
+  const d = document.createElement('div');
+  d.className = 'section'; d.dataset.sid = sec.id;
+  d.innerHTML = `
+    <div class="sec-head" onclick="tog('${sec.id}')">
+      <h2>${sec.title}</h2>
+      <span class="badge">${sec.tests.length} pruebas</span>
+    </div>
+    <div class="sec-body" id="b-${sec.id}">
+      ${sec.tests.map((t,i) => `
+        <div class="test" data-tid="${sec.id}-${i}" data-status="">
+          <div>
+            <div class="t-label">${t.l}</div>
+            <div class="t-hint">${t.h}</div>
+            ${t.r ? `<div class="t-role">${t.r}</div>` : ''}
+          </div>
+          <div class="t-ctrl">
+            <button class="t-btn" data-v="pass" onclick="st(this)" title="Pass">&#10003;</button>
+            <button class="t-btn" data-v="fail" onclick="st(this)" title="Fail">&#10007;</button>
+            <button class="t-btn" data-v="skip" onclick="st(this)" title="Skip">&#8212;</button>
+            <button class="note-toggle" onclick="tn(this)" title="Notas">&#9998;</button>
+          </div>
+          <textarea class="t-note" data-nid="${sec.id}-${i}" placeholder="Escribe lo que viste, errores, detalles..."></textarea>
+        </div>
+      `).join('')}
+      <textarea class="sec-note" data-snid="${sec.id}" placeholder="Notas generales de ${sec.title}..."></textarea>
+    </div>`;
+  root.appendChild(d);
+});
+
+document.getElementById('dateLabel').textContent = new Date().toLocaleDateString('es-ES',{year:'numeric',month:'long',day:'numeric'});
+
+function tog(id){ document.getElementById('b-'+id).classList.toggle('hide'); }
+
+function st(btn){
+  const row = btn.closest('.test');
+  const v = btn.dataset.v;
+  const cur = row.dataset.status;
+  // Toggle off if clicking same
+  if(cur === v){ row.dataset.status = ''; btn.classList.remove('on'); }
+  else {
+    row.dataset.status = v;
+    row.querySelectorAll('.t-btn').forEach(b => b.classList.remove('on'));
+    btn.classList.add('on');
+  }
+  // Auto show note on fail
+  if(v === 'fail' && row.dataset.status === 'fail'){
+    const note = row.querySelector('.t-note');
+    note.classList.add('show');
+    note.focus();
+  }
+  upd(); autoSave();
+}
+
+function tn(btn){
+  const note = btn.closest('.test').querySelector('.t-note');
+  note.classList.toggle('show');
+  if(note.classList.contains('show')) note.focus();
+  btn.classList.toggle('has-note', note.value.trim()!=='');
+}
+
+function upd(){
+  let p=0,f=0,s=0,n=0;
+  document.querySelectorAll('.test').forEach(t=>{
+    const v=t.dataset.status;
+    if(v==='pass')p++; else if(v==='fail')f++; else if(v==='skip')s++; else n++;
+  });
+  document.getElementById('cP').textContent=p;
+  document.getElementById('cF').textContent=f;
+  document.getElementById('cS').textContent=s;
+  document.getElementById('cN').textContent=n;
+  const done=p+f+s;
+  const pct=total?Math.round(done/total*100):0;
+  document.getElementById('pf').style.width=pct+'%';
+  document.getElementById('pp').textContent=pct+'%';
+}
+
+// Filters
+document.querySelectorAll('.fbtn').forEach(b=>{
+  b.addEventListener('click',()=>{
+    document.querySelectorAll('.fbtn').forEach(x=>x.classList.remove('on'));
+    b.classList.add('on');
+    const f=b.dataset.f;
+    document.querySelectorAll('.test').forEach(t=>{
+      const v=t.dataset.status||'';
+      const hasNote=t.querySelector('.t-note').value.trim()!=='';
+      let show=true;
+      if(f==='pass') show=v==='pass';
+      else if(f==='fail') show=v==='fail';
+      else if(f==='skip') show=v==='skip';
+      else if(f==='pending') show=!v;
+      else if(f==='notes') show=hasNote;
+      t.style.display=show?'':'none';
+    });
+  });
+});
+
+// Save/Load
+function gather(){
+  const d={ts:new Date().toISOString(), tests:{}, notes:{}, secNotes:{}};
+  document.querySelectorAll('.test').forEach(t=>{
+    const tid=t.querySelector('.t-note').dataset.nid;
+    if(t.dataset.status) d.tests[tid]=t.dataset.status;
+    const n=t.querySelector('.t-note').value.trim();
+    if(n) d.notes[tid]=n;
+  });
+  document.querySelectorAll('.sec-note').forEach(n=>{
+    if(n.value.trim()) d.secNotes[n.dataset.snid]=n.value.trim();
+  });
+  return d;
+}
+function restore(d){
+  if(d.tests) Object.entries(d.tests).forEach(([k,v])=>{
+    const note=document.querySelector(`[data-nid="${k}"]`);
+    if(!note) return;
+    const row=note.closest('.test');
+    row.dataset.status=v;
+    const btn=row.querySelector(`.t-btn[data-v="${v}"]`);
+    if(btn) btn.classList.add('on');
+  });
+  if(d.notes) Object.entries(d.notes).forEach(([k,v])=>{
+    const n=document.querySelector(`[data-nid="${k}"]`);
+    if(n){n.value=v;n.classList.add('show');
+      const tog=n.closest('.test').querySelector('.note-toggle');
+      if(tog) tog.classList.add('has-note');
+    }
+  });
+  if(d.secNotes) Object.entries(d.secNotes).forEach(([k,v])=>{
+    const n=document.querySelector(`[data-snid="${k}"]`);
+    if(n) n.value=v;
+  });
+  upd();
+}
+function save(){ localStorage.setItem('dkp-manual-test',JSON.stringify(gather())); alert('Guardado!'); }
+function autoSave(){ localStorage.setItem('dkp-manual-test',JSON.stringify(gather())); }
+function exp(){
+  const b=new Blob([JSON.stringify(gather(),null,2)],{type:'application/json'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(b);
+  a.download=`dkp-testing-${new Date().toISOString().slice(0,10)}.json`;
+  a.click(); URL.revokeObjectURL(a.href);
+}
+function clr(){
+  if(!confirm('Limpiar todo el progreso?')) return;
+  document.querySelectorAll('.test').forEach(t=>{
+    t.dataset.status='';
+    t.querySelectorAll('.t-btn').forEach(b=>b.classList.remove('on'));
+    t.querySelector('.t-note').value='';
+    t.querySelector('.t-note').classList.remove('show');
+  });
+  document.querySelectorAll('.sec-note').forEach(n=>n.value='');
+  localStorage.removeItem('dkp-manual-test');
+  upd();
+}
+
+// Auto-grow textareas
+document.addEventListener('input',e=>{
+  if(e.target.matches('textarea')){
+    e.target.style.height='auto';
+    e.target.style.height=e.target.scrollHeight+'px';
+    if(e.target.classList.contains('t-note')){
+      const tog=e.target.closest('.test').querySelector('.note-toggle');
+      if(tog) tog.classList.toggle('has-note',e.target.value.trim()!=='');
+    }
+    autoSave();
+  }
+});
+
+// Auto-load
+window.addEventListener('DOMContentLoaded',()=>{
+  const s=localStorage.getItem('dkp-manual-test');
+  if(s) restore(JSON.parse(s));
+  upd();
+});
+</script>
+</body>
+</html>
