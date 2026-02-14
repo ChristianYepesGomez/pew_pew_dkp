@@ -7,7 +7,7 @@ import { app, io } from '../server.js';
 describe('Socket.IO real-time events', () => {
   let httpServer;
   let serverPort;
-  let adminToken, adminId;
+  let adminToken, _adminId;
   let userToken, userId;
 
   beforeAll(async () => {
@@ -17,7 +17,7 @@ describe('Socket.IO real-time events', () => {
     const admin = await createTestUser({ role: 'admin' });
     const user = await createTestUser({ role: 'raider' });
     adminToken = admin.token;
-    adminId = admin.userId;
+    _adminId = admin.userId;
     userToken = user.token;
     userId = user.userId;
 

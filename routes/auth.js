@@ -438,8 +438,9 @@ router.post('/refresh', async (req, res) => {
     if (!user) return error(res, 'User not found', 401, ErrorCodes.UNAUTHORIZED);
 
     // Issue new token pair (same family for rotation tracking)
-    const newAccessToken = generateAccessToken(user);
-    const newRefreshToken = generateRefreshToken(user);
+    const guildId = decoded.guildId || null;
+    const newAccessToken = generateAccessToken(user, guildId);
+    const newRefreshToken = generateRefreshToken(user, guildId);
 
     await req.db.run(
       'INSERT INTO refresh_tokens (user_id, token, token_family, expires_at) VALUES (?, ?, ?, ?)',

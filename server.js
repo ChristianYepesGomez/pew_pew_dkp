@@ -18,9 +18,8 @@ import { createLogger } from './lib/logger.js';
 import { requestId } from './middleware/requestId.js';
 import { db, initDatabase } from './database.js';
 import { initPlatformDatabase } from './platformDb.js';
-import { resolveTenant } from './middleware/tenant.js';
 import { getAllGuilds } from './lib/provisioning.js';
-import { getTenantDb } from './lib/tenantDb.js';
+import { getTenantDb, closeAllTenantDbs } from './lib/tenantDb.js';
 import { seedRaidData } from './services/raids.js';
 import { startBuffManager } from './services/buffManager.js';
 import { scheduleExistingAuctions, setIO as setAuctionIO } from './lib/auctionScheduler.js';
@@ -178,6 +177,11 @@ io.use((socket, next) => {
 io.on('connection', (socket) => {
   log.info('Client connected', { socketId: socket.id, userId: socket.user?.userId });
 
+  // Auto-join guild room if token is scoped to a guild
+  if (socket.user?.guildId) {
+    socket.join(`guild_${socket.user.guildId}`);
+  }
+
   socket.on('join_guild', (guildId) => {
     socket.join(`guild_${guildId}`);
   });
@@ -206,6 +210,9 @@ const gracefulShutdown = async (signal) => {
 
   // Close Socket.IO connections
   io.close();
+
+  // Close tenant database connections
+  closeAllTenantDbs();
 
   // Force exit after timeout
   setTimeout(() => {

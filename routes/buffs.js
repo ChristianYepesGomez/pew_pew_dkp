@@ -32,7 +32,7 @@ router.get('/stream', (req, res) => {
   res.setHeader('X-Accel-Buffering', 'no'); // Disable nginx buffering
 
   // Generate unique client ID
-  const clientId = `${req.user.id}_${Date.now()}`;
+  const clientId = `${req.user.userId}_${Date.now()}`;
 
   // Register this client
   registerClient(clientId, res);

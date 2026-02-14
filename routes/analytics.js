@@ -11,7 +11,7 @@ const router = Router();
 // Attendance analytics
 router.get('/attendance', authenticateToken, async (req, res) => {
   try {
-    const weeks = parseInt(req.query.weeks) || 8;
+    const weeks = parseInt(String(req.query.weeks)) || 8;
     const results = await req.db.all(`
       SELECT u.id, u.character_name, u.character_class,
         COUNT(CASE WHEN ma.status = 'confirmed' THEN 1 END) as confirmed,
@@ -47,7 +47,7 @@ router.get('/attendance', authenticateToken, async (req, res) => {
 // DKP trends
 router.get('/dkp-trends', authenticateToken, async (req, res) => {
   try {
-    const weeks = parseInt(req.query.weeks) || 12;
+    const weeks = parseInt(String(req.query.weeks)) || 12;
     const trends = await req.db.all(`
       SELECT
         strftime('%Y-%W', created_at) as week,
@@ -114,7 +114,7 @@ router.get('/economy', authenticateToken, async (req, res) => {
 // Auction analytics
 router.get('/auctions', authenticateToken, async (req, res) => {
   try {
-    const weeks = parseInt(req.query.weeks) || 8;
+    const weeks = parseInt(String(req.query.weeks)) || 8;
     const stats = await req.db.get(`
       SELECT
         COUNT(*) as total_auctions,
@@ -309,8 +309,8 @@ router.get('/my-performance', authenticateToken, async (req, res) => {
 router.get('/my-performance-detail', authenticateToken, async (req, res) => {
   try {
     const userId = req.user.userId;
-    const weeks = parseInt(req.query.weeks) || 8;
-    const bossId = req.query.bossId ? parseInt(req.query.bossId) : undefined;
+    const weeks = parseInt(String(req.query.weeks)) || 8;
+    const bossId = req.query.bossId ? parseInt(String(req.query.bossId)) : undefined;
     const difficulty = req.query.difficulty || undefined;
 
     const data = await getPlayerDetailedPerformance(req.db, userId, { weeks, bossId, difficulty });

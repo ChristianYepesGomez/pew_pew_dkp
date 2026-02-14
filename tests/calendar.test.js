@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach } from 'vitest';
-import { request, setupTestDb, cleanupTestDb, createTestUser, setUserDkp, expectSuccess, expectError } from './helpers.js';
+import { request, setupTestDb, cleanupTestDb, createTestUser, expectSuccess, expectError } from './helpers.js';
 import { db } from '../database.js';
 
 // Next Monday from 2026-02-14 (Saturday) is 2026-02-16

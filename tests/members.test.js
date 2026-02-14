@@ -3,7 +3,7 @@ import { request, setupTestDb, cleanupTestDb, createTestUser, expectSuccess, exp
 
 describe('Member management — /api/members', () => {
   let adminToken, adminId;
-  let officerToken, officerId;
+  let officerToken, _officerId;
   let userToken, userId;
 
   beforeAll(async () => {
@@ -14,7 +14,7 @@ describe('Member management — /api/members', () => {
     adminToken = admin.token;
     adminId = admin.userId;
     officerToken = officer.token;
-    officerId = officer.userId;
+    _officerId = officer.userId;
     userToken = user.token;
     userId = user.userId;
   });

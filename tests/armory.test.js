@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
-import { request, setupTestDb, cleanupTestDb, createTestUser, setUserDkp, db } from './helpers.js';
+import { request, setupTestDb, cleanupTestDb, createTestUser, setUserDkp } from './helpers.js';
 import { MOCK_CHARACTER_EQUIPMENT, MOCK_CHARACTER_MEDIA, MOCK_EQUIPMENT_ERROR } from './mocks/blizzard.mock.js';
 
 // Mock Blizzard API service

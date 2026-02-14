@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
-import { request, setupTestDb, cleanupTestDb, createTestUser, setUserDkp, db } from './helpers.js';
-import { MOCK_REPORT_DATA, MOCK_GUILD_REPORTS, MOCK_FIGHT_STATS, MOCK_USER_REPORTS } from './mocks/warcraftlogs.mock.js';
+import { request, setupTestDb, cleanupTestDb, createTestUser, db } from './helpers.js';
+import { MOCK_REPORT_DATA, MOCK_GUILD_REPORTS, MOCK_USER_REPORTS } from './mocks/warcraftlogs.mock.js';
 
 // Mock WarcraftLogs service
 vi.mock('../services/warcraftlogs.js', () => ({
@@ -36,7 +36,7 @@ const { processWarcraftLog, isConfigured, getGuildReports, getUserReports } = aw
 describe('WarcraftLogs — /api/warcraftlogs', () => {
   let adminToken, adminId;
   let officerToken, officerId;
-  let raiderToken, raiderId;
+  let raiderToken, _raiderId;
 
   beforeAll(async () => {
     await setupTestDb();
@@ -51,7 +51,7 @@ describe('WarcraftLogs — /api/warcraftlogs', () => {
     officerToken = officer.token;
     officerId = officer.userId;
     raiderToken = raider.token;
-    raiderId = raider.userId;
+    _raiderId = raider.userId;
 
     // Set character names for matching
     await db.run('UPDATE users SET character_name = ? WHERE id = ?', 'TestWarrior', adminId);

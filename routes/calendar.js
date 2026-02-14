@@ -129,7 +129,7 @@ router.put('/raid-days', authenticateToken, authorizeRole(['admin']), async (req
 // Get upcoming raid dates for next 2 weeks
 router.get('/dates', authenticateToken, async (req, res) => {
   try {
-    const weeks = parseInt(req.query.weeks) || 2;
+    const weeks = parseInt(String(req.query.weeks)) || 2;
     const dates = await getRaidDates(req.db, Math.min(weeks, 4));
     return success(res, dates);
   } catch (err) {
@@ -142,7 +142,7 @@ router.get('/dates', authenticateToken, async (req, res) => {
 router.get('/my-signups', authenticateToken, async (req, res) => {
   try {
     const userId = req.user.userId;
-    const weeks = parseInt(req.query.weeks) || 2;
+    const weeks = parseInt(String(req.query.weeks)) || 2;
 
     const raidDates = await getRaidDates(req.db, weeks);
     const dateStrings = raidDates.map(d => d.date);
@@ -347,7 +347,7 @@ router.get('/summary/:date', authenticateToken, async (req, res) => {
 // Get all signups overview (all authenticated users)
 router.get('/overview', authenticateToken, async (req, res) => {
   try {
-    const weeks = parseInt(req.query.weeks) || 2;
+    const weeks = parseInt(String(req.query.weeks)) || 2;
     const raidDates = await getRaidDates(req.db, weeks);
 
     const users = await req.db.all(`
@@ -415,7 +415,7 @@ router.get('/overview', authenticateToken, async (req, res) => {
 // Get past raid history with WCL logs
 router.get('/history', authenticateToken, async (req, res) => {
   try {
-    const weeks = Math.min(parseInt(req.query.weeks) || 8, 12); // Max 12 weeks of history
+    const weeks = Math.min(parseInt(String(req.query.weeks)) || 8, 12); // Max 12 weeks of history
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
@@ -491,7 +491,7 @@ router.get('/history', authenticateToken, async (req, res) => {
 // Get raid dates enriched with WCL report info
 router.get('/dates-with-logs', authenticateToken, async (req, res) => {
   try {
-    const weeks = parseInt(req.query.weeks) || 4;
+    const weeks = parseInt(String(req.query.weeks)) || 4;
     const raidDates = await getRaidDates(req.db, weeks);
 
     if (raidDates.length === 0) {

@@ -12,6 +12,6 @@
     "resolveJsonModule": true,
     "baseUrl": "."
   },
-  "include": ["lib/**/*.js", "middleware/**/*.js", "routes/**/*.js", "services/**/*.js"],
+  "include": ["types.d.ts", "lib/**/*.js", "middleware/**/*.js", "routes/**/*.js", "services/**/*.js"],
   "exclude": ["node_modules", "dist", "data", "tests", "src"]
 }

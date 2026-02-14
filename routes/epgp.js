@@ -64,7 +64,7 @@ router.post('/gp/charge', adminLimiter, authenticateToken, authorizeRole(['admin
     return success(res, {
       effortPoints: updated?.effort_points || 0,
       gearPoints: updated?.gear_points || 0,
-      priority: parseFloat(priority),
+      priority: parseFloat(String(priority)),
     }, `${amount} GP charged`);
   } catch (err) {
     log.error('Charge GP error', err);
@@ -98,7 +98,7 @@ router.get('/history/:userId', authenticateToken, async (req, res) => {
     const userId = parseInt(req.params.userId, 10);
     if (isNaN(userId)) return error(res, 'Invalid user ID', 400, ErrorCodes.VALIDATION_ERROR);
 
-    const limit = parseInt(req.query.limit) || 50;
+    const limit = parseInt(String(req.query.limit)) || 50;
 
     // Access control: own history or officer+
     if (req.user.userId !== userId && !['admin', 'officer'].includes(req.user.role)) {

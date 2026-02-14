@@ -72,12 +72,12 @@ describe('Bug Fix — Difficulty normalization', () => {
 
 // ── Fix 2: Consumable score formula ────────────────────────────────────
 describe('Bug Fix — Consumable score formula', () => {
-  let adminToken, userId, userToken;
+  let _adminToken, userId, userToken;
 
   beforeAll(async () => {
     await setupTestDb();
     const admin = await createTestUser({ role: 'admin' });
-    adminToken = admin.token;
+    _adminToken = admin.token;
     const user = await createTestUser({ role: 'raider' });
     userId = user.userId;
     userToken = user.token;
@@ -133,12 +133,12 @@ describe('Bug Fix — Consumable score formula', () => {
 
 // ── Fix 1: Death rate SQL ──────────────────────────────────────────────
 describe('Bug Fix — Death rate calculation', () => {
-  let adminToken, userId, userToken;
+  let _adminToken, userId, userToken;
 
   beforeAll(async () => {
     await setupTestDb();
     const admin = await createTestUser({ role: 'admin' });
-    adminToken = admin.token;
+    _adminToken = admin.token;
     const user = await createTestUser({ role: 'raider' });
     userId = user.userId;
     userToken = user.token;

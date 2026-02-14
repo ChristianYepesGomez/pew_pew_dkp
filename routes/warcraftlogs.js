@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { authenticateToken, authorizeRole } from '../middleware/auth.js';
 import { adminLimiter } from '../lib/rateLimiters.js';
-import { invalidateConfigCache, addDkpWithCap, getCachedConfig } from '../lib/helpers.js';
+import { invalidateConfigCache } from '../lib/helpers.js';
 import { getLootSystem, getLootSystemType } from '../lib/lootSystems/index.js';
 import { processWarcraftLog, isConfigured as isWCLConfigured, getGuildReports, getFightStats, getFightStatsWithDeathEvents, getExtendedFightStats } from '../services/warcraftlogs.js';
 import { processExtendedFightData } from '../services/performanceAnalysis.js';

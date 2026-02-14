@@ -56,8 +56,8 @@ router.get('/:bossId', authenticateToken, async (req, res) => {
     const bossId = parseInt(req.params.bossId, 10);
     if (isNaN(bossId)) return error(res, 'Invalid boss ID', 400, ErrorCodes.VALIDATION_ERROR);
 
-    const { difficulty } = req.query;
-    const data = await getBossDetails(req.db, bossId, difficulty || null);
+    const difficulty = req.query.difficulty ? String(req.query.difficulty) : null;
+    const data = await getBossDetails(req.db, bossId, difficulty);
 
     if (!data) {
       return error(res, 'Boss not found', 404, ErrorCodes.NOT_FOUND);

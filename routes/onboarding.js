@@ -303,4 +303,44 @@ router.post('/skip', authenticateToken, authorizeRole(['admin']), async (req, re
   }
 });
 
+// POST /api/onboarding/provision-guild — create a new guild with its own database (admin)
+router.post('/provision-guild', authenticateToken, authorizeRole(['admin']), async (req, res) => {
+  try {
+    const { name, server, region } = req.body;
+
+    if (!name || !server) {
+      return errorResponse(res, 'name and server are required', 400, ErrorCodes.VALIDATION_ERROR);
+    }
+
+    const { provisionGuild } = await import('../lib/provisioning.js');
+    const { generateAccessToken, generateRefreshToken } = await import('../middleware/auth.js');
+
+    const guild = await provisionGuild({
+      name: name.trim(),
+      realm: server.trim(),
+      region: region || 'eu',
+      ownerId: String(req.user.userId),
+    });
+
+    // Issue tokens scoped to the new guild
+    const user = await req.db.get('SELECT id, username, role FROM users WHERE id = ?', req.user.userId);
+    const accessToken = generateAccessToken(user, guild.id);
+    const refreshToken = generateRefreshToken(user, guild.id);
+
+    log.info(`Guild provisioned: ${guild.name} (${guild.id}) by user ${req.user.userId}`);
+
+    return success(res, {
+      guild: { id: guild.id, name: guild.name, slug: guild.slug, realm: guild.realm, region: guild.region },
+      token: accessToken,
+      refreshToken,
+    }, 'Guild created successfully', 201);
+  } catch (err) {
+    if (err.message === 'GUILD_SLUG_TAKEN') {
+      return errorResponse(res, 'A guild with this name already exists', 409, ErrorCodes.ALREADY_EXISTS);
+    }
+    log.error('Provision guild error', err);
+    return errorResponse(res, 'Failed to create guild', 500, ErrorCodes.INTERNAL_ERROR);
+  }
+});
+
 export default router;

@@ -3,6 +3,7 @@ import crypto from 'crypto';
 import { JWT_SECRET, JWT_REFRESH_SECRET } from '../lib/config.js';
 import { error } from '../lib/response.js';
 import { ErrorCodes } from '../lib/errorCodes.js';
+import { resolveTenant } from './tenant.js';
 
 /**
  * Middleware to verify JWT token
@@ -18,6 +19,10 @@ export function authenticateToken(req, res, next) {
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
     req.user = decoded;
+    // Multi-tenant: resolve guild database if token is scoped to a guild
+    if (decoded.guildId) {
+      return resolveTenant(req, res, next);
+    }
     next();
   } catch (err) {
     if (err.name === 'TokenExpiredError') {

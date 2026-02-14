@@ -165,7 +165,7 @@ router.post('/decisions/:id/award', adminLimiter, authenticateToken, authorizeRo
 // Get loot decision history
 router.get('/history', authenticateToken, async (req, res) => {
   try {
-    const limit = parseInt(req.query.limit) || 50;
+    const limit = parseInt(String(req.query.limit)) || 50;
     const lc = new LootCouncilSystem(req.db);
     const history = await lc.getDecisionHistory(limit);
     return success(res, history);

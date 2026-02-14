@@ -122,7 +122,7 @@ router.get('/item-popularity', authenticateToken, async (req, res) => {
   try {
     const { class: className, spec, slot, content } = req.query;
     if (!className) return error(res, 'class parameter required', 400, ErrorCodes.VALIDATION_ERROR);
-    const items = await getPopularItems(req.db, className, spec || null, content || 'raid', slot || null);
+    const items = await getPopularItems(req.db, String(className), spec ? String(spec) : null, content ? String(content) : 'raid', slot ? String(slot) : null);
     return success(res, items);
   } catch (err) {
     log.error('Error fetching item popularity', err);
