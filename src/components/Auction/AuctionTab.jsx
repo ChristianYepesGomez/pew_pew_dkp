@@ -4,6 +4,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '../../hooks/useAuth'
 import { useSocket } from '../../hooks/useSocket'
 import { useLanguage } from '../../hooks/useLanguage'
+import { useToast } from '../../context/ToastContext'
 import { useNotifications, NOTIFICATION_SOUNDS } from '../../hooks/useNotifications'
 import { useActiveAuctions } from '../../hooks/useQueries'
 import { auctionsAPI, bisAPI } from '../../services/api'
@@ -26,6 +27,7 @@ const SoundSettingsModal = ({
 }) => {
   const fileInputRef = useRef(null)
   const [uploading, setUploading] = useState(false)
+  const { addToast } = useToast()
 
   const handleFileUpload = async (e) => {
     const file = e.target.files?.[0]
@@ -33,13 +35,13 @@ const SoundSettingsModal = ({
 
     // Validate file type
     if (!file.type.startsWith('audio/')) {
-      alert(t('invalid_audio_file') || 'Por favor selecciona un archivo de audio válido')
+      addToast(t('invalid_audio_file'), 'error')
       return
     }
 
     // Validate file size (2MB max)
     if (file.size > 2 * 1024 * 1024) {
-      alert(t('file_too_large') || 'El archivo es demasiado grande (máx 2MB)')
+      addToast(t('file_too_large'), 'error')
       return
     }
 
@@ -54,7 +56,7 @@ const SoundSettingsModal = ({
         setUploading(false)
       }
       reader.onerror = () => {
-        alert(t('upload_error') || 'Error al cargar el archivo')
+        addToast(t('upload_error'), 'error')
         setUploading(false)
       }
       reader.readAsDataURL(file)

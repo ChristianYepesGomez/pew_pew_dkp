@@ -1335,7 +1335,7 @@ const WCLLinkModal = ({ date, onClose, onLinked, t, language }) => {
             /* Preview step */
             <>
               <button onClick={() => { setStep('select'); setPreview(null) }} className="text-sm text-midnight-silver hover:text-white transition-colors">
-                <i className="fas fa-arrow-left mr-2"></i>{t('back') || 'Volver'}
+                <i className="fas fa-arrow-left mr-2"></i>{t('back')}
               </button>
 
               {preview && (
@@ -1356,7 +1356,7 @@ const WCLLinkModal = ({ date, onClose, onLinked, t, language }) => {
                     </div>
                     <div className="text-center">
                       <div className="text-2xl font-bold text-midnight-glow">{totalDkp}</div>
-                      <div className="text-xs text-midnight-silver">Total DKP</div>
+                      <div className="text-xs text-midnight-silver">{t('total_dkp')}</div>
                     </div>
                   </div>
 
@@ -1369,8 +1369,8 @@ const WCLLinkModal = ({ date, onClose, onLinked, t, language }) => {
                             {p.character_name}
                           </span>
                           {p.is_alt_match && (
-                            <span className="text-xs text-yellow-400" title={`Matcheado vía alt: ${p.matched_character}`}>
-                              (vía {p.matched_character})
+                            <span className="text-xs text-yellow-400" title={`${t('matched_via_alt')}: ${p.matched_character}`}>
+                              ({p.matched_character})
                             </span>
                           )}
                         </span>

@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { createPortal } from 'react-dom'
+import { useFocusTrap } from '../../hooks/useFocusTrap'
 import { useAuth } from '../../hooks/useAuth'
 import { useLanguage } from '../../hooks/useLanguage'
 import { dkpAPI, authAPI, charactersAPI, blizzardAPI } from '../../services/api'
@@ -264,6 +265,8 @@ const MyCharacterModal = ({ onClose }) => {
   // Edit spec state
   const [editingCharId, setEditingCharId] = useState(null)
   const [editingSaving, setEditingSaving] = useState(false)
+  const modalRef = useRef(null)
+  useFocusTrap(modalRef)
 
   const handleKeyDown = useCallback((e) => {
     if (e.key === 'Escape') onClose()
@@ -581,8 +584,8 @@ const MyCharacterModal = ({ onClose }) => {
   }
 
   return createPortal(
-    <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-[100] p-4">
-      <div className="bg-midnight-deepblue border-2 border-midnight-bright-purple rounded-2xl w-full max-w-2xl shadow-2xl max-h-[90vh] flex flex-col">
+    <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-[100] p-4" onClick={onClose}>
+      <div ref={modalRef} role="dialog" aria-modal="true" aria-label={t('my_character')} className="bg-midnight-deepblue border-2 border-midnight-bright-purple rounded-2xl w-full max-w-2xl max-sm:max-w-none shadow-2xl max-h-[90vh] max-sm:max-h-[100vh] flex flex-col" onClick={e => e.stopPropagation()}>
         {/* Header */}
         <div className="p-6 border-b border-midnight-bright-purple border-opacity-30 flex-shrink-0">
           <div className="flex items-center justify-between">
@@ -651,7 +654,7 @@ const MyCharacterModal = ({ onClose }) => {
                 )}
               </div>
             </div>
-            <button onClick={onClose} className="text-gray-400 hover:text-white text-2xl">
+            <button onClick={onClose} className="text-gray-400 hover:text-white text-2xl min-w-[44px] min-h-[44px] flex items-center justify-center" aria-label={t('close')}>
               <i className="fas fa-times"></i>
             </button>
           </div>

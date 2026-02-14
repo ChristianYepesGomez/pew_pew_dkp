@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { useLanguage } from '../../hooks/useLanguage'
+import { useFocusTrap } from '../../hooks/useFocusTrap'
 import { auctionsAPI } from '../../services/api'
 import WowheadTooltip from '../Common/WowheadTooltip'
 import { RARITY_COLORS } from '../../utils/constants'
@@ -11,7 +12,10 @@ const BidModal = ({ auction, userDkp, onClose, onSuccess }) => {
   const [amount, setAmount] = useState(String(minBid))
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [fieldError, setFieldError] = useState('')
   const inputRef = useRef(null)
+  const modalRef = useRef(null)
+  useFocusTrap(modalRef)
 
   // Close on ESC key
   const handleKeyDown = useCallback((e) => {
@@ -57,9 +61,20 @@ const BidModal = ({ auction, userDkp, onClose, onSuccess }) => {
     }
   }
 
+  const validateBid = (val) => {
+    const num = parseInt(val) || 0
+    if (num < minBid) {
+      setFieldError(t('bid_too_low'))
+    } else if (num > userDkp) {
+      setFieldError(t('insufficient_dkp'))
+    } else {
+      setFieldError('')
+    }
+  }
+
   return createPortal(
-    <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-[100] p-4">
-      <div className="bg-midnight-deepblue border-2 border-midnight-bright-purple rounded-2xl w-full max-w-md shadow-2xl">
+    <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-[100] p-4" onClick={onClose}>
+      <div ref={modalRef} role="dialog" aria-modal="true" aria-label={t('place_bid')} className="bg-midnight-deepblue border-2 border-midnight-bright-purple rounded-2xl w-full max-w-md max-sm:max-w-none shadow-2xl" onClick={e => e.stopPropagation()}>
         {/* Header */}
         <div className="p-6 border-b border-midnight-bright-purple border-opacity-30">
           <div className="flex items-center justify-between">
@@ -84,7 +99,7 @@ const BidModal = ({ auction, userDkp, onClose, onSuccess }) => {
                 <p className="text-sm text-midnight-silver m-0">{t('place_bid')}</p>
               </div>
             </div>
-            <button onClick={onClose} className="text-gray-400 hover:text-white text-2xl">
+            <button onClick={onClose} className="text-gray-400 hover:text-white text-2xl min-w-[44px] min-h-[44px] flex items-center justify-center" aria-label={t('close')}>
               <i className="fas fa-times"></i>
             </button>
           </div>
@@ -123,14 +138,18 @@ const BidModal = ({ auction, userDkp, onClose, onSuccess }) => {
                 ref={inputRef}
                 type="number"
                 value={amount}
-                onChange={(e) => setAmount(e.target.value)}
+                onChange={(e) => { setAmount(e.target.value); if (fieldError) validateBid(e.target.value) }}
+                onBlur={(e) => validateBid(e.target.value)}
                 onFocus={(e) => e.target.select()}
                 min={minBid}
                 max={userDkp}
-                className="flex-1 px-4 py-3 rounded-lg bg-midnight-purple bg-opacity-30 border border-midnight-bright-purple text-white text-center text-xl font-bold focus:outline-none focus:border-midnight-glow"
+                aria-label={t('your_bid')}
+                aria-invalid={!!fieldError}
+                className={`flex-1 px-4 py-3 rounded-lg bg-midnight-purple bg-opacity-30 border ${fieldError ? 'border-red-500' : 'border-midnight-bright-purple'} text-white text-center text-xl font-bold focus:outline-none focus:border-midnight-glow`}
               />
               <span className="text-midnight-glow font-bold text-xl">DKP</span>
             </div>
+            {fieldError && <p className="text-red-400 text-xs mt-1">{fieldError}</p>}
           </div>
 
           {/* After bid preview */}

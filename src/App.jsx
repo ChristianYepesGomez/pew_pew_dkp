@@ -7,6 +7,7 @@ import ForgotPassword from './pages/ForgotPassword'
 import ResetPassword from './pages/ResetPassword'
 import Dashboard from './pages/Dashboard'
 import RoleSwitcher from './components/Dev/RoleSwitcher'
+import OfflineBanner from './components/Common/OfflineBanner'
 
 class ErrorBoundary extends Component {
   constructor(props) {
@@ -25,15 +26,19 @@ class ErrorBoundary extends Component {
   render() {
     if (this.state.hasError) {
       return (
-        <div style={{ background: '#1a1a2e', color: '#e0e0e0', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'sans-serif' }}>
-          <div style={{ textAlign: 'center', maxWidth: 400 }}>
-            <h2 style={{ color: '#ff6b6b' }}>Something went wrong</h2>
-            <p style={{ color: '#888', fontSize: 14 }}>{this.state.error?.message || 'Unknown error'}</p>
+        <div className="min-h-screen flex items-center justify-center px-4" style={{ background: 'radial-gradient(ellipse at top, #1e1b4b 0%, #0f0a1e 50%, #000000 100%)' }}>
+          <div className="text-center max-w-md">
+            <div className="w-20 h-20 bg-red-500 bg-opacity-20 rounded-full flex items-center justify-center mx-auto mb-6 border-2 border-red-500 border-opacity-40">
+              <i className="fas fa-exclamation-triangle text-red-400 text-3xl"></i>
+            </div>
+            <h2 className="text-2xl font-cinzel font-bold text-red-400 mb-3">Something went wrong</h2>
+            <p className="text-gray-400 text-sm mb-2">Algo ha salido mal</p>
+            <p className="text-gray-500 text-xs mb-6 break-words">{this.state.error?.message || 'Unknown error'}</p>
             <button
               onClick={() => window.location.reload()}
-              style={{ marginTop: 16, padding: '8px 24px', background: '#6c5ce7', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 14 }}
+              className="px-6 py-3 bg-gradient-to-r from-midnight-purple to-midnight-bright-purple text-white font-bold rounded-lg hover:shadow-lg hover:shadow-midnight-glow/30 transition-all min-h-[44px]"
             >
-              Reload page
+              <i className="fas fa-redo mr-2"></i>Reload / Recargar
             </button>
           </div>
         </div>
@@ -56,6 +61,7 @@ function App() {
 
   return (
     <ErrorBoundary>
+      <OfflineBanner />
       <Routes>
         <Route path="/login" element={!isAuthenticated ? <Login /> : <Navigate to="/" />} />
         <Route path="/register" element={!isAuthenticated ? <Register /> : <Navigate to="/" />} />

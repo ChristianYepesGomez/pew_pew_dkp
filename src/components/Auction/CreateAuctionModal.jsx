@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { createPortal } from 'react-dom'
+import { useFocusTrap } from '../../hooks/useFocusTrap'
 import { useLanguage } from '../../hooks/useLanguage'
 import { raidItemsAPI, auctionsAPI } from '../../services/api'
 import { RARITY_COLORS } from '../../utils/constants'
@@ -22,6 +23,9 @@ const CreateAuctionModal = ({ onClose, onSuccess }) => {
   const [creating, setCreating] = useState(false)
   const [error, setError] = useState('')
   const [selectedBoss, setSelectedBoss] = useState('all')
+
+  const modalRef = useRef(null)
+  useFocusTrap(modalRef)
 
   // Close on ESC key
   const handleKeyDown = useCallback((e) => {
@@ -116,8 +120,8 @@ const CreateAuctionModal = ({ onClose, onSuccess }) => {
   const bosses = Array.from(bossesMap.values())
 
   return createPortal(
-    <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-[100] p-4 overflow-y-auto">
-      <div className="bg-midnight-deepblue border-2 border-midnight-bright-purple rounded-2xl w-full max-w-4xl shadow-2xl max-h-[85vh] flex flex-col my-auto">
+    <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-[100] p-4 overflow-y-auto" onClick={onClose}>
+      <div ref={modalRef} role="dialog" aria-modal="true" aria-label={t('create_auction')} className="bg-midnight-deepblue border-2 border-midnight-bright-purple rounded-2xl w-full max-w-4xl max-sm:max-w-none shadow-2xl max-h-[85vh] max-sm:max-h-[100vh] flex flex-col my-auto" onClick={e => e.stopPropagation()}>
         {/* Header */}
         <div className="p-6 border-b border-midnight-bright-purple border-opacity-30 flex-shrink-0">
           <div className="flex items-center justify-between">
@@ -130,7 +134,7 @@ const CreateAuctionModal = ({ onClose, onSuccess }) => {
                 <p className="text-sm text-midnight-silver m-0">{t('select_item_desc')}</p>
               </div>
             </div>
-            <button onClick={onClose} className="text-gray-400 hover:text-white text-2xl">
+            <button onClick={onClose} className="text-gray-400 hover:text-white text-2xl min-w-[44px] min-h-[44px] flex items-center justify-center" aria-label={t('close')}>
               <i className="fas fa-times"></i>
             </button>
           </div>

@@ -1,15 +1,17 @@
-import { useState, useEffect, useMemo, useRef } from 'react'
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '../../hooks/useAuth'
 import { useLanguage } from '../../hooks/useLanguage'
 import { useMembers } from '../../hooks/useQueries'
+import { useToast } from '../../context/ToastContext'
 import { membersAPI, dkpAPI } from '../../services/api'
 import DKPAdjustModal from './DKPAdjustModal'
 import ArmoryModal from './ArmoryModal'
 import VaultIcon from '../Common/VaultIcon'
 import { CLASS_COLORS } from '../../utils/constants'
 import { MembersSkeleton } from '../ui/Skeleton'
+import { useFocusTrap } from '../../hooks/useFocusTrap'
 
 // Spec icons from Wowhead (WoW Classic/Retail icons)
 const SPEC_ICONS = {
@@ -71,6 +73,7 @@ const MembersTab = () => {
   const { user } = useAuth()
   const { t } = useLanguage()
   const queryClient = useQueryClient()
+  const { addToast } = useToast()
   const { data: members = [], isLoading } = useMembers()
   const [adjustModal, setAdjustModal] = useState({ open: false, member: null })
   const [deleteModal, setDeleteModal] = useState({ open: false, member: null })
@@ -85,10 +88,24 @@ const MembersTab = () => {
   const canManageVault = isAdmin || isOfficer
   const [avatarPreview, setAvatarPreview] = useState(null) // { avatar, name, class }
   const [armoryMemberId, setArmoryMemberId] = useState(null) // ID of member whose armory is open
+  const deleteModalRef = useRef(null)
+  useFocusTrap(deleteModalRef, deleteModal.open)
 
   // Global buff system state (synchronized via SSE)
   const [activeBuffs, setActiveBuffs] = useState({}) // { memberId: { buff, expiresAt, casterName } }
   const sseRef = useRef(null)
+
+  // Close delete modal on ESC
+  const handleDeleteModalKeyDown = useCallback((e) => {
+    if (e.key === 'Escape') setDeleteModal({ open: false, member: null })
+  }, [])
+
+  useEffect(() => {
+    if (deleteModal.open) {
+      document.addEventListener('keydown', handleDeleteModalKeyDown)
+      return () => document.removeEventListener('keydown', handleDeleteModalKeyDown)
+    }
+  }, [deleteModal.open, handleDeleteModalKeyDown])
 
   // Listen for roster-refresh (fired when primary character changes in modal)
   useEffect(() => {
@@ -229,7 +246,7 @@ const MembersTab = () => {
       queryClient.invalidateQueries({ queryKey: ['members'] })
       setAdjustModal({ open: false, member: null })
     } catch (_error) {
-      alert(t('error_adjusting_dkp'))
+      addToast(t('error_adjusting_dkp'), 'error')
     }
   }
 
@@ -360,6 +377,7 @@ const MembersTab = () => {
                         onClick={(e) => { e.stopPropagation(); setDeleteModal({ open: true, member: m }) }}
                         className={`text-red-500 transition-opacity text-xs ${m.id === user?.id ? 'invisible' : 'opacity-0 group-hover:opacity-40 hover:!opacity-100'}`}
                         title={t('remove_member')}
+                        aria-label={`${t('remove_member')}: ${m.characterName}`}
                         disabled={m.id === user?.id}
                       >
                         <i className="fas fa-times"></i>
@@ -442,13 +460,14 @@ const MembersTab = () => {
                   </div>
                 </td>
                 <td className="py-2 sm:py-3 px-2 sm:px-4">
-                  <div className="flex items-center justify-center">
+                  <div className="flex items-center justify-center gap-1">
                     {canManageVault ? (
                       <button
                         onClick={() => handleToggleVault(m.id)}
                         disabled={vaultLoading === m.id}
                         className="w-8 h-8 flex items-center justify-center transition-all hover:scale-110"
                         title={m.weeklyVaultCompleted ? t('vault_completed') : t('vault_not_completed')}
+                        aria-label={`${m.characterName}: ${m.weeklyVaultCompleted ? t('vault_completed') : t('vault_not_completed')}`}
                       >
                         {vaultLoading === m.id ? (
                           <i className="fas fa-circle-notch fa-spin text-sm text-midnight-glow"></i>
@@ -464,6 +483,9 @@ const MembersTab = () => {
                         <VaultIcon completed={m.weeklyVaultCompleted} size={28} />
                       </div>
                     )}
+                    <span className={`text-xs hidden lg:inline ${m.weeklyVaultCompleted ? 'text-green-400' : 'text-gray-500'}`}>
+                      {m.weeklyVaultCompleted ? t('vault_completed_label') : t('vault_not_completed_label')}
+                    </span>
                   </div>
                 </td>
                 {isAdmin && (
@@ -495,8 +517,8 @@ const MembersTab = () => {
 
       {/* Delete Confirm Modal */}
       {deleteModal.open && createPortal(
-        <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-[100] p-4">
-          <div className="bg-midnight-deepblue border-2 border-red-500 border-opacity-50 rounded-2xl w-full max-w-sm shadow-2xl p-6 text-center">
+        <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-[100] p-4" onClick={() => setDeleteModal({ open: false, member: null })}>
+          <div ref={deleteModalRef} role="dialog" aria-modal="true" aria-label={t('remove_member')} className="bg-midnight-deepblue border-2 border-red-500 border-opacity-50 rounded-2xl w-full max-w-sm shadow-2xl p-6 text-center" onClick={e => e.stopPropagation()}>
             <i className="fas fa-skull-crossbones text-4xl text-red-400 mb-4"></i>
             <h3 className="text-lg font-bold mb-2">{t('remove_member')}</h3>
             <p className="text-midnight-silver mb-1">{t('confirm_remove_member')}</p>
@@ -542,7 +564,8 @@ const MembersTab = () => {
           />
           <button
             onClick={() => setAvatarPreview(null)}
-            className="absolute top-4 right-4 w-10 h-10 rounded-full text-white text-opacity-50 hover:text-opacity-100 transition-all flex items-center justify-center text-2xl"
+            className="absolute top-4 right-4 min-w-[44px] min-h-[44px] rounded-full text-white text-opacity-50 hover:text-opacity-100 transition-all flex items-center justify-center text-2xl"
+            aria-label={t('close')}
           >
             <i className="fas fa-times"></i>
           </button>

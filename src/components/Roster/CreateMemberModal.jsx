@@ -1,6 +1,7 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { useLanguage } from '../../hooks/useLanguage'
+import { useFocusTrap } from '../../hooks/useFocusTrap'
 import { membersAPI } from '../../services/api'
 
 const CLASS_SPECS = {
@@ -25,6 +26,8 @@ const CreateMemberModal = ({ onClose, onSuccess }) => {
   const { t } = useLanguage()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const modalRef = useRef(null)
+  useFocusTrap(modalRef)
   const [form, setForm] = useState({
     username: '',
     characterName: '',
@@ -89,8 +92,8 @@ const CreateMemberModal = ({ onClose, onSuccess }) => {
   const currentSpecs = CLASS_SPECS[form.characterClass]?.specs || []
 
   return createPortal(
-    <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-[100] p-4 overflow-y-auto">
-      <div className="bg-midnight-deepblue border-2 border-midnight-bright-purple rounded-2xl w-full max-w-lg shadow-2xl my-8">
+    <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-[100] p-4 overflow-y-auto" onClick={onClose}>
+      <div ref={modalRef} role="dialog" aria-modal="true" aria-label={t('create_member')} className="bg-midnight-deepblue border-2 border-midnight-bright-purple rounded-2xl w-full max-w-lg max-sm:max-w-none shadow-2xl my-8" onClick={e => e.stopPropagation()}>
         {/* Header */}
         <div className="p-6 border-b border-midnight-bright-purple border-opacity-30">
           <div className="flex items-center justify-between">
@@ -103,7 +106,7 @@ const CreateMemberModal = ({ onClose, onSuccess }) => {
                 <p className="text-sm text-midnight-silver m-0">{t('create_member_desc')}</p>
               </div>
             </div>
-            <button onClick={onClose} className="text-gray-400 hover:text-white text-2xl">
+            <button onClick={onClose} className="text-gray-400 hover:text-white text-2xl min-w-[44px] min-h-[44px] flex items-center justify-center" aria-label={t('close')}>
               <i className="fas fa-times"></i>
             </button>
           </div>
@@ -179,9 +182,9 @@ const CreateMemberModal = ({ onClose, onSuccess }) => {
                 onChange={(e) => setForm({ ...form, raidRole: e.target.value })}
                 className="w-full px-4 py-2 rounded-lg bg-midnight-purple bg-opacity-30 border border-midnight-bright-purple text-white focus:outline-none focus:border-midnight-glow"
               >
-                <option value="Tank">Tank</option>
-                <option value="Healer">Healer</option>
-                <option value="DPS">DPS</option>
+                <option value="Tank">{t('tank')}</option>
+                <option value="Healer">{t('healer')}</option>
+                <option value="DPS">{t('dps')}</option>
               </select>
             </div>
             <div>

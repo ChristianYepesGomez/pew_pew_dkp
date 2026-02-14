@@ -1,21 +1,33 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, lazy, Suspense } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '../hooks/useAuth'
 import { useLanguage } from '../hooks/useLanguage'
 import { calendarAPI, membersAPI, auctionsAPI, bossesAPI } from '../services/api'
 import Header from '../components/Layout/Header'
+import BottomNav from '../components/PWA/BottomNav'
+import InstallPrompt from '../components/PWA/InstallPrompt'
+import OfflineBanner from '../components/PWA/OfflineBanner'
 import MembersTab from '../components/Roster/MembersTab'
-import AuctionTab from '../components/Auction/AuctionTab'
-import HistoryTab from '../components/Auction/HistoryTab'
-import CalendarTab from '../components/Calendar/CalendarTab'
-import AdminTab from '../components/Admin/AdminTab'
-import BossesTab from '../components/Bosses/BossesTab'
-import BISTab from '../components/BIS/BISTab'
-import AnalyticsTab from '../components/Analytics/AnalyticsTab'
+
+// Lazy load non-critical tabs
+const AuctionTab = lazy(() => import('../components/Auction/AuctionTab'))
+const HistoryTab = lazy(() => import('../components/Auction/HistoryTab'))
+const CalendarTab = lazy(() => import('../components/Calendar/CalendarTab'))
+const AdminTab = lazy(() => import('../components/Admin/AdminTab'))
+const BossesTab = lazy(() => import('../components/Bosses/BossesTab'))
+const BISTab = lazy(() => import('../components/BIS/BISTab'))
+const AnalyticsTab = lazy(() => import('../components/Analytics/AnalyticsTab'))
+
+const TabFallback = () => (
+  <div className="flex items-center justify-center py-16">
+    <i className="fas fa-circle-notch fa-spin text-3xl text-midnight-glow"></i>
+  </div>
+)
 
 const Dashboard = () => {
   const [activeTab, setActiveTab] = useState('members')
   const [calendarBadge, setCalendarBadge] = useState(0)
+  const [auctionCount, setAuctionCount] = useState(0)
   const { t } = useLanguage()
   const { user } = useAuth()
   const queryClient = useQueryClient()
@@ -29,8 +41,6 @@ const Dashboard = () => {
   }
 
   const isAdmin = user?.role === 'admin'
-  const isOfficer = user?.role === 'officer'
-  const canManage = isAdmin || isOfficer
 
   // Check for unconfirmed calendar days to show badge
   // Must match CalendarTab logic: group by raid week, limit to 2 weeks, exclude past days
@@ -79,6 +89,15 @@ const Dashboard = () => {
       } catch { /* silent */ }
     }
     checkUnconfirmed()
+
+    // Fetch active auction count for bottom nav badge
+    const fetchAuctionCount = async () => {
+      try {
+        const res = await auctionsAPI.getActive()
+        setAuctionCount(res.data.auctions?.length || 0)
+      } catch { /* silent */ }
+    }
+    fetchAuctionCount()
   }, [activeTab])
 
   const tabs = [
@@ -95,27 +114,31 @@ const Dashboard = () => {
   if (isAdmin) tabs.push({ id: 'admin', icon: 'fa-crown', label: t('admin') })
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen pb-20 md:pb-0">
+      <OfflineBanner />
+      <InstallPrompt />
       <Header />
 
       <div className="container mx-auto px-4 py-8 max-w-7xl">
-        {/* Tabs - Centered */}
-        <div className="flex flex-wrap justify-center gap-2 mb-8 border-b-2 border-midnight-bright-purple border-opacity-30 pb-4">
+        {/* Tabs - Hidden on mobile (replaced by BottomNav), visible on desktop */}
+        <div className="hidden md:flex flex-wrap justify-center gap-2 mb-8 border-b-2 border-midnight-bright-purple border-opacity-30 pb-4" role="tablist">
           {tabs.map((tab) => (
             <button
               key={tab.id}
+              role="tab"
+              aria-selected={activeTab === tab.id}
               onClick={() => setActiveTab(tab.id)}
               onMouseEnter={() => prefetchMap[tab.id]?.()}
-              className={`relative px-6 py-3 rounded-t-lg font-cinzel text-base tracking-wide transition-all duration-300 ${
+              className={`relative px-4 sm:px-6 py-3 rounded-t-lg font-cinzel text-sm sm:text-base tracking-wide transition-all duration-300 min-h-[44px] ${
                 activeTab === tab.id
                   ? 'bg-gradient-to-r from-midnight-purple to-midnight-bright-purple text-white shadow-lg'
                   : 'bg-transparent text-midnight-silver hover:bg-midnight-bright-purple hover:bg-opacity-10'
               }`}
             >
-              <i className={`fas ${tab.icon} mr-2`}></i>
-              {tab.label}
+              <i className={`fas ${tab.icon} mr-1 sm:mr-2`}></i>
+              <span className="hidden sm:inline">{tab.label}</span>
               {tab.id === 'calendar' && calendarBadge > 0 && activeTab !== 'calendar' && (
-                <span className="absolute -top-1 -right-1 w-5 h-5 bg-orange-500 text-white text-xs font-bold rounded-full flex items-center justify-center animate-pulse-subtle">
+                <span className="absolute -top-1 -right-1 w-5 h-5 bg-orange-500 text-white text-xs font-bold rounded-full flex items-center justify-center animate-pulse-subtle" aria-label={`${calendarBadge} unconfirmed`}>
                   {calendarBadge}
                 </span>
               )}
@@ -124,17 +147,27 @@ const Dashboard = () => {
         </div>
 
         {/* Content */}
-        <div className="animate-fade-in">
-          {activeTab === 'members' && <MembersTab />}
-          {activeTab === 'bosses' && <BossesTab />}
-          {activeTab === 'calendar' && <CalendarTab />}
-          {activeTab === 'auction' && <AuctionTab />}
-          {activeTab === 'history' && <HistoryTab />}
-          {activeTab === 'bis' && <BISTab />}
-          {activeTab === 'stats' && <AnalyticsTab />}
-          {activeTab === 'admin' && isAdmin && <AdminTab />}
+        <div className="animate-fade-in" role="tabpanel">
+          <Suspense fallback={<TabFallback />}>
+            {activeTab === 'members' && <MembersTab />}
+            {activeTab === 'bosses' && <BossesTab />}
+            {activeTab === 'calendar' && <CalendarTab />}
+            {activeTab === 'auction' && <AuctionTab />}
+            {activeTab === 'history' && <HistoryTab />}
+            {activeTab === 'bis' && <BISTab />}
+            {activeTab === 'stats' && <AnalyticsTab />}
+            {activeTab === 'admin' && isAdmin && <AdminTab />}
+          </Suspense>
         </div>
       </div>
+
+      {/* Mobile bottom navigation */}
+      <BottomNav
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        calendarBadge={calendarBadge}
+        auctionCount={auctionCount}
+      />
     </div>
   )
 }

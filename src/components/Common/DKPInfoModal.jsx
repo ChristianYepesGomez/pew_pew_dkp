@@ -1,14 +1,28 @@
+import { useEffect, useCallback, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { useLanguage } from '../../hooks/useLanguage'
+import { useFocusTrap } from '../../hooks/useFocusTrap'
 import VaultIcon from './VaultIcon'
 
 const DKPInfoModal = ({ onClose }) => {
   const { t } = useLanguage()
+  const modalRef = useRef(null)
+  useFocusTrap(modalRef)
+
+  const handleKeyDown = useCallback((e) => {
+    if (e.key === 'Escape') onClose()
+  }, [onClose])
+
+  useEffect(() => {
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [handleKeyDown])
 
   return createPortal(
     <div className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-[100] p-4" onClick={onClose}>
       <div
-        className="bg-midnight-deepblue border-2 border-midnight-bright-purple rounded-2xl w-full max-w-lg shadow-2xl max-h-[90vh] overflow-hidden flex flex-col"
+        ref={modalRef} role="dialog" aria-modal="true" aria-label={t('dkp_system_title')}
+        className="bg-midnight-deepblue border-2 border-midnight-bright-purple rounded-2xl w-full max-w-lg max-sm:max-w-none shadow-2xl max-h-[90vh] max-sm:max-h-[100vh] overflow-hidden flex flex-col"
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
@@ -23,7 +37,7 @@ const DKPInfoModal = ({ onClose }) => {
                 <p className="text-sm text-midnight-silver m-0">{t('dkp_system_subtitle')}</p>
               </div>
             </div>
-            <button onClick={onClose} className="text-gray-400 hover:text-white text-2xl">
+            <button onClick={onClose} className="text-gray-400 hover:text-white text-2xl min-w-[44px] min-h-[44px] flex items-center justify-center" aria-label={t('close')}>
               <i className="fas fa-times"></i>
             </button>
           </div>

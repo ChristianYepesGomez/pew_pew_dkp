@@ -1,5 +1,6 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { createPortal } from 'react-dom'
+import { useFocusTrap } from '../../hooks/useFocusTrap'
 import { useLanguage } from '../../hooks/useLanguage'
 import { analyticsAPI } from '../../services/api'
 import {
@@ -39,6 +40,8 @@ const PerformanceModal = ({ onClose }) => {
   const [selectedBoss, setSelectedBoss] = useState(null)
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
+  const modalRef = useRef(null)
+  useFocusTrap(modalRef)
 
   useEffect(() => {
     const load = async () => {
@@ -455,7 +458,8 @@ const PerformanceModal = ({ onClose }) => {
   return createPortal(
     <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-[100] p-4" onClick={onClose}>
       <div
-        className="bg-midnight-deepblue border-2 border-midnight-bright-purple border-opacity-30 rounded-2xl w-full max-w-5xl max-h-[90vh] flex flex-col shadow-2xl"
+        ref={modalRef} role="dialog" aria-modal="true" aria-label={t('perf_detailed_analysis')}
+        className="bg-midnight-deepblue border-2 border-midnight-bright-purple border-opacity-30 rounded-2xl w-full max-w-5xl max-sm:max-w-none max-h-[90vh] max-sm:max-h-[100vh] flex flex-col shadow-2xl"
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
@@ -479,7 +483,7 @@ const PerformanceModal = ({ onClose }) => {
                 </button>
               ))}
             </div>
-            <button onClick={onClose} className="text-midnight-silver hover:text-white transition-colors">
+            <button onClick={onClose} className="text-midnight-silver hover:text-white transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center" aria-label={t('close')}>
               <i className="fas fa-times text-lg"></i>
             </button>
           </div>

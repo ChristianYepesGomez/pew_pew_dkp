@@ -14,7 +14,20 @@ api.interceptors.request.use((config) => {
 })
 
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    // Unwrap standardized API response envelope
+    if (response.data?.success === true) {
+      const { data, message } = response.data
+      if (data !== null && data !== undefined) {
+        response.data = (message && typeof data === 'object' && !Array.isArray(data))
+          ? { ...data, message }
+          : data
+      } else {
+        response.data = message ? { message } : {}
+      }
+    }
+    return response
+  },
   (error) => {
     if (error.response?.status === 401) {
       localStorage.removeItem('token')
@@ -160,6 +173,14 @@ export const itemPopularityAPI = {
     if (content) params.append('content', content);
     return api.get(`/item-popularity?${params}`);
   },
+}
+
+export const notificationsAPI = {
+  getVapidKey: () => api.get('/notifications/vapid-public-key'),
+  subscribe: (subscription) => api.post('/notifications/subscribe', subscription),
+  unsubscribe: (endpoint) => api.delete('/notifications/subscribe', { data: { endpoint } }),
+  getPreferences: () => api.get('/notifications/preferences'),
+  updatePreferences: (prefs) => api.put('/notifications/preferences', prefs),
 }
 
 export const armoryAPI = {

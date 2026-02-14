@@ -47,7 +47,8 @@ const ResetPassword = () => {
         <div className="flex justify-end mb-4">
           <button
             onClick={() => changeLanguage(language === 'es' ? 'en' : 'es')}
-            className="px-3 py-1 rounded-lg border border-midnight-bright-purple text-midnight-silver hover:bg-midnight-bright-purple hover:bg-opacity-20 transition-all"
+            className="px-3 py-1 rounded-lg border border-midnight-bright-purple text-midnight-silver hover:bg-midnight-bright-purple hover:bg-opacity-20 transition-all min-h-[44px] flex items-center justify-center"
+            aria-label={language === 'es' ? 'Switch to English' : 'Cambiar a Español'}
           >
             {language === 'es' ? '🇪🇸' : '🇬🇧'}
           </button>
@@ -67,7 +68,7 @@ const ResetPassword = () => {
           {/* Content */}
           <div className="p-6">
             {error && (
-              <div className="bg-red-500 bg-opacity-20 border border-red-500 text-red-400 px-4 py-3 rounded-lg mb-6 flex items-center gap-2">
+              <div className="bg-red-500 bg-opacity-20 border border-red-500 text-red-400 px-4 py-3 rounded-lg mb-6 flex items-center gap-2" role="alert">
                 <i className="fas fa-exclamation-circle"></i>
                 <span>{error}</span>
               </div>
@@ -83,10 +84,11 @@ const ResetPassword = () => {
             {!message ? (
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
-                  <label className="block text-midnight-silver text-sm font-semibold mb-2">
+                  <label htmlFor="reset-password" className="block text-midnight-silver text-sm font-semibold mb-2">
                     <i className="fas fa-lock mr-2 text-midnight-glow"></i>{t('new_password')}
                   </label>
                   <input
+                    id="reset-password"
                     type="password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
@@ -97,10 +99,11 @@ const ResetPassword = () => {
                 </div>
 
                 <div>
-                  <label className="block text-midnight-silver text-sm font-semibold mb-2">
+                  <label htmlFor="reset-confirm-password" className="block text-midnight-silver text-sm font-semibold mb-2">
                     <i className="fas fa-lock mr-2 text-midnight-glow"></i>{t('confirm_password')}
                   </label>
                   <input
+                    id="reset-confirm-password"
                     type="password"
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
@@ -113,7 +116,7 @@ const ResetPassword = () => {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full bg-gradient-to-r from-midnight-purple to-midnight-bright-purple text-white font-bold py-4 px-4 rounded-lg hover:shadow-lg hover:shadow-midnight-glow/30 transform hover:-translate-y-0.5 transition-all disabled:opacity-50 disabled:transform-none"
+                  className="w-full bg-gradient-to-r from-midnight-purple to-midnight-bright-purple text-white font-bold py-4 px-4 rounded-lg hover:shadow-lg hover:shadow-midnight-glow/30 transform hover:-translate-y-0.5 transition-all disabled:opacity-50 disabled:transform-none min-h-[44px]"
                 >
                   {loading ? (
                     <><i className="fas fa-circle-notch fa-spin mr-2"></i>{t('loading')}...</>

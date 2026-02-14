@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { createPortal } from 'react-dom'
+import { useFocusTrap } from '../../hooks/useFocusTrap'
 import { useLanguage } from '../../hooks/useLanguage'
 import { CLASS_COLORS } from '../../utils/constants'
 
@@ -24,6 +25,8 @@ const DKPAdjustModal = ({ member, onClose, onSubmit }) => {
   const [amount, setAmount] = useState('')
   const [reason, setReason] = useState('')
   const [loading, setLoading] = useState(false)
+  const modalRef = useRef(null)
+  useFocusTrap(modalRef)
 
   // Close on ESC key
   const handleKeyDown = useCallback((e) => {
@@ -58,8 +61,8 @@ const DKPAdjustModal = ({ member, onClose, onSubmit }) => {
   const newDkp = currentDkp + (parseInt(amount) || 0)
 
   return createPortal(
-    <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-[100] p-4 overflow-y-auto">
-      <div className="bg-midnight-deepblue border-2 border-midnight-bright-purple rounded-2xl w-full max-w-md shadow-2xl my-auto">
+    <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-[100] p-4 overflow-y-auto" onClick={onClose}>
+      <div ref={modalRef} role="dialog" aria-modal="true" aria-label={t('adjust_dkp')} className="bg-midnight-deepblue border-2 border-midnight-bright-purple rounded-2xl w-full max-w-md max-sm:max-w-none shadow-2xl my-auto" onClick={e => e.stopPropagation()}>
         {/* Header */}
         <div className="p-6 border-b border-midnight-bright-purple border-opacity-30">
           <div className="flex items-center justify-between">
@@ -74,7 +77,7 @@ const DKPAdjustModal = ({ member, onClose, onSubmit }) => {
                 </p>
               </div>
             </div>
-            <button onClick={onClose} className="text-gray-400 hover:text-white text-2xl">
+            <button onClick={onClose} className="text-gray-400 hover:text-white text-2xl min-w-[44px] min-h-[44px] flex items-center justify-center" aria-label={t('close')}>
               <i className="fas fa-times"></i>
             </button>
           </div>

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef, useCallback, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { useLanguage } from '../../hooks/useLanguage'
 import { useAuctionHistory } from '../../hooks/useQueries'
@@ -6,6 +6,7 @@ import { auctionsAPI } from '../../services/api'
 import WowheadTooltip from '../Common/WowheadTooltip'
 import { CLASS_COLORS, RARITY_COLORS } from '../../utils/constants'
 import { HistorySkeleton } from '../ui/Skeleton'
+import { useFocusTrap } from '../../hooks/useFocusTrap'
 
 const HistoryTab = () => {
   const { t, language } = useLanguage()
@@ -72,7 +73,7 @@ const HistoryTab = () => {
                       {t('farewell_left_guild')} &bull; {formatDate(a.ended_at || a.created_at)}
                     </p>
                   </div>
-                  <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-4 max-sm:hidden">
                     <div className="text-right">
                       <p className="text-xs text-red-300 m-0 mb-1">{t('total_spent')}</p>
                       <p className="font-bold text-red-400 m-0">{fw.member?.lifetimeSpent || 0} DKP</p>
@@ -135,10 +136,10 @@ const HistoryTab = () => {
 
                 {/* Winner & DKP */}
                 {hasWinner ? (
-                  <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-2 sm:gap-4 flex-wrap sm:flex-nowrap">
                     {/* Roll info if it was a tie */}
                     {a.was_tie && a.rolls && (
-                      <div className="text-center px-3 py-1 bg-yellow-500 bg-opacity-10 border border-yellow-500 border-opacity-30 rounded-lg">
+                      <div className="text-center px-3 py-1 bg-yellow-500 bg-opacity-10 border border-yellow-500 border-opacity-30 rounded-lg hidden sm:block">
                         <p className="text-xs text-yellow-400 m-0 mb-1">
                           <i className="fas fa-dice mr-1"></i>{t('tie_resolved')}
                         </p>
@@ -159,9 +160,9 @@ const HistoryTab = () => {
                       </div>
                     )}
                     <div className="text-right">
-                      <p className="text-xs text-midnight-silver m-0 mb-1">{t('winner')}</p>
+                      <p className="text-xs text-midnight-silver m-0 mb-1 hidden sm:block">{t('winner')}</p>
                       <p
-                        className="font-bold m-0 flex items-center justify-end gap-2"
+                        className="font-bold m-0 flex items-center justify-end gap-2 text-sm sm:text-base"
                         style={{ color: CLASS_COLORS[a.winner.characterClass] || '#FFF' }}
                       >
                         {a.winner.characterName}
@@ -172,14 +173,14 @@ const HistoryTab = () => {
                         )}
                       </p>
                     </div>
-                    <div className="text-right min-w-[80px]">
-                      <p className="text-xs text-midnight-silver m-0 mb-1">{t('dkp_spent')}</p>
-                      <p className="font-bold text-red-400 m-0">-{a.winning_bid} DKP</p>
+                    <div className="text-right min-w-[60px] sm:min-w-[80px]">
+                      <p className="text-xs text-midnight-silver m-0 mb-1 hidden sm:block">{t('dkp_spent')}</p>
+                      <p className="font-bold text-red-400 m-0 text-sm sm:text-base">-{a.winning_bid}</p>
                     </div>
                   </div>
                 ) : (
                   <div className="text-right">
-                    <p className="text-midnight-silver m-0">{t('no_winner')}</p>
+                    <p className="text-midnight-silver m-0 text-sm sm:text-base">{t('no_winner')}</p>
                   </div>
                 )}
               </div>
@@ -245,19 +246,30 @@ const FarewellModal = ({ auction, onClose, t, formatDate: _formatDate }) => {
   const fw = auction.farewell
   const member = fw.member
   const items = fw.itemsWon || []
+  const modalRef = useRef(null)
+  useFocusTrap(modalRef)
+
+  const handleKeyDown = useCallback((e) => {
+    if (e.key === 'Escape') onClose()
+  }, [onClose])
+
+  useEffect(() => {
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [handleKeyDown])
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-[100] p-4" onClick={onClose}>
-      <div className="bg-midnight-deepblue border-2 border-red-500 border-opacity-40 rounded-2xl w-full max-w-lg shadow-2xl max-h-[90vh] overflow-hidden flex flex-col" onClick={e => e.stopPropagation()}>
+    <div className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-[100] p-4 overflow-y-auto" onClick={onClose}>
+      <div ref={modalRef} role="dialog" aria-modal="true" aria-label={`${t('farewell_left_guild')}: ${member?.characterName}`} className="bg-midnight-deepblue border-2 border-red-500 border-opacity-40 rounded-2xl w-full max-w-lg max-sm:max-w-none shadow-2xl max-h-[90vh] overflow-hidden flex flex-col my-8" onClick={e => e.stopPropagation()}>
         {/* Header */}
-        <div className="p-6 bg-gradient-to-r from-red-900 to-red-800 border-b border-red-500 border-opacity-30">
+        <div className="p-4 sm:p-6 bg-gradient-to-r from-red-900 to-red-800 border-b border-red-500 border-opacity-30">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div className="w-14 h-14 rounded-full bg-midnight-deepblue flex items-center justify-center border-2 border-red-500">
-                <i className="fas fa-door-open text-2xl text-red-400"></i>
+            <div className="flex items-center gap-3 sm:gap-4">
+              <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-midnight-deepblue flex items-center justify-center border-2 border-red-500 flex-shrink-0">
+                <i className="fas fa-door-open text-xl sm:text-2xl text-red-400"></i>
               </div>
               <div>
-                <h3 className="text-xl font-cinzel font-bold m-0" style={{ color: CLASS_COLORS[member?.characterClass] || '#FFF' }}>
+                <h3 className="text-lg sm:text-xl font-cinzel font-bold m-0" style={{ color: CLASS_COLORS[member?.characterClass] || '#FFF' }}>
                   {member?.characterName}
                 </h3>
                 <p className="text-sm text-red-300 m-0">
@@ -265,7 +277,7 @@ const FarewellModal = ({ auction, onClose, t, formatDate: _formatDate }) => {
                 </p>
               </div>
             </div>
-            <button onClick={onClose} className="text-gray-400 hover:text-white text-2xl">
+            <button onClick={onClose} className="text-gray-400 hover:text-white text-2xl min-w-[44px] min-h-[44px] flex items-center justify-center" aria-label={t('close')}>
               <i className="fas fa-times"></i>
             </button>
           </div>

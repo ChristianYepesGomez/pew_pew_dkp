@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { createPortal } from 'react-dom'
+import { useFocusTrap } from '../../hooks/useFocusTrap'
 import { useLanguage } from '../../hooks/useLanguage'
 import { armoryAPI } from '../../services/api'
 import WowheadTooltip from '../Common/WowheadTooltip'
@@ -79,6 +80,9 @@ const ArmoryModal = ({ memberId, onClose }) => {
   const [characterMedia, setCharacterMedia] = useState(null)
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState('loot')
+
+  const modalRef = useRef(null)
+  useFocusTrap(modalRef)
 
   const handleKeyDown = useCallback((e) => {
     if (e.key === 'Escape') onClose()
@@ -170,7 +174,8 @@ const ArmoryModal = ({ memberId, onClose }) => {
   return createPortal(
     <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-[100] p-4" onClick={onClose}>
       <div
-        className="bg-midnight-deepblue border-2 border-midnight-bright-purple rounded-2xl w-full max-w-3xl shadow-2xl max-h-[90vh] flex flex-col"
+        ref={modalRef} role="dialog" aria-modal="true" aria-label={t('loot_history')}
+        className="bg-midnight-deepblue border-2 border-midnight-bright-purple rounded-2xl w-full max-w-3xl max-sm:max-w-none shadow-2xl max-h-[90vh] max-sm:max-h-[100vh] flex flex-col"
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
@@ -213,7 +218,7 @@ const ArmoryModal = ({ memberId, onClose }) => {
                 </div>
               </div>
             </div>
-            <button onClick={onClose} className="text-gray-400 hover:text-white text-2xl">
+            <button onClick={onClose} className="text-gray-400 hover:text-white text-2xl min-w-[44px] min-h-[44px] flex items-center justify-center" aria-label={t('close')}>
               <i className="fas fa-times"></i>
             </button>
           </div>
