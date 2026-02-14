@@ -1,6 +1,7 @@
 import { createContext, useEffect, useState } from 'react'
 import { io } from 'socket.io-client'
 import { useAuth } from '../hooks/useAuth'
+import { queryClient } from '../queryClient'
 
 export const SocketContext = createContext()
 
@@ -27,6 +28,18 @@ export const SocketProvider = ({ children }) => {
         console.log('❌ Socket disconnected')
         setIsConnected(false)
       })
+
+      // React Query cache invalidation on socket events
+      newSocket.on('dkp_updated', () => queryClient.invalidateQueries({ queryKey: ['members'] }))
+      newSocket.on('dkp_bulk_updated', () => queryClient.invalidateQueries({ queryKey: ['members'] }))
+      newSocket.on('member_updated', () => queryClient.invalidateQueries({ queryKey: ['members'] }))
+      newSocket.on('auction_started', () => queryClient.invalidateQueries({ queryKey: ['auctions'] }))
+      newSocket.on('bid_placed', () => queryClient.invalidateQueries({ queryKey: ['auctions'] }))
+      newSocket.on('auction_ended', () => {
+        queryClient.invalidateQueries({ queryKey: ['auctions'] })
+        queryClient.invalidateQueries({ queryKey: ['members'] }) // DKP changes on auction end
+      })
+      newSocket.on('auction_cancelled', () => queryClient.invalidateQueries({ queryKey: ['auctions'] }))
 
       setSocket(newSocket)
 

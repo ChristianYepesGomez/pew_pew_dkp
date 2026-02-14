@@ -1,8 +1,11 @@
 import { useState, useEffect } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '../../hooks/useAuth'
 import { useLanguage } from '../../hooks/useLanguage'
+import { useBosses } from '../../hooks/useQueries'
 import { bossesAPI } from '../../services/api'
 import { CLASS_COLORS, DIFFICULTY_COLORS } from '../../utils/constants'
+import { BossesSkeleton } from '../ui/Skeleton'
 
 const DIFFICULTY_SHORT = {
   Mythic: 'M',
@@ -14,9 +17,10 @@ const DIFFICULTY_SHORT = {
 const BossesTab = () => {
   const { user } = useAuth()
   const { t } = useLanguage()
-  const [data, setData] = useState({ current: [], legacy: [] })
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
+  const queryClient = useQueryClient()
+  const { data: bossData, isLoading: loading, error: queryError } = useBosses()
+  const data = bossData || { current: [], legacy: [] }
+  const error = queryError?.response?.data?.error || (queryError ? 'Failed to load bosses' : null)
   const [activeTab, setActiveTab] = useState('current')
   const [expandedZones, setExpandedZones] = useState({})
   const [selectedBoss, setSelectedBoss] = useState(null)
@@ -25,30 +29,17 @@ const BossesTab = () => {
 
   const isAdmin = user?.role === 'admin'
 
+  // Auto-expand first current zone when data loads
   useEffect(() => {
-    loadBosses()
-  }, [])
-
-  const loadBosses = async () => {
-    try {
-      setLoading(true)
-      const response = await bossesAPI.getAll()
-      setData(response.data)
-      // Auto-expand first current zone
-      if (response.data.current.length > 0) {
-        setExpandedZones({ [response.data.current[0].id]: true })
-      }
-    } catch (err) {
-      setError(err.response?.data?.error || 'Failed to load bosses')
-    } finally {
-      setLoading(false)
+    if (data.current.length > 0 && Object.keys(expandedZones).length === 0) {
+      setExpandedZones({ [data.current[0].id]: true })
     }
-  }
+  }, [data])
 
   const handleSync = async () => {
     try {
       await bossesAPI.sync()
-      loadBosses()
+      queryClient.invalidateQueries({ queryKey: ['bosses'] })
     } catch (err) {
       console.error('Sync error:', err)
     }
@@ -57,7 +48,7 @@ const BossesTab = () => {
   const handleToggleLegacy = async (zoneId, currentlyLegacy) => {
     try {
       await bossesAPI.setZoneLegacy(zoneId, !currentlyLegacy)
-      loadBosses()
+      queryClient.invalidateQueries({ queryKey: ['bosses'] })
     } catch (err) {
       console.error('Toggle legacy error:', err)
     }
@@ -92,11 +83,7 @@ const BossesTab = () => {
   }
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <i className="fas fa-spinner fa-spin text-3xl text-midnight-purple"></i>
-      </div>
-    )
+    return <BossesSkeleton />
   }
 
   if (error) {

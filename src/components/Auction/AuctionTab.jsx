@@ -1,14 +1,17 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { createPortal } from 'react-dom'
+import { useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '../../hooks/useAuth'
 import { useSocket } from '../../hooks/useSocket'
 import { useLanguage } from '../../hooks/useLanguage'
 import { useNotifications, NOTIFICATION_SOUNDS } from '../../hooks/useNotifications'
+import { useActiveAuctions } from '../../hooks/useQueries'
 import { auctionsAPI, bisAPI } from '../../services/api'
 import CreateAuctionModal from './CreateAuctionModal'
 import BidModal from './BidModal'
 import WowheadTooltip from '../Common/WowheadTooltip'
 import { CLASS_COLORS, RARITY_COLORS } from '../../utils/constants'
+import { AuctionsSkeleton } from '../ui/Skeleton'
 
 // Sound Settings Modal Component
 const SoundSettingsModal = ({
@@ -209,6 +212,7 @@ const SoundSettingsModal = ({
 const AuctionTab = () => {
   const { user } = useAuth()
   const { t } = useLanguage()
+  const queryClient = useQueryClient()
   const {
     isSupported,
     permission,
@@ -225,9 +229,9 @@ const AuctionTab = () => {
     previewSound,
     showNotification
   } = useNotifications()
-  const [auctions, setAuctions] = useState([])
-  const [availableDkp, setAvailableDkp] = useState(0)
-  const [loading, setLoading] = useState(true)
+  const { data: auctionData, isLoading } = useActiveAuctions()
+  const auctions = auctionData?.auctions || []
+  const availableDkp = auctionData?.availableDkp ?? (user?.currentDkp || 0)
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [bidModal, setBidModal] = useState({ open: false, auction: null })
   const [showSoundModal, setShowSoundModal] = useState(false)
@@ -241,19 +245,6 @@ const AuctionTab = () => {
   useEffect(() => {
     auctionsRef.current = auctions
   }, [auctions])
-
-  const loadAuctions = async () => {
-    try {
-      const response = await auctionsAPI.getActive()
-      setAuctions(response.data?.auctions || [])
-      setAvailableDkp(response.data?.availableDkp ?? (user?.currentDkp || 0))
-    } catch (error) {
-      console.error('Error loading auctions:', error)
-      setAuctions([])
-    } finally {
-      setLoading(false)
-    }
-  }
 
   // Calculate time remaining for all auctions
   const updateTimeRemaining = () => {
@@ -276,23 +267,21 @@ const AuctionTab = () => {
     setTimeRemaining(newTimes)
   }
 
-  useEffect(() => { loadAuctions() }, [])
-
-  // Load BIS data for active auctions
+  // Load BIS data for active auctions (FIX WATERFALL: parallel instead of sequential)
   useEffect(() => {
     const loadBIS = async () => {
-      const data = {}
-      for (const auction of auctions) {
-        if (auction.itemId) {
+      if (!auctions?.length) return
+      const entries = await Promise.all(
+        auctions.filter(a => a.itemId).map(async (auction) => {
           try {
             const res = await bisAPI.getItemUsers(auction.itemId)
-            if (res.data?.length > 0) data[auction.id] = res.data
-          } catch { /* silent */ }
-        }
-      }
-      setBisData(data)
+            return res.data?.length > 0 ? [auction.id, res.data] : null
+          } catch { return null }
+        })
+      )
+      setBisData(Object.fromEntries(entries.filter(Boolean)))
     }
-    if (auctions.length > 0) loadBIS()
+    loadBIS()
   }, [auctions])
 
   useEffect(() => {
@@ -305,9 +294,8 @@ const AuctionTab = () => {
     }
   }, [auctions])
 
-  // Notification handlers for socket events
+  // Notification handlers for socket events (keep notifications, remove data loading)
   const handleAuctionStarted = useCallback((auction) => {
-    loadAuctions()
     if (isEnabled) {
       showNotification(t('new_auction_notification') || 'Nueva Subasta', {
         body: auction.item_name || auction.itemName || 'Item',
@@ -318,13 +306,17 @@ const AuctionTab = () => {
   }, [isEnabled, showNotification, t])
 
   const handleBidPlaced = useCallback((data) => {
-    // If time was extended due to anti-snipe, update the auction's endsAt directly
+    // If time was extended due to anti-snipe, update the auction's endsAt directly via React Query cache
     if (data.timeExtended && data.newEndsAt) {
-      setAuctions(prev => prev.map(a =>
-        a.id === data.auctionId ? { ...a, endsAt: data.newEndsAt } : a
-      ))
-    } else {
-      loadAuctions()
+      queryClient.setQueryData(['auctions', 'active'], (old) => {
+        if (!old?.auctions) return old
+        return {
+          ...old,
+          auctions: old.auctions.map(a =>
+            a.id === data.auctionId ? { ...a, endsAt: data.newEndsAt } : a
+          )
+        }
+      })
     }
 
     if (!isEnabled || !user) return
@@ -360,11 +352,10 @@ const AuctionTab = () => {
         requireInteraction: true,
       })
     }
-  }, [isEnabled, showNotification, user, t])
+  }, [isEnabled, showNotification, user, t, queryClient])
 
-  // Handle auction ended - notify winner
+  // Handle auction ended - notify winner (data refresh handled by SocketContext)
   const handleAuctionEnded = useCallback((data) => {
-    loadAuctions()
     if (!isEnabled || !user) return
 
     // Notify winner
@@ -377,21 +368,21 @@ const AuctionTab = () => {
     }
   }, [isEnabled, showNotification, user, t])
 
+  // Keep socket handlers for notifications only (data refresh handled by SocketContext)
   useSocket({
     auction_started: handleAuctionStarted,
     auction_ended: handleAuctionEnded,
     bid_placed: handleBidPlaced,
-    auction_cancelled: loadAuctions
   })
 
   const handleCreateSuccess = () => {
     setShowCreateModal(false)
-    loadAuctions()
+    queryClient.invalidateQueries({ queryKey: ['auctions'] })
   }
 
   const handleBidSuccess = () => {
     setBidModal({ open: false, auction: null })
-    loadAuctions()
+    queryClient.invalidateQueries({ queryKey: ['auctions'] })
   }
 
   const formatTime = (time) => {
@@ -407,7 +398,7 @@ const AuctionTab = () => {
     return 'text-green-400'
   }
 
-  if (loading) return <div className="text-center py-20"><i className="fas fa-circle-notch fa-spin text-6xl text-midnight-glow"></i></div>
+  if (isLoading) return <AuctionsSkeleton />
 
   return (
     <div className="info-card">

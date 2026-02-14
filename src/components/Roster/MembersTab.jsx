@@ -1,13 +1,15 @@
-import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { createPortal } from 'react-dom'
+import { useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '../../hooks/useAuth'
-import { useSocket } from '../../hooks/useSocket'
 import { useLanguage } from '../../hooks/useLanguage'
+import { useMembers } from '../../hooks/useQueries'
 import { membersAPI, dkpAPI } from '../../services/api'
 import DKPAdjustModal from './DKPAdjustModal'
 import ArmoryModal from './ArmoryModal'
 import VaultIcon from '../Common/VaultIcon'
 import { CLASS_COLORS } from '../../utils/constants'
+import { MembersSkeleton } from '../ui/Skeleton'
 
 // Spec icons from Wowhead (WoW Classic/Retail icons)
 const SPEC_ICONS = {
@@ -68,8 +70,8 @@ const SPEC_ICONS = {
 const MembersTab = () => {
   const { user } = useAuth()
   const { t } = useLanguage()
-  const [members, setMembers] = useState([])
-  const [loading, setLoading] = useState(true)
+  const queryClient = useQueryClient()
+  const { data: members = [], isLoading } = useMembers()
   const [adjustModal, setAdjustModal] = useState({ open: false, member: null })
   const [deleteModal, setDeleteModal] = useState({ open: false, member: null })
   const [deleteLoading, setDeleteLoading] = useState(false)
@@ -88,35 +90,12 @@ const MembersTab = () => {
   const [activeBuffs, setActiveBuffs] = useState({}) // { memberId: { buff, expiresAt, casterName } }
   const sseRef = useRef(null)
 
-  const loadMembers = async () => {
-    try {
-      const response = await membersAPI.getAll()
-      setMembers(response.data)
-    } catch (error) {
-      console.error('Error loading members:', error)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  // Debounced refresh to prevent multiple calls from duplicate socket events
-  const refreshTimeoutRef = useRef(null)
-  const debouncedRefresh = useCallback(() => {
-    if (refreshTimeoutRef.current) clearTimeout(refreshTimeoutRef.current)
-    refreshTimeoutRef.current = setTimeout(() => {
-      loadMembers()
-    }, 100) // 100ms debounce
-  }, [])
-
-  useEffect(() => { loadMembers() }, [])
-  useSocket({ dkp_updated: debouncedRefresh, dkp_bulk_updated: debouncedRefresh, member_updated: debouncedRefresh })
-
-  // Also listen for roster-refresh (fired when primary character changes in modal)
+  // Listen for roster-refresh (fired when primary character changes in modal)
   useEffect(() => {
-    const refresh = () => loadMembers()
+    const refresh = () => queryClient.invalidateQueries({ queryKey: ['members'] })
     window.addEventListener('roster-refresh', refresh)
     return () => window.removeEventListener('roster-refresh', refresh)
-  }, [])
+  }, [queryClient])
 
   // Global buff system via SSE (Server-Sent Events)
   useEffect(() => {
@@ -247,7 +226,7 @@ const MembersTab = () => {
   const handleAdjustSubmit = async (amount, reason) => {
     try {
       await dkpAPI.adjust(adjustModal.member.id, amount, reason)
-      loadMembers()
+      queryClient.invalidateQueries({ queryKey: ['members'] })
       setAdjustModal({ open: false, member: null })
     } catch (_error) {
       alert(t('error_adjusting_dkp'))
@@ -259,7 +238,7 @@ const MembersTab = () => {
     setDeleteLoading(true)
     try {
       await membersAPI.remove(deleteModal.member.id)
-      loadMembers()
+      queryClient.invalidateQueries({ queryKey: ['members'] })
       setDeleteModal({ open: false, member: null })
     } catch (error) {
       console.error('Error removing member:', error)
@@ -277,21 +256,29 @@ const MembersTab = () => {
 
     const previousState = member.weeklyVaultCompleted
 
-    // Optimistic update - immediately toggle UI
-    setMembers(prev => prev.map(m =>
-      m.id === memberId ? { ...m, weeklyVaultCompleted: !previousState } : m
-    ))
+    // Optimistic update - immediately toggle UI via React Query cache
+    queryClient.setQueryData(['members'], (old) => {
+      if (!old) return old
+      if (Array.isArray(old)) {
+        return old.map(m => m.id === memberId ? { ...m, weeklyVaultCompleted: !previousState } : m)
+      }
+      return old
+    })
     setVaultLoading(memberId)
 
     try {
       await membersAPI.toggleVault(memberId)
-      // Don't call loadMembers() - socket will handle sync if needed
+      // Don't invalidate - socket will handle sync if needed
     } catch (error) {
       console.error('Error toggling vault:', error)
       // Revert optimistic update on error
-      setMembers(prev => prev.map(m =>
-        m.id === memberId ? { ...m, weeklyVaultCompleted: previousState } : m
-      ))
+      queryClient.setQueryData(['members'], (old) => {
+        if (!old) return old
+        if (Array.isArray(old)) {
+          return old.map(m => m.id === memberId ? { ...m, weeklyVaultCompleted: previousState } : m)
+        }
+        return old
+      })
     } finally {
       setVaultLoading(null)
     }
@@ -304,7 +291,7 @@ const MembersTab = () => {
       : <i className="fas fa-sort-down text-midnight-glow ml-1"></i>
   }
 
-  if (loading) return <div className="text-center py-20"><i className="fas fa-circle-notch fa-spin text-6xl text-midnight-glow"></i></div>
+  if (isLoading) return <MembersSkeleton />
 
   return (
     <div className="info-card flex flex-col" style={{ maxHeight: 'calc(100vh - 200px)' }}>

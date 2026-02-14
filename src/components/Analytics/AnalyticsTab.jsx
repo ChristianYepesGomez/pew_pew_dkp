@@ -1,10 +1,11 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useMemo } from 'react'
 import { useLanguage } from '../../hooks/useLanguage'
 import { useAuth } from '../../hooks/useAuth'
-import { analyticsAPI } from '../../services/api'
+import { useAnalytics } from '../../hooks/useQueries'
 import { CLASS_COLORS, DIFFICULTY_COLORS } from '../../utils/constants'
 import ReportLinks from './ReportLinks'
 import PerformanceModal from './PerformanceModal'
+import { AnalyticsSkeleton } from '../ui/Skeleton'
 
 const PERIOD_OPTIONS = [
   { value: 4, label: '4w' },
@@ -29,40 +30,15 @@ const AnalyticsTab = () => {
   const { t } = useLanguage()
   const { user } = useAuth()
   const [period, setPeriod] = useState(8)
-  const [loading, setLoading] = useState(true)
-  const [economy, setEconomy] = useState(null)
-  const [attendance, setAttendance] = useState(null)
-  const [superlatives, setSuperlatives] = useState(null)
-  const [progression, setProgression] = useState([])
-  const [myPerformance, setMyPerformance] = useState(null)
-  const [guildInsights, setGuildInsights] = useState(null)
   const [showPerformanceModal, setShowPerformanceModal] = useState(false)
 
-  const loadAll = async (weeks) => {
-    setLoading(true)
-    try {
-      const [ecoRes, attRes, supRes, progRes, perfRes, insightsRes] = await Promise.all([
-        analyticsAPI.getEconomy(),
-        analyticsAPI.getAttendance(weeks),
-        analyticsAPI.getSuperlatives(),
-        analyticsAPI.getProgression(),
-        analyticsAPI.getMyPerformance().catch(() => ({ data: null })),
-        analyticsAPI.getGuildInsights().catch(() => ({ data: null })),
-      ])
-      setEconomy(ecoRes.data)
-      setAttendance(attRes.data)
-      setSuperlatives(supRes.data)
-      setProgression(progRes.data)
-      setMyPerformance(perfRes.data)
-      setGuildInsights(insightsRes.data)
-    } catch (error) {
-      console.error('Failed to load analytics:', error)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  useEffect(() => { loadAll(period) }, [period])
+  const { data: analyticsData, isLoading: loading } = useAnalytics(period)
+  const economy = analyticsData?.economy ?? null
+  const attendance = analyticsData?.attendance ?? null
+  const superlatives = analyticsData?.superlatives ?? null
+  const progression = analyticsData?.progression ?? []
+  const myPerformance = analyticsData?.myPerformance ?? null
+  const guildInsights = analyticsData?.guildInsights ?? null
 
   // Attendance ranking sorted by %
   const attendanceRanking = useMemo(() => {
@@ -78,11 +54,7 @@ const AnalyticsTab = () => {
   }, [attendance])
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center py-20">
-        <i className="fas fa-circle-notch fa-spin text-4xl text-midnight-glow"></i>
-      </div>
-    )
+    return <AnalyticsSkeleton />
   }
 
   return (

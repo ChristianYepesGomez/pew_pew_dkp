@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '../hooks/useAuth'
 import { useLanguage } from '../hooks/useLanguage'
-import { calendarAPI } from '../services/api'
+import { calendarAPI, membersAPI, auctionsAPI, bossesAPI } from '../services/api'
 import Header from '../components/Layout/Header'
 import MembersTab from '../components/Roster/MembersTab'
 import AuctionTab from '../components/Auction/AuctionTab'
@@ -17,6 +18,15 @@ const Dashboard = () => {
   const [calendarBadge, setCalendarBadge] = useState(0)
   const { t } = useLanguage()
   const { user } = useAuth()
+  const queryClient = useQueryClient()
+
+  const prefetchMap = {
+    members: () => queryClient.prefetchQuery({ queryKey: ['members'], queryFn: () => membersAPI.getAll().then(r => r.data) }),
+    auction: () => queryClient.prefetchQuery({ queryKey: ['auctions', 'active'], queryFn: () => auctionsAPI.getActive().then(r => r.data) }),
+    history: () => queryClient.prefetchQuery({ queryKey: ['auctions', 'history'], queryFn: () => auctionsAPI.getHistory().then(r => r.data) }),
+    calendar: () => queryClient.prefetchQuery({ queryKey: ['calendar', 'signups', 2], queryFn: () => calendarAPI.getMySignups(2).then(r => r.data) }),
+    bosses: () => queryClient.prefetchQuery({ queryKey: ['bosses'], queryFn: () => bossesAPI.getAll().then(r => r.data) }),
+  }
 
   const isAdmin = user?.role === 'admin'
   const isOfficer = user?.role === 'officer'
@@ -95,6 +105,7 @@ const Dashboard = () => {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
+              onMouseEnter={() => prefetchMap[tab.id]?.()}
               className={`relative px-6 py-3 rounded-t-lg font-cinzel text-base tracking-wide transition-all duration-300 ${
                 activeTab === tab.id
                   ? 'bg-gradient-to-r from-midnight-purple to-midnight-bright-purple text-white shadow-lg'

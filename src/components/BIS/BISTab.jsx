@@ -1,17 +1,21 @@
 import { useState, useEffect, useMemo } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { useLanguage } from '../../hooks/useLanguage'
 import { useAuth } from '../../hooks/useAuth'
+import { useMyBis } from '../../hooks/useQueries'
 import { bisAPI, membersAPI, raidItemsAPI } from '../../services/api'
 import { CLASS_COLORS, RARITY_COLORS } from '../../utils/constants'
 import WowheadTooltip from '../Common/WowheadTooltip'
 import PaperDoll, { PAPER_DOLL_SLOTS } from './PaperDoll'
 import SlotItemPicker from './SlotItemPicker'
+import { BISSkeleton } from '../ui/Skeleton'
 
 const BISTab = () => {
   const { t, language } = useLanguage()
   const { user } = useAuth()
+  const queryClient = useQueryClient()
+  const { data: myBisData, isLoading: loading } = useMyBis()
   const [myItems, setMyItems] = useState([])
-  const [loading, setLoading] = useState(true)
   const [subTab, setSubTab] = useState('my') // 'my' or 'guild'
   const [selectedSlot, setSelectedSlot] = useState(null)
   const [allItems, setAllItems] = useState([])
@@ -27,17 +31,12 @@ const BISTab = () => {
   const [guildBIS, setGuildBIS] = useState({})
   const [_guildLoading, setGuildLoading] = useState(false)
 
-  // Load my BIS list
-  const loadMyBIS = async () => {
-    try {
-      const res = await bisAPI.getMy()
-      setMyItems(res.data)
-    } catch (error) {
-      console.error('Failed to load BIS list:', error)
-    } finally {
-      setLoading(false)
+  // Sync React Query data into local state (local state used for optimistic updates)
+  useEffect(() => {
+    if (myBisData) {
+      setMyItems(myBisData)
     }
-  }
+  }, [myBisData])
 
   // Load members for Guild BIS view
   const loadMembers = async () => {
@@ -62,7 +61,6 @@ const BISTab = () => {
   }
 
   useEffect(() => {
-    loadMyBIS()
     loadMembers()
   }, [])
 
@@ -148,7 +146,7 @@ const BISTab = () => {
 
   const handleAddItem = async (itemData) => {
     await bisAPI.add(itemData)
-    await loadMyBIS()
+    queryClient.invalidateQueries({ queryKey: ['bis', 'my'] })
   }
 
   const handleRemoveItem = async (id) => {
@@ -279,11 +277,7 @@ const BISTab = () => {
   )
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center py-20">
-        <i className="fas fa-circle-notch fa-spin text-4xl text-midnight-glow"></i>
-      </div>
-    )
+    return <BISSkeleton />
   }
 
   return (

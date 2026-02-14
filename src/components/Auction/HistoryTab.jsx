@@ -1,15 +1,15 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { createPortal } from 'react-dom'
-import { useSocket } from '../../hooks/useSocket'
 import { useLanguage } from '../../hooks/useLanguage'
+import { useAuctionHistory } from '../../hooks/useQueries'
 import { auctionsAPI } from '../../services/api'
 import WowheadTooltip from '../Common/WowheadTooltip'
 import { CLASS_COLORS, RARITY_COLORS } from '../../utils/constants'
+import { HistorySkeleton } from '../ui/Skeleton'
 
 const HistoryTab = () => {
   const { t, language } = useLanguage()
-  const [auctions, setAuctions] = useState([])
-  const [loading, setLoading] = useState(true)
+  const { data: auctions = [], isLoading } = useAuctionHistory()
   const [farewellModal, setFarewellModal] = useState(null)
   const [expandedBids, setExpandedBids] = useState({}) // { auctionId: bidsArray | 'loading' | null }
 
@@ -30,20 +30,6 @@ const HistoryTab = () => {
     }
   }
 
-  const loadHistory = async () => {
-    try {
-      const response = await auctionsAPI.getHistory()
-      setAuctions(response.data)
-    } catch (error) {
-      console.error('Error loading history:', error)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  useEffect(() => { loadHistory() }, [])
-  useSocket({ auction_ended: loadHistory })
-
   const formatDate = (dateStr) => {
     const date = new Date(dateStr)
     return date.toLocaleDateString(language === 'es' ? 'es-ES' : 'en-US', {
@@ -55,7 +41,7 @@ const HistoryTab = () => {
     })
   }
 
-  if (loading) return <div className="text-center py-20"><i className="fas fa-circle-notch fa-spin text-6xl text-midnight-glow"></i></div>
+  if (isLoading) return <HistorySkeleton />
 
   return (
     <div className="info-card">

@@ -1,9 +1,12 @@
 import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
+import { useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '../../hooks/useAuth'
 import { useLanguage } from '../../hooks/useLanguage'
+import { useCalendarSignups } from '../../hooks/useQueries'
 import { calendarAPI, warcraftLogsAPI } from '../../services/api'
 import { CLASS_COLORS } from '../../utils/constants'
+import { CalendarSkeleton } from '../ui/Skeleton'
 
 const WCL_ICON = 'https://assets.rpglogs.com/img/warcraft/favicon.png'
 
@@ -38,8 +41,9 @@ const STATUS_CONFIG = {
 const CalendarTab = () => {
   const { user } = useAuth()
   const { t, language } = useLanguage()
+  const queryClient = useQueryClient()
+  const { data: signupsData, isLoading: loading } = useCalendarSignups(2)
   const [signups, setSignups] = useState([])
-  const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(null)
   const [expandedDate, setExpandedDate] = useState(null)
   const [summary, setSummary] = useState(null)
@@ -57,6 +61,21 @@ const CalendarTab = () => {
   const [cutoffBannerDismissed, setCutoffBannerDismissed] = useState(false)
 
   const isAdmin = user?.role === 'admin' || user?.role === 'officer'
+
+  // Sync React Query data into local state (local state used for optimistic updates on signup)
+  useEffect(() => {
+    if (signupsData?.dates) {
+      setSignups(signupsData.dates)
+      // Initialize notes from existing signups
+      const notesMap = {}
+      for (const signup of signupsData.dates) {
+        if (signup.notes) {
+          notesMap[signup.date] = signup.notes
+        }
+      }
+      setNotes(prev => ({ ...prev, ...notesMap }))
+    }
+  }, [signupsData])
 
   // Get current raid week key (Thursday-based reset, matching backend convention)
   const getCurrentRaidWeek = () => {
@@ -96,35 +115,10 @@ const CalendarTab = () => {
   }
 
   useEffect(() => {
-    loadSignups()
-  }, [])
-
-  useEffect(() => {
     if (adminView) {
       loadOverview()
     }
   }, [adminView])
-
-  const loadSignups = async () => {
-    try {
-      setLoading(true)
-      const response = await calendarAPI.getMySignups(2)
-      setSignups(response.data.dates || [])
-
-      // Initialize notes from existing signups
-      const notesMap = {}
-      for (const signup of response.data.dates || []) {
-        if (signup.notes) {
-          notesMap[signup.date] = signup.notes
-        }
-      }
-      setNotes(notesMap)
-    } catch (error) {
-      console.error('Error loading signups:', error)
-    } finally {
-      setLoading(false)
-    }
-  }
 
   const loadOverview = async () => {
     try {
@@ -309,11 +303,7 @@ const CalendarTab = () => {
   })()
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center py-20">
-        <i className="fas fa-circle-notch fa-spin text-4xl text-midnight-glow"></i>
-      </div>
-    )
+    return <CalendarSkeleton />
   }
 
   return (
