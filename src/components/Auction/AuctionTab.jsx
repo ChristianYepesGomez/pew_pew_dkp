@@ -524,11 +524,19 @@ const AuctionTab = () => {
                       {auction.itemName}
                     </h4>
                     {isAdmin && bisData[auction.id]?.length > 0 && (
-                      <div className="flex items-center gap-1 mt-1" title={bisData[auction.id].map(b => `${b.character_name}${b.priority ? ` #${b.priority}` : ''}`).join(', ')}>
-                        <i className="fas fa-crosshairs text-xs text-yellow-400"></i>
-                        <span className="text-xs text-yellow-400">
-                          {bisData[auction.id].length} {t('bis_raiders_want')}
+                      <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                        <span className="text-xs text-yellow-400 flex items-center gap-1">
+                          <i className="fas fa-crosshairs text-[10px]"></i>BIS:
                         </span>
+                        {bisData[auction.id].map((b, i) => (
+                          <span
+                            key={b.user_id}
+                            className="text-xs font-semibold"
+                            style={{ color: CLASS_COLORS[b.character_class] || '#FFF' }}
+                          >
+                            {b.character_name}{i < bisData[auction.id].length - 1 ? ',' : ''}
+                          </span>
+                        ))}
                       </div>
                     )}
                     {!isAdmin && myBisItemIds.has(auction.itemId) && (
