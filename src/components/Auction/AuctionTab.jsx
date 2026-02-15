@@ -212,7 +212,7 @@ const SoundSettingsModal = ({
 }
 
 const AuctionTab = () => {
-  const { user } = useAuth()
+  const { user, refreshUser } = useAuth()
   const { t } = useLanguage()
   const queryClient = useQueryClient()
   const {
@@ -360,15 +360,16 @@ const AuctionTab = () => {
   const handleAuctionEnded = useCallback((data) => {
     if (!isEnabled || !user) return
 
-    // Notify winner
+    // Notify winner and refresh DKP in header
     if (data.winnerId === user.id) {
       showNotification(t('auction_won_notification') || 'Has ganado la subasta!', {
         body: `${data.itemName || 'Item'} por ${data.winningBid || 0} DKP`,
         tag: `won-${data.auctionId}`,
         requireInteraction: true,
       })
+      refreshUser()
     }
-  }, [isEnabled, showNotification, user, t])
+  }, [isEnabled, showNotification, user, t, refreshUser])
 
   // Keep socket handlers for notifications only (data refresh handled by SocketContext)
   useSocket({
