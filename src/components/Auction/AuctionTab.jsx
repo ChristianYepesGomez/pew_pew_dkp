@@ -6,7 +6,7 @@ import { useSocket } from '../../hooks/useSocket'
 import { useLanguage } from '../../hooks/useLanguage'
 import { useToast } from '../../context/ToastContext'
 import { useNotifications, NOTIFICATION_SOUNDS } from '../../hooks/useNotifications'
-import { useActiveAuctions, useMyBis } from '../../hooks/useQueries'
+import { useActiveAuctions, useMyBis, useRaidItems } from '../../hooks/useQueries'
 import { auctionsAPI, bisAPI } from '../../services/api'
 import CreateAuctionModal from './CreateAuctionModal'
 import BidModal from './BidModal'
@@ -242,6 +242,8 @@ const AuctionTab = () => {
   const timerRef = useRef(null)
   const auctionsRef = useRef([]) // Keep track of auctions for notifications
   const isAdmin = user?.role === 'admin' || user?.role === 'officer'
+  // Prefetch raid items for admins so CreateAuctionModal opens instantly
+  useRaidItems(isAdmin)
   const { data: myBisItems } = useMyBis()
   const myBisItemIds = useMemo(
     () => new Set((myBisItems || []).filter(i => !i.obtained).map(i => i.item_id)),

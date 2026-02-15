@@ -75,11 +75,12 @@ export function useMyBis() {
   })
 }
 
-export function useRaidItems() {
+export function useRaidItems(enabled = true) {
   return useQuery({
     queryKey: ['raidItems'],
     queryFn: () => raidItemsAPI.getAll().then(r => r.data.items),
     staleTime: 60 * 60_000,
     gcTime: 2 * 60 * 60_000,
+    enabled,
   })
 }
