@@ -116,27 +116,35 @@ let cachedApiItems = null;
 let lastApiCheck = 0;
 const API_CHECK_INTERVAL = 5 * 60 * 1000; // 5 minutes
 
-// Get all raid items - tries API first, falls back to static data
+// Get all raid items - returns cached items instantly, refreshes in background
 export async function getAllRaidItems() {
-  // Try API if enough time has passed since last check
-  if (Date.now() - lastApiCheck > API_CHECK_INTERVAL) {
-    lastApiCheck = Date.now();
-
-    try {
-      const apiItems = await blizzardAPI.getCurrentRaidItems();
-      if (apiItems && apiItems.length > 0) {
-        cachedApiItems = apiItems;
-        log.info(`Loaded ${apiItems.length} items from Blizzard API`);
-        return apiItems;
-      }
-    } catch (error) {
-      log.warn('Failed to fetch from Blizzard API, using fallback: ' + error.message);
+  // If we have in-memory items, return immediately (never block on refresh)
+  if (cachedApiItems && cachedApiItems.length > 0) {
+    // Trigger background refresh if interval elapsed (non-blocking)
+    if (Date.now() - lastApiCheck > API_CHECK_INTERVAL) {
+      lastApiCheck = Date.now();
+      blizzardAPI.getCurrentRaidItems()
+        .then(apiItems => {
+          if (apiItems && apiItems.length > 0) {
+            cachedApiItems = apiItems;
+          }
+        })
+        .catch(err => log.warn('Background item refresh failed: ' + err.message));
     }
+    return cachedApiItems;
   }
 
-  // Return cached API items if available
-  if (cachedApiItems && cachedApiItems.length > 0) {
-    return cachedApiItems;
+  // No in-memory cache — must wait (only happens on first call before warmCache)
+  try {
+    lastApiCheck = Date.now();
+    const apiItems = await blizzardAPI.getCurrentRaidItems();
+    if (apiItems && apiItems.length > 0) {
+      cachedApiItems = apiItems;
+      log.info(`Loaded ${apiItems.length} items from Blizzard API`);
+      return apiItems;
+    }
+  } catch (error) {
+    log.warn('Failed to fetch from Blizzard API, using fallback: ' + error.message);
   }
 
   // Fall back to static data
@@ -209,6 +217,29 @@ export function getDataSourceStatus() {
   };
 }
 
+// Warm cache at startup and schedule periodic background refresh
+let refreshInterval = null;
+
+export async function warmCache() {
+  const items = await getAllRaidItems();
+  log.info(`Raid items cache warmed with ${items.length} items`);
+
+  if (!refreshInterval) {
+    const REFRESH_MS = 24 * 60 * 60 * 1000; // 24 hours
+    refreshInterval = setInterval(async () => {
+      try {
+        const result = await refreshFromAPI();
+        if (result.success) {
+          log.info(`Background raid items refresh: ${result.count} items`);
+        }
+      } catch (err) {
+        log.warn('Background raid items refresh error: ' + err.message);
+      }
+    }, REFRESH_MS);
+    refreshInterval.unref();
+  }
+}
+
 export default {
   getAllRaidItems,
   searchItems,
@@ -218,4 +249,5 @@ export default {
   setCurrentRaids,
   isAPIConfigured,
   getDataSourceStatus,
+  warmCache,
 };

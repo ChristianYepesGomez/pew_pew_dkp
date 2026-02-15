@@ -22,6 +22,7 @@ import { getAllGuilds } from './lib/provisioning.js';
 import { getTenantDb, closeAllTenantDbs } from './lib/tenantDb.js';
 import { seedRaidData } from './services/raids.js';
 import { startBuffManager } from './services/buffManager.js';
+import { warmCache as warmRaidItemsCache } from './services/raidItems.js';
 import { scheduleExistingAuctions, setIO as setAuctionIO } from './lib/auctionScheduler.js';
 import { JWT_SECRET, FRONTEND_URL, DISCORD_TOKEN } from './lib/config.js';
 import { startBot } from './bot/index.js';
@@ -260,6 +261,9 @@ async function startServer() {
 
   // Start global buff manager for synchronized buff effects
   startBuffManager();
+
+  // Warm raid items cache (non-blocking — server starts immediately)
+  warmRaidItemsCache().catch(err => log.warn('Raid items cache warm failed', err));
 
   // Start Discord bot (no-op if DISCORD_TOKEN not set)
   if (DISCORD_TOKEN) {
