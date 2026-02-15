@@ -483,9 +483,6 @@ const MembersTab = () => {
                         <VaultIcon completed={m.weeklyVaultCompleted} size={28} />
                       </div>
                     )}
-                    <span className={`text-xs hidden lg:inline ${m.weeklyVaultCompleted ? 'text-green-400' : 'text-gray-500'}`}>
-                      {m.weeklyVaultCompleted ? t('vault_completed_label') : t('vault_not_completed_label')}
-                    </span>
                   </div>
                 </td>
                 {isAdmin && (
