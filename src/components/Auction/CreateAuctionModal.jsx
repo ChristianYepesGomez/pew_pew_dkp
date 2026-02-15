@@ -2,7 +2,8 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { useFocusTrap } from '../../hooks/useFocusTrap'
 import { useLanguage } from '../../hooks/useLanguage'
-import { raidItemsAPI, auctionsAPI } from '../../services/api'
+import { useRaidItems } from '../../hooks/useQueries'
+import { auctionsAPI } from '../../services/api'
 import { RARITY_COLORS } from '../../utils/constants'
 
 const RARITY_BG = {
@@ -15,11 +16,10 @@ const RARITY_BG = {
 
 const CreateAuctionModal = ({ onClose, onSuccess }) => {
   const { t, language } = useLanguage()
-  const [items, setItems] = useState([])
+  const { data: items = [], isLoading: loading } = useRaidItems()
   const [search, setSearch] = useState('')
   const [selectedItem, setSelectedItem] = useState(null)
   const [durationMinutes, setDurationMinutes] = useState(5)
-  const [loading, setLoading] = useState(true)
   const [creating, setCreating] = useState(false)
   const [error, setError] = useState('')
   const [selectedBoss, setSelectedBoss] = useState('all')
@@ -36,21 +36,6 @@ const CreateAuctionModal = ({ onClose, onSuccess }) => {
     document.addEventListener('keydown', handleKeyDown)
     return () => document.removeEventListener('keydown', handleKeyDown)
   }, [handleKeyDown])
-
-  useEffect(() => {
-    loadItems()
-  }, [])
-
-  const loadItems = async () => {
-    try {
-      const response = await raidItemsAPI.getAll()
-      setItems(response.data.items || [])
-    } catch (error) {
-      console.error('Error loading items:', error)
-    } finally {
-      setLoading(false)
-    }
-  }
 
   // Get boss name in current language
   const getBossName = useCallback((item) => {

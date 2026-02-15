@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { membersAPI, auctionsAPI, calendarAPI, bossesAPI, analyticsAPI, bisAPI } from '../services/api'
+import { membersAPI, auctionsAPI, calendarAPI, bossesAPI, analyticsAPI, bisAPI, raidItemsAPI } from '../services/api'
 
 export function useMembers() {
   return useQuery({
@@ -72,5 +72,14 @@ export function useMyBis() {
   return useQuery({
     queryKey: ['bis', 'my'],
     queryFn: () => bisAPI.getMy().then(r => r.data),
+  })
+}
+
+export function useRaidItems() {
+  return useQuery({
+    queryKey: ['raidItems'],
+    queryFn: () => raidItemsAPI.getAll().then(r => r.data.items),
+    staleTime: 60 * 60_000,
+    gcTime: 2 * 60 * 60_000,
   })
 }
