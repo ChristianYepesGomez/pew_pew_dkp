@@ -461,6 +461,22 @@ export async function runMigrations(targetDb) {
     item_quality TEXT, slot_type TEXT, gp_value INTEGER NOT NULL
   )`);
 
+  // ── Raid items catalog (Blizzard API cache stored in DB) ──
+  await targetDb.exec(`CREATE TABLE IF NOT EXISTS raid_items (
+    id INTEGER PRIMARY KEY,
+    name_en TEXT NOT NULL,
+    name_es TEXT,
+    rarity TEXT DEFAULT 'epic',
+    icon TEXT,
+    slot TEXT,
+    raid_name TEXT,
+    raid_name_en TEXT,
+    boss_name TEXT,
+    boss_name_en TEXT,
+    item_level INTEGER,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  )`);
+
   // ── Column migrations ──
   const columnMigrations = [
     'ALTER TABLE users ADD COLUMN server TEXT',
@@ -606,6 +622,8 @@ export async function runMigrations(targetDb) {
     'CREATE INDEX IF NOT EXISTS idx_loot_responses_decision ON loot_responses(decision_id)',
     'CREATE INDEX IF NOT EXISTS idx_loot_responses_user ON loot_responses(user_id)',
     'CREATE INDEX IF NOT EXISTS idx_loot_votes_decision ON loot_votes(decision_id)',
+    // Raid items catalog
+    'CREATE INDEX IF NOT EXISTS idx_raid_items_boss ON raid_items(boss_name)',
     // EPGP indexes
     'CREATE INDEX IF NOT EXISTS idx_epgp_transactions_user ON epgp_transactions(user_id)',
     'CREATE INDEX IF NOT EXISTS idx_epgp_transactions_type ON epgp_transactions(type)',

@@ -13,7 +13,7 @@ const router = Router();
 // Get all raid items
 router.get('/raid-items', authenticateToken, async (req, res) => {
   try {
-    const items = await getAllRaidItems();
+    const items = await getAllRaidItems(req.db);
     return success(res, { items });
   } catch (err) {
     log.error('Error fetching raid items', err);
@@ -25,7 +25,7 @@ router.get('/raid-items', authenticateToken, async (req, res) => {
 router.get('/raid-items/search', authenticateToken, async (req, res) => {
   try {
     const query = req.query.q || '';
-    const items = query ? await searchItems(query) : await getAllRaidItems();
+    const items = query ? await searchItems(req.db, query) : await getAllRaidItems(req.db);
     return success(res, { items });
   } catch (err) {
     log.error('Error searching raid items', err);
@@ -34,15 +34,15 @@ router.get('/raid-items/search', authenticateToken, async (req, res) => {
 });
 
 // Get raid items data source status (before :raidName to avoid param matching)
-router.get('/raid-items/status', authenticateToken, authorizeRole(['admin', 'officer']), (req, res) => {
-  return success(res, getDataSourceStatus());
+router.get('/raid-items/status', authenticateToken, authorizeRole(['admin', 'officer']), async (req, res) => {
+  return success(res, await getDataSourceStatus(req.db));
 });
 
 // Get items by raid
 router.get('/raid-items/:raidName', authenticateToken, async (req, res) => {
   try {
     const { raidName } = req.params;
-    const items = await getItemsByRaid(raidName);
+    const items = await getItemsByRaid(req.db, raidName);
     return success(res, { items });
   } catch (err) {
     log.error('Error fetching raid items by raid', err);
@@ -68,7 +68,7 @@ router.post('/raid-items/refresh', authenticateToken, authorizeRole(['admin']), 
       return error(res, 'Blizzard API not configured. Set BLIZZARD_CLIENT_ID and BLIZZARD_CLIENT_SECRET environment variables.', 400, ErrorCodes.VALIDATION_ERROR);
     }
 
-    const result = await refreshFromAPI();
+    const result = await refreshFromAPI(req.db);
     if (result.success) {
       return success(res, null, `Successfully refreshed ${result.count} items from Blizzard API`);
     } else {
@@ -96,7 +96,7 @@ router.get('/dungeon-items', authenticateToken, async (req, res) => {
 router.get('/all-items', authenticateToken, async (req, res) => {
   try {
     const [raidItems, dungeonItems] = await Promise.all([
-      getAllRaidItems(),
+      getAllRaidItems(req.db),
       getAllDungeonItems().catch(err => {
         log.warn('Dungeon items fetch failed: ' + err.message);
         return [];
