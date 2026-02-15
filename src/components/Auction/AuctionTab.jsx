@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '../../hooks/useAuth'
@@ -6,7 +6,7 @@ import { useSocket } from '../../hooks/useSocket'
 import { useLanguage } from '../../hooks/useLanguage'
 import { useToast } from '../../context/ToastContext'
 import { useNotifications, NOTIFICATION_SOUNDS } from '../../hooks/useNotifications'
-import { useActiveAuctions } from '../../hooks/useQueries'
+import { useActiveAuctions, useMyBis } from '../../hooks/useQueries'
 import { auctionsAPI, bisAPI } from '../../services/api'
 import CreateAuctionModal from './CreateAuctionModal'
 import BidModal from './BidModal'
@@ -242,6 +242,11 @@ const AuctionTab = () => {
   const timerRef = useRef(null)
   const auctionsRef = useRef([]) // Keep track of auctions for notifications
   const isAdmin = user?.role === 'admin' || user?.role === 'officer'
+  const { data: myBisItems } = useMyBis()
+  const myBisItemIds = useMemo(
+    () => new Set((myBisItems || []).filter(i => !i.obtained).map(i => i.item_id)),
+    [myBisItems]
+  )
 
   // Keep auctionsRef in sync
   useEffect(() => {
@@ -269,10 +274,10 @@ const AuctionTab = () => {
     setTimeRemaining(newTimes)
   }
 
-  // Load BIS data for active auctions (FIX WATERFALL: parallel instead of sequential)
+  // Load BIS data for active auctions (admins only — regular users use their own BIS list)
   useEffect(() => {
+    if (!isAdmin || !auctions?.length) return
     const loadBIS = async () => {
-      if (!auctions?.length) return
       const entries = await Promise.all(
         auctions.filter(a => a.itemId).map(async (auction) => {
           try {
@@ -284,7 +289,7 @@ const AuctionTab = () => {
       setBisData(Object.fromEntries(entries.filter(Boolean)))
     }
     loadBIS()
-  }, [auctions])
+  }, [auctions, isAdmin])
 
   useEffect(() => {
     if (auctions.length > 0) {
@@ -518,12 +523,18 @@ const AuctionTab = () => {
                     >
                       {auction.itemName}
                     </h4>
-                    {bisData[auction.id]?.length > 0 && (
+                    {isAdmin && bisData[auction.id]?.length > 0 && (
                       <div className="flex items-center gap-1 mt-1" title={bisData[auction.id].map(b => `${b.character_name}${b.priority ? ` #${b.priority}` : ''}`).join(', ')}>
                         <i className="fas fa-crosshairs text-xs text-yellow-400"></i>
                         <span className="text-xs text-yellow-400">
                           {bisData[auction.id].length} {t('bis_raiders_want')}
                         </span>
+                      </div>
+                    )}
+                    {!isAdmin && myBisItemIds.has(auction.itemId) && (
+                      <div className="flex items-center gap-1 mt-1">
+                        <i className="fas fa-star text-xs text-yellow-400"></i>
+                        <span className="text-xs text-yellow-400">{t('bis_your_bis')}</span>
                       </div>
                     )}
                   </div>
