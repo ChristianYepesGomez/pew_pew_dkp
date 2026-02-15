@@ -114,41 +114,41 @@ const STATIC_FALLBACK_ITEMS = [
 // In-memory cache for API items
 let cachedApiItems = null;
 let lastApiCheck = 0;
-const API_CHECK_INTERVAL = 5 * 60 * 1000; // 5 minutes
+let backgroundFetchPromise = null; // Dedup concurrent API fetches
+const API_CHECK_INTERVAL = 24 * 60 * 60 * 1000; // 24 hours — items only change on patches/hotfixes
 
-// Get all raid items - returns cached items instantly, refreshes in background
+// Trigger a non-blocking background fetch from Blizzard API
+function triggerBackgroundFetch() {
+  if (backgroundFetchPromise) return backgroundFetchPromise; // Already in progress
+
+  backgroundFetchPromise = blizzardAPI.getCurrentRaidItems()
+    .then(apiItems => {
+      if (apiItems && apiItems.length > 0) {
+        cachedApiItems = apiItems;
+        lastApiCheck = Date.now();
+        log.info(`Loaded ${apiItems.length} items from Blizzard API`);
+      }
+    })
+    .catch(err => log.warn('Background item fetch failed: ' + err.message))
+    .finally(() => { backgroundFetchPromise = null; });
+
+  return backgroundFetchPromise;
+}
+
+// Get all raid items - NEVER blocks. Returns cached or static fallback instantly.
 export async function getAllRaidItems() {
-  // If we have in-memory items, return immediately (never block on refresh)
+  // Return from in-memory cache immediately
   if (cachedApiItems && cachedApiItems.length > 0) {
     // Trigger background refresh if interval elapsed (non-blocking)
     if (Date.now() - lastApiCheck > API_CHECK_INTERVAL) {
-      lastApiCheck = Date.now();
-      blizzardAPI.getCurrentRaidItems()
-        .then(apiItems => {
-          if (apiItems && apiItems.length > 0) {
-            cachedApiItems = apiItems;
-          }
-        })
-        .catch(err => log.warn('Background item refresh failed: ' + err.message));
+      triggerBackgroundFetch();
     }
     return cachedApiItems;
   }
 
-  // No in-memory cache — must wait (only happens on first call before warmCache)
-  try {
-    lastApiCheck = Date.now();
-    const apiItems = await blizzardAPI.getCurrentRaidItems();
-    if (apiItems && apiItems.length > 0) {
-      cachedApiItems = apiItems;
-      log.info(`Loaded ${apiItems.length} items from Blizzard API`);
-      return apiItems;
-    }
-  } catch (error) {
-    log.warn('Failed to fetch from Blizzard API, using fallback: ' + error.message);
-  }
-
-  // Fall back to static data
-  log.info('Using static fallback data for raid items');
+  // No in-memory cache — return static fallback immediately, fetch API in background
+  log.info('No cached items available, serving static fallback while fetching from API...');
+  triggerBackgroundFetch();
   return STATIC_FALLBACK_ITEMS;
 }
 
@@ -221,8 +221,19 @@ export function getDataSourceStatus() {
 let refreshInterval = null;
 
 export async function warmCache() {
-  const items = await getAllRaidItems();
-  log.info(`Raid items cache warmed with ${items.length} items`);
+  // Try to load from disk cache or API — populates cachedApiItems for instant responses
+  try {
+    const apiItems = await blizzardAPI.getCurrentRaidItems();
+    if (apiItems && apiItems.length > 0) {
+      cachedApiItems = apiItems;
+      lastApiCheck = Date.now();
+      log.info(`Raid items cache warmed with ${apiItems.length} items from API/disk`);
+    } else {
+      log.info(`No API items available, static fallback (${STATIC_FALLBACK_ITEMS.length} items) will be used until API data loads`);
+    }
+  } catch (err) {
+    log.warn('Cache warm failed, static fallback active: ' + err.message);
+  }
 
   if (!refreshInterval) {
     const REFRESH_MS = 24 * 60 * 60 * 1000; // 24 hours
