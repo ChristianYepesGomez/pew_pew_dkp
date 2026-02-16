@@ -2,10 +2,16 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach } from
 import { request, setupTestDb, cleanupTestDb, createTestUser, expectSuccess, expectError } from './helpers.js';
 import { db } from '../database.js';
 
-// Next Monday from 2026-02-14 (Saturday) is 2026-02-16
-const NEXT_MONDAY = '2026-02-16';
-// A Tuesday — not a default raid day
-const NON_RAID_DAY = '2026-02-17';
+function getNextDayOfWeek(dayOfWeek) {
+  const now = new Date();
+  const diff = (dayOfWeek + 7 - now.getDay()) % 7 || 7;
+  const target = new Date(now);
+  target.setDate(target.getDate() + diff);
+  return target.toISOString().split('T')[0];
+}
+
+const NEXT_MONDAY = getNextDayOfWeek(1);
+const NON_RAID_DAY = getNextDayOfWeek(2);
 
 describe('Calendar endpoints', () => {
   let admin, raider;
