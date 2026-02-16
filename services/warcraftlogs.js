@@ -1,4 +1,14 @@
 import axios from 'axios';
+import { createLogger } from '../lib/logger.js';
+import { createCache } from '../lib/cache.js';
+
+const log = createLogger('Service:WarcraftLogs');
+
+// TTL cache for WCL API responses (10 minutes)
+const wclCache = createCache(10 * 60 * 1000);
+
+// Cache for report actors (avoids redundant GraphQL queries for actor name resolution)
+const actorsCache = createCache(10 * 60 * 1000);
 
 // Warcraft Logs API Configuration
 const WCL_API_URL = 'https://www.warcraftlogs.com/api/v2/client';
@@ -41,12 +51,12 @@ async function getAccessToken() {
     cachedToken = response.data.access_token;
     tokenExpiry = Date.now() + (response.data.expires_in * 1000);
 
-    console.log('✅ Warcraft Logs access token obtained');
+    log.info('Warcraft Logs access token obtained');
     return cachedToken;
 
   } catch (error) {
-    console.error('❌ Failed to get Warcraft Logs access token:', error.response?.data || error.message);
-    throw new Error('Failed to authenticate with Warcraft Logs API');
+    log.error('Failed to get Warcraft Logs access token', error);
+    throw new Error('Failed to authenticate with Warcraft Logs API', { cause: error });
   }
 }
 
@@ -94,15 +104,15 @@ async function executeGraphQL(query, variables = {}) {
     );
 
     if (response.data.errors) {
-      console.error('GraphQL Errors:', response.data.errors);
+      log.error('GraphQL Errors', response.data.errors);
       throw new Error(response.data.errors[0].message);
     }
 
     return response.data.data;
 
   } catch (error) {
-    console.error('❌ GraphQL query failed:', error.response?.data || error.message);
-    throw new Error(`Warcraft Logs API error: ${error.message}`);
+    log.error('GraphQL query failed', error);
+    throw new Error(`Warcraft Logs API error: ${error.message}`, { cause: error });
   }
 }
 
@@ -228,19 +238,32 @@ export async function processWarcraftLog(urlOrCode) {
   try {
     // Extract report code
     const reportCode = extractReportCode(urlOrCode);
-    console.log(`📊 Processing Warcraft Logs report: ${reportCode}`);
+
+    // Check cache
+    const cacheKey = `report:${reportCode}`;
+    const cached = wclCache.get(cacheKey);
+    if (cached) return cached;
+
+    log.info(`Processing Warcraft Logs report: ${reportCode}`);
 
     // Fetch report data from API
     const reportData = await getReportData(reportCode);
 
+    // Cache actors for reuse by getFightStatsWithDeathEvents (avoids redundant GraphQL query)
+    const actors = reportData.masterData?.actors || [];
+    const actorMap = {};
+    for (const actor of actors) actorMap[actor.id] = actor.name;
+    actorsCache.set(`actors:${reportCode}`, actorMap);
+
     // Parse and return structured data
     const parsedData = parseReportData(reportData);
-    console.log(`✅ Report processed: ${parsedData.participantCount} participants, ${parsedData.bossesKilled}/${parsedData.totalBosses} bosses killed (${parsedData.totalAttempts} total attempts)`);
+    log.info(`Report processed: ${parsedData.participantCount} participants, ${parsedData.bossesKilled}/${parsedData.totalBosses} bosses killed (${parsedData.totalAttempts} total attempts)`);
 
+    wclCache.set(cacheKey, parsedData);
     return parsedData;
 
   } catch (error) {
-    console.error('❌ Error processing Warcraft Log:', error.message);
+    log.error('Error processing Warcraft Log', error);
     throw error;
   }
 }
@@ -352,7 +375,7 @@ export async function getFightDeaths(reportCode, fightIds) {
       deaths: entry.total || 0,
     }));
   } catch (error) {
-    console.error('Error fetching deaths table:', error.message);
+    log.error('Error fetching deaths table', error);
     return [];
   }
 }
@@ -389,7 +412,7 @@ export async function getFightDamage(reportCode, fightIds) {
       dps: entry.totalReduced ? Math.round(entry.totalReduced) : 0,
     }));
   } catch (error) {
-    console.error('Error fetching damage table:', error.message);
+    log.error('Error fetching damage table', error);
     return [];
   }
 }
@@ -425,7 +448,7 @@ export async function getFightHealing(reportCode, fightIds) {
       hps: entry.totalReduced ? Math.round(entry.totalReduced) : 0,
     }));
   } catch (error) {
-    console.error('Error fetching healing table:', error.message);
+    log.error('Error fetching healing table', error);
     return [];
   }
 }
@@ -460,7 +483,7 @@ export async function getFightDamageTaken(reportCode, fightIds) {
       damageTaken: entry.total || 0,
     }));
   } catch (error) {
-    console.error('Error fetching damage taken table:', error.message);
+    log.error('Error fetching damage taken table', error);
     return [];
   }
 }
@@ -469,6 +492,11 @@ export async function getFightDamageTaken(reportCode, fightIds) {
  * Get comprehensive fight statistics (all data in one query for efficiency)
  */
 export async function getFightStats(reportCode, fightIds) {
+  // Check cache
+  const cacheKey = `fightStats:${reportCode}:${[...fightIds].sort().join(',')}`;
+  const cached = wclCache.get(cacheKey);
+  if (cached) return cached;
+
   const query = `
     query GetFightStats($reportCode: String!, $fightIDs: [Int!]) {
       reportData {
@@ -498,7 +526,7 @@ export async function getFightStats(reportCode, fightIds) {
       return table.data.entries;
     };
 
-    return {
+    const result = {
       damage: parseTable(report.damage).map(e => ({
         name: e.name,
         total: e.total || 0,
@@ -516,8 +544,11 @@ export async function getFightStats(reportCode, fightIds) {
         total: e.total || 0,
       })),
     };
+
+    wclCache.set(cacheKey, result);
+    return result;
   } catch (error) {
-    console.error('Error fetching fight stats:', error.message);
+    log.error('Error fetching fight stats', error);
     return { damage: [], healing: [], damageTaken: [], deaths: [] };
   }
 }
@@ -559,7 +590,7 @@ export async function getDeathEventsWithTimestamps(reportCode, fightId, startTim
       killerID: event.killerID,
     }));
   } catch (error) {
-    console.error('Error fetching death events:', error.message);
+    log.error('Error fetching death events', error);
     return [];
   }
 }
@@ -570,6 +601,12 @@ export async function getDeathEventsWithTimestamps(reportCode, fightId, startTim
  */
 export async function getFightStatsWithDeathEvents(reportCode, fightInfo) {
   const { id: fightId, startTime, endTime, kill } = fightInfo;
+
+  // Check cache
+  const cacheKey = `deathStats:${reportCode}:${fightId}`;
+  const cached = wclCache.get(cacheKey);
+  if (cached) return cached;
+
   const fightDuration = endTime - startTime;
 
   // Get basic stats (damage, healing, etc.)
@@ -577,11 +614,13 @@ export async function getFightStatsWithDeathEvents(reportCode, fightInfo) {
 
   // If it's a kill, no need to filter deaths - all deaths count
   if (kill) {
-    return {
+    const result = {
       ...basicStats,
       fightDuration,
       isKill: true,
     };
+    wclCache.set(cacheKey, result);
+    return result;
   }
 
   // For wipes, get individual death events to filter those within 15 seconds of wipe end
@@ -608,32 +647,34 @@ export async function getFightStatsWithDeathEvents(reportCode, fightInfo) {
     deathCountsByPlayer[event.targetID]++;
   }
 
-  // We need to map targetIDs back to player names
-  // Get the actors table to resolve IDs to names
-  const actorsQuery = `
-    query GetActors($reportCode: String!) {
-      reportData {
-        report(code: $reportCode) {
-          masterData {
-            actors(type: "Player") {
-              id
-              name
+  // Map targetIDs back to player names — use cached actors if available
+  let playerIdToName = actorsCache.get(`actors:${reportCode}`);
+  if (!playerIdToName) {
+    playerIdToName = {};
+    try {
+      const actorsQuery = `
+        query GetActors($reportCode: String!) {
+          reportData {
+            report(code: $reportCode) {
+              masterData {
+                actors(type: "Player") {
+                  id
+                  name
+                }
+              }
             }
           }
         }
+      `;
+      const actorsData = await executeGraphQL(actorsQuery, { reportCode });
+      const actors = actorsData.reportData?.report?.masterData?.actors || [];
+      for (const actor of actors) {
+        playerIdToName[actor.id] = actor.name;
       }
+      actorsCache.set(`actors:${reportCode}`, playerIdToName);
+    } catch (error) {
+      log.error('Error fetching actors', error);
     }
-  `;
-
-  let playerIdToName = {};
-  try {
-    const actorsData = await executeGraphQL(actorsQuery, { reportCode });
-    const actors = actorsData.reportData?.report?.masterData?.actors || [];
-    for (const actor of actors) {
-      playerIdToName[actor.id] = actor.name;
-    }
-  } catch (error) {
-    console.error('Error fetching actors:', error.message);
   }
 
   // Convert filtered death counts to the expected format
@@ -645,13 +686,16 @@ export async function getFightStatsWithDeathEvents(reportCode, fightInfo) {
     }
   }
 
-  return {
+  const result = {
     ...basicStats,
     deaths: filteredDeaths, // Override with filtered deaths
     fightDuration,
     isKill: false,
     wipeDeathsFiltered: deathEvents.length - filteredDeaths.reduce((sum, d) => sum + d.total, 0),
   };
+
+  wclCache.set(cacheKey, result);
+  return result;
 }
 
 /**
@@ -659,6 +703,11 @@ export async function getFightStatsWithDeathEvents(reportCode, fightInfo) {
  * Used for deep performance analysis (consumables, utility)
  */
 export async function getExtendedFightStats(reportCode, fightIds) {
+  // Check cache
+  const cacheKey = `extStats:${reportCode}:${[...fightIds].sort().join(',')}`;
+  const cached = wclCache.get(cacheKey);
+  if (cached) return cached;
+
   const query = `
     query GetExtendedFightStats($reportCode: String!, $fightIDs: [Int!]) {
       reportData {
@@ -684,14 +733,17 @@ export async function getExtendedFightStats(reportCode, fightIds) {
       return table.data.entries;
     };
 
-    return {
+    const result = {
       casts: parseTable(report.casts),
       buffs: parseTable(report.buffs),
       interrupts: parseTable(report.interrupts),
       dispels: parseTable(report.dispels),
     };
+
+    wclCache.set(cacheKey, result);
+    return result;
   } catch (error) {
-    console.error('Error fetching extended fight stats:', error.message);
+    log.error('Error fetching extended fight stats', error);
     return { casts: [], buffs: [], interrupts: [], dispels: [] };
   }
 }
@@ -807,7 +859,7 @@ export async function getFightCombatantInfo(reportCode, fightIds) {
 
     return allPlayers;
   } catch (error) {
-    console.warn('Error fetching combatant info:', error.message);
+    log.warn('Error fetching combatant info: ' + error.message);
     return [];
   }
 }

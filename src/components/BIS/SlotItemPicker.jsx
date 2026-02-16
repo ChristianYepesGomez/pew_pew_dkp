@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useLanguage } from '../../hooks/useLanguage'
 import { itemPopularityAPI } from '../../services/api'
-import RARITY_COLORS from '../../utils/rarityColors'
+import { RARITY_COLORS } from '../../utils/constants'
 import WowheadTooltip from '../Common/WowheadTooltip'
 import { PAPER_DOLL_SLOTS } from './PaperDoll'
 import {
@@ -31,12 +31,11 @@ const SlotItemPicker = ({ slotKey, allItems = [], bisItems = [], onAdd, onRemove
   const [adding, setAdding] = useState(null) // item id being added
   const [popularItems, setPopularItems] = useState({}) // itemId -> usage_pct
 
-  const slotDef = PAPER_DOLL_SLOTS[slotKey]
-  if (!slotDef) return null
+  const slotDef = PAPER_DOLL_SLOTS[slotKey] || null
 
   // Fetch popularity data for this slot
   useEffect(() => {
-    if (!userClass || !slotKey) return
+    if (!slotDef || !userClass || !slotKey) return
     const slotName = slotDef?.matchSlots?.[0]
     if (!slotName) return
     itemPopularityAPI.get(userClass, null, slotName).then(res => {
@@ -50,6 +49,7 @@ const SlotItemPicker = ({ slotKey, allItems = [], bisItems = [], onAdd, onRemove
 
   // BIS items for this slot
   const slotBisItems = useMemo(() => {
+    if (!slotDef) return []
     return bisItems.filter(bi => {
       if (bi.slot_position === slotKey) return true
       if (!bi.slot_position && slotDef.matchSlots.includes(bi.item_slot)) return true
@@ -65,6 +65,7 @@ const SlotItemPicker = ({ slotKey, allItems = [], bisItems = [], onAdd, onRemove
 
   // Available items filtered for this slot
   const availableItems = useMemo(() => {
+    if (!slotDef) return []
     let items = allItems.filter(item => slotDef.matchSlots.includes(item.slot))
 
     if (sourceFilter !== 'all') {
@@ -88,6 +89,8 @@ const SlotItemPicker = ({ slotKey, allItems = [], bisItems = [], onAdd, onRemove
 
     return items
   }, [allItems, slotDef, sourceFilter, search, getBossName, popularItems])
+
+  if (!slotDef) return null
 
   const handleAdd = async (item) => {
     setAdding(item.id)

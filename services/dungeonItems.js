@@ -2,12 +2,13 @@
 // Fetches M+ dungeon items from Blizzard API
 // Mirrors raidItems.js pattern with cache chain
 
-import blizzardAPI from './blizzardAPI.js';
 import { discoverMythicDungeons, fetchRaidItemsMultiLang } from './blizzardAPI.js';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { createLogger } from '../lib/logger.js';
 
+const log = createLogger('Service:DungeonItems');
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -34,7 +35,7 @@ function saveCache(items) {
   try {
     fs.writeFileSync(CACHE_FILE, JSON.stringify({ timestamp: Date.now(), items }, null, 2));
   } catch (err) {
-    console.warn('Failed to save dungeon items cache:', err.message);
+    log.warn('Failed to save dungeon items cache: ' + err.message);
   }
 }
 
@@ -69,7 +70,7 @@ export async function getAllDungeonItems() {
         }));
         allItems.push(...tagged);
       } catch (err) {
-        console.warn(`Failed to fetch items for dungeon ${dungeon.name} (${dungeon.id}):`, err.message);
+        log.warn(`Failed to fetch items for dungeon ${dungeon.name} (${dungeon.id}): ${err.message}`);
       }
     }
 
@@ -77,12 +78,12 @@ export async function getAllDungeonItems() {
       saveCache(allItems);
       cachedItems = allItems;
       lastCheck = Date.now();
-      console.log(`Loaded ${allItems.length} M+ dungeon items from ${dungeons.length} dungeons`);
+      log.info(`Loaded ${allItems.length} M+ dungeon items from ${dungeons.length} dungeons`);
     }
 
     return allItems;
   } catch (error) {
-    console.warn('Failed to fetch dungeon items:', error.message);
+    log.warn('Failed to fetch dungeon items: ' + error.message);
 
     // Try stale cache
     try {

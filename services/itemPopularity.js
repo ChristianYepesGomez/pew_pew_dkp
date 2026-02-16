@@ -1,8 +1,10 @@
 // Item Popularity Service
 // Aggregates equipped item data from WCL reports to show what real players use
 
-import { db } from '../database.js';
 import { getFightCombatantInfo } from './warcraftlogs.js';
+import { createLogger } from '../lib/logger.js';
+
+const log = createLogger('Service:ItemPopularity');
 
 // WCL gear slot index → slot name mapping
 const GEAR_SLOT_MAP = {
@@ -16,7 +18,7 @@ const GEAR_SLOT_MAP = {
  * Process a WCL report's kill fights to extract item popularity data
  * Called after import-boss-stats in background
  */
-export async function processReportPopularity(reportCode, killFights) {
+export async function processReportPopularity(db, reportCode, killFights) {
   if (!killFights || killFights.length === 0) return;
 
   const fightIds = killFights.map(f => f.fightId || f.id);
@@ -50,9 +52,9 @@ export async function processReportPopularity(reportCode, killFights) {
       }
     }
 
-    console.log(`📊 Item popularity: processed ${players.length} players from ${reportCode}`);
+    log.info(`Item popularity: processed ${players.length} players from ${reportCode}`);
   } catch (error) {
-    console.warn('Error processing item popularity:', error.message);
+    log.warn('Error processing item popularity: ' + error.message);
   }
 }
 
@@ -60,7 +62,7 @@ export async function processReportPopularity(reportCode, killFights) {
  * Get popular items for a class/spec/slot combination
  * Returns items sorted by usage percentage
  */
-export async function getPopularItems(className, specName = null, contentType = 'raid', slot = null) {
+export async function getPopularItems(db, className, specName = null, contentType = 'raid', slot = null) {
   let query = `
     SELECT item_id, item_name, item_slot, usage_count, total_players,
            ROUND(CAST(usage_count AS REAL) / NULLIF(total_players, 0) * 100, 1) as usage_pct
@@ -87,7 +89,7 @@ export async function getPopularItems(className, specName = null, contentType = 
   try {
     return await db.all(query, params);
   } catch (error) {
-    console.warn('Error getting popular items:', error.message);
+    log.warn('Error getting popular items: ' + error.message);
     return [];
   }
 }

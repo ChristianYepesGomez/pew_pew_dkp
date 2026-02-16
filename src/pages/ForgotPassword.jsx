@@ -3,9 +3,9 @@ import { Link } from 'react-router-dom'
 import { CircleNotch, WarningCircle, CheckCircle, Info } from '@phosphor-icons/react'
 import { useLanguage } from '../hooks/useLanguage'
 import { authAPI } from '../services/api'
-import AuthFormHeader from '../components/UI/AuthFormHeader'
-import Button from '../components/UI/Button'
-import Input from '../components/UI/Input'
+import AuthFormHeader from '../components/ui/AuthFormHeader'
+import Button from '../components/ui/Button'
+import Input from '../components/ui/Input'
 
 const ForgotPassword = () => {
   const [usernameOrEmail, setUsernameOrEmail] = useState('')

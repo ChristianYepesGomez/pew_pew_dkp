@@ -4,9 +4,9 @@ import { CircleNotch, WarningCircle, CheckCircle } from '@phosphor-icons/react'
 import { useLanguage } from '../hooks/useLanguage'
 import { authAPI } from '../services/api'
 import CatLogo from '../components/Layout/CatLogo'
-import AuthFormHeader from '../components/UI/AuthFormHeader'
-import Button from '../components/UI/Button'
-import Input from '../components/UI/Input'
+import AuthFormHeader from '../components/ui/AuthFormHeader'
+import Button from '../components/ui/Button'
+import Input from '../components/ui/Input'
 
 const Register = () => {
   const navigate = useNavigate()

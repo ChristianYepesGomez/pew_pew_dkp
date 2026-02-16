@@ -4,9 +4,9 @@ import { useLanguage } from '../../hooks/useLanguage'
 import { bossesAPI } from '../../services/api'
 import CLASS_COLORS from '../../utils/classColors'
 import { CircleNotch, WarningCircle, Skull, Book, BookOpen, ArrowsClockwise, CaretDown, CaretRight, CheckCircle, XCircle, Lightning, ArrowSquareOut, X, ChartBar, Trophy, Heart, ShieldStar, Fire, Flag, ClockCounterClockwise, Sword } from '@phosphor-icons/react'
-import SectionHeader from '../UI/SectionHeader'
-import SurfaceCard from '../UI/SurfaceCard'
-import Button from '../UI/Button'
+import SectionHeader from '../ui/SectionHeader'
+import SurfaceCard from '../ui/SurfaceCard'
+import Button from '../ui/Button'
 
 // Difficulty colors
 const DIFFICULTY_COLORS = {

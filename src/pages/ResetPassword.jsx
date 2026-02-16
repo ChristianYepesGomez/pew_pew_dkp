@@ -4,8 +4,8 @@ import { CircleNotch, WarningCircle, CheckCircle } from '@phosphor-icons/react'
 import { useLanguage } from '../hooks/useLanguage'
 import { authAPI } from '../services/api'
 import CatLogo from '../components/Layout/CatLogo'
-import Button from '../components/UI/Button'
-import Input from '../components/UI/Input'
+import Button from '../components/ui/Button'
+import Input from '../components/ui/Input'
 
 const ResetPassword = () => {
   const { token } = useParams()

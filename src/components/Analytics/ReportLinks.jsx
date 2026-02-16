@@ -2,7 +2,7 @@ import { useLanguage } from '../../hooks/useLanguage'
 import { Scroll, Microscope, Skull } from '@phosphor-icons/react'
 
 const ReportLinks = ({ reportCode, characterName = null }) => {
-  const { t } = useLanguage()
+  const { t: _t } = useLanguage()
   if (!reportCode) return null
 
   const links = [

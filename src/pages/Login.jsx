@@ -4,8 +4,8 @@ import { CircleNotch, WarningCircle } from '@phosphor-icons/react'
 import { useAuth } from '../hooks/useAuth'
 import { useLanguage } from '../hooks/useLanguage'
 import CatLogo from '../components/Layout/CatLogo'
-import Button from '../components/UI/Button'
-import Input from '../components/UI/Input'
+import Button from '../components/ui/Button'
+import Input from '../components/ui/Input'
 
 const Login = () => {
   const [username, setUsername] = useState('')

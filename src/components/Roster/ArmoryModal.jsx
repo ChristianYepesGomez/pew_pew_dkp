@@ -5,7 +5,7 @@ import { useLanguage } from '../../hooks/useLanguage'
 import { armoryAPI } from '../../services/api'
 import WowheadTooltip from '../Common/WowheadTooltip'
 import CLASS_COLORS from '../../utils/classColors'
-import PillBadge from '../UI/PillBadge'
+import PillBadge from '../ui/PillBadge'
 
 const RARITY_COLORS = {
   common: '#9d9d9d', uncommon: '#1eff00', rare: '#0070dd',

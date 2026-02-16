@@ -5,9 +5,9 @@ import { useLanguage } from '../../hooks/useLanguage'
 import { dkpAPI, authAPI, charactersAPI, blizzardAPI } from '../../services/api'
 import WowheadTooltip from '../Common/WowheadTooltip'
 import { X, CircleNotch, PencilSimple, Crop, MagnifyingGlassMinus, MagnifyingGlassPlus, User, Users, Coins, Envelope, Key, FloppyDisk, Gavel, ClockCounterClockwise, WarningCircle, DownloadSimple, ArrowsClockwise, Trash, Star, Info } from '@phosphor-icons/react'
-import Button from '../UI/Button'
-import Input from '../UI/Input'
-import Select from '../UI/Select'
+import Button from '../ui/Button'
+import Input from '../ui/Input'
+import Select from '../ui/Select'
 import {
   CHARACTER_MODAL_VIEW,
   CHARACTER_MODAL_VIEW_ORDER,

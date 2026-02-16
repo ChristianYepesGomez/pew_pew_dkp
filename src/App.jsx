@@ -8,6 +8,7 @@ import ForgotPassword from './pages/ForgotPassword'
 import ResetPassword from './pages/ResetPassword'
 import Dashboard from './pages/Dashboard'
 import RoleSwitcher from './components/Dev/RoleSwitcher'
+import OfflineBanner from './components/Common/OfflineBanner'
 
 class ErrorBoundary extends Component {
   constructor(props) {
@@ -34,7 +35,7 @@ class ErrorBoundary extends Component {
               onClick={() => window.location.reload()}
               className="px-6 py-2 bg-coral text-indigo rounded-full font-semibold hover:opacity-90 transition-opacity"
             >
-              Reload page
+              <i className="fas fa-redo mr-2"></i>Reload / Recargar
             </button>
           </div>
         </div>
@@ -57,12 +58,13 @@ function App() {
 
   return (
     <ErrorBoundary>
+      <OfflineBanner />
       <Routes>
         <Route path="/login" element={!isAuthenticated ? <Login /> : <Navigate to="/" />} />
         <Route path="/register" element={!isAuthenticated ? <Register /> : <Navigate to="/" />} />
         <Route path="/forgot-password" element={!isAuthenticated ? <ForgotPassword /> : <Navigate to="/" />} />
         <Route path="/reset-password/:token" element={!isAuthenticated ? <ResetPassword /> : <Navigate to="/" />} />
-        <Route path="/" element={isAuthenticated ? <Dashboard /> : <Navigate to="/login" />} />
+        <Route path="/" element={isAuthenticated ? <Dashboard /> : <Navigate to="/" />} />
       </Routes>
       {isAuthenticated && <RoleSwitcher />}
     </ErrorBoundary>

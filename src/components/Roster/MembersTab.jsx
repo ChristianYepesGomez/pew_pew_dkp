@@ -9,12 +9,12 @@ import DKPAdjustModal from './DKPAdjustModal'
 import ArmoryModal from './ArmoryModal'
 import VaultIcon from '../Common/VaultIcon'
 import CLASS_COLORS from '../../utils/classColors'
-import SectionHeader from '../UI/SectionHeader'
-import PillInput from '../UI/PillInput'
-import PopoverMenu, { PopoverMenuItem } from '../UI/PopoverMenu'
-import SurfaceCard from '../UI/SurfaceCard'
-import PillBadge from '../UI/PillBadge'
-import SortableHeader from '../UI/SortableHeader'
+import SectionHeader from '../ui/SectionHeader'
+import PillInput from '../ui/PillInput'
+import PopoverMenu, { PopoverMenuItem } from '../ui/PopoverMenu'
+import SurfaceCard from '../ui/SurfaceCard'
+import PillBadge from '../ui/PillBadge'
+import SortableHeader from '../ui/SortableHeader'
 
 const SPEC_ICONS = {
   'Arms': 'https://wow.zamimg.com/images/wow/icons/medium/ability_warrior_savageblow.jpg',

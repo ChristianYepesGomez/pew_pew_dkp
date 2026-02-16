@@ -6,7 +6,10 @@ import axios from 'axios';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { createLogger } from '../lib/logger.js';
+import { createCache } from '../lib/cache.js';
 
+const log = createLogger('Service:BlizzardAPI');
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -70,42 +73,54 @@ const EXCLUDED_PATTERNS = [
 
 let accessToken = null;
 let tokenExpiry = 0;
+let tokenRefreshPromise = null; // Mutex: prevents concurrent token refreshes
 
 // Icon cache - persists while server runs, avoids repeated Blizzard API calls
 const iconCache = new Map();
 
-// Get OAuth access token
+// TTL caches for character armory data
+const equipmentCache = createCache(60 * 60 * 1000); // 1 hour
+const mediaCache = createCache(24 * 60 * 60 * 1000); // 24 hours
+
+// Get OAuth access token (with mutex to prevent concurrent refreshes)
 async function getAccessToken() {
   if (accessToken && Date.now() < tokenExpiry) {
     return accessToken;
   }
 
+  // If a refresh is already in progress, wait for it
+  if (tokenRefreshPromise) return tokenRefreshPromise;
+
   if (!CONFIG.clientId || !CONFIG.clientSecret) {
     throw new Error('Blizzard API credentials not configured. Set BLIZZARD_CLIENT_ID and BLIZZARD_CLIENT_SECRET environment variables.');
   }
 
-  try {
-    const response = await axios.post(
-      getOAuthUrl(CONFIG.region),
-      'grant_type=client_credentials',
-      {
-        auth: {
-          username: CONFIG.clientId,
-          password: CONFIG.clientSecret,
-        },
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-      }
-    );
+  tokenRefreshPromise = (async () => {
+    try {
+      const response = await axios.post(
+        getOAuthUrl(CONFIG.region),
+        'grant_type=client_credentials',
+        {
+          auth: {
+            username: CONFIG.clientId,
+            password: CONFIG.clientSecret,
+          },
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
+        }
+      );
 
-    accessToken = response.data.access_token;
-    tokenExpiry = Date.now() + (response.data.expires_in * 1000) - 60000; // Refresh 1 minute early
-    return accessToken;
-  } catch (error) {
-    console.error('Error getting Blizzard access token:', error.message);
-    throw error;
-  }
+      accessToken = response.data.access_token;
+      tokenExpiry = Date.now() + (response.data.expires_in * 1000) - 60000; // Refresh 1 minute early
+      return accessToken;
+    } catch (error) {
+      log.error('Error getting Blizzard access token', error);
+      throw error;
+    }
+  })().finally(() => { tokenRefreshPromise = null; });
+
+  return tokenRefreshPromise;
 }
 
 // Make authenticated API request
@@ -126,7 +141,7 @@ async function apiRequest(endpoint, params = {}, namespace = null) {
     });
     return response.data;
   } catch (error) {
-    console.error(`API request failed for ${endpoint}:`, error.message);
+    log.error(`API request failed for ${endpoint}`, error);
     throw error;
   }
 }
@@ -246,17 +261,17 @@ function mapSlot(inventoryType) {
 
 // Fetch all items for a raid instance
 async function fetchRaidItems(instanceId) {
-  console.log(`Fetching items for raid instance ${instanceId}...`);
+  log.info(`Fetching items for raid instance ${instanceId}...`);
 
   const instance = await getJournalInstance(instanceId);
   const items = [];
   const seenIds = new Set();
 
-  console.log(`Found raid: ${instance.name} with ${instance.encounters?.length || 0} encounters`);
+  log.info(`Found raid: ${instance.name} with ${instance.encounters?.length || 0} encounters`);
 
   for (const encounterRef of instance.encounters || []) {
     const encounter = await getJournalEncounter(encounterRef.id);
-    console.log(`  Processing boss: ${encounter.name}`);
+    log.info(`  Processing boss: ${encounter.name}`);
 
     for (const itemRef of encounter.items || []) {
       try {
@@ -293,7 +308,7 @@ async function fetchRaidItems(instanceId) {
         // Small delay to avoid rate limiting
         await new Promise(resolve => setTimeout(resolve, 50));
       } catch (error) {
-        console.warn(`    Failed to fetch item ${itemRef.item?.id}: ${error.message}`);
+        log.warn(`Failed to fetch item ${itemRef.item?.id}: ${error.message}`);
       }
     }
   }
@@ -303,23 +318,21 @@ async function fetchRaidItems(instanceId) {
 
 // Fetch items in both languages
 async function fetchRaidItemsMultiLang(instanceId) {
-  console.log(`Fetching items in multiple languages for instance ${instanceId}...`);
+  log.info(`Fetching items in multiple languages for instance ${instanceId}...`);
 
   // Fetch in English first (for consistent slot names)
   const originalLocale = CONFIG.locale;
   CONFIG.locale = 'en_US';
   const englishItems = await fetchRaidItems(instanceId);
-  console.log(`  Fetched ${englishItems.length} items in English`);
+  log.info(`  Fetched ${englishItems.length} items in English`);
 
   // Fetch in Spanish
   CONFIG.locale = 'es_ES';
   const spanishItems = await fetchRaidItems(instanceId);
-  console.log(`  Fetched ${spanishItems.length} items in Spanish`);
+  log.info(`  Fetched ${spanishItems.length} items in Spanish`);
 
   CONFIG.locale = originalLocale;
 
-  // Create maps for faster lookup
-  const englishItemsMap = new Map(englishItems.map(item => [item.id, item]));
   const spanishItemsMap = new Map(spanishItems.map(item => [item.id, item]));
 
   // Merge translations - use English as base for consistent slot names
@@ -372,7 +385,7 @@ async function fetchRaidItemsMultiLang(instanceId) {
     }
   }
 
-  console.log(`  Merged ${mergedItems.length} unique items`);
+  log.info(`  Merged ${mergedItems.length} unique items`);
   return mergedItems;
 }
 
@@ -382,12 +395,12 @@ function loadCache() {
     if (fs.existsSync(CONFIG.cacheFile)) {
       const data = JSON.parse(fs.readFileSync(CONFIG.cacheFile, 'utf8'));
       if (Date.now() - data.timestamp < CONFIG.cacheDuration) {
-        console.log('Using cached raid items data');
+        log.info('Using cached raid items data');
         return data.items;
       }
     }
   } catch (error) {
-    console.warn('Failed to load cache:', error.message);
+    log.warn('Failed to load cache: ' + error.message);
   }
   return null;
 }
@@ -403,9 +416,9 @@ function saveCache(items) {
       timestamp: Date.now(),
       items,
     }, null, 2));
-    console.log('Saved raid items to cache');
+    log.info('Saved raid items to cache');
   } catch (error) {
-    console.warn('Failed to save cache:', error.message);
+    log.warn('Failed to save cache: ' + error.message);
   }
 }
 
@@ -424,12 +437,12 @@ export async function getCurrentRaidItems(forceRefresh = false) {
       if (fs.existsSync(CONFIG.cacheFile)) {
         const data = JSON.parse(fs.readFileSync(CONFIG.cacheFile, 'utf8'));
         if (data.items && data.items.length > 0) {
-          console.log(`Using cached raid items (${data.items.length} items) - API not configured`);
+          log.info(`Using cached raid items (${data.items.length} items) - API not configured`);
           return data.items;
         }
       }
     } catch {}
-    console.warn('Blizzard API not configured and no cache available - using static fallback');
+    log.warn('Blizzard API not configured and no cache available - using static fallback');
     return null;
   }
 
@@ -446,13 +459,13 @@ export async function getCurrentRaidItems(forceRefresh = false) {
 
     return allItems;
   } catch (error) {
-    console.error('Failed to fetch raid items from Blizzard API:', error.message);
+    log.error('Failed to fetch raid items from Blizzard API', error);
 
     // Try to use stale cache
     try {
       if (fs.existsSync(CONFIG.cacheFile)) {
         const data = JSON.parse(fs.readFileSync(CONFIG.cacheFile, 'utf8'));
-        console.warn('Using stale cache due to API error');
+        log.warn('Using stale cache due to API error');
         return data.items;
       }
     } catch {}
@@ -481,7 +494,7 @@ export async function getAvailableRaids() {
 
     return raids;
   } catch (error) {
-    console.error('Failed to get available raids:', error.message);
+    log.error('Failed to get available raids', error);
     return [];
   }
 }
@@ -619,7 +632,7 @@ async function getCharacterProfile(userToken, realmSlug, characterName) {
     );
     return response.data;
   } catch (error) {
-    console.warn(`Failed to fetch profile for ${characterName}-${realmSlug}: ${error.message}`);
+    log.warn(`Failed to fetch profile for ${characterName}-${realmSlug}: ${error.message}`);
     return null;
   }
 }
@@ -710,6 +723,11 @@ export async function getUserCharacters(userToken) {
 
 // Get character equipment from public profile (uses app token)
 export async function getCharacterEquipment(realmSlug, characterName) {
+  // Check cache
+  const cacheKey = `equip:${realmSlug}:${characterName.toLowerCase()}`;
+  const cached = equipmentCache.get(cacheKey);
+  if (cached) return cached;
+
   const region = CONFIG.region;
   const token = await getAccessToken();
 
@@ -753,23 +771,31 @@ export async function getCharacterEquipment(realmSlug, characterName) {
     }));
     await Promise.race([iconFetch, iconTimeout]);
 
-    return {
+    const result = {
       character: response.data.character?.name,
       realm: response.data.character?.realm?.name,
       averageItemLevel: response.data.equipped_item_level,
       items,
     };
+
+    equipmentCache.set(cacheKey, result);
+    return result;
   } catch (error) {
     if (error.response?.status === 404) {
       return { error: 'Character not found or profile is private' };
     }
-    console.error(`Failed to fetch equipment for ${characterName}-${realmSlug}:`, error.message);
+    log.error(`Failed to fetch equipment for ${characterName}-${realmSlug}`, error);
     throw error;
   }
 }
 
 // Get character media (avatar/render)
 export async function getCharacterMedia(realmSlug, characterName) {
+  // Check cache
+  const cacheKey = `media:${realmSlug}:${characterName.toLowerCase()}`;
+  const cached = mediaCache.get(cacheKey);
+  if (cached) return cached;
+
   const region = CONFIG.region;
   const token = await getAccessToken();
 
@@ -788,14 +814,17 @@ export async function getCharacterMedia(realmSlug, characterName) {
     );
 
     const assets = response.data.assets || [];
-    return {
+    const result = {
       avatar: assets.find(a => a.key === 'avatar')?.value,
       inset: assets.find(a => a.key === 'inset')?.value,
       main: assets.find(a => a.key === 'main')?.value,
       mainRaw: assets.find(a => a.key === 'main-raw')?.value,
     };
+
+    mediaCache.set(cacheKey, result);
+    return result;
   } catch (error) {
-    console.warn(`Failed to fetch media for ${characterName}-${realmSlug}:`, error.message);
+    log.warn(`Failed to fetch media for ${characterName}-${realmSlug}: ${error.message}`);
     return null;
   }
 }

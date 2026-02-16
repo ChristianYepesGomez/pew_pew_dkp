@@ -5,8 +5,8 @@ import { useLanguage } from '../../hooks/useLanguage'
 import { useSocket } from '../../hooks/useSocket'
 import MyCharacterModal from '../Character/MyCharacterModal'
 import { CHARACTER_MODAL_VIEW, CHARACTER_MODAL_VIEW_ORDER } from '../Character/characterModalViews'
-import PillButton from '../UI/PillButton'
-import PopoverMenu, { PopoverMenuDivider, PopoverMenuItem } from '../UI/PopoverMenu'
+import PillButton from '../ui/PillButton'
+import PopoverMenu, { PopoverMenuDivider, PopoverMenuItem } from '../ui/PopoverMenu'
 
 const USER_MENU_ID = 'header-user-menu'
 

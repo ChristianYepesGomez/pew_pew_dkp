@@ -1,4 +1,16 @@
-import { db } from '../database.js';
+import { createLogger } from '../lib/logger.js';
+
+const log = createLogger('Service:PerformanceAnalysis');
+
+// ── Helpers ──
+export function median(arr) {
+  if (arr.length === 0) return 0;
+  const sorted = [...arr].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 !== 0
+    ? sorted[mid]
+    : (sorted[mid - 1] + sorted[mid]) / 2;
+}
 
 // ── Consumable detection patterns ──
 const CONSUMABLE_PATTERNS = {
@@ -17,8 +29,8 @@ const BUFF_PATTERNS = {
  * Process extended fight data from WCL and store per-fight snapshots
  * Called during the import loop for each fight
  */
-export async function processExtendedFightData(reportCode, bossInfo, basicStats, extendedStats, participantUserMap, reportDate) {
-  const { bossId, fightId, difficulty, startTime, endTime, kill } = bossInfo;
+export async function processExtendedFightData(db, reportCode, bossInfo, basicStats, extendedStats, participantUserMap, reportDate) {
+  const { bossId, fightId, difficulty, startTime, endTime } = bossInfo;
   const fightDurationMs = endTime - startTime;
   const fightDurationSec = fightDurationMs / 1000;
 
@@ -123,8 +135,8 @@ export async function processExtendedFightData(reportCode, bossInfo, basicStats,
   }
   allDps.sort((a, b) => a - b);
   allDtps.sort((a, b) => a - b);
-  const medianDps = allDps.length > 0 ? allDps[Math.floor(allDps.length / 2)] : 0;
-  const medianDtps = allDtps.length > 0 ? allDtps[Math.floor(allDtps.length / 2)] : 0;
+  const medianDps = median(allDps);
+  const medianDtps = median(allDtps);
 
   // Insert per-player records
   let inserted = 0;
@@ -157,7 +169,7 @@ export async function processExtendedFightData(reportCode, bossInfo, basicStats,
     } catch (err) {
       // UNIQUE constraint = already processed, skip
       if (!err.message?.includes('UNIQUE')) {
-        console.warn(`Failed to insert fight perf for ${playerName}:`, err.message);
+        log.warn(`Failed to insert fight perf for ${playerName}: ${err.message}`);
       }
     }
   }
@@ -168,7 +180,7 @@ export async function processExtendedFightData(reportCode, bossInfo, basicStats,
 /**
  * Get detailed performance analysis for a player
  */
-export async function getPlayerDetailedPerformance(userId, options = {}) {
+export async function getPlayerDetailedPerformance(db, userId, options = {}) {
   const { weeks = 8, bossId, difficulty } = options;
   const cutoff = new Date();
   cutoff.setDate(cutoff.getDate() - (weeks * 7));
@@ -188,7 +200,7 @@ export async function getPlayerDetailedPerformance(userId, options = {}) {
       ROUND(AVG(p.hps), 1) as avgHps,
       ROUND(AVG(p.dtps), 1) as avgDtps,
       SUM(p.deaths) as totalDeaths,
-      ROUND(CAST(SUM(p.deaths) AS REAL) / MAX(COUNT(*), 1), 2) as deathRate,
+      ROUND(CAST(SUM(p.deaths) AS REAL) / COUNT(*), 2) as deathRate,
       ROUND(AVG(p.health_potions), 2) as avgHealthPotions,
       ROUND(AVG(p.healthstones), 2) as avgHealthstones,
       ROUND(AVG(p.combat_potions), 2) as avgCombatPotions,
@@ -218,9 +230,14 @@ export async function getPlayerDetailedPerformance(userId, options = {}) {
     FROM player_fight_performance p ${where}
   `, ...params))?.rate || 0 : 0;
 
+  // All metrics are 0-100; normalize to 0-1 then apply weights (sum to 100)
   const consumableScore = Math.round(
-    (healthPotionRate * 0.2 + healthstoneRate * 0.15 + combatPotionRate * 0.25 +
-     (summary?.avgFlaskUptime || 0) * 0.25 + (summary?.foodRate || 0) * 0.1 + (summary?.augmentRate || 0) * 0.05) / 100 * 100
+    (healthPotionRate / 100) * 20 +
+    (healthstoneRate / 100) * 15 +
+    (combatPotionRate / 100) * 25 +
+    ((summary?.avgFlaskUptime || 0) / 100) * 25 +
+    ((summary?.foodRate || 0) / 100) * 10 +
+    ((summary?.augmentRate || 0) / 100) * 5
   );
 
   // Boss breakdown
@@ -231,7 +248,7 @@ export async function getPlayerDetailedPerformance(userId, options = {}) {
       p.difficulty,
       COUNT(*) as fights,
       SUM(p.deaths) as deaths,
-      ROUND(CAST(SUM(p.deaths) AS REAL) / MAX(COUNT(*), 1), 2) as deathRate,
+      ROUND(CAST(SUM(p.deaths) AS REAL) / COUNT(*), 2) as deathRate,
       ROUND(AVG(p.dps), 1) as avgDps,
       ROUND(MAX(p.dps), 1) as bestDps,
       ROUND(AVG(p.dtps), 1) as avgDtps,
@@ -256,7 +273,7 @@ export async function getPlayerDetailedPerformance(userId, options = {}) {
       COUNT(*) as fights,
       ROUND(AVG(p.dps), 1) as avgDps,
       ROUND(AVG(p.hps), 1) as avgHps,
-      ROUND(CAST(SUM(p.deaths) AS REAL) / MAX(COUNT(*), 1), 2) as avgDeaths,
+      ROUND(CAST(SUM(p.deaths) AS REAL) / COUNT(*), 2) as avgDeaths,
       ROUND(AVG(p.dtps), 1) as avgDtps,
       ROUND(
         (CAST(SUM(CASE WHEN p.health_potions > 0 THEN 1 ELSE 0 END) AS REAL) / COUNT(*) * 20 +

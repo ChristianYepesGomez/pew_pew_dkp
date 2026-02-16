@@ -17,7 +17,25 @@
       "Bash(__NEW_LINE_7144a6f2b984335f__ echo \"=== SET PRIMARY \\(Nyre id=4\\) ===\")",
       "Bash(__NEW_LINE_7144a6f2b984335f__ echo \"\")",
       "Bash(code --list-extensions:*)",
-      "Bash(cmd //c \"taskkill /PID 48924 /F\")"
+      "Bash(cmd //c \"taskkill /PID 48924 /F\")",
+      "WebFetch(domain:wow.zamimg.com)",
+      "WebFetch(domain:awesometechstack.com)",
+      "Bash(/c/Proyectos/stillnoob/packages/api/.env << 'ENVEOF'\n# Server\nPORT=3001\nNODE_ENV=development\nFRONTEND_URL=http://localhost:5173\nAPI_URL=http://localhost:3001\n\n# Database \\(Turso\\)\nTURSO_DATABASE_URL=file:./data/stillnoob.db\nTURSO_AUTH_TOKEN=\n\n# JWT\nJWT_SECRET=dev-stillnoob-jwt-k8x2m9p4q7w1z6a3\nJWT_REFRESH_SECRET=dev-stillnoob-refresh-j3v6n8r5t0y2b4c7\n\n# Warcraft Logs API\nWCL_CLIENT_ID=a10936e3-c5d8-4de0-ac81-536ef4ea6def\nWCL_CLIENT_SECRET=69z7ucvZEqe0Ihp8Rx3hKM21dwaX8wgtzvhoAOF3\n\n# Blizzard API\nBLIZZARD_CLIENT_ID=\nBLIZZARD_CLIENT_SECRET=\nBLIZZARD_REGION=eu\n\n# Google OAuth\nGOOGLE_CLIENT_ID=\nGOOGLE_CLIENT_SECRET=\n\n# Discord OAuth\nDISCORD_CLIENT_ID=\nDISCORD_CLIENT_SECRET=\nENVEOF)",
+      "Bash(__NEW_LINE_d1874fc00298a388__ ls -la /c/Proyectos/stillnoob/packages/api/.env)",
+      "Bash(\"/c/Program Files/GitHub CLI/gh.exe\" api repos/ChristianYepesGomez/stillnoob/deployments)",
+      "Bash(TURSO_DATABASE_URL=\"libsql://stillnoob-christianyepesgomez.aws-eu-west-1.turso.io\" TURSO_AUTH_TOKEN=\"eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJhIjoicnciLCJpYXQiOjE3NzA2MTE3ODYsImlkIjoiOGUwN2FkMTEtYWViOS00YTA3LWFjMDAtZmQwYjcyZjgxZTQxIiwicmlkIjoiNDgwNzYwZGMtMzBjOC00YzY3LTlmMjgtMGE5MzFiNDdhZjE1In0.WUCqg_pZskyeGMqLAeqWt4hna4cwARUQwPdAm8MU_sZ1aDxGjm9HK-Fth_tOSEXyrf_iMDqeuEl8nyX8kr5UCA\" npx drizzle-kit:*)",
+      "Bash(TURSO_DATABASE_URL=\"libsql://stillnoob-christianyepesgomez.aws-eu-west-1.turso.io\" TURSO_AUTH_TOKEN=\"eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJhIjoicnciLCJpYXQiOjE3NzA2MTE3ODYsImlkIjoiOGUwN2FkMTEtYWViOS00YTA3LWFjMDAtZmQwYjcyZjgxZTQxIiwicmlkIjoiNDgwNzYwZGMtMzBjOC00YzY3LTlmMjgtMGE5MzFiNDdhZjE1In0.WUCqg_pZskyeGMqLAeqWt4hna4cwARUQwPdAm8MU_sZ1aDxGjm9HK-Fth_tOSEXyrf_iMDqeuEl8nyX8kr5UCA\" npx drizzle-kit push:*)",
+      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY4NDliZDgyLTZhYjctNDhhNy1hMmU0LTVkMDU4ZGZhNjE1YSIsImVtYWlsIjoidGVzdDJAdGVzdC5jb20iLCJ0aWVyIjoiZnJlZSIsImlhdCI6MTc3MDYxMzA1OSwiZXhwIjoxNzcwNjEzOTU5fQ.5Eu0qnLM65KJDj_CE1EZGnFGlShXErx9PFn0sjnfS18\")",
+      "Bash(ZONE_ID=\"c0b7207c9b2365606786d8d614abc05c\")",
+      "WebFetch(domain:www.anthropic.com)",
+      "Bash(npx vitest run:*)",
+      "WebFetch(domain:www.reddit.com)",
+      "WebFetch(domain:www.wipefest.gg)",
+      "WebFetch(domain:thelootdistrict.com)",
+      "Read(//tmp/**)"
+    ],
+    "additionalDirectories": [
+      "C:\\Proyectos\\stillnoob\\.git"
     ]
   }
 }

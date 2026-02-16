@@ -7,8 +7,8 @@ import { auctionsAPI } from '../../services/api'
 import WowheadTooltip from '../Common/WowheadTooltip'
 import CLASS_COLORS from '../../utils/classColors'
 import RARITY_COLORS from '../../utils/rarityColors'
-import SectionHeader from '../UI/SectionHeader'
-import SurfaceCard from '../UI/SurfaceCard'
+import SectionHeader from '../ui/SectionHeader'
+import SurfaceCard from '../ui/SurfaceCard'
 
 const HistoryTab = () => {
   const { t, language } = useLanguage()
