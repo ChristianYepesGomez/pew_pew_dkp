@@ -89,10 +89,16 @@ const db = createDbInterface(client);
 // ── Reusable migration runner ───────────────────────────────────
 // Applies the full guild schema to any db instance.
 
-export async function runMigrations(targetDb) {
-  await targetDb.exec('PRAGMA foreign_keys = ON');
-  await targetDb.exec('PRAGMA busy_timeout = 5000');
-  await targetDb.exec('PRAGMA journal_mode = WAL');
+function isRemoteUrl(url) {
+  return url && (url.startsWith('http') || url.startsWith('libsql://'));
+}
+
+export async function runMigrations(targetDb, connectionUrl = dbUrl) {
+  if (!isRemoteUrl(connectionUrl)) {
+    await targetDb.exec('PRAGMA foreign_keys = ON');
+    await targetDb.exec('PRAGMA busy_timeout = 5000');
+    await targetDb.exec('PRAGMA journal_mode = WAL');
+  }
 
   await targetDb.exec(`
     CREATE TABLE IF NOT EXISTS users (

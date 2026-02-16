@@ -262,7 +262,7 @@ async function startServer() {
   }
 
   // Start global buff manager for synchronized buff effects
-  startBuffManager();
+  startBuffManager(db);
 
   // Schedule weekly raid items refresh from Blizzard API (non-blocking)
   scheduleItemRefresh(db);

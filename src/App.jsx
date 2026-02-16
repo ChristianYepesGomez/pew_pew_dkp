@@ -64,7 +64,7 @@ function App() {
         <Route path="/register" element={!isAuthenticated ? <Register /> : <Navigate to="/" />} />
         <Route path="/forgot-password" element={!isAuthenticated ? <ForgotPassword /> : <Navigate to="/" />} />
         <Route path="/reset-password/:token" element={!isAuthenticated ? <ResetPassword /> : <Navigate to="/" />} />
-        <Route path="/" element={isAuthenticated ? <Dashboard /> : <Navigate to="/" />} />
+        <Route path="/" element={isAuthenticated ? <Dashboard /> : <Navigate to="/login" />} />
       </Routes>
       {isAuthenticated && <RoleSwitcher />}
     </ErrorBoundary>
