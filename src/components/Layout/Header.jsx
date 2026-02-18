@@ -113,11 +113,11 @@ const Header = ({ tabs = [], activeTab, onTabChange }) => {
 
         <div className={`shrink-0${!hasSeenOnboarding ? ' relative z-[50]' : ''}`}>
           {!hasSeenOnboarding && (
-            <span className="absolute inset-0 rounded-full bg-coral/50 animate-ping" />
+            <span className="absolute inset-0 rounded-full bg-coral/50 animate-ping pointer-events-none" />
           )}
           <button
             onClick={handleHelpClick}
-            className={`shrink-0 w-9 h-9 rounded-full flex items-center justify-center transition-colors ${
+            className={`relative shrink-0 w-9 h-9 rounded-full flex items-center justify-center transition-colors ${
               !hasSeenOnboarding
                 ? 'text-cream bg-coral hover:bg-coral/80'
                 : 'text-lavender hover:text-cream hover:bg-lavender-12'
