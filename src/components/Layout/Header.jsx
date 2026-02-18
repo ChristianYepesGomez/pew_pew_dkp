@@ -252,7 +252,7 @@ const Header = ({ tabs = [], activeTab, onTabChange }) => {
                   width: btnRect.width,
                   height: btnRect.height,
                   borderRadius: '50%',
-                  background: 'rgba(255,100,80,0.5)',
+                  background: 'rgba(255,175,157,0.5)',
                   pointerEvents: 'none',
                 }}
               />
@@ -266,7 +266,7 @@ const Header = ({ tabs = [], activeTab, onTabChange }) => {
                   width: btnRect.width,
                   height: btnRect.height,
                   borderRadius: '50%',
-                  background: '#ff6450',
+                  background: '#ffaf9d',
                   color: '#fff',
                   border: 'none',
                   cursor: 'pointer',
@@ -297,10 +297,10 @@ const Header = ({ tabs = [], activeTab, onTabChange }) => {
                   height: 0,
                   borderLeft: '7px solid transparent',
                   borderRight: '7px solid transparent',
-                  borderBottom: '7px solid #ff6450',
+                  borderBottom: '7px solid #ffaf9d',
                 }} />
                 <div style={{
-                  background: '#ff6450',
+                  background: '#ffaf9d',
                   color: '#fff',
                   fontSize: 12,
                   fontWeight: 600,
