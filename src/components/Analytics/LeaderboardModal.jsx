@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { X } from '@phosphor-icons/react'
 import { useLanguage } from '../../hooks/useLanguage'
 import CLASS_COLORS from '../../utils/classColors'
+import ExternalBuffBadge from './ExternalBuffBadge'
 
 // Gold / Silver / Bronze for top 3, then dimmed white for the rest
 const positionColor = (i) => {
@@ -25,7 +26,7 @@ const positionColor = (i) => {
  *   badge        — optional subtitle badge (string | null)
  *   onClose      — () => void
  */
-const LeaderboardModal = ({ title, Icon, color, entries, format, valueColorFn, badge, onClose }) => {
+const LeaderboardModal = ({ title, Icon, color, entries, format, valueColorFn, badge, showBuffs, onClose }) => {
   const { t } = useLanguage()
 
   const handleKeyDown = useCallback(
@@ -88,6 +89,7 @@ const LeaderboardModal = ({ title, Icon, color, entries, format, valueColorFn, b
                     </span>
                   )}
                 </div>
+                {showBuffs && <ExternalBuffBadge buffsJson={entry.external_buffs_json} />}
                 {entry.url ? (
                   <a
                     href={entry.url}

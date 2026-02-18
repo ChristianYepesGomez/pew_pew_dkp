@@ -7,6 +7,7 @@ import {
   CircleNotch, UsersThree, Trophy, Sparkle, Flask, Calendar,
 } from '@phosphor-icons/react'
 import LeaderboardModal from './LeaderboardModal'
+import ExternalBuffBadge from './ExternalBuffBadge'
 
 const DIFFICULTY_COLORS = {
   Mythic: '#ff8000',
@@ -37,7 +38,7 @@ const fmtWow = (n) => {
   return String(Math.round(v))
 }
 
-const LeaderboardCard = ({ cardKey, title, Icon, color, entries, format, valueColorFn, badge, onSeeMore }) => {
+const LeaderboardCard = ({ cardKey, title, Icon, color, entries, format, valueColorFn, badge, showBuffs, onSeeMore }) => {
   const { t } = useLanguage()
   const top3 = entries.slice(0, 3)
 
@@ -64,6 +65,7 @@ const LeaderboardCard = ({ cardKey, title, Icon, color, entries, format, valueCo
               >
                 {entry.character_name}
               </span>
+              {showBuffs && <ExternalBuffBadge buffsJson={entry.external_buffs_json} />}
               <span
                 className="text-sm font-bold tabular-nums flex-shrink-0"
                 style={{ color: valueColorFn ? valueColorFn(entry.value) : color }}
@@ -132,6 +134,7 @@ const AnalyticsTab = () => {
       color: '#ef4444',
       format: (v) => `${fmtWow(v)} DPS`,
       badge: t('analytics_best_log'),
+      showBuffs: true,
     },
     {
       key: 'topHps',
@@ -140,6 +143,7 @@ const AnalyticsTab = () => {
       color: '#22c55e',
       format: (v) => `${fmtWow(v)} HPS`,
       badge: t('analytics_best_log'),
+      showBuffs: true,
     },
     {
       key: 'topDeaths',
@@ -237,7 +241,7 @@ const AnalyticsTab = () => {
           {t('analytics_leaderboards')}
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {LEADERBOARDS.map(({ key, title, Icon, color, format, valueColorFn, badge }) => (
+          {LEADERBOARDS.map(({ key, title, Icon, color, format, valueColorFn, badge, showBuffs }) => (
             <LeaderboardCard
               key={key}
               cardKey={key}
@@ -248,6 +252,7 @@ const AnalyticsTab = () => {
               format={format}
               valueColorFn={valueColorFn}
               badge={badge}
+              showBuffs={showBuffs}
               onSeeMore={setOpenModal}
             />
           ))}
@@ -330,6 +335,7 @@ const AnalyticsTab = () => {
           format={activeLeaderboard.format}
           valueColorFn={activeLeaderboard.valueColorFn}
           badge={activeLeaderboard.badge}
+          showBuffs={activeLeaderboard.showBuffs}
           onClose={() => setOpenModal(null)}
         />
       )}
