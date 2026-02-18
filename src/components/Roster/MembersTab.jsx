@@ -98,8 +98,8 @@ const MembersTab = () => {
   const canManageVault = isAdmin || isOfficer
   const tableGridStyle = {
     gridTemplateColumns: isAdmin
-      ? 'minmax(12rem, 2.2fr) minmax(10rem, 1.7fr) minmax(7.5rem, 1.2fr) minmax(4rem, 0.8fr) 2.25rem'
-      : 'minmax(12rem, 2.2fr) minmax(10rem, 1.7fr) minmax(7.5rem, 1.2fr) minmax(4rem, 0.8fr)',
+      ? '2rem minmax(12rem, 2.2fr) minmax(10rem, 1.7fr) minmax(7.5rem, 1.2fr) minmax(4rem, 0.8fr) 2.5rem 2.25rem'
+      : '2rem minmax(12rem, 2.2fr) minmax(10rem, 1.7fr) minmax(7.5rem, 1.2fr) minmax(4rem, 0.8fr) 2.5rem',
   }
   const [avatarPreview, setAvatarPreview] = useState(null)
   const [armoryMemberId, setArmoryMemberId] = useState(null)
@@ -360,6 +360,7 @@ const MembersTab = () => {
 
       <SurfaceCard>
         <div className="grid gap-x-4 gap-y-3 items-center" style={tableGridStyle}>
+          <div className="pb-4" />
           <div className="pb-4">
             <SortableHeader field="characterName" sortField={sortField} sortDir={sortDir} onSort={handleSort}>
               {t('character')}
@@ -380,6 +381,9 @@ const MembersTab = () => {
               DKP
             </SortableHeader>
           </div>
+          <div className="pb-4 flex justify-center">
+            <VaultIcon size={16} completed={false} />
+          </div>
           {isAdmin && (
             <div className="pb-4 text-right">
               <span className="text-xs font-bold text-cream">{t('actions')}</span>
@@ -394,6 +398,25 @@ const MembersTab = () => {
 
             return (
               <React.Fragment key={m.id}>
+                <div className="flex items-center justify-center">
+                  {m.avatar ? (
+                    <img
+                      src={m.avatar}
+                      alt={m.characterName}
+                      className="w-8 h-8 rounded-full object-cover border-2 flex-shrink-0 cursor-pointer hover:scale-110 transition-transform"
+                      style={{ borderColor: classColor }}
+                      onClick={(e) => { e.stopPropagation(); setAvatarPreview({ avatar: m.avatar }) }}
+                    />
+                  ) : (
+                    <div
+                      className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold border-2 flex-shrink-0"
+                      style={{ borderColor: classColor, color: classColor, backgroundColor: `${classColor}22` }}
+                    >
+                      {m.characterName?.charAt(0).toUpperCase()}
+                    </div>
+                  )}
+                </div>
+
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => setArmoryMemberId(m.id)}
@@ -445,6 +468,23 @@ const MembersTab = () => {
                   </span>
                   {m.dkpCap && m.currentDkp >= m.dkpCap && (
                     <Crown size={14} weight="fill" className="text-yellow-400" />
+                  )}
+                </div>
+
+                <div className="flex items-center justify-center">
+                  {canManageVault ? (
+                    <button
+                      onClick={() => handleToggleVault(m.id)}
+                      disabled={vaultLoading === m.id}
+                      className={`transition-opacity ${vaultLoading === m.id ? 'opacity-50 cursor-not-allowed' : 'hover:opacity-80 cursor-pointer'}`}
+                      title={m.weeklyVaultCompleted ? t('vault_completed') : t('vault_not_completed')}
+                    >
+                      <VaultIcon completed={!!m.weeklyVaultCompleted} size={22} />
+                    </button>
+                  ) : (
+                    <span title={m.weeklyVaultCompleted ? t('vault_completed') : t('vault_not_completed')}>
+                      <VaultIcon completed={!!m.weeklyVaultCompleted} size={22} />
+                    </span>
                   )}
                 </div>
 
