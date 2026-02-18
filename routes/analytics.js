@@ -263,10 +263,13 @@ router.get('/my-performance', authenticateToken, async (req, res) => {
              COALESCE(pbd.total_deaths, 0) as deaths,
              CASE WHEN pbp.fights_participated > 0 THEN ROUND(CAST(pbp.total_damage AS REAL) / pbp.fights_participated) ELSE 0 END as avgDps,
              pbp.best_dps as bestDps, pbp.best_hps as bestHps,
-             ROUND(CAST(pbp.total_healing AS REAL) / NULLIF(pbp.fights_participated, 0)) as avgHps
+             ROUND(CAST(pbp.total_healing AS REAL) / NULLIF(pbp.fights_participated, 0)) as avgHps,
+             COALESCE(bs.total_kills, 0) as guildKills,
+             COALESCE(bs.total_wipes, 0) as guildWipes
       FROM player_boss_performance pbp
       JOIN wcl_bosses wb ON pbp.boss_id = wb.id
       LEFT JOIN player_boss_deaths pbd ON pbd.user_id = pbp.user_id AND pbd.boss_id = pbp.boss_id AND pbd.difficulty = pbp.difficulty
+      LEFT JOIN boss_statistics bs ON bs.boss_id = pbp.boss_id AND bs.difficulty = pbp.difficulty
       WHERE pbp.user_id = ?
       ORDER BY pbp.difficulty DESC, wb.boss_order ASC
     `, userId);
@@ -393,6 +396,98 @@ router.get('/guild-insights', authenticateToken, async (req, res) => {
   } catch (err) {
     log.error('Guild insights error', err);
     return error(res, 'Failed to get guild insights', 500, ErrorCodes.INTERNAL_ERROR);
+  }
+});
+
+// Guild Leaderboards — top 3 per category
+// NOTE: Health potion detection uses CONSUMABLE_PATTERNS.healthPotion in warcraftlogs.js.
+// When Midnight expansion launches, add the new healing potion name to that pattern.
+router.get('/guild-leaderboards', authenticateToken, async (req, res) => {
+  try {
+    const MIN_FIGHTS = 3;
+
+    // Top 3 DPS — avg damage per fight, DPS players only (healing < damage)
+    const topDps = await req.db.all(`
+      SELECT u.character_name, u.character_class,
+             ROUND(SUM(pbp.total_damage) / NULLIF(SUM(pbp.fights_participated), 0)) as value,
+             SUM(pbp.fights_participated) as fights
+      FROM player_boss_performance pbp
+      JOIN users u ON pbp.user_id = u.id
+      WHERE pbp.fights_participated > 0 AND pbp.total_damage > 0
+      GROUP BY pbp.user_id
+      HAVING SUM(pbp.fights_participated) >= ? AND SUM(pbp.total_healing) < SUM(pbp.total_damage)
+      ORDER BY value DESC LIMIT 3
+    `, MIN_FIGHTS);
+
+    // Top 3 HPS — avg healing per fight, healers only (healing > damage)
+    const topHps = await req.db.all(`
+      SELECT u.character_name, u.character_class,
+             ROUND(SUM(pbp.total_healing) / NULLIF(SUM(pbp.fights_participated), 0)) as value,
+             SUM(pbp.fights_participated) as fights
+      FROM player_boss_performance pbp
+      JOIN users u ON pbp.user_id = u.id
+      WHERE pbp.fights_participated > 0 AND pbp.total_healing > 0
+      GROUP BY pbp.user_id
+      HAVING SUM(pbp.fights_participated) >= ? AND SUM(pbp.total_healing) > SUM(pbp.total_damage)
+      ORDER BY value DESC LIMIT 3
+    `, MIN_FIGHTS);
+
+    // Top 3 Deaths — hall of shame
+    const topDeaths = await req.db.all(`
+      SELECT u.character_name, u.character_class,
+             SUM(pbd.total_deaths) as value,
+             SUM(pbd.total_fights) as fights
+      FROM player_boss_deaths pbd
+      JOIN users u ON pbd.user_id = u.id
+      GROUP BY pbd.user_id
+      HAVING SUM(pbd.total_fights) >= ?
+      ORDER BY value DESC LIMIT 3
+    `, MIN_FIGHTS);
+
+    // Top 3 Damage Taken — avg per fight, DPS only (excludes healers and tanks)
+    // Heuristic: healing < damage (not healer) AND damage_taken < damage * 3 (not tank)
+    const topDamageTaken = await req.db.all(`
+      SELECT u.character_name, u.character_class,
+             ROUND(SUM(pbp.total_damage_taken) / NULLIF(SUM(pbp.fights_participated), 0)) as value,
+             SUM(pbp.fights_participated) as fights
+      FROM player_boss_performance pbp
+      JOIN users u ON pbp.user_id = u.id
+      WHERE pbp.fights_participated > 0 AND pbp.total_damage_taken > 0
+      GROUP BY pbp.user_id
+      HAVING SUM(pbp.fights_participated) >= ?
+        AND SUM(pbp.total_healing) < SUM(pbp.total_damage)
+        AND SUM(pbp.total_damage_taken) < SUM(pbp.total_damage) * 3
+      ORDER BY value DESC LIMIT 3
+    `, MIN_FIGHTS);
+
+    // Top 3 Health Potions — total used across all tracked fights
+    const topPotions = await req.db.all(`
+      SELECT u.character_name, u.character_class,
+             SUM(pfp.health_potions) as value,
+             COUNT(*) as fights
+      FROM player_fight_performance pfp
+      JOIN users u ON pfp.user_id = u.id
+      GROUP BY pfp.user_id
+      HAVING COUNT(*) >= ? AND SUM(pfp.health_potions) > 0
+      ORDER BY value DESC LIMIT 3
+    `, MIN_FIGHTS);
+
+    // Top 3 Interrupts — total kicks/interrupts performed
+    const topInterrupts = await req.db.all(`
+      SELECT u.character_name, u.character_class,
+             SUM(pfp.interrupts) as value,
+             COUNT(*) as fights
+      FROM player_fight_performance pfp
+      JOIN users u ON pfp.user_id = u.id
+      GROUP BY pfp.user_id
+      HAVING COUNT(*) >= ? AND SUM(pfp.interrupts) > 0
+      ORDER BY value DESC LIMIT 3
+    `, MIN_FIGHTS);
+
+    return success(res, { topDps, topHps, topDeaths, topDamageTaken, topPotions, topInterrupts });
+  } catch (err) {
+    log.error('Guild leaderboards error', err);
+    return error(res, 'Failed to get guild leaderboards', 500, ErrorCodes.INTERNAL_ERROR);
   }
 });
 
