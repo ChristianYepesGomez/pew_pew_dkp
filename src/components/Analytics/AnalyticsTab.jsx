@@ -6,6 +6,7 @@ import {
   Crosshair, Heart, Skull, Shield, Lightning, Drop,
   CircleNotch, UsersThree,
 } from '@phosphor-icons/react'
+import LeaderboardModal from './LeaderboardModal'
 
 const DIFFICULTY_COLORS = {
   Mythic: '#ff8000',
@@ -26,46 +27,60 @@ const fmtWow = (n) => {
   return String(Math.round(v))
 }
 
-const LeaderboardCard = ({ title, Icon, color, entries, format, badge }) => (
-  <div className="rounded-xl border border-lavender-20/20 bg-indigo/30 p-5">
-    <h4 className="text-sm text-lavender mb-4 inline-flex items-center gap-2">
-      <Icon size={16} style={{ color }} />
-      {title}
-      {badge && <span className="text-xs text-lavender/40 ml-1">({badge})</span>}
-    </h4>
-    {entries?.length > 0 ? (
-      <div className="space-y-3">
-        {entries.map((entry, i) => (
-          <div key={i} className="flex items-center gap-3">
-            <span
-              className="text-sm font-bold w-5 flex-shrink-0 text-center"
-              style={{ color: POSITION_COLORS[i] }}
-            >
-              {i + 1}
-            </span>
-            <span
-              className="text-sm font-semibold flex-1 min-w-0 truncate"
-              style={{ color: CLASS_COLORS[entry.character_class] || '#fff' }}
-            >
-              {entry.character_name}
-            </span>
-            <span className="text-sm font-bold tabular-nums flex-shrink-0" style={{ color }}>
-              {format(entry.value)}
-            </span>
-          </div>
-        ))}
-      </div>
-    ) : (
-      <p className="text-lavender/40 text-sm text-center py-4">—</p>
-    )}
-  </div>
-)
+const LeaderboardCard = ({ cardKey, title, Icon, color, entries, format, badge, onSeeMore }) => {
+  const { t } = useLanguage()
+  const top3 = entries.slice(0, 3)
+
+  return (
+    <div className="rounded-xl border border-lavender-20/20 bg-indigo/30 p-5 flex flex-col">
+      <h4 className="text-sm text-lavender mb-4 inline-flex items-center gap-2">
+        <Icon size={16} style={{ color }} />
+        {title}
+        {badge && <span className="text-xs text-lavender/40 ml-1">({badge})</span>}
+      </h4>
+      {top3.length > 0 ? (
+        <div className="space-y-3 flex-1">
+          {top3.map((entry, i) => (
+            <div key={i} className="flex items-center gap-3">
+              <span
+                className="text-sm font-bold w-5 flex-shrink-0 text-center"
+                style={{ color: POSITION_COLORS[i] }}
+              >
+                {i + 1}
+              </span>
+              <span
+                className="text-sm font-semibold flex-1 min-w-0 truncate"
+                style={{ color: CLASS_COLORS[entry.character_class] || '#fff' }}
+              >
+                {entry.character_name}
+              </span>
+              <span className="text-sm font-bold tabular-nums flex-shrink-0" style={{ color }}>
+                {format(entry.value)}
+              </span>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="text-lavender/40 text-sm text-center py-4 flex-1">—</p>
+      )}
+      {entries.length > 0 && (
+        <button
+          onClick={() => onSeeMore(cardKey)}
+          className="mt-4 text-xs text-lavender/50 hover:text-lavender transition-colors self-end"
+        >
+          {t('analytics_see_more')} →
+        </button>
+      )}
+    </div>
+  )
+}
 
 const AnalyticsTab = () => {
   const { t } = useLanguage()
   const [loading, setLoading] = useState(true)
   const [myPerformance, setMyPerformance] = useState(null)
   const [leaderboards, setLeaderboards] = useState(null)
+  const [openModal, setOpenModal] = useState(null) // key of the open leaderboard modal
 
   useEffect(() => {
     const loadAll = async () => {
@@ -126,7 +141,7 @@ const AnalyticsTab = () => {
       title: t('analytics_most_damage_taken'),
       Icon: Shield,
       color: '#f97316',
-      format: (v) => `${fmtWow(v)}/fight`,
+      format: (v) => `${fmtWow(v)} DTPS`,
       badge: t('analytics_excl_tanks'),
     },
     {
@@ -149,6 +164,8 @@ const AnalyticsTab = () => {
     },
   ]
 
+  const activeLeaderboard = LEADERBOARDS.find((lb) => lb.key === openModal)
+
   const fmtWipePct = (pct) => {
     if (pct == null) return '—'
     return pct.toLocaleString('es-ES', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + '%'
@@ -166,12 +183,14 @@ const AnalyticsTab = () => {
           {LEADERBOARDS.map(({ key, title, Icon, color, format, badge }) => (
             <LeaderboardCard
               key={key}
+              cardKey={key}
               title={title}
               Icon={Icon}
               color={color}
               entries={leaderboards?.[key] || []}
               format={format}
               badge={badge}
+              onSeeMore={setOpenModal}
             />
           ))}
         </div>
@@ -235,6 +254,19 @@ const AnalyticsTab = () => {
             </table>
           </div>
         </div>
+      )}
+
+      {/* Top-10 modal */}
+      {openModal && activeLeaderboard && (
+        <LeaderboardModal
+          title={activeLeaderboard.title}
+          Icon={activeLeaderboard.Icon}
+          color={activeLeaderboard.color}
+          entries={leaderboards?.[openModal] || []}
+          format={activeLeaderboard.format}
+          badge={activeLeaderboard.badge}
+          onClose={() => setOpenModal(null)}
+        />
       )}
     </div>
   )

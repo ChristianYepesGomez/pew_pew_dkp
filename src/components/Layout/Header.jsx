@@ -31,32 +31,66 @@ const Header = ({ tabs = [], activeTab, onTabChange }) => {
   const [showCharacterModal, setShowCharacterModal] = useState(false)
   const [characterModalTab, setCharacterModalTab] = useState(CHARACTER_MODAL_VIEW.ACCOUNT)
   const [showDkpInfo, setShowDkpInfo] = useState(false)
-  const [hasSeenOnboarding, setHasSeenOnboarding] = useState(
-    () => !!localStorage.getItem(`dkp_onboarding_seen_${user?.id}`)
-  )
+
+  // Multi-step onboarding: 0 = show DKP help step, 1 = show characters import step, 2 = done
+  const [onboardingStep, setOnboardingStep] = useState(() => {
+    if (!user?.id) return 2
+    const seenHelp = !!localStorage.getItem(`dkp_onboarding_seen_${user.id}`)
+    const seenChars = !!localStorage.getItem(`dkp_onboarding_chars_seen_${user.id}`)
+    if (seenChars) return 2
+    if (seenHelp) return 1
+    return 0
+  })
+
   const btnRef = useRef(null)
   const [btnRect, setBtnRect] = useState(null)
+  const userMenuBtnRef = useRef(null)
+  const [userMenuBtnRect, setUserMenuBtnRect] = useState(null)
   const isAdmin = user?.role === 'admin'
 
-  // Measure the real button's position so the portal clone can sit on top of it exactly.
+  const showStep1Onboarding = onboardingStep === 0
+  const showStep2Onboarding = onboardingStep === 1 && !showDkpInfo
+
+  // Measure help button position for step 1
   useLayoutEffect(() => {
-    if (hasSeenOnboarding) return
+    if (!showStep1Onboarding) return
     const el = btnRef.current
     if (!el) return
-    setBtnRect(el.getBoundingClientRect())
-    const onResize = () => setBtnRect(el.getBoundingClientRect())
-    window.addEventListener('resize', onResize)
-    return () => window.removeEventListener('resize', onResize)
-  }, [hasSeenOnboarding])
+    const update = () => setBtnRect(el.getBoundingClientRect())
+    update()
+    window.addEventListener('resize', update)
+    return () => window.removeEventListener('resize', update)
+  }, [showStep1Onboarding])
 
-  const markOnboardingSeen = () => {
+  // Measure user menu button position for step 2
+  useLayoutEffect(() => {
+    if (!showStep2Onboarding) return
+    const el = userMenuBtnRef.current
+    if (!el) return
+    const update = () => setUserMenuBtnRect(el.getBoundingClientRect())
+    update()
+    window.addEventListener('resize', update)
+    return () => window.removeEventListener('resize', update)
+  }, [showStep2Onboarding])
+
+  const markOnboardingHelpSeen = () => {
     if (user?.id) localStorage.setItem(`dkp_onboarding_seen_${user.id}`, '1')
-    setHasSeenOnboarding(true)
+    setOnboardingStep(1)
+  }
+
+  const markOnboardingCharsSeen = () => {
+    if (user?.id) localStorage.setItem(`dkp_onboarding_chars_seen_${user.id}`, '1')
+    setOnboardingStep(2)
   }
 
   const handleHelpClick = () => {
-    if (!hasSeenOnboarding) markOnboardingSeen()
+    if (onboardingStep === 0) markOnboardingHelpSeen()
     setShowDkpInfo(true)
+  }
+
+  const handleCharOnboardingClick = () => {
+    markOnboardingCharsSeen()
+    openCharacterView(CHARACTER_MODAL_VIEW.CHARACTERS)
   }
 
   useSocket({
@@ -125,11 +159,11 @@ const Header = ({ tabs = [], activeTab, onTabChange }) => {
           </div>
         </IconContext.Provider>
 
-        {/* Real button — invisible during onboarding, stays in layout for measurement */}
+        {/* Real button — invisible during step 1 onboarding, stays in layout for measurement */}
         <button
           ref={btnRef}
           onClick={handleHelpClick}
-          style={!hasSeenOnboarding ? { visibility: 'hidden' } : undefined}
+          style={showStep1Onboarding ? { visibility: 'hidden' } : undefined}
           className="shrink-0 w-9 h-9 rounded-full flex items-center justify-center text-lavender hover:text-cream hover:bg-lavender-12 transition-colors"
           title={t('dkp_how_it_works')}
         >
@@ -145,6 +179,8 @@ const Header = ({ tabs = [], activeTab, onTabChange }) => {
           trigger={({ open, triggerProps }) => (
             <button
               {...triggerProps}
+              ref={userMenuBtnRef}
+              style={showStep2Onboarding ? { visibility: 'hidden' } : undefined}
               className="flex items-center gap-3 h-12 rounded-full bg-lavender-12 pl-5 pr-4 py-2 transition-colors hover:bg-lavender-20"
               aria-label={t('my_character')}
             >
@@ -234,13 +270,13 @@ const Header = ({ tabs = [], activeTab, onTabChange }) => {
       {showDkpInfo && <DKPInfoModal onClose={() => setShowDkpInfo(false)} />}
 
       {/* Onboarding portal — renders directly in document.body, above everything */}
-      {!hasSeenOnboarding && createPortal(
+      {(showStep1Onboarding || showStep2Onboarding) && createPortal(
         <div style={{ position: 'fixed', inset: 0, zIndex: 9999 }}>
           {/* Dark overlay — covers all content */}
           <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.75)' }} />
 
-          {/* Clone button + callout — only rendered once position is measured */}
-          {btnRect && (
+          {/* Step 1: highlight the "?" help button */}
+          {showStep1Onboarding && btnRect && (
             <>
               {/* Ping beacon */}
               <span
@@ -310,6 +346,106 @@ const Header = ({ tabs = [], activeTab, onTabChange }) => {
                   boxShadow: '0 4px 12px rgba(0,0,0,0.4)',
                 }}>
                   {t('onboarding_hint')}
+                  <span style={{ opacity: 0.75, fontWeight: 400, marginLeft: 6 }}>1/2</span>
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* Step 2: highlight the user menu button → open Characters tab */}
+          {showStep2Onboarding && userMenuBtnRect && (
+            <>
+              {/* Ping beacon ring */}
+              <span
+                className="animate-ping"
+                style={{
+                  position: 'absolute',
+                  left: userMenuBtnRect.left - 4,
+                  top: userMenuBtnRect.top - 4,
+                  width: userMenuBtnRect.width + 8,
+                  height: userMenuBtnRect.height + 8,
+                  borderRadius: 9999,
+                  background: 'rgba(255,175,157,0.4)',
+                  pointerEvents: 'none',
+                }}
+              />
+              {/* Clickable clone of user menu pill */}
+              <button
+                onClick={handleCharOnboardingClick}
+                style={{
+                  position: 'absolute',
+                  left: userMenuBtnRect.left,
+                  top: userMenuBtnRect.top,
+                  width: userMenuBtnRect.width,
+                  height: userMenuBtnRect.height,
+                  borderRadius: 9999,
+                  background: '#ffaf9d',
+                  border: '2px solid rgba(255,255,255,0.3)',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 12,
+                  paddingLeft: 20,
+                  paddingRight: 16,
+                  zIndex: 1,
+                }}
+              >
+                <span style={{ fontSize: 15, fontWeight: 600, color: '#fff' }}>
+                  {user?.characterName || user?.username}
+                </span>
+                <span style={{
+                  background: 'rgba(255,255,255,0.25)',
+                  borderRadius: 9999,
+                  padding: '4px 12px',
+                  fontSize: 13,
+                  fontWeight: 700,
+                  color: '#fff',
+                }}>
+                  {user?.currentDkp || 0} DKP
+                </span>
+              </button>
+              {/* Callout tooltip */}
+              <div
+                style={{
+                  position: 'absolute',
+                  top: userMenuBtnRect.bottom + 8,
+                  right: window.innerWidth - userMenuBtnRect.right,
+                  pointerEvents: 'none',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'flex-end',
+                }}
+              >
+                <div style={{
+                  marginRight: userMenuBtnRect.width / 2 - 7,
+                  width: 0,
+                  height: 0,
+                  borderLeft: '7px solid transparent',
+                  borderRight: '7px solid transparent',
+                  borderBottom: '7px solid #ffaf9d',
+                }} />
+                <div style={{
+                  background: '#ffaf9d',
+                  color: '#fff',
+                  fontSize: 12,
+                  fontWeight: 600,
+                  borderRadius: 8,
+                  padding: '8px 14px',
+                  whiteSpace: 'nowrap',
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.4)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'flex-end',
+                  gap: 3,
+                }}>
+                  <span>
+                    {t('onboarding_chars_hint')}
+                    <span style={{ opacity: 0.75, fontWeight: 400, marginLeft: 6 }}>2/2</span>
+                  </span>
+                  <span style={{ opacity: 0.85, fontWeight: 400, fontSize: 11 }}>
+                    {t('onboarding_chars_sub')}
+                  </span>
                 </div>
               </div>
             </>

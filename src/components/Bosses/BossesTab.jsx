@@ -5,7 +5,6 @@ import { bossesAPI } from '../../services/api'
 import CLASS_COLORS from '../../utils/classColors'
 import { CircleNotch, WarningCircle, Skull, Book, BookOpen, ArrowsClockwise, CaretDown, CaretRight, CheckCircle, XCircle, Lightning, ArrowSquareOut, X, ChartBar, Trophy, Heart, ShieldStar, Fire, Flag, ClockCounterClockwise, Sword } from '@phosphor-icons/react'
 import SectionHeader from '../ui/SectionHeader'
-import SurfaceCard from '../ui/SurfaceCard'
 import Button from '../ui/Button'
 
 // Difficulty colors
@@ -169,28 +168,32 @@ const BossesTab = () => {
         </div>
       </SectionHeader>
 
-      <SurfaceCard className="space-y-4 p-5 sm:p-6">
+      <div className="space-y-3">
         {zones.length === 0 ? (
-          <div className="py-10 text-center text-lavender">
+          <div className="rounded-2xl bg-indigo py-10 text-center text-lavender outline outline-2 outline-lavender-20">
             <Sword size={40} className="mx-auto mb-4 opacity-60" />
             <p>{t('no_bosses')}</p>
           </div>
         ) : (
-          <div className="space-y-4">
-            {zones.map(zone => (
+          zones.map(zone => {
+            const diffColor = DIFFICULTY_COLORS[zone.highestDifficulty] || '#555'
+            return (
               <div key={zone.id} className="overflow-hidden rounded-2xl bg-indigo outline outline-2 outline-lavender-20">
                 {/* Zone Header */}
                 <button
                   onClick={() => toggleZone(zone.id)}
-                  className="flex w-full items-center justify-between px-4 py-3 transition-colors hover:bg-lavender-12"
+                  className="flex w-full items-center justify-between px-5 py-4 transition-colors hover:bg-lavender-12"
+                  style={{ borderLeft: `3px solid ${diffColor}` }}
                 >
                   <div className="flex items-center gap-3">
-                    {expandedZones[zone.id] ? <CaretDown size={16} className="text-lavender" /> : <CaretRight size={16} className="text-lavender" />}
+                    {expandedZones[zone.id]
+                      ? <CaretDown size={16} className="text-lavender" />
+                      : <CaretRight size={16} className="text-lavender" />}
                     <span className="text-lg font-bold text-cream">{zone.name}</span>
                     {zone.progress && (
                       <span
-                        className="rounded px-2 py-0.5 text-sm font-bold"
-                        style={{ color: DIFFICULTY_COLORS[zone.highestDifficulty] || '#fff' }}
+                        className="rounded-full px-2.5 py-0.5 text-sm font-bold"
+                        style={{ color: diffColor, backgroundColor: diffColor + '25', border: `1px solid ${diffColor}50` }}
                       >
                         {zone.progress}
                       </span>
@@ -214,7 +217,7 @@ const BossesTab = () => {
 
                 {/* Boss Grid */}
                 {expandedZones[zone.id] && (
-                  <div className="grid grid-cols-1 gap-4 px-4 pb-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                  <div className="grid grid-cols-1 gap-3 p-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                     {zone.bosses.map(boss => (
                       <BossCard
                         key={boss.id}
@@ -226,10 +229,10 @@ const BossesTab = () => {
                   </div>
                 )}
               </div>
-            ))}
-          </div>
+            )
+          })
         )}
-      </SurfaceCard>
+      </div>
 
       {/* Boss Details Modal */}
       {selectedBoss && (
@@ -249,7 +252,6 @@ const BossesTab = () => {
 // Boss Card Component - Cinematic design with full artwork
 const BossCard = ({ boss, onClick, t }) => {
   const diffColor = DIFFICULTY_COLORS[boss.highestDifficulty] || '#888'
-  const hasKillsOrWipes = boss.kills > 0 || boss.wipes > 0
 
   return (
     <div
@@ -286,27 +288,25 @@ const BossCard = ({ boss, onClick, t }) => {
       {/* Content Overlay */}
       <div className="absolute inset-0 flex flex-col justify-end p-4 z-10">
         {/* Boss Name */}
-        <h4 className="font-bold text-lg text-white drop-shadow-lg mb-2 group-hover:text-coral transition-colors">
+        <h4 className="font-bold text-base text-white drop-shadow-lg mb-2 leading-tight line-clamp-1 group-hover:text-coral transition-colors" title={boss.name}>
           {boss.name}
         </h4>
 
-        {/* Stats Row - Always show, even with 0 values */}
-        <div className="flex items-center gap-4 text-sm">
-          <div className="flex items-center gap-1">
-            <CheckCircle size={14} className={boss.kills > 0 ? 'text-green-400' : 'text-lavender/50'} />
-            <span className={`font-semibold ${boss.kills > 0 ? 'text-green-400' : 'text-lavender/50'}`}>{boss.kills || 0}</span>
-            <span className="text-xs text-lavender/80">{t('kills')}</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <XCircle size={14} className={boss.wipes > 0 ? 'text-red-400' : 'text-lavender/50'} />
-            <span className={`font-semibold ${boss.wipes > 0 ? 'text-red-400' : 'text-lavender/50'}`}>{boss.wipes || 0}</span>
-            <span className="text-xs text-lavender/80">{t('wipes')}</span>
-          </div>
+        {/* Stats Badges */}
+        <div className="flex items-center gap-1.5">
+          <span className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-bold backdrop-blur-sm ${boss.kills > 0 ? 'bg-green-400/20 text-green-400' : 'bg-white/10 text-lavender/50'}`}>
+            <CheckCircle size={11} weight={boss.kills > 0 ? 'fill' : 'regular'} />
+            {boss.kills || 0}
+          </span>
+          <span className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-bold backdrop-blur-sm ${boss.wipes > 0 ? 'bg-red-400/20 text-red-400' : 'bg-white/10 text-lavender/50'}`}>
+            <XCircle size={11} weight={boss.wipes > 0 ? 'fill' : 'regular'} />
+            {boss.wipes || 0}
+          </span>
           {boss.fastestKill && (
-            <div className="flex items-center gap-1">
-              <Lightning size={14} className="text-yellow-400" />
-              <span className="text-yellow-400 font-semibold">{boss.fastestKill}</span>
-            </div>
+            <span className="flex items-center gap-1 rounded-full bg-yellow-400/20 px-2 py-0.5 text-xs font-bold text-yellow-400 backdrop-blur-sm">
+              <Lightning size={11} weight="fill" />
+              {boss.fastestKill}
+            </span>
           )}
         </div>
 

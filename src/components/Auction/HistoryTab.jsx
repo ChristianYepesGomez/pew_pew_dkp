@@ -59,7 +59,7 @@ const HistoryTab = () => {
     })
   }
 
-  if (loading) return <div className="text-center py-20"><CircleNotch className="animate-spin text-6xl text-coral inline-block" /></div>
+  if (loading) return <div className="flex items-center justify-center py-12"><CircleNotch size={32} className="animate-spin text-coral" /></div>
 
   return (
     <div className="space-y-6">
