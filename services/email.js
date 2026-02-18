@@ -1,46 +1,31 @@
-import nodemailer from 'nodemailer';
 import { createLogger } from '../lib/logger.js';
 
 const log = createLogger('Service:Email');
-let transporter = null;
 
-function getTransporter() {
-  if (transporter) return transporter;
-
-  const host = process.env.SMTP_HOST;
-  const user = process.env.SMTP_USER;
-  const pass = process.env.SMTP_PASS;
-
-  if (!host || !user || !pass) {
-    return null;
-  }
-
-  transporter = nodemailer.createTransport({
-    host,
-    port: parseInt(process.env.SMTP_PORT || '587'),
-    secure: false,
-    auth: { user, pass },
-  });
-
-  return transporter;
-}
+const RESEND_API = 'https://api.resend.com/emails';
 
 export async function sendPasswordResetEmail(toEmail, username, resetUrl) {
-  const mail = getTransporter();
+  const apiKey = process.env.RESEND_API_KEY;
 
-  if (!mail) {
+  if (!apiKey) {
     log.info(`[Email not configured] Reset link for ${username}: ${resetUrl}`);
     return false;
   }
 
-  const from = process.env.SMTP_FROM || process.env.SMTP_USER;
+  const from = process.env.SMTP_FROM || 'Pew Pew Kittens DKP <onboarding@resend.dev>';
 
   try {
-  await mail.sendMail({
-    from,
-    to: toEmail,
-    subject: 'Pew Pew DKP - Password Reset',
-    html: `
+    const res = await fetch(RESEND_API, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        from,
+        to: [toEmail],
+        subject: 'Pew Pew DKP - Password Reset',
+        html: `
       <div style="font-family: Arial, sans-serif; max-width: 480px; margin: 0 auto; background: #0d1117; color: #e6e6e6; border-radius: 12px; overflow: hidden;">
         <div style="background: linear-gradient(135deg, #6b21a8, #7c3aed); padding: 24px; text-align: center;">
           <h1 style="margin: 0; font-size: 22px; color: #fff;">Pew Pew Kittens with Guns</h1>
@@ -48,10 +33,10 @@ export async function sendPasswordResetEmail(toEmail, username, resetUrl) {
         </div>
         <div style="padding: 32px 24px;">
           <p style="margin: 0 0 16px;">Hola <strong>${username}</strong>,</p>
-          <p style="margin: 0 0 24px;">Has solicitado restablecer tu contrasenya. Haz clic en el boton para crear una nueva:</p>
+          <p style="margin: 0 0 24px;">Has solicitado restablecer tu contraseña. Haz clic en el botón para crear una nueva:</p>
           <div style="text-align: center; margin: 0 0 24px;">
             <a href="${resetUrl}" style="display: inline-block; background: linear-gradient(135deg, #6b21a8, #7c3aed); color: #fff; text-decoration: none; padding: 12px 32px; border-radius: 8px; font-weight: bold; font-size: 15px;">
-              Restablecer contrasenya
+              Restablecer contraseña
             </a>
           </div>
           <p style="margin: 0 0 8px; font-size: 13px; color: #8b949e;">Este enlace expira en 1 hora.</p>
@@ -62,14 +47,23 @@ export async function sendPasswordResetEmail(toEmail, username, resetUrl) {
         </div>
       </div>
     `,
-  });
-  return true;
+      }),
+    });
+
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      log.error('Resend API error', { status: res.status, body });
+      return false;
+    }
+
+    log.info(`Password reset email sent to ${toEmail}`);
+    return true;
   } catch (err) {
-    log.error('Failed to send email via SMTP', { error: err.message });
+    log.error('Failed to send email via Resend', { error: err.message });
     return false;
   }
 }
 
 export function isEmailConfigured() {
-  return !!(process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS);
+  return !!process.env.RESEND_API_KEY;
 }
