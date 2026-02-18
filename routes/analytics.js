@@ -407,29 +407,55 @@ router.get('/guild-leaderboards', authenticateToken, async (req, res) => {
   try {
     const MIN_FIGHTS = 1;
 
-    // Top 10 DPS — best single fight DPS, DPS players only (healing < damage)
+    // Top 10 DPS — best single fight DPS + external buffs from that fight, DPS players only
     const topDps = await req.db.all(`
+      WITH player_totals AS (
+        SELECT user_id, COUNT(*) as fights,
+               SUM(healing_done) as total_healing, SUM(damage_done) as total_damage
+        FROM player_fight_performance
+        WHERE dps > 0
+        GROUP BY user_id
+        HAVING COUNT(*) >= ? AND SUM(healing_done) < SUM(damage_done)
+      ),
+      best AS (
+        SELECT pfp.user_id, pfp.dps, pfp.external_buffs_json,
+               ROW_NUMBER() OVER (PARTITION BY pfp.user_id ORDER BY pfp.dps DESC) as rn
+        FROM player_fight_performance pfp
+        JOIN player_totals pt ON pfp.user_id = pt.user_id
+        WHERE pfp.dps > 0
+      )
       SELECT u.character_name, u.character_class,
-             ROUND(MAX(pfp.dps)) as value,
-             COUNT(*) as fights
-      FROM player_fight_performance pfp
-      JOIN users u ON pfp.user_id = u.id
-      WHERE pfp.dps > 0
-      GROUP BY pfp.user_id
-      HAVING COUNT(*) >= ? AND SUM(pfp.healing_done) < SUM(pfp.damage_done)
+             ROUND(b.dps) as value, b.external_buffs_json, pt.fights
+      FROM best b
+      JOIN users u ON b.user_id = u.id
+      JOIN player_totals pt ON b.user_id = pt.user_id
+      WHERE b.rn = 1
       ORDER BY value DESC LIMIT 10
     `, MIN_FIGHTS);
 
-    // Top 10 HPS — best single fight HPS, healers only (healing > damage)
+    // Top 10 HPS — best single fight HPS + external buffs from that fight, healers only
     const topHps = await req.db.all(`
+      WITH player_totals AS (
+        SELECT user_id, COUNT(*) as fights,
+               SUM(healing_done) as total_healing, SUM(damage_done) as total_damage
+        FROM player_fight_performance
+        WHERE hps > 0
+        GROUP BY user_id
+        HAVING COUNT(*) >= ? AND SUM(healing_done) > SUM(damage_done)
+      ),
+      best AS (
+        SELECT pfp.user_id, pfp.hps, pfp.external_buffs_json,
+               ROW_NUMBER() OVER (PARTITION BY pfp.user_id ORDER BY pfp.hps DESC) as rn
+        FROM player_fight_performance pfp
+        JOIN player_totals pt ON pfp.user_id = pt.user_id
+        WHERE pfp.hps > 0
+      )
       SELECT u.character_name, u.character_class,
-             ROUND(MAX(pfp.hps)) as value,
-             COUNT(*) as fights
-      FROM player_fight_performance pfp
-      JOIN users u ON pfp.user_id = u.id
-      WHERE pfp.hps > 0
-      GROUP BY pfp.user_id
-      HAVING COUNT(*) >= ? AND SUM(pfp.healing_done) > SUM(pfp.damage_done)
+             ROUND(b.hps) as value, b.external_buffs_json, pt.fights
+      FROM best b
+      JOIN users u ON b.user_id = u.id
+      JOIN player_totals pt ON b.user_id = pt.user_id
+      WHERE b.rn = 1
       ORDER BY value DESC LIMIT 10
     `, MIN_FIGHTS);
 

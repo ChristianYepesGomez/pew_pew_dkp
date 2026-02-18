@@ -520,6 +520,7 @@ export async function runMigrations(targetDb, connectionUrl = dbUrl) {
     'ALTER TABLE users ADD COLUMN onboarding_step INTEGER DEFAULT 0',
     'ALTER TABLE player_fight_performance ADD COLUMN dps_percentile REAL DEFAULT NULL',
     'ALTER TABLE player_fight_performance ADD COLUMN hps_percentile REAL DEFAULT NULL',
+    'ALTER TABLE player_fight_performance ADD COLUMN external_buffs_json TEXT DEFAULT NULL',
   ];
   for (const sql of columnMigrations) {
     try { await targetDb.exec(sql); } catch (_e) { /* column already exists */ }

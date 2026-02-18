@@ -25,6 +25,15 @@ const BUFF_PATTERNS = {
   augmentRune: /augment rune/i,
 };
 
+// External buffs that individual players can receive from other players.
+// These are tracked to add context to DPS/HPS rankings (e.g. a 99th percentile with 5 PIs).
+// durationMs: approximate duration of one application, used to estimate cast count from uptime %.
+const EXTERNAL_BUFF_PATTERNS = {
+  power_infusion: { pattern: /power infusion/i,          durationMs: 20000 },
+  innervate:      { pattern: /innervate/i,                durationMs: 12000 },
+  bloodlust:      { pattern: /bloodlust|heroism|time warp|ancient hysteria|primal rage|frenzy drums/i, durationMs: 40000 },
+};
+
 /**
  * Process extended fight data from WCL and store per-fight snapshots
  * Called during the import loop for each fight
@@ -45,6 +54,7 @@ export async function processExtendedFightData(db, reportCode, bossInfo, basicSt
         flaskUptime: 0, foodBuff: 0, augmentRune: 0,
         interrupts: 0, dispels: 0,
         dpsPercentile: null, hpsPercentile: null,
+        externalBuffs: {},
       };
     }
   };
@@ -110,6 +120,15 @@ export async function processExtendedFightData(db, reportCode, bossInfo, basicSt
       if (BUFF_PATTERNS.augmentRune.test(auraName)) {
         playerData[entry.name].augmentRune = 1;
       }
+      // External buffs (Power Infusion, Innervate, Bloodlust, etc.)
+      // Count ≈ ceil(uptime% * fightDuration / buffDuration). Minimum 1 if uptime > 0.
+      for (const [buffKey, buffDef] of Object.entries(EXTERNAL_BUFF_PATTERNS)) {
+        if (buffDef.pattern.test(auraName) && uptime > 0) {
+          const count = Math.max(1, Math.round((uptime / 100) * fightDurationMs / buffDef.durationMs));
+          playerData[entry.name].externalBuffs[buffKey] =
+            (playerData[entry.name].externalBuffs[buffKey] || 0) + count;
+        }
+      }
     }
   }
 
@@ -153,13 +172,17 @@ export async function processExtendedFightData(db, reportCode, bossInfo, basicSt
     const hpsPercentile = rankingsData.hps[nameLower] ?? null;
 
     try {
+      const externalBuffsJson = Object.keys(data.externalBuffs).length > 0
+        ? JSON.stringify(data.externalBuffs)
+        : null;
+
       await db.run(
         `INSERT OR IGNORE INTO player_fight_performance
          (user_id, report_code, fight_id, boss_id, difficulty, damage_done, healing_done, damage_taken, deaths,
           fight_duration_ms, dps, hps, dtps, health_potions, healthstones, combat_potions,
           flask_uptime_pct, food_buff_active, augment_rune_active, interrupts, dispels,
-          raid_median_dps, raid_median_dtps, fight_date, dps_percentile, hps_percentile)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          raid_median_dps, raid_median_dtps, fight_date, dps_percentile, hps_percentile, external_buffs_json)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         userId, reportCode, fightId, bossId, difficulty,
         data.damageDone, data.healingDone, data.damageTaken, data.deaths,
         fightDurationMs, dps, hps, dtps,
@@ -168,7 +191,7 @@ export async function processExtendedFightData(db, reportCode, bossInfo, basicSt
         data.interrupts, data.dispels,
         medianDps, medianDtps,
         reportDate || new Date().toISOString().split('T')[0],
-        dpsPercentile, hpsPercentile
+        dpsPercentile, hpsPercentile, externalBuffsJson
       );
       inserted++;
     } catch (err) {
