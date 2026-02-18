@@ -400,14 +400,14 @@ router.get('/guild-insights', authenticateToken, async (req, res) => {
   }
 });
 
-// Guild Leaderboards — top 3 per category
+// Guild Leaderboards — top 10 per category (frontend shows top 3, modal shows top 10)
 // NOTE: Health potion detection uses CONSUMABLE_PATTERNS.healthPotion in warcraftlogs.js.
 // When Midnight expansion launches, add the new healing potion name to that pattern.
 router.get('/guild-leaderboards', authenticateToken, async (req, res) => {
   try {
     const MIN_FIGHTS = 1;
 
-    // Top 3 DPS — avg damage per fight, DPS players only (healing < damage)
+    // Top 10 DPS — avg damage per fight, DPS players only (healing < damage)
     const topDps = await req.db.all(`
       SELECT u.character_name, u.character_class,
              ROUND(SUM(pbp.total_damage) / NULLIF(SUM(pbp.fights_participated), 0)) as value,
@@ -417,10 +417,10 @@ router.get('/guild-leaderboards', authenticateToken, async (req, res) => {
       WHERE pbp.fights_participated > 0 AND pbp.total_damage > 0
       GROUP BY pbp.user_id
       HAVING SUM(pbp.fights_participated) >= ? AND SUM(pbp.total_healing) < SUM(pbp.total_damage)
-      ORDER BY value DESC LIMIT 3
+      ORDER BY value DESC LIMIT 10
     `, MIN_FIGHTS);
 
-    // Top 3 HPS — avg healing per fight, healers only (healing > damage)
+    // Top 10 HPS — avg healing per fight, healers only (healing > damage)
     const topHps = await req.db.all(`
       SELECT u.character_name, u.character_class,
              ROUND(SUM(pbp.total_healing) / NULLIF(SUM(pbp.fights_participated), 0)) as value,
@@ -430,10 +430,10 @@ router.get('/guild-leaderboards', authenticateToken, async (req, res) => {
       WHERE pbp.fights_participated > 0 AND pbp.total_healing > 0
       GROUP BY pbp.user_id
       HAVING SUM(pbp.fights_participated) >= ? AND SUM(pbp.total_healing) > SUM(pbp.total_damage)
-      ORDER BY value DESC LIMIT 3
+      ORDER BY value DESC LIMIT 10
     `, MIN_FIGHTS);
 
-    // Top 3 Deaths — hall of shame
+    // Top 10 Deaths — hall of shame
     const topDeaths = await req.db.all(`
       SELECT u.character_name, u.character_class,
              SUM(pbd.total_deaths) as value,
@@ -442,26 +442,27 @@ router.get('/guild-leaderboards', authenticateToken, async (req, res) => {
       JOIN users u ON pbd.user_id = u.id
       GROUP BY pbd.user_id
       HAVING SUM(pbd.total_fights) >= ?
-      ORDER BY value DESC LIMIT 3
+      ORDER BY value DESC LIMIT 10
     `, MIN_FIGHTS);
 
-    // Top 3 Damage Taken — avg per fight, DPS only (excludes healers and tanks)
+    // Top 10 Damage Taken — avg DTPS (damage taken per second), excludes healers and tanks
+    // Uses player_fight_performance so fight duration is accounted for (DTPS normalizes per second)
     // Heuristic: healing < damage (not healer) AND damage_taken < damage * 3 (not tank)
     const topDamageTaken = await req.db.all(`
       SELECT u.character_name, u.character_class,
-             ROUND(SUM(pbp.total_damage_taken) / NULLIF(SUM(pbp.fights_participated), 0)) as value,
-             SUM(pbp.fights_participated) as fights
-      FROM player_boss_performance pbp
-      JOIN users u ON pbp.user_id = u.id
-      WHERE pbp.fights_participated > 0 AND pbp.total_damage_taken > 0
-      GROUP BY pbp.user_id
-      HAVING SUM(pbp.fights_participated) >= ?
-        AND SUM(pbp.total_healing) < SUM(pbp.total_damage)
-        AND SUM(pbp.total_damage_taken) < SUM(pbp.total_damage) * 3
-      ORDER BY value DESC LIMIT 3
+             ROUND(AVG(pfp.dtps)) as value,
+             COUNT(*) as fights
+      FROM player_fight_performance pfp
+      JOIN users u ON pfp.user_id = u.id
+      WHERE pfp.dtps > 0
+      GROUP BY pfp.user_id
+      HAVING COUNT(*) >= ?
+        AND SUM(pfp.healing_done) < SUM(pfp.damage_done)
+        AND SUM(pfp.damage_taken) < SUM(pfp.damage_done) * 3
+      ORDER BY value DESC LIMIT 10
     `, MIN_FIGHTS);
 
-    // Top 3 Health Potions — total used across all tracked fights
+    // Top 10 Health Potions — total used across all tracked fights
     const topPotions = await req.db.all(`
       SELECT u.character_name, u.character_class,
              SUM(pfp.health_potions) as value,
@@ -470,10 +471,10 @@ router.get('/guild-leaderboards', authenticateToken, async (req, res) => {
       JOIN users u ON pfp.user_id = u.id
       GROUP BY pfp.user_id
       HAVING COUNT(*) >= ? AND SUM(pfp.health_potions) > 0
-      ORDER BY value DESC LIMIT 3
+      ORDER BY value DESC LIMIT 10
     `, MIN_FIGHTS);
 
-    // Top 3 Interrupts — total kicks/interrupts performed
+    // Top 10 Interrupts — total kicks/interrupts performed
     const topInterrupts = await req.db.all(`
       SELECT u.character_name, u.character_class,
              SUM(pfp.interrupts) as value,
@@ -482,7 +483,7 @@ router.get('/guild-leaderboards', authenticateToken, async (req, res) => {
       JOIN users u ON pfp.user_id = u.id
       GROUP BY pfp.user_id
       HAVING COUNT(*) >= ? AND SUM(pfp.interrupts) > 0
-      ORDER BY value DESC LIMIT 3
+      ORDER BY value DESC LIMIT 10
     `, MIN_FIGHTS);
 
     return success(res, { topDps, topHps, topDeaths, topDamageTaken, topPotions, topInterrupts });
