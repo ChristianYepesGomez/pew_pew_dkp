@@ -23,6 +23,7 @@ import { getTenantDb, closeAllTenantDbs } from './lib/tenantDb.js';
 import { seedRaidData } from './services/raids.js';
 import { startBuffManager } from './services/buffManager.js';
 import { seedRaidItems, scheduleItemRefresh } from './services/raidItems.js';
+import { getAllDungeonItems } from './services/dungeonItems.js';
 import { scheduleExistingAuctions, setIO as setAuctionIO } from './lib/auctionScheduler.js';
 import { JWT_SECRET, FRONTEND_URL, DISCORD_TOKEN } from './lib/config.js';
 import { startBot } from './bot/index.js';
@@ -266,6 +267,9 @@ async function startServer() {
 
   // Schedule weekly raid items refresh from Blizzard API (non-blocking)
   scheduleItemRefresh(db);
+
+  // Pre-warm dungeon items cache so first user request doesn't wait for Blizzard API
+  getAllDungeonItems().catch(err => log.warn('Dungeon items warmup failed (non-fatal)', err));
 
   // Start Discord bot (no-op if DISCORD_TOKEN not set)
   if (DISCORD_TOKEN) {

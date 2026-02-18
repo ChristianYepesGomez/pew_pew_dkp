@@ -407,29 +407,29 @@ router.get('/guild-leaderboards', authenticateToken, async (req, res) => {
   try {
     const MIN_FIGHTS = 1;
 
-    // Top 10 DPS — avg damage per fight, DPS players only (healing < damage)
+    // Top 10 DPS — best single fight DPS, DPS players only (healing < damage)
     const topDps = await req.db.all(`
       SELECT u.character_name, u.character_class,
-             ROUND(SUM(pbp.total_damage) / NULLIF(SUM(pbp.fights_participated), 0)) as value,
-             SUM(pbp.fights_participated) as fights
-      FROM player_boss_performance pbp
-      JOIN users u ON pbp.user_id = u.id
-      WHERE pbp.fights_participated > 0 AND pbp.total_damage > 0
-      GROUP BY pbp.user_id
-      HAVING SUM(pbp.fights_participated) >= ? AND SUM(pbp.total_healing) < SUM(pbp.total_damage)
+             ROUND(MAX(pfp.dps)) as value,
+             COUNT(*) as fights
+      FROM player_fight_performance pfp
+      JOIN users u ON pfp.user_id = u.id
+      WHERE pfp.dps > 0
+      GROUP BY pfp.user_id
+      HAVING COUNT(*) >= ? AND SUM(pfp.healing_done) < SUM(pfp.damage_done)
       ORDER BY value DESC LIMIT 10
     `, MIN_FIGHTS);
 
-    // Top 10 HPS — avg healing per fight, healers only (healing > damage)
+    // Top 10 HPS — best single fight HPS, healers only (healing > damage)
     const topHps = await req.db.all(`
       SELECT u.character_name, u.character_class,
-             ROUND(SUM(pbp.total_healing) / NULLIF(SUM(pbp.fights_participated), 0)) as value,
-             SUM(pbp.fights_participated) as fights
-      FROM player_boss_performance pbp
-      JOIN users u ON pbp.user_id = u.id
-      WHERE pbp.fights_participated > 0 AND pbp.total_healing > 0
-      GROUP BY pbp.user_id
-      HAVING SUM(pbp.fights_participated) >= ? AND SUM(pbp.total_healing) > SUM(pbp.total_damage)
+             ROUND(MAX(pfp.hps)) as value,
+             COUNT(*) as fights
+      FROM player_fight_performance pfp
+      JOIN users u ON pfp.user_id = u.id
+      WHERE pfp.hps > 0
+      GROUP BY pfp.user_id
+      HAVING COUNT(*) >= ? AND SUM(pfp.healing_done) > SUM(pfp.damage_done)
       ORDER BY value DESC LIMIT 10
     `, MIN_FIGHTS);
 
@@ -445,12 +445,12 @@ router.get('/guild-leaderboards', authenticateToken, async (req, res) => {
       ORDER BY value DESC LIMIT 10
     `, MIN_FIGHTS);
 
-    // Top 10 Damage Taken — avg DTPS (damage taken per second), excludes healers and tanks
+    // Top 10 Damage Taken — worst single fight DTPS (damage taken per second), excludes healers and tanks
     // Uses player_fight_performance so fight duration is accounted for (DTPS normalizes per second)
     // Heuristic: healing < damage (not healer) AND damage_taken < damage * 3 (not tank)
     const topDamageTaken = await req.db.all(`
       SELECT u.character_name, u.character_class,
-             ROUND(AVG(pfp.dtps)) as value,
+             ROUND(MAX(pfp.dtps)) as value,
              COUNT(*) as fights
       FROM player_fight_performance pfp
       JOIN users u ON pfp.user_id = u.id

@@ -92,7 +92,6 @@ router.get('/dungeon-items', authenticateToken, async (req, res) => {
 });
 
 // Get all items (raid + M+) combined
-// Raid items load fast; dungeon items may take time on first fetch (returns empty until cached)
 router.get('/all-items', authenticateToken, async (req, res) => {
   try {
     const [raidItems, dungeonItems] = await Promise.all([
@@ -108,6 +107,8 @@ router.get('/all-items', authenticateToken, async (req, res) => {
       ...(dungeonItems || []),
     ];
 
+    // Cache in browser for 30 min; serve stale up to 5 min extra while revalidating
+    res.set('Cache-Control', 'private, max-age=1800, stale-while-revalidate=300');
     return success(res, { items: tagged, count: tagged.length });
   } catch (err) {
     log.error('Error fetching all items', err);

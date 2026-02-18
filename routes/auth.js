@@ -24,7 +24,7 @@ router.post('/login', authLimiter, async (req, res) => {
 
     const user = await req.db.get(`
       SELECT u.id, u.username, u.password, u.character_name, u.character_class, u.role,
-             md.current_dkp
+             u.onboarding_step, md.current_dkp
       FROM users u
       LEFT JOIN member_dkp md ON u.id = md.user_id
       WHERE LOWER(u.username) = LOWER(?) AND u.is_active = 1
@@ -57,6 +57,7 @@ router.post('/login', authLimiter, async (req, res) => {
         characterName: user.character_name,
         characterClass: user.character_class,
         role: user.role,
+        onboardingStep: user.onboarding_step ?? 0,
         currentDkp: user.current_dkp || 0
       }
     });
@@ -302,7 +303,7 @@ router.get('/me', authenticateToken, async (req, res) => {
   try {
     const user = await req.db.get(`
       SELECT u.id, u.username, u.character_name, u.character_class, u.role, u.spec, u.raid_role, u.email, u.avatar,
-             md.current_dkp, md.lifetime_gained, md.lifetime_spent
+             u.onboarding_step, md.current_dkp, md.lifetime_gained, md.lifetime_spent
       FROM users u
       LEFT JOIN member_dkp md ON u.id = md.user_id
       WHERE u.id = ?
@@ -322,6 +323,7 @@ router.get('/me', authenticateToken, async (req, res) => {
       raidRole: user.raid_role,
       email: user.email || null,
       avatar: user.avatar || null,
+      onboardingStep: user.onboarding_step ?? 0,
       currentDkp: user.current_dkp || 0,
       lifetimeGained: user.lifetime_gained || 0,
       lifetimeSpent: user.lifetime_spent || 0
@@ -467,6 +469,24 @@ router.post('/logout', authenticateToken, async (req, res) => {
   } catch (err) {
     log.error('Logout failed', err);
     return error(res, 'Logout failed', 500, ErrorCodes.INTERNAL_ERROR);
+  }
+});
+
+// Advance onboarding step for the current user
+router.put('/onboarding-step', authenticateToken, async (req, res) => {
+  try {
+    const { step } = req.body;
+    if (step === undefined || typeof step !== 'number' || ![1, 2].includes(step)) {
+      return error(res, 'Invalid step value', 400, ErrorCodes.VALIDATION_ERROR);
+    }
+    await req.db.run(
+      'UPDATE users SET onboarding_step = ? WHERE id = ?',
+      step, req.user.userId
+    );
+    return success(res, { onboardingStep: step });
+  } catch (err) {
+    log.error('Onboarding step update failed', err);
+    return error(res, 'Failed to update onboarding step', 500, ErrorCodes.INTERNAL_ERROR);
   }
 });
 
