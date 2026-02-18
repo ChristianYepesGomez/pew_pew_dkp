@@ -291,7 +291,7 @@ const Header = ({ tabs = [], activeTab, onTabChange }) => {
                   width: btnRect.width,
                   height: btnRect.height,
                   borderRadius: '50%',
-                  background: 'rgba(255,175,157,0.5)',
+                  background: 'rgba(14,165,233,0.35)',
                   pointerEvents: 'none',
                 }}
               />
@@ -304,7 +304,7 @@ const Header = ({ tabs = [], activeTab, onTabChange }) => {
                   width: btnRect.width,
                   height: btnRect.height,
                   borderRadius: '50%',
-                  background: '#ffaf9d',
+                  background: STEP2_COLOR,
                   color: '#fff',
                   border: 'none',
                   cursor: 'pointer',
@@ -334,10 +334,10 @@ const Header = ({ tabs = [], activeTab, onTabChange }) => {
                   height: 0,
                   borderLeft: '7px solid transparent',
                   borderRight: '7px solid transparent',
-                  borderBottom: '7px solid #ffaf9d',
+                  borderBottom: `7px solid ${STEP2_COLOR}`,
                 }} />
                 <div style={{
-                  background: '#ffaf9d',
+                  background: STEP2_COLOR,
                   color: '#fff',
                   fontSize: 12,
                   fontWeight: 600,

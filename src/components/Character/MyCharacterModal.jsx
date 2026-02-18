@@ -311,7 +311,7 @@ const MyCharacterModal = ({
     update()
     window.addEventListener('resize', update)
     return () => window.removeEventListener('resize', update)
-  }, [importOnboarding, activeTab])
+  }, [importOnboarding, activeTab, loading])
 
   const handleKeyDown = useCallback((e) => {
     if (e.key === 'Escape') onClose()
