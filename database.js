@@ -518,6 +518,8 @@ export async function runMigrations(targetDb, connectionUrl = dbUrl) {
     'ALTER TABLE users ADD COLUMN discord_id TEXT',
     'ALTER TABLE boss_statistics ADD COLUMN best_wipe_percent REAL',
     'ALTER TABLE users ADD COLUMN onboarding_step INTEGER DEFAULT 0',
+    'ALTER TABLE player_fight_performance ADD COLUMN dps_percentile REAL DEFAULT NULL',
+    'ALTER TABLE player_fight_performance ADD COLUMN hps_percentile REAL DEFAULT NULL',
   ];
   for (const sql of columnMigrations) {
     try { await targetDb.exec(sql); } catch (_e) { /* column already exists */ }
@@ -642,15 +644,6 @@ export async function runMigrations(targetDb, connectionUrl = dbUrl) {
   ];
   for (const sql of indexes) {
     await targetDb.exec(sql);
-  }
-
-  // ── Column migrations (ALTER TABLE for new columns on existing tables) ──
-  const columnMigrations = [
-    'ALTER TABLE player_fight_performance ADD COLUMN dps_percentile REAL DEFAULT NULL',
-    'ALTER TABLE player_fight_performance ADD COLUMN hps_percentile REAL DEFAULT NULL',
-  ];
-  for (const sql of columnMigrations) {
-    try { await targetDb.exec(sql); } catch (_e) { /* column already exists */ }
   }
 
   // ── Seed default data ──

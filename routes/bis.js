@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { authenticateToken } from '../middleware/auth.js';
+import { authenticateToken, authorizeRole } from '../middleware/auth.js';
 import { success, error } from '../lib/response.js';
 import { ErrorCodes } from '../lib/errorCodes.js';
 import { createLogger } from '../lib/logger.js';
@@ -23,8 +23,8 @@ router.get('/my', authenticateToken, async (req, res) => {
   }
 });
 
-// Get another user's BIS list
-router.get('/user/:userId', authenticateToken, async (req, res) => {
+// Get another user's BIS list (admin/officer only)
+router.get('/user/:userId', authenticateToken, authorizeRole(['admin', 'officer']), async (req, res) => {
   try {
     const userId = parseInt(req.params.userId, 10);
     if (isNaN(userId)) return error(res, 'Invalid user ID', 400, ErrorCodes.VALIDATION_ERROR);
