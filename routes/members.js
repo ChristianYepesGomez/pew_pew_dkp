@@ -405,11 +405,10 @@ router.post('/', adminLimiter, authenticateToken, authorizeRole(['admin', 'offic
       return error(res, 'Username, password, character name and class are required', 400, ErrorCodes.VALIDATION_ERROR);
     }
 
-    // TODO-TESTING: username uniqueness check disabled temporarily for onboarding tests
-    // const existing = await req.db.get('SELECT id FROM users WHERE LOWER(username) = LOWER(?)', username);
-    // if (existing) {
-    //   return error(res, 'Username already exists', 409, ErrorCodes.ALREADY_EXISTS);
-    // }
+    const existing = await req.db.get('SELECT id FROM users WHERE LOWER(username) = LOWER(?)', username);
+    if (existing) {
+      return error(res, 'Username already exists', 409, ErrorCodes.ALREADY_EXISTS);
+    }
 
     const validRole = ['admin', 'officer', 'raider'].includes(role) ? role : 'raider';
     const validRaidRole = ['Tank', 'Healer', 'DPS'].includes(raidRole) ? raidRole : 'DPS';

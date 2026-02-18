@@ -89,23 +89,24 @@ router.post('/register', authLimiter, async (req, res) => {
       return error(res, 'Invalid email format', 400, ErrorCodes.VALIDATION_ERROR);
     }
 
-    // TODO-TESTING: uniqueness checks disabled temporarily for onboarding tests
-    // const existingUser = await req.db.get('SELECT id FROM users WHERE LOWER(username) = LOWER(?)', username.trim());
-    // if (existingUser) {
-    //   return error(res, 'Username already taken', 409, ErrorCodes.ALREADY_EXISTS);
-    // }
+    // Check if username already exists
+    const existingUser = await req.db.get('SELECT id FROM users WHERE LOWER(username) = LOWER(?)', username.trim());
+    if (existingUser) {
+      return error(res, 'Username already taken', 409, ErrorCodes.ALREADY_EXISTS);
+    }
 
-    // const existingEmail = await req.db.get('SELECT id FROM users WHERE LOWER(email) = LOWER(?)', email.trim());
-    // if (existingEmail) {
-    //   return error(res, 'Email already in use', 409, ErrorCodes.ALREADY_EXISTS);
-    // }
+    // Check if email already exists
+    const existingEmail = await req.db.get('SELECT id FROM users WHERE LOWER(email) = LOWER(?)', email.trim());
+    if (existingEmail) {
+      return error(res, 'Email already in use', 409, ErrorCodes.ALREADY_EXISTS);
+    }
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
     // Create user without character - character will be added later via Blizzard import
     const userResult = await req.db.run(`
-      INSERT INTO users (username, password, role, email)
-      VALUES (?, ?, 'raider', ?)
+      INSERT INTO users (username, password, role, email, character_name, character_class)
+      VALUES (?, ?, 'raider', ?, '', '')
     `, username.trim(), hashedPassword, email.trim());
 
     const userId = userResult.lastInsertRowid;
