@@ -4,7 +4,7 @@ import { analyticsAPI } from '../../services/api'
 import CLASS_COLORS from '../../utils/classColors'
 import {
   Crosshair, Heart, Skull, Shield, Lightning, Drop,
-  CircleNotch, ChartLine, UsersThree,
+  CircleNotch, UsersThree,
 } from '@phosphor-icons/react'
 
 const DIFFICULTY_COLORS = {
@@ -149,15 +149,37 @@ const AnalyticsTab = () => {
     },
   ]
 
+  const fmtWipePct = (pct) => {
+    if (pct == null) return '—'
+    return pct.toLocaleString('es-ES', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + '%'
+  }
+
   return (
     <div className="space-y-8">
-      {/* My Performance — boss table */}
+      {/* Guild Leaderboards */}
+      <div>
+        <h3 className="text-lg text-white mb-4 inline-flex items-center gap-2">
+          <UsersThree size={20} className="text-coral" />
+          {t('analytics_leaderboards')}
+        </h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {LEADERBOARDS.map(({ key, title, Icon, color, format, badge }) => (
+            <LeaderboardCard
+              key={key}
+              title={title}
+              Icon={Icon}
+              color={color}
+              entries={leaderboards?.[key] || []}
+              format={format}
+              badge={badge}
+            />
+          ))}
+        </div>
+      </div>
+
+      {/* My Performance — boss table (no title) */}
       {myBosses.length > 0 && (
         <div className="rounded-xl border border-lavender-20/20 bg-indigo/30 p-5">
-          <h3 className="text-sm text-lavender mb-4 inline-flex items-center gap-2">
-            <ChartLine size={16} className="text-coral" />
-            {t('analytics_my_performance')}
-          </h3>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
@@ -201,10 +223,8 @@ const AnalyticsTab = () => {
                       </span>
                     </td>
                     <td className="text-right py-2.5 tabular-nums">
-                      {boss.bestHps > boss.bestDps ? (
-                        <span className="text-green-400 font-bold text-xs">{fmtWow(boss.bestHps)} HPS</span>
-                      ) : boss.bestDps > 0 ? (
-                        <span className="text-blue-400 font-bold text-xs">{fmtWow(boss.bestDps)} DPS</span>
+                      {boss.bestWipePercent != null ? (
+                        <span className="text-yellow-400 font-bold text-xs">{fmtWipePct(boss.bestWipePercent)}</span>
                       ) : (
                         <span className="text-lavender/30">—</span>
                       )}
@@ -216,27 +236,6 @@ const AnalyticsTab = () => {
           </div>
         </div>
       )}
-
-      {/* Guild Leaderboards */}
-      <div>
-        <h3 className="text-lg text-white mb-4 inline-flex items-center gap-2">
-          <UsersThree size={20} className="text-coral" />
-          {t('analytics_leaderboards')}
-        </h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {LEADERBOARDS.map(({ key, title, Icon, color, format, badge }) => (
-            <LeaderboardCard
-              key={key}
-              title={title}
-              Icon={Icon}
-              color={color}
-              entries={leaderboards?.[key] || []}
-              format={format}
-              badge={badge}
-            />
-          ))}
-        </div>
-      </div>
     </div>
   )
 }
