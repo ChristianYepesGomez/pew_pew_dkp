@@ -445,16 +445,15 @@ router.get('/guild-leaderboards', authenticateToken, async (req, res) => {
       ORDER BY value DESC LIMIT 10
     `, MIN_FIGHTS);
 
-    // Top 10 Damage Taken — worst single fight DTPS (damage taken per second), excludes healers and tanks
-    // Uses player_fight_performance so fight duration is accounted for (DTPS normalizes per second)
-    // Heuristic: healing < damage (not healer) AND damage_taken < damage * 3 (not tank)
+    // Top 10 Damage Taken — total damage taken across all tracked fights, excludes tanks and healers
+    // Heuristic: healing_done < damage_done (not healer) AND damage_taken < damage_done * 3 (not tank)
     const topDamageTaken = await req.db.all(`
       SELECT u.character_name, u.character_class,
-             ROUND(MAX(pfp.dtps)) as value,
+             SUM(pfp.damage_taken) as value,
              COUNT(*) as fights
       FROM player_fight_performance pfp
       JOIN users u ON pfp.user_id = u.id
-      WHERE pfp.dtps > 0
+      WHERE pfp.damage_taken > 0
       GROUP BY pfp.user_id
       HAVING COUNT(*) >= ?
         AND SUM(pfp.healing_done) < SUM(pfp.damage_done)
@@ -532,7 +531,7 @@ router.get('/guild-leaderboards', authenticateToken, async (req, res) => {
       ranked AS (
         SELECT pfp.user_id, pfp.boss_id,
                COALESCE(pfp.dps_percentile, pfp.hps_percentile) as pct,
-               pfp.fight_date,
+               pfp.fight_date, pfp.report_code, pfp.fight_id,
                ROW_NUMBER() OVER (PARTITION BY pfp.user_id ORDER BY pfp.fight_date DESC) as rn
         FROM player_fight_performance pfp
         JOIN best b ON pfp.user_id = b.user_id
@@ -541,7 +540,7 @@ router.get('/guild-leaderboards', authenticateToken, async (req, res) => {
       SELECT u.character_name, u.character_class,
              ROUND(r.pct, 1) as value,
              COALESCE(wb.name, '') as boss_name,
-             r.fight_date
+             r.fight_date, r.report_code, r.fight_id
       FROM ranked r
       JOIN users u ON r.user_id = u.id
       LEFT JOIN wcl_bosses wb ON r.boss_id = wb.id
