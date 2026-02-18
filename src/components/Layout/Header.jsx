@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { SignOut, CaretDown, IconContext, Crown, Translate, User, Users, Coins, Question } from '@phosphor-icons/react'
+import { SignOut, CaretDown, IconContext, Crown, Translate, User, Users, Coins, Question, ChartLine } from '@phosphor-icons/react'
 import { useAuth } from '../../hooks/useAuth'
 import { useLanguage } from '../../hooks/useLanguage'
 import { useSocket } from '../../hooks/useSocket'
@@ -44,6 +44,11 @@ const Header = ({ tabs = [], activeTab, onTabChange }) => {
   const openCharacterView = (view) => {
     setCharacterModalTab(view)
     setShowCharacterModal(true)
+    closeUserMenu()
+  }
+
+  const handleStatsClick = () => {
+    onTabChange?.('stats')
     closeUserMenu()
   }
 
@@ -136,6 +141,13 @@ const Header = ({ tabs = [], activeTab, onTabChange }) => {
           })}
 
           <PopoverMenuDivider />
+
+          <PopoverMenuItem
+            leading={<ChartLine size={18} />}
+            onClick={handleStatsClick}
+          >
+            {t('stats')}
+          </PopoverMenuItem>
 
           {isAdmin && (
             <>

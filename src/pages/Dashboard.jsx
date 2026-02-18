@@ -10,6 +10,7 @@ import HistoryTab from '../components/Auction/HistoryTab'
 import CalendarTab from '../components/Calendar/CalendarTab'
 import AdminTab from '../components/Admin/AdminTab'
 import BossesTab from '../components/Bosses/BossesTab'
+import AnalyticsTab from '../components/Analytics/AnalyticsTab'
 
 const Dashboard = () => {
   const [activeTab, setActiveTab] = useState('members')
@@ -81,6 +82,7 @@ const Dashboard = () => {
         {activeTab === 'calendar' && <CalendarTab />}
         {activeTab === 'auction' && <AuctionTab />}
         {activeTab === 'history' && <HistoryTab />}
+        {activeTab === 'stats' && <AnalyticsTab />}
         {activeTab === 'admin' && isAdmin && <AdminTab />}
       </div>
     </div>
