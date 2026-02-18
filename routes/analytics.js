@@ -486,7 +486,70 @@ router.get('/guild-leaderboards', authenticateToken, async (req, res) => {
       ORDER BY value DESC LIMIT 10
     `, MIN_FIGHTS);
 
-    return success(res, { topDps, topHps, topDeaths, topDamageTaken, topPotions, topInterrupts });
+    // Top 10 Dispels — total dispels performed
+    const topDispels = await req.db.all(`
+      SELECT u.character_name, u.character_class,
+             SUM(pfp.dispels) as value
+      FROM player_fight_performance pfp
+      JOIN users u ON pfp.user_id = u.id
+      GROUP BY pfp.user_id
+      HAVING COUNT(*) >= ? AND SUM(pfp.dispels) > 0
+      ORDER BY value DESC LIMIT 10
+    `, MIN_FIGHTS);
+
+    // Top 10 Combat Potions — total combat potions used (discipline of preparation)
+    const topCombatPotions = await req.db.all(`
+      SELECT u.character_name, u.character_class,
+             SUM(pfp.combat_potions) as value
+      FROM player_fight_performance pfp
+      JOIN users u ON pfp.user_id = u.id
+      GROUP BY pfp.user_id
+      HAVING COUNT(*) >= ? AND SUM(pfp.combat_potions) > 0
+      ORDER BY value DESC LIMIT 10
+    `, MIN_FIGHTS);
+
+    // Top 10 Attendance — most raid fights attended
+    const topAttendance = await req.db.all(`
+      SELECT u.character_name, u.character_class,
+             COUNT(*) as value
+      FROM player_fight_performance pfp
+      JOIN users u ON pfp.user_id = u.id
+      GROUP BY pfp.user_id
+      HAVING COUNT(*) >= ?
+      ORDER BY value DESC LIMIT 10
+    `, MIN_FIGHTS);
+
+    // Top 10 WCL Percentile — best single-fight global percentile per player (DPS or HPS)
+    // Uses window function to select the boss/date of the best parse per player
+    const topPercentile = await req.db.all(`
+      WITH best AS (
+        SELECT user_id,
+               MAX(COALESCE(dps_percentile, hps_percentile)) as best_pct
+        FROM player_fight_performance
+        WHERE dps_percentile IS NOT NULL OR hps_percentile IS NOT NULL
+        GROUP BY user_id
+      ),
+      ranked AS (
+        SELECT pfp.user_id, pfp.boss_id,
+               COALESCE(pfp.dps_percentile, pfp.hps_percentile) as pct,
+               pfp.fight_date,
+               ROW_NUMBER() OVER (PARTITION BY pfp.user_id ORDER BY pfp.fight_date DESC) as rn
+        FROM player_fight_performance pfp
+        JOIN best b ON pfp.user_id = b.user_id
+          AND COALESCE(pfp.dps_percentile, pfp.hps_percentile) = b.best_pct
+      )
+      SELECT u.character_name, u.character_class,
+             ROUND(r.pct, 1) as value,
+             COALESCE(wb.name, '') as boss_name,
+             r.fight_date
+      FROM ranked r
+      JOIN users u ON r.user_id = u.id
+      LEFT JOIN wcl_bosses wb ON r.boss_id = wb.id
+      WHERE r.rn = 1
+      ORDER BY value DESC LIMIT 10
+    `);
+
+    return success(res, { topDps, topHps, topDeaths, topDamageTaken, topPotions, topInterrupts, topDispels, topCombatPotions, topAttendance, topPercentile });
   } catch (err) {
     log.error('Guild leaderboards error', err);
     return error(res, 'Failed to get guild leaderboards', 500, ErrorCodes.INTERNAL_ERROR);

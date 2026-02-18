@@ -3,7 +3,7 @@ import { authenticateToken, authorizeRole } from '../middleware/auth.js';
 import { adminLimiter } from '../lib/rateLimiters.js';
 import { invalidateConfigCache } from '../lib/helpers.js';
 import { getLootSystem, getLootSystemType } from '../lib/lootSystems/index.js';
-import { processWarcraftLog, isConfigured as isWCLConfigured, getGuildReports, getFightStats, getFightStatsWithDeathEvents, getExtendedFightStats } from '../services/warcraftlogs.js';
+import { processWarcraftLog, isConfigured as isWCLConfigured, getGuildReports, getFightStats, getFightStatsWithDeathEvents, getExtendedFightStats, getFightRankings } from '../services/warcraftlogs.js';
 import { processExtendedFightData } from '../services/performanceAnalysis.js';
 import { seedRaidData, processFightStats, recordPlayerDeaths, recordPlayerPerformance } from '../services/raids.js';
 import { processReportPopularity } from '../services/itemPopularity.js';
@@ -694,10 +694,13 @@ router.post('/import-boss-stats', adminLimiter, authenticateToken, authorizeRole
           const extResults = await Promise.all(
             processedBosses.map(bossInfo => limit(async () => {
               try {
-                const extStats = await getExtendedFightStats(reportData.code, [bossInfo.fightId]);
-                const fightStats = await getFightStats(reportData.code, [bossInfo.fightId]);
+                const [extStats, fightStats, rankingsData] = await Promise.all([
+                  getExtendedFightStats(reportData.code, [bossInfo.fightId]),
+                  getFightStats(reportData.code, [bossInfo.fightId]),
+                  getFightRankings(reportData.code, [bossInfo.fightId]),
+                ]);
                 const count = await processExtendedFightData(
-                  req.db, reportData.code, bossInfo, fightStats, extStats, participantUserMap, reportDate
+                  req.db, reportData.code, bossInfo, fightStats, extStats, participantUserMap, reportDate, rankingsData
                 );
                 return count;
               } catch (extErr) {

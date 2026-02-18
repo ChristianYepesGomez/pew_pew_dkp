@@ -751,6 +751,61 @@ export async function getExtendedFightStats(reportCode, fightIds) {
 }
 
 /**
+ * Get WCL global percentile rankings for each player in a fight.
+ * Uses the `rankings` field (not `table`) which includes rankPercent per spec/boss globally.
+ * Returns { dps: { playerNameLower: rankPercent }, hps: { playerNameLower: rankPercent } }
+ */
+export async function getFightRankings(reportCode, fightIds) {
+  const cacheKey = `rankings:${reportCode}:${[...fightIds].sort().join(',')}`;
+  const cached = wclCache.get(cacheKey);
+  if (cached) return cached;
+
+  const query = `
+    query GetFightRankings($reportCode: String!, $fightIDs: [Int!]) {
+      reportData {
+        report(code: $reportCode) {
+          dpsRankings: rankings(fightIDs: $fightIDs, playerMetric: dps)
+          hpsRankings: rankings(fightIDs: $fightIDs, playerMetric: hps)
+        }
+      }
+    }
+  `;
+
+  try {
+    const data = await executeGraphQL(query, { reportCode, fightIDs: fightIds });
+    const report = data.reportData?.report;
+    if (!report) return { dps: {}, hps: {} };
+
+    // WCL rankings JSON structure: { data: { roles: { dps: { characters: [{ name, rankPercent }] } } } }
+    const parseRankings = (rankJson) => {
+      const map = {};
+      try {
+        const parsed = typeof rankJson === 'string' ? JSON.parse(rankJson) : rankJson;
+        const roles = parsed?.data?.roles || {};
+        for (const role of Object.values(roles)) {
+          for (const char of role?.characters || []) {
+            if (char.name && char.rankPercent != null) {
+              map[char.name.toLowerCase()] = char.rankPercent;
+            }
+          }
+        }
+      } catch (_e) { /* malformed JSON from WCL — skip silently */ }
+      return map;
+    };
+
+    const result = {
+      dps: parseRankings(report.dpsRankings),
+      hps: parseRankings(report.hpsRankings),
+    };
+    wclCache.set(cacheKey, result);
+    return result;
+  } catch (err) {
+    log.warn('getFightRankings failed, proceeding without percentile data', { reportCode, err: err.message });
+    return { dps: {}, hps: {} };
+  }
+}
+
+/**
  * Get reports uploaded by a specific user
  * Used for auto-detecting new logs from a designated uploader
  */
