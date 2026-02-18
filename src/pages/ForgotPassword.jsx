@@ -71,17 +71,6 @@ const ForgotPassword = () => {
               </div>
             )}
 
-            {resetToken && (
-              <div className="w-full bg-blue-500/20 border border-blue-500 text-blue-400 px-4 py-3 rounded-xl mb-6 text-sm flex items-center gap-2">
-                <Info size={20} />
-                <span>
-                  <strong>Dev mode:</strong>{' '}
-                  <Link to={`/reset-password/${resetToken}`} className="underline hover:text-blue-300">
-                    Click here to reset password
-                  </Link>
-                </span>
-              </div>
-            )}
 
             {!message ? (
               <form onSubmit={handleSubmit} className="w-full flex flex-col gap-6">
