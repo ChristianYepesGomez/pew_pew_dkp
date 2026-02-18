@@ -157,6 +157,7 @@ export const analyticsAPI = {
   getSuperlatives: () => api.get('/analytics/superlatives'),
   getMyPerformance: () => api.get('/analytics/my-performance'),
   getGuildInsights: () => api.get('/analytics/guild-insights'),
+  getGuildLeaderboards: () => api.get('/analytics/guild-leaderboards'),
   getMyPerformanceDetail: (weeks = 8, bossId, difficulty) => {
     const params = new URLSearchParams({ weeks });
     if (bossId) params.append('bossId', bossId);
