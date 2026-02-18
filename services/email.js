@@ -35,6 +35,7 @@ export async function sendPasswordResetEmail(toEmail, username, resetUrl) {
 
   const from = process.env.SMTP_FROM || process.env.SMTP_USER;
 
+  try {
   await mail.sendMail({
     from,
     to: toEmail,
@@ -62,8 +63,11 @@ export async function sendPasswordResetEmail(toEmail, username, resetUrl) {
       </div>
     `,
   });
-
   return true;
+  } catch (err) {
+    log.error('Failed to send email via SMTP', { error: err.message });
+    return false;
+  }
 }
 
 export function isEmailConfigured() {
