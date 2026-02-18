@@ -23,13 +23,10 @@ const VIEW_LABEL_KEY_MAP = {
   [CHARACTER_MODAL_VIEW.DKP]: 'tab_dkp',
 }
 
-const SECONDARY_MENU_ID = 'header-secondary-menu'
-
-const Header = ({ tabs = [], secondaryTabs = [], activeTab, onTabChange }) => {
+const Header = ({ tabs = [], activeTab, onTabChange }) => {
   const { user, logout, refreshUser } = useAuth()
   const { t, language, changeLanguage } = useLanguage()
   const [showUserMenu, setShowUserMenu] = useState(false)
-  const [showSecondaryMenu, setShowSecondaryMenu] = useState(false)
   const [showCharacterModal, setShowCharacterModal] = useState(false)
   const [characterModalTab, setCharacterModalTab] = useState(CHARACTER_MODAL_VIEW.ACCOUNT)
   const [showDkpInfo, setShowDkpInfo] = useState(false)
@@ -37,7 +34,6 @@ const Header = ({ tabs = [], secondaryTabs = [], activeTab, onTabChange }) => {
     () => !!localStorage.getItem(`dkp_onboarding_seen_${user?.id}`)
   )
   const isAdmin = user?.role === 'admin'
-  const isSecondaryActive = secondaryTabs.some(tab => tab.id === activeTab)
 
   const markOnboardingSeen = () => {
     if (user?.id) localStorage.setItem(`dkp_onboarding_seen_${user.id}`, '1')
@@ -61,6 +57,16 @@ const Header = ({ tabs = [], secondaryTabs = [], activeTab, onTabChange }) => {
   const openCharacterView = (view) => {
     setCharacterModalTab(view)
     setShowCharacterModal(true)
+    closeUserMenu()
+  }
+
+  const handleStatsClick = () => {
+    onTabChange?.('stats')
+    closeUserMenu()
+  }
+
+  const handleBisClick = () => {
+    onTabChange?.('bis')
     closeUserMenu()
   }
 
