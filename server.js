@@ -284,7 +284,10 @@ async function startServer() {
 // Only auto-start when run directly (not imported by tests)
 const isMainModule = process.argv[1] && import.meta.url.endsWith(process.argv[1].replace(/\\/g, '/'));
 if (isMainModule) {
-  startServer();
+  startServer().catch((err) => {
+    log.error('Fatal: server failed to start', err);
+    process.exit(1);
+  });
 }
 
 // Global error handlers
