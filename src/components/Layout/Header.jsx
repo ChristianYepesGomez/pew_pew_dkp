@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useState, useLayoutEffect, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { SignOut, CaretDown, IconContext, Crown, Translate, User, Users, Coins, Question, ChartLine, Scroll } from '@phosphor-icons/react'
 import { useAuth } from '../../hooks/useAuth'
 import { useLanguage } from '../../hooks/useLanguage'
@@ -33,7 +34,20 @@ const Header = ({ tabs = [], activeTab, onTabChange }) => {
   const [hasSeenOnboarding, setHasSeenOnboarding] = useState(
     () => !!localStorage.getItem(`dkp_onboarding_seen_${user?.id}`)
   )
+  const btnRef = useRef(null)
+  const [btnRect, setBtnRect] = useState(null)
   const isAdmin = user?.role === 'admin'
+
+  // Measure the real button's position so the portal clone can sit on top of it exactly.
+  useLayoutEffect(() => {
+    if (hasSeenOnboarding) return
+    const el = btnRef.current
+    if (!el) return
+    setBtnRect(el.getBoundingClientRect())
+    const onResize = () => setBtnRect(el.getBoundingClientRect())
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+  }, [hasSeenOnboarding])
 
   const markOnboardingSeen = () => {
     if (user?.id) localStorage.setItem(`dkp_onboarding_seen_${user.id}`, '1')
@@ -111,30 +125,16 @@ const Header = ({ tabs = [], activeTab, onTabChange }) => {
           </div>
         </IconContext.Provider>
 
-        <div className={`shrink-0${!hasSeenOnboarding ? ' relative' : ''}`}>
-          {!hasSeenOnboarding && (
-            <span className="absolute inset-0 rounded-full bg-coral/50 animate-ping pointer-events-none" />
-          )}
-          <button
-            onClick={handleHelpClick}
-            className={`onboarding-help-btn relative shrink-0 w-9 h-9 rounded-full flex items-center justify-center transition-colors ${
-              !hasSeenOnboarding
-                ? 'text-cream bg-coral hover:bg-coral/80'
-                : 'text-lavender hover:text-cream hover:bg-lavender-12'
-            }`}
-            title={t('dkp_how_it_works')}
-          >
-            <Question size={20} />
-          </button>
-          {!hasSeenOnboarding && (
-            <div className="absolute top-full right-0 mt-2 flex flex-col items-end pointer-events-none">
-              <div className="mr-[14px] w-0 h-0 border-l-[7px] border-r-[7px] border-b-[7px] border-l-transparent border-r-transparent border-b-coral" />
-              <div className="bg-coral text-white text-xs rounded-lg px-3 py-2 whitespace-nowrap font-semibold shadow-lg">
-                {t('onboarding_hint')}
-              </div>
-            </div>
-          )}
-        </div>
+        {/* Real button — invisible during onboarding, stays in layout for measurement */}
+        <button
+          ref={btnRef}
+          onClick={handleHelpClick}
+          style={!hasSeenOnboarding ? { visibility: 'hidden' } : undefined}
+          className="shrink-0 w-9 h-9 rounded-full flex items-center justify-center text-lavender hover:text-cream hover:bg-lavender-12 transition-colors"
+          title={t('dkp_how_it_works')}
+        >
+          <Question size={20} />
+        </button>
 
         <PopoverMenu
           open={showUserMenu}
@@ -161,7 +161,7 @@ const Header = ({ tabs = [], activeTab, onTabChange }) => {
             </button>
           )}
         >
-        
+
           {CHARACTER_MODAL_VIEW_ORDER.map((view) => {
             const ViewIcon = VIEW_ICON_MAP[view]
             return (
@@ -223,16 +223,6 @@ const Header = ({ tabs = [], activeTab, onTabChange }) => {
         </PopoverMenu>
       </nav>
 
-      {!hasSeenOnboarding && (
-        <>
-          <div className="fixed inset-0 z-[49] bg-black/70 pointer-events-none" />
-          <style>{`
-            body * { pointer-events: none !important; }
-            .onboarding-help-btn, .onboarding-help-btn * { pointer-events: auto !important; }
-          `}</style>
-        </>
-      )}
-
       {showCharacterModal && (
         <MyCharacterModal
           initialTab={characterModalTab}
@@ -242,6 +232,91 @@ const Header = ({ tabs = [], activeTab, onTabChange }) => {
       )}
 
       {showDkpInfo && <DKPInfoModal onClose={() => setShowDkpInfo(false)} />}
+
+      {/* Onboarding portal — renders directly in document.body, above everything */}
+      {!hasSeenOnboarding && createPortal(
+        <div style={{ position: 'fixed', inset: 0, zIndex: 9999 }}>
+          {/* Dark overlay — covers all content */}
+          <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.75)' }} />
+
+          {/* Clone button + callout — only rendered once position is measured */}
+          {btnRect && (
+            <>
+              {/* Ping beacon */}
+              <span
+                className="animate-ping"
+                style={{
+                  position: 'absolute',
+                  left: btnRect.left,
+                  top: btnRect.top,
+                  width: btnRect.width,
+                  height: btnRect.height,
+                  borderRadius: '50%',
+                  background: 'rgba(255,100,80,0.5)',
+                  pointerEvents: 'none',
+                }}
+              />
+              {/* Clickable clone button */}
+              <button
+                onClick={handleHelpClick}
+                style={{
+                  position: 'absolute',
+                  left: btnRect.left,
+                  top: btnRect.top,
+                  width: btnRect.width,
+                  height: btnRect.height,
+                  borderRadius: '50%',
+                  background: '#ff6450',
+                  color: '#fff',
+                  border: 'none',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  zIndex: 1,
+                }}
+                title={t('dkp_how_it_works')}
+              >
+                <Question size={20} />
+              </button>
+              {/* Callout tooltip */}
+              <div
+                style={{
+                  position: 'absolute',
+                  top: btnRect.bottom + 8,
+                  right: window.innerWidth - btnRect.right,
+                  pointerEvents: 'none',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'flex-end',
+                }}
+              >
+                <div style={{
+                  marginRight: 14,
+                  width: 0,
+                  height: 0,
+                  borderLeft: '7px solid transparent',
+                  borderRight: '7px solid transparent',
+                  borderBottom: '7px solid #ff6450',
+                }} />
+                <div style={{
+                  background: '#ff6450',
+                  color: '#fff',
+                  fontSize: 12,
+                  fontWeight: 600,
+                  borderRadius: 8,
+                  padding: '6px 12px',
+                  whiteSpace: 'nowrap',
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.4)',
+                }}>
+                  {t('onboarding_hint')}
+                </div>
+              </div>
+            </>
+          )}
+        </div>,
+        document.body
+      )}
     </>
   )
 }
