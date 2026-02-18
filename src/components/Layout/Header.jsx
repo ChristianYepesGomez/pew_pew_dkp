@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { SignOut, CaretDown, IconContext, Crown, Translate, User, Users, Coins, Question, ChartLine, Scroll } from '@phosphor-icons/react'
 import { useAuth } from '../../hooks/useAuth'
 import { useLanguage } from '../../hooks/useLanguage'
@@ -33,7 +33,25 @@ const Header = ({ tabs = [], activeTab, onTabChange }) => {
   const [hasSeenOnboarding, setHasSeenOnboarding] = useState(
     () => !!localStorage.getItem(`dkp_onboarding_seen_${user?.id}`)
   )
+  const helpButtonRef = useRef(null)
   const isAdmin = user?.role === 'admin'
+
+  // Block all clicks except the ? button until onboarding is done.
+  // Uses capture phase so it fires before any other handler, bypassing z-index issues.
+  useEffect(() => {
+    if (hasSeenOnboarding) return
+    const blockClick = (e) => {
+      if (helpButtonRef.current?.contains(e.target)) return
+      e.stopPropagation()
+      e.preventDefault()
+    }
+    document.addEventListener('click', blockClick, true)
+    document.addEventListener('mousedown', blockClick, true)
+    return () => {
+      document.removeEventListener('click', blockClick, true)
+      document.removeEventListener('mousedown', blockClick, true)
+    }
+  }, [hasSeenOnboarding])
 
   const markOnboardingSeen = () => {
     if (user?.id) localStorage.setItem(`dkp_onboarding_seen_${user.id}`, '1')
@@ -111,11 +129,12 @@ const Header = ({ tabs = [], activeTab, onTabChange }) => {
           </div>
         </IconContext.Provider>
 
-        <div className={`shrink-0${!hasSeenOnboarding ? ' relative z-[50]' : ''}`}>
+        <div className={`shrink-0${!hasSeenOnboarding ? ' relative' : ''}`}>
           {!hasSeenOnboarding && (
             <span className="absolute inset-0 rounded-full bg-coral/50 animate-ping pointer-events-none" />
           )}
           <button
+            ref={helpButtonRef}
             onClick={handleHelpClick}
             className={`relative shrink-0 w-9 h-9 rounded-full flex items-center justify-center transition-colors ${
               !hasSeenOnboarding
@@ -224,7 +243,7 @@ const Header = ({ tabs = [], activeTab, onTabChange }) => {
       </nav>
 
       {!hasSeenOnboarding && (
-        <div className="fixed inset-0 z-[49] bg-black/70" />
+        <div className="fixed inset-0 z-[49] bg-black/70 pointer-events-none" />
       )}
 
       {showCharacterModal && (
