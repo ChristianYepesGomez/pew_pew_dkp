@@ -29,7 +29,9 @@ api.interceptors.response.use(
     return response
   },
   (error) => {
-    if (error.response?.status === 401) {
+    // Only redirect to login on 401 if there was an active session (token existed).
+    // This prevents swallowing the error message when login credentials are wrong.
+    if (error.response?.status === 401 && localStorage.getItem('token')) {
       localStorage.removeItem('token')
       window.location.href = '/login'
     }
