@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Users, CalendarDots, Gavel, ClockCounterClockwise, Skull } from '@phosphor-icons/react'
+import { Users, CalendarDots, Gavel, ClockCounterClockwise, Skull, ChartLine, Scroll } from '@phosphor-icons/react'
 import { useAuth } from '../hooks/useAuth'
 import { useLanguage } from '../hooks/useLanguage'
 import { calendarAPI } from '../services/api'
@@ -11,6 +11,7 @@ import CalendarTab from '../components/Calendar/CalendarTab'
 import AdminTab from '../components/Admin/AdminTab'
 import BossesTab from '../components/Bosses/BossesTab'
 import AnalyticsTab from '../components/Analytics/AnalyticsTab'
+import BISTab from '../components/BIS/BISTab'
 
 const Dashboard = () => {
   const [activeTab, setActiveTab] = useState('members')
@@ -72,9 +73,14 @@ const Dashboard = () => {
     { id: 'bosses', icon: Skull, label: t('bosses') },
   ]
 
+  const secondaryTabs = [
+    { id: 'stats', icon: ChartLine, label: t('stats') },
+    { id: 'bis', icon: Scroll, label: t('bis') },
+  ]
+
   return (
     <div className="flex min-h-screen flex-col gap-14 p-12">
-      <Header tabs={tabs} activeTab={activeTab} onTabChange={setActiveTab} />
+      <Header tabs={tabs} secondaryTabs={secondaryTabs} activeTab={activeTab} onTabChange={setActiveTab} />
 
       <div className="mx-auto w-full max-w-[960px] animate-fade-in">
         {activeTab === 'members' && <MembersTab />}
@@ -83,6 +89,7 @@ const Dashboard = () => {
         {activeTab === 'auction' && <AuctionTab />}
         {activeTab === 'history' && <HistoryTab />}
         {activeTab === 'stats' && <AnalyticsTab />}
+        {activeTab === 'bis' && <BISTab />}
         {activeTab === 'admin' && isAdmin && <AdminTab />}
       </div>
     </div>

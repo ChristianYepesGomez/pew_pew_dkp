@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { SignOut, CaretDown, IconContext, Crown, Translate, User, Users, Coins, Question, ChartLine } from '@phosphor-icons/react'
+import { SignOut, CaretDown, IconContext, Crown, Translate, User, Users, Coins, Question, List } from '@phosphor-icons/react'
 import { useAuth } from '../../hooks/useAuth'
 import { useLanguage } from '../../hooks/useLanguage'
 import { useSocket } from '../../hooks/useSocket'
@@ -23,14 +23,18 @@ const VIEW_LABEL_KEY_MAP = {
   [CHARACTER_MODAL_VIEW.DKP]: 'tab_dkp',
 }
 
-const Header = ({ tabs = [], activeTab, onTabChange }) => {
+const SECONDARY_MENU_ID = 'header-secondary-menu'
+
+const Header = ({ tabs = [], secondaryTabs = [], activeTab, onTabChange }) => {
   const { user, logout, refreshUser } = useAuth()
   const { t, language, changeLanguage } = useLanguage()
   const [showUserMenu, setShowUserMenu] = useState(false)
+  const [showSecondaryMenu, setShowSecondaryMenu] = useState(false)
   const [showCharacterModal, setShowCharacterModal] = useState(false)
   const [characterModalTab, setCharacterModalTab] = useState(CHARACTER_MODAL_VIEW.ACCOUNT)
   const [showDkpInfo, setShowDkpInfo] = useState(false)
   const isAdmin = user?.role === 'admin'
+  const isSecondaryActive = secondaryTabs.some(tab => tab.id === activeTab)
 
   useSocket({
     dkp_updated: (data) => {
@@ -44,11 +48,6 @@ const Header = ({ tabs = [], activeTab, onTabChange }) => {
   const openCharacterView = (view) => {
     setCharacterModalTab(view)
     setShowCharacterModal(true)
-    closeUserMenu()
-  }
-
-  const handleStatsClick = () => {
-    onTabChange?.('stats')
     closeUserMenu()
   }
 
@@ -76,6 +75,41 @@ const Header = ({ tabs = [], activeTab, onTabChange }) => {
             alt="Pew Pew Kittens with Guns"
             className="h-16 w-auto object-contain"
           />
+          {secondaryTabs.length > 0 && (
+            <PopoverMenu
+              open={showSecondaryMenu}
+              onOpenChange={setShowSecondaryMenu}
+              menuId={SECONDARY_MENU_ID}
+              menuClassName="min-w-44 w-max"
+              trigger={({ triggerProps }) => (
+                <button
+                  {...triggerProps}
+                  className={`w-9 h-9 rounded-full flex items-center justify-center transition-colors ${
+                    isSecondaryActive
+                      ? 'text-coral bg-coral/10'
+                      : 'text-lavender hover:text-cream hover:bg-lavender-12'
+                  }`}
+                  title={t('more')}
+                >
+                  <List size={20} />
+                </button>
+              )}
+            >
+              {secondaryTabs.map((tab) => {
+                const TabIcon = tab.icon
+                return (
+                  <PopoverMenuItem
+                    key={tab.id}
+                    leading={<TabIcon size={18} />}
+                    onClick={() => { onTabChange(tab.id); setShowSecondaryMenu(false) }}
+                    className={activeTab === tab.id ? 'text-coral' : ''}
+                  >
+                    {tab.label}
+                  </PopoverMenuItem>
+                )
+              })}
+            </PopoverMenu>
+          )}
         </div>
 
         <IconContext.Provider value={{ weight: 'regular' }}>
@@ -141,13 +175,6 @@ const Header = ({ tabs = [], activeTab, onTabChange }) => {
           })}
 
           <PopoverMenuDivider />
-
-          <PopoverMenuItem
-            leading={<ChartLine size={18} />}
-            onClick={handleStatsClick}
-          >
-            {t('stats')}
-          </PopoverMenuItem>
 
           {isAdmin && (
             <>
