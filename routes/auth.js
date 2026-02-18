@@ -104,10 +104,11 @@ router.post('/register', authLimiter, async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, 10);
 
     // Create user without character - character will be added later via Blizzard import
+    // Note: pass character_name/class as params (not SQL literals) — libsql remote drops inline literals silently
     const userResult = await req.db.run(`
       INSERT INTO users (username, password, role, email, character_name, character_class)
-      VALUES (?, ?, 'raider', ?, '', '')
-    `, username.trim(), hashedPassword, email.trim());
+      VALUES (?, ?, ?, ?, ?, ?)
+    `, username.trim(), hashedPassword, 'raider', email.trim(), '', '');
 
     const userId = userResult.lastInsertRowid;
 
