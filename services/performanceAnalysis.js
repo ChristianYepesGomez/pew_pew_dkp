@@ -29,7 +29,7 @@ const BUFF_PATTERNS = {
  * Process extended fight data from WCL and store per-fight snapshots
  * Called during the import loop for each fight
  */
-export async function processExtendedFightData(db, reportCode, bossInfo, basicStats, extendedStats, participantUserMap, reportDate) {
+export async function processExtendedFightData(db, reportCode, bossInfo, basicStats, extendedStats, participantUserMap, reportDate, rankingsData = { dps: {}, hps: {} }) {
   const { bossId, fightId, difficulty, startTime, endTime } = bossInfo;
   const fightDurationMs = endTime - startTime;
   const fightDurationSec = fightDurationMs / 1000;
@@ -44,6 +44,7 @@ export async function processExtendedFightData(db, reportCode, bossInfo, basicSt
         healthPotions: 0, healthstones: 0, combatPotions: 0,
         flaskUptime: 0, foodBuff: 0, augmentRune: 0,
         interrupts: 0, dispels: 0,
+        dpsPercentile: null, hpsPercentile: null,
       };
     }
   };
@@ -147,6 +148,9 @@ export async function processExtendedFightData(db, reportCode, bossInfo, basicSt
     const dps = fightDurationSec > 0 ? data.damageDone / fightDurationSec : 0;
     const hps = fightDurationSec > 0 ? data.healingDone / fightDurationSec : 0;
     const dtps = fightDurationSec > 0 ? data.damageTaken / fightDurationSec : 0;
+    const nameLower = playerName.toLowerCase();
+    const dpsPercentile = rankingsData.dps[nameLower] ?? null;
+    const hpsPercentile = rankingsData.hps[nameLower] ?? null;
 
     try {
       await db.run(
@@ -154,8 +158,8 @@ export async function processExtendedFightData(db, reportCode, bossInfo, basicSt
          (user_id, report_code, fight_id, boss_id, difficulty, damage_done, healing_done, damage_taken, deaths,
           fight_duration_ms, dps, hps, dtps, health_potions, healthstones, combat_potions,
           flask_uptime_pct, food_buff_active, augment_rune_active, interrupts, dispels,
-          raid_median_dps, raid_median_dtps, fight_date)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          raid_median_dps, raid_median_dtps, fight_date, dps_percentile, hps_percentile)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         userId, reportCode, fightId, bossId, difficulty,
         data.damageDone, data.healingDone, data.damageTaken, data.deaths,
         fightDurationMs, dps, hps, dtps,
@@ -163,7 +167,8 @@ export async function processExtendedFightData(db, reportCode, bossInfo, basicSt
         data.flaskUptime, data.foodBuff, data.augmentRune,
         data.interrupts, data.dispels,
         medianDps, medianDtps,
-        reportDate || new Date().toISOString().split('T')[0]
+        reportDate || new Date().toISOString().split('T')[0],
+        dpsPercentile, hpsPercentile
       );
       inserted++;
     } catch (err) {

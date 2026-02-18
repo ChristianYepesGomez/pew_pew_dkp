@@ -4,7 +4,7 @@ import { analyticsAPI } from '../../services/api'
 import CLASS_COLORS from '../../utils/classColors'
 import {
   Crosshair, Heart, Skull, Shield, Lightning, Drop,
-  CircleNotch, UsersThree,
+  CircleNotch, UsersThree, Trophy, Sparkle, Flask, Calendar,
 } from '@phosphor-icons/react'
 import LeaderboardModal from './LeaderboardModal'
 
@@ -18,6 +18,16 @@ const DIFFICULTY_COLORS = {
 // Gold / Silver / Bronze
 const POSITION_COLORS = ['#FFD700', '#C0C0C0', '#CD7F32']
 
+// WCL percentile tier colors (mirrors warcraftlogs.com color scheme)
+const wclColor = (pct) => {
+  if (pct >= 100) return '#e268a8' // Artifact
+  if (pct >= 99)  return '#ff8000' // Legendary
+  if (pct >= 95)  return '#a335ee' // Epic
+  if (pct >= 75)  return '#0070dd' // Rare
+  if (pct >= 50)  return '#1eff00' // Uncommon
+  return '#9d9d9d'                 // Common
+}
+
 // WoW-style number formatting: 125348 → "125.3K", 1234567 → "1.23M"
 const fmtWow = (n) => {
   if (!n || isNaN(n)) return '—'
@@ -27,7 +37,7 @@ const fmtWow = (n) => {
   return String(Math.round(v))
 }
 
-const LeaderboardCard = ({ cardKey, title, Icon, color, entries, format, badge, onSeeMore }) => {
+const LeaderboardCard = ({ cardKey, title, Icon, color, entries, format, valueColorFn, badge, onSeeMore }) => {
   const { t } = useLanguage()
   const top3 = entries.slice(0, 3)
 
@@ -54,7 +64,10 @@ const LeaderboardCard = ({ cardKey, title, Icon, color, entries, format, badge, 
               >
                 {entry.character_name}
               </span>
-              <span className="text-sm font-bold tabular-nums flex-shrink-0" style={{ color }}>
+              <span
+                className="text-sm font-bold tabular-nums flex-shrink-0"
+                style={{ color: valueColorFn ? valueColorFn(entry.value) : color }}
+              >
                 {format(entry.value)}
               </span>
             </div>
@@ -118,7 +131,7 @@ const AnalyticsTab = () => {
       Icon: Crosshair,
       color: '#ef4444',
       format: (v) => `${fmtWow(v)} DPS`,
-      badge: t('analytics_avg'),
+      badge: t('analytics_best_log'),
     },
     {
       key: 'topHps',
@@ -126,7 +139,7 @@ const AnalyticsTab = () => {
       Icon: Heart,
       color: '#22c55e',
       format: (v) => `${fmtWow(v)} HPS`,
-      badge: t('analytics_avg'),
+      badge: t('analytics_best_log'),
     },
     {
       key: 'topDeaths',
@@ -162,6 +175,50 @@ const AnalyticsTab = () => {
       format: (v) => String(v),
       badge: null,
     },
+    {
+      key: 'topDispels',
+      title: t('analytics_top_dispels'),
+      Icon: Sparkle,
+      color: '#38bdf8',
+      format: (v) => String(v),
+      badge: null,
+    },
+    {
+      key: 'topCombatPotions',
+      title: t('analytics_top_combat_potions'),
+      Icon: Flask,
+      color: '#f59e0b',
+      format: (v) => String(v),
+      badge: null,
+    },
+    {
+      key: 'topAttendance',
+      title: t('analytics_top_attendance'),
+      Icon: Calendar,
+      color: '#34d399',
+      format: (v) => String(v),
+      badge: t('analytics_raid_attendance'),
+    },
+    {
+      key: 'topPercentile',
+      title: t('analytics_top_percentile'),
+      Icon: Trophy,
+      color: '#e268a8',
+      format: (v) => `${Math.round(v)}%`,
+      valueColorFn: wclColor,
+      // extraFn builds "BossName · 15 Feb" shown in the "Ver más" modal
+      extraFn: (entry) => {
+        if (!entry.boss_name && !entry.fight_date) return null
+        const parts = []
+        if (entry.boss_name) parts.push(entry.boss_name)
+        if (entry.fight_date) {
+          const d = new Date(entry.fight_date + 'T00:00:00')
+          parts.push(d.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' }))
+        }
+        return parts.join(' · ')
+      },
+      badge: t('analytics_best_log'),
+    },
   ]
 
   const activeLeaderboard = LEADERBOARDS.find((lb) => lb.key === openModal)
@@ -180,7 +237,7 @@ const AnalyticsTab = () => {
           {t('analytics_leaderboards')}
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {LEADERBOARDS.map(({ key, title, Icon, color, format, badge }) => (
+          {LEADERBOARDS.map(({ key, title, Icon, color, format, valueColorFn, badge }) => (
             <LeaderboardCard
               key={key}
               cardKey={key}
@@ -189,6 +246,7 @@ const AnalyticsTab = () => {
               color={color}
               entries={leaderboards?.[key] || []}
               format={format}
+              valueColorFn={valueColorFn}
               badge={badge}
               onSeeMore={setOpenModal}
             />
@@ -262,8 +320,12 @@ const AnalyticsTab = () => {
           title={activeLeaderboard.title}
           Icon={activeLeaderboard.Icon}
           color={activeLeaderboard.color}
-          entries={leaderboards?.[openModal] || []}
+          entries={(leaderboards?.[openModal] || []).map((e) => ({
+            ...e,
+            extra: activeLeaderboard.extraFn ? activeLeaderboard.extraFn(e) : undefined,
+          }))}
           format={activeLeaderboard.format}
+          valueColorFn={activeLeaderboard.valueColorFn}
           badge={activeLeaderboard.badge}
           onClose={() => setOpenModal(null)}
         />

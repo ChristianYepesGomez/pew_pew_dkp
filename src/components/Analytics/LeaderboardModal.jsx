@@ -16,15 +16,16 @@ const positionColor = (i) => {
  * Reusable top-10 leaderboard modal.
  *
  * Props:
- *   title    — card title (string)
- *   Icon     — Phosphor icon component
- *   color    — accent color for icon + value
- *   entries  — array of { character_name, character_class, value, fights }
- *   format   — (value) => string for display
- *   badge    — optional subtitle badge (string | null)
- *   onClose  — () => void
+ *   title        — card title (string)
+ *   Icon         — Phosphor icon component
+ *   color        — accent color for icon + fallback value color
+ *   entries      — array of { character_name, character_class, value, extra? }
+ *   format       — (value) => string for display
+ *   valueColorFn — optional (value) => hexColor, overrides `color` for the value span
+ *   badge        — optional subtitle badge (string | null)
+ *   onClose      — () => void
  */
-const LeaderboardModal = ({ title, Icon, color, entries, format, badge, onClose }) => {
+const LeaderboardModal = ({ title, Icon, color, entries, format, valueColorFn, badge, onClose }) => {
   const { t } = useLanguage()
 
   const handleKeyDown = useCallback(
@@ -74,20 +75,22 @@ const LeaderboardModal = ({ title, Icon, color, entries, format, badge, onClose 
                 >
                   {i + 1}
                 </span>
-                <span
-                  className="text-sm font-semibold flex-1 min-w-0 truncate"
-                  style={{ color: CLASS_COLORS[entry.character_class] || '#fff' }}
-                >
-                  {entry.character_name}
-                </span>
-                {entry.fights != null && (
-                  <span className="text-xs text-lavender/40 flex-shrink-0 tabular-nums">
-                    {entry.fights}f
+                <div className="flex-1 min-w-0">
+                  <span
+                    className="text-sm font-semibold block truncate"
+                    style={{ color: CLASS_COLORS[entry.character_class] || '#fff' }}
+                  >
+                    {entry.character_name}
                   </span>
-                )}
+                  {entry.extra && (
+                    <span className="text-xs text-lavender/40 block truncate mt-0.5">
+                      {entry.extra}
+                    </span>
+                  )}
+                </div>
                 <span
                   className="text-sm font-bold tabular-nums flex-shrink-0"
-                  style={{ color }}
+                  style={{ color: valueColorFn ? valueColorFn(entry.value) : color }}
                 >
                   {format(entry.value)}
                 </span>
