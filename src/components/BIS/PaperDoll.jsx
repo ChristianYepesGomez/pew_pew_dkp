@@ -3,7 +3,7 @@ import { useLanguage } from '../../hooks/useLanguage'
 import RARITY_COLORS from '../../utils/rarityColors'
 import {
   Crown, Circle, TShirt, Wind, Bandaids,
-  Hand, Minus, Pants, Boot, Ring, Diamond, Sword, Shield,
+  Hand, Minus, Pants, Boot, CircleDashed, Diamond, Sword, Shield,
   Check, CheckCircle, User, SquaresFour,
 } from '@phosphor-icons/react'
 
@@ -22,8 +22,8 @@ const PAPER_DOLL_SLOTS = {
   WAIST:     { label: 'Waist', Icon: Minus, matchSlots: ['Waist'], col: 'right', row: 1 },
   LEGS:      { label: 'Legs', Icon: Pants, matchSlots: ['Legs'], col: 'right', row: 2 },
   FEET:      { label: 'Feet', Icon: Boot, matchSlots: ['Feet'], col: 'right', row: 3 },
-  FINGER_1:  { label: 'Finger', Icon: Ring, matchSlots: ['Finger'], col: 'right', row: 4 },
-  FINGER_2:  { label: 'Finger', Icon: Ring, matchSlots: ['Finger'], col: 'right', row: 5 },
+  FINGER_1:  { label: 'Finger', Icon: CircleDashed, matchSlots: ['Finger'], col: 'right', row: 4 },
+  FINGER_2:  { label: 'Finger', Icon: CircleDashed, matchSlots: ['Finger'], col: 'right', row: 5 },
   TRINKET_1: { label: 'Trinket', Icon: Diamond, matchSlots: ['Trinket'], col: 'right', row: 6 },
   TRINKET_2: { label: 'Trinket', Icon: Diamond, matchSlots: ['Trinket'], col: 'right', row: 7 },
   // Bottom row
