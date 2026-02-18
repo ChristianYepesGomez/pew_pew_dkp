@@ -70,13 +70,13 @@ const SoundSettingsModal = ({
 
     // Validate file type
     if (!file.type.startsWith('audio/')) {
-      alert(t('invalid_audio_file') || 'Por favor selecciona un archivo de audio válido')
+      alert(t('invalid_audio_file'))
       return
     }
 
     // Validate file size (2MB max)
     if (file.size > 2 * 1024 * 1024) {
-      alert(t('file_too_large') || 'El archivo es demasiado grande (máx 2MB)')
+      alert(t('file_too_large'))
       return
     }
 
@@ -91,7 +91,7 @@ const SoundSettingsModal = ({
         setUploading(false)
       }
       reader.onerror = () => {
-        alert(t('upload_error') || 'Error al cargar el archivo')
+        alert(t('upload_error'))
         setUploading(false)
       }
       reader.readAsDataURL(file)
@@ -120,8 +120,8 @@ const SoundSettingsModal = ({
                 <MusicNotes size={20} weight="fill" className="text-coral" />
               </div>
               <div>
-                <h3 className="text-lg font-bold text-cream m-0">{t('sound_settings') || 'Configuración de sonido'}</h3>
-                <p className="text-xs text-lavender m-0">{t('sound_settings_subtitle') || 'Personaliza el sonido de las notificaciones'}</p>
+                <h3 className="text-lg font-bold text-cream m-0">{t('sound_settings')}</h3>
+                <p className="text-xs text-lavender m-0">{t('sound_settings_subtitle')}</p>
               </div>
             </div>
             <button onClick={onClose} className="text-xl text-lavender transition-colors hover:text-cream">
@@ -171,13 +171,13 @@ const SoundSettingsModal = ({
                   {/* Sound info */}
                   <div className="flex-1 min-w-0">
                     <p className={`font-bold m-0 ${isSelected ? 'text-coral' : 'text-cream'}`}>
-                      {isCustom ? (t('custom_sound') || 'Sonido personalizado') : sound.name}
+                      {isCustom ? t('custom_sound') : sound.name}
                     </p>
                     <p className="text-xs text-lavender m-0 truncate">
                       {isCustom
                         ? (hasCustomSound
-                          ? (t('custom_sound_loaded') || 'Sonido cargado')
-                          : (t('upload_custom_sound') || 'Sube tu propio sonido'))
+                          ? t('custom_sound_loaded')
+                          : t('upload_custom_sound'))
                         : (t(`sound_desc_${sound.id}`) || sound.description)
                       }
                     </p>
@@ -191,7 +191,7 @@ const SoundSettingsModal = ({
                         onPreviewSound(sound.id)
                       }}
                       className="w-9 h-9 rounded-lg bg-lavender-12/50 hover:bg-lavender-12/80 text-cream flex items-center justify-center transition-all"
-                      title={t('preview_sound') || 'Previsualizar'}
+                      title={t('preview_sound')}
                     >
                       <Play size={14} weight="fill" />
                     </button>
@@ -207,7 +207,7 @@ const SoundSettingsModal = ({
                         }}
                         disabled={uploading}
                         className="w-9 h-9 rounded-lg bg-green-600/30 hover:bg-green-600/50 text-green-400 flex items-center justify-center transition-all"
-                        title={t('upload_sound') || 'Subir sonido'}
+                        title={t('upload_sound')}
                       >
                         {uploading
                           ? <CircleNotch size={14} className="animate-spin" />
@@ -221,7 +221,7 @@ const SoundSettingsModal = ({
                             onClearCustomSound()
                           }}
                           className="w-9 h-9 rounded-lg bg-red-600/30 hover:bg-red-600/50 text-red-400 flex items-center justify-center transition-all"
-                          title={t('remove_sound') || 'Eliminar sonido'}
+                          title={t('remove_sound')}
                         >
                           <Trash size={14} />
                         </button>
@@ -247,7 +247,7 @@ const SoundSettingsModal = ({
         <div className="p-4 border-t border-lavender-20/30 bg-lavender-12/10">
           <p className="text-xs text-lavender text-center m-0">
             <Info size={12} weight="fill" className="inline mr-1 align-middle" />
-            {t('sound_settings_info') || 'Los sonidos personalizados se guardan en tu navegador (máx 2MB)'}
+            {t('sound_settings_info')}
           </p>
         </div>
       </div>
@@ -358,7 +358,7 @@ const AuctionTab = () => {
   const handleAuctionStarted = useCallback((auction) => {
     loadAuctions()
     if (isEnabled) {
-      showNotification(t('new_auction_notification') || 'Nueva subasta', {
+      showNotification(t('new_auction_notification'), {
         body: auction.item_name || auction.itemName || 'Item',
         tag: `auction-${auction.id}`,
         icon: auction.item_image || '/favicon.ico',
@@ -383,7 +383,7 @@ const AuctionTab = () => {
     // Notify about time extension (anti-snipe)
     if (data.timeExtended) {
       const auction = auctionsRef.current.find(a => a.id === data.auctionId)
-      showNotification(t('time_extended_notification') || 'Tiempo extendido', {
+      showNotification(t('time_extended_notification'), {
         body: `+30s en ${auction?.itemName || 'la subasta'} (anti-snipe)`,
         tag: `snipe-${data.auctionId}`,
         playSound: false, // Don't play sound for this, it can be noisy
@@ -393,7 +393,7 @@ const AuctionTab = () => {
     // Check if current user was outbid
     if (data.outbidUserId === currentUserId) {
       const auction = auctionsRef.current.find(a => a.id === data.auctionId)
-      showNotification(t('outbid_notification') || 'Te han superado!', {
+      showNotification(t('outbid_notification'), {
         body: `${data.characterName} ha pujado ${data.amount} DKP en ${auction?.itemName || 'la subasta'}`,
         tag: `outbid-${data.auctionId}`,
         requireInteraction: true,
@@ -403,7 +403,7 @@ const AuctionTab = () => {
     // Check if someone tied with current user
     if (data.tieWithUserId === currentUserId) {
       const auction = auctionsRef.current.find(a => a.id === data.auctionId)
-      showNotification(t('tie_notification') || 'Empate en puja!', {
+      showNotification(t('tie_notification'), {
         body: `${data.characterName} ha empatado contigo en ${auction?.itemName || 'la subasta'} (${data.amount} DKP)`,
         tag: `tie-${data.auctionId}`,
         requireInteraction: true,
@@ -418,7 +418,7 @@ const AuctionTab = () => {
 
     // Notify winner
     if (data.winnerId === user.id) {
-      showNotification(t('auction_won_notification') || 'Has ganado la subasta!', {
+      showNotification(t('auction_won_notification'), {
         body: `${data.itemName || 'Item'} por ${data.winningBid || 0} DKP`,
         tag: `won-${data.auctionId}`,
         requireInteraction: true,
@@ -445,7 +445,7 @@ const AuctionTab = () => {
 
   const formatTime = (time) => {
     if (!time) return '--:--'
-    if (time.expired) return t('expired') || 'Expired'
+    if (time.expired) return t('expired')
     return `${time.minutes.toString().padStart(2, '0')}:${time.seconds.toString().padStart(2, '0')}`
   }
 
@@ -477,16 +477,16 @@ const AuctionTab = () => {
                 }`}
                 title={
                   isEnabled
-                    ? t('notifications_enabled') || 'Notificaciones activadas - Click para desactivar'
+                    ? t('notifications_enabled')
                     : permission === 'denied'
-                      ? t('notifications_blocked') || 'Notificaciones bloqueadas en el navegador'
-                      : t('enable_notifications') || 'Activar notificaciones'
+                      ? t('notifications_blocked')
+                      : t('enable_notifications')
                 }
                 disabled={permission === 'denied'}
               >
                 {isEnabled ? <Bell size={16} weight="fill" /> : <BellSlash size={16} weight="fill" />}
                 <span className="hidden sm:inline">
-                  {isEnabled ? (t('notifications_on') || 'Notif.') : (t('notifications_off') || 'Notif.')}
+                  {isEnabled ? t('notifications_on') : t('notifications_off')}
                 </span>
               </button>
               {/* Sound Toggle (only show if notifications enabled) */}
@@ -499,14 +499,14 @@ const AuctionTab = () => {
                         ? 'border-teal bg-teal/10 text-teal'
                         : 'border-lavender-20 bg-indigo text-lavender hover:bg-lavender-12 hover:text-cream'
                     }`}
-                    title={soundEnabled ? (t('sound_on') || 'Sonido ON') : (t('sound_off') || 'Sonido OFF')}
+                    title={soundEnabled ? t('sound_on') : t('sound_off')}
                   >
                     {soundEnabled ? <SpeakerHigh size={16} weight="fill" /> : <SpeakerSlash size={16} weight="fill" />}
                   </button>
                   <button
                     onClick={() => setShowSoundModal(true)}
                     className="h-10 rounded-r-full border border-l-0 border-lavender-20 bg-indigo px-2 text-sm text-lavender transition-colors hover:bg-lavender-12 hover:text-coral"
-                    title={t('sound_settings') || 'Configurar sonido'}
+                    title={t('sound_settings')}
                   >
                     <GearSix size={16} weight="fill" />
                   </button>

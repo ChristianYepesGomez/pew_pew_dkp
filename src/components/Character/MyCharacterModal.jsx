@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef, useLayoutEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { useAuth } from '../../hooks/useAuth'
 import { useLanguage } from '../../hooks/useLanguage'
@@ -181,7 +181,7 @@ const AvatarCropModal = ({ imageSrc, onConfirm, onCancel, t }) => {
     <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[110]">
       <div className="bg-indigo border-2 border-lavender-20 rounded-2xl p-6 w-full max-w-sm">
         <h4 className="text-lg text-coral mb-4 text-center">
-          <Crop size={18} className="inline mr-2" />{t('crop_avatar') || 'Ajustar foto'}
+          <Crop size={18} className="inline mr-2" />{t('crop_avatar')}
         </h4>
 
         {/* Crop area */}
@@ -231,7 +231,7 @@ const AvatarCropModal = ({ imageSrc, onConfirm, onCancel, t }) => {
         </div>
 
         <p className="text-xs text-lavender text-center mb-4">
-          {t('drag_to_position') || 'Arrastra para posicionar'}
+          {t('drag_to_position')}
         </p>
 
         {/* Buttons */}
@@ -264,6 +264,8 @@ const MyCharacterModal = ({
   onClose,
   initialTab = CHARACTER_MODAL_VIEW.ACCOUNT,
   showTabs = true,
+  importOnboarding = false,
+  onImportClicked,
 }) => {
   const { user, refreshUser } = useAuth()
   const { t, language } = useLanguage()
@@ -297,6 +299,19 @@ const MyCharacterModal = ({
   // Edit spec state
   const [editingCharId, setEditingCharId] = useState(null)
   const [editingSaving, setEditingSaving] = useState(false)
+  // Onboarding: measure the Blizzard import button to show a beacon above it
+  const importBtnRef = useRef(null)
+  const [importBtnRect, setImportBtnRect] = useState(null)
+
+  useLayoutEffect(() => {
+    if (!importOnboarding || activeTab !== 'characters') return
+    const el = importBtnRef.current
+    if (!el) return
+    const update = () => setImportBtnRect(el.getBoundingClientRect())
+    update()
+    window.addEventListener('resize', update)
+    return () => window.removeEventListener('resize', update)
+  }, [importOnboarding, activeTab])
 
   const handleKeyDown = useCallback((e) => {
     if (e.key === 'Escape') onClose()
@@ -814,7 +829,8 @@ const MyCharacterModal = ({
                   <Users size={14} className="inline mr-2" />{t('my_characters')}
                 </h4>
                 <Button
-                  onClick={handleBlizzardImport}
+                  ref={importBtnRef}
+                  onClick={() => { if (importOnboarding && onImportClicked) onImportClicked(); handleBlizzardImport() }}
                   disabled={blizzardLoading}
                   variant="outline"
                   size="sm"
@@ -1099,6 +1115,83 @@ const MyCharacterModal = ({
           t={t}
         />
       )}
+
+      {/* Import onboarding beacon — glows over the Blizzard import button */}
+      {importOnboarding && activeTab === 'characters' && importBtnRect && (
+        <ImportOnboardingBeacon rect={importBtnRect} hint={t('onboarding_import_hint')} />
+      )}
+    </div>,
+    document.body
+  )
+}
+
+// Portals a glowing beacon above the Blizzard import button (z-[120], above modal z-[100])
+const ImportOnboardingBeacon = ({ rect, hint }) => {
+  const BEACON_COLOR = '#0ea5e9'
+  const padding = 5
+
+  return createPortal(
+    <div style={{ position: 'fixed', inset: 0, zIndex: 120, pointerEvents: 'none' }}>
+      {/* Ping ring around the button */}
+      <span
+        className="animate-ping"
+        style={{
+          position: 'absolute',
+          left: rect.left - padding,
+          top: rect.top - padding,
+          width: rect.width + padding * 2,
+          height: rect.height + padding * 2,
+          borderRadius: 9999,
+          background: 'rgba(14,165,233,0.35)',
+          pointerEvents: 'none',
+        }}
+      />
+      {/* Glowing border ring */}
+      <div
+        style={{
+          position: 'absolute',
+          left: rect.left - padding,
+          top: rect.top - padding,
+          width: rect.width + padding * 2,
+          height: rect.height + padding * 2,
+          borderRadius: 9999,
+          border: `2px solid ${BEACON_COLOR}`,
+          boxShadow: `0 0 10px 2px rgba(14,165,233,0.5)`,
+          pointerEvents: 'none',
+        }}
+      />
+      {/* Callout below the button */}
+      <div
+        style={{
+          position: 'absolute',
+          top: rect.bottom + padding + 8,
+          left: rect.left,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'flex-start',
+        }}
+      >
+        <div style={{
+          marginLeft: rect.width / 2 - 7,
+          width: 0,
+          height: 0,
+          borderLeft: '7px solid transparent',
+          borderRight: '7px solid transparent',
+          borderBottom: `7px solid ${BEACON_COLOR}`,
+        }} />
+        <div style={{
+          background: BEACON_COLOR,
+          color: '#fff',
+          fontSize: 12,
+          fontWeight: 600,
+          borderRadius: 8,
+          padding: '6px 12px',
+          whiteSpace: 'nowrap',
+          boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
+        }}>
+          {hint}
+        </div>
+      </div>
     </div>,
     document.body
   )

@@ -4,6 +4,7 @@ import { SignOut, CaretDown, IconContext, Crown, Translate, User, Users, Coins, 
 import { useAuth } from '../../hooks/useAuth'
 import { useLanguage } from '../../hooks/useLanguage'
 import { useSocket } from '../../hooks/useSocket'
+import { authAPI } from '../../services/api'
 import MyCharacterModal from '../Character/MyCharacterModal'
 import { CHARACTER_MODAL_VIEW, CHARACTER_MODAL_VIEW_ORDER } from '../Character/characterModalViews'
 import PillButton from '../ui/PillButton'
@@ -11,6 +12,9 @@ import PopoverMenu, { PopoverMenuDivider, PopoverMenuItem } from '../ui/PopoverM
 import DKPInfoModal from '../Common/DKPInfoModal'
 
 const USER_MENU_ID = 'header-user-menu'
+
+// Step 2 onboarding accent color (Blizzard blue)
+const STEP2_COLOR = '#0ea5e9'
 
 const VIEW_ICON_MAP = {
   [CHARACTER_MODAL_VIEW.ACCOUNT]: User,
@@ -32,15 +36,11 @@ const Header = ({ tabs = [], activeTab, onTabChange }) => {
   const [characterModalTab, setCharacterModalTab] = useState(CHARACTER_MODAL_VIEW.ACCOUNT)
   const [showDkpInfo, setShowDkpInfo] = useState(false)
 
-  // Multi-step onboarding: 0 = show DKP help step, 1 = show characters import step, 2 = done
-  const [onboardingStep, setOnboardingStep] = useState(() => {
-    if (!user?.id) return 2
-    const seenHelp = !!localStorage.getItem(`dkp_onboarding_seen_${user.id}`)
-    const seenChars = !!localStorage.getItem(`dkp_onboarding_chars_seen_${user.id}`)
-    if (seenChars) return 2
-    if (seenHelp) return 1
-    return 0
-  })
+  // Onboarding step comes from the server (user.onboardingStep):
+  //   0 = show DKP help button beacon
+  //   1 = show user menu beacon → import button beacon inside modal
+  //   2 = done
+  const [onboardingStep, setOnboardingStep] = useState(() => user?.onboardingStep ?? 2)
 
   const btnRef = useRef(null)
   const [btnRect, setBtnRect] = useState(null)
@@ -49,9 +49,10 @@ const Header = ({ tabs = [], activeTab, onTabChange }) => {
   const isAdmin = user?.role === 'admin'
 
   const showStep1Onboarding = onboardingStep === 0
-  const showStep2Onboarding = onboardingStep === 1 && !showDkpInfo
+  const showStep2Onboarding = onboardingStep === 1 && !showDkpInfo && !showCharacterModal
+  const importOnboarding = onboardingStep === 1 && showCharacterModal
 
-  // Measure help button position for step 1
+  // Measure help button for step 1
   useLayoutEffect(() => {
     if (!showStep1Onboarding) return
     const el = btnRef.current
@@ -62,7 +63,7 @@ const Header = ({ tabs = [], activeTab, onTabChange }) => {
     return () => window.removeEventListener('resize', update)
   }, [showStep1Onboarding])
 
-  // Measure user menu button position for step 2
+  // Measure user menu button for step 2
   useLayoutEffect(() => {
     if (!showStep2Onboarding) return
     const el = userMenuBtnRef.current
@@ -73,23 +74,22 @@ const Header = ({ tabs = [], activeTab, onTabChange }) => {
     return () => window.removeEventListener('resize', update)
   }, [showStep2Onboarding])
 
-  const markOnboardingHelpSeen = () => {
-    if (user?.id) localStorage.setItem(`dkp_onboarding_seen_${user.id}`, '1')
-    setOnboardingStep(1)
-  }
-
-  const markOnboardingCharsSeen = () => {
-    if (user?.id) localStorage.setItem(`dkp_onboarding_chars_seen_${user.id}`, '1')
-    setOnboardingStep(2)
+  const advanceOnboardingStep = async (step) => {
+    setOnboardingStep(step)
+    try {
+      await authAPI.setOnboardingStep(step)
+    } catch (_e) {
+      // Non-critical: onboarding state may reset on next login, not worth blocking the user
+    }
   }
 
   const handleHelpClick = () => {
-    if (onboardingStep === 0) markOnboardingHelpSeen()
+    if (onboardingStep === 0) advanceOnboardingStep(1)
     setShowDkpInfo(true)
   }
 
+  // Open Characters tab — onboarding completes only when user clicks "Import" inside modal
   const handleCharOnboardingClick = () => {
-    markOnboardingCharsSeen()
     openCharacterView(CHARACTER_MODAL_VIEW.CHARACTERS)
   }
 
@@ -159,16 +159,17 @@ const Header = ({ tabs = [], activeTab, onTabChange }) => {
           </div>
         </IconContext.Provider>
 
-        {/* Real button — invisible during step 1 onboarding, stays in layout for measurement */}
-        <button
-          ref={btnRef}
-          onClick={handleHelpClick}
-          style={showStep1Onboarding ? { visibility: 'hidden' } : undefined}
-          className="shrink-0 w-9 h-9 rounded-full flex items-center justify-center text-lavender hover:text-cream hover:bg-lavender-12 transition-colors"
-          title={t('dkp_how_it_works')}
-        >
-          <Question size={20} />
-        </button>
+        <div className="flex items-center gap-3 shrink-0">
+          {/* Real button — invisible during step 1 onboarding, stays in layout for measurement */}
+          <button
+            ref={btnRef}
+            onClick={handleHelpClick}
+            style={showStep1Onboarding ? { visibility: 'hidden' } : undefined}
+            className="w-9 h-9 rounded-full flex items-center justify-center text-lavender hover:text-cream hover:bg-lavender-12 transition-colors"
+            title={t('dkp_how_it_works')}
+          >
+            <Question size={20} />
+          </button>
 
         <PopoverMenu
           open={showUserMenu}
@@ -257,12 +258,15 @@ const Header = ({ tabs = [], activeTab, onTabChange }) => {
             {t('logout')}
           </PopoverMenuItem>
         </PopoverMenu>
+        </div>
       </nav>
 
       {showCharacterModal && (
         <MyCharacterModal
           initialTab={characterModalTab}
           showTabs={false}
+          importOnboarding={importOnboarding}
+          onImportClicked={() => advanceOnboardingStep(2)}
           onClose={() => setShowCharacterModal(false)}
         />
       )}
@@ -272,13 +276,12 @@ const Header = ({ tabs = [], activeTab, onTabChange }) => {
       {/* Onboarding portal — renders directly in document.body, above everything */}
       {(showStep1Onboarding || showStep2Onboarding) && createPortal(
         <div style={{ position: 'fixed', inset: 0, zIndex: 9999 }}>
-          {/* Dark overlay — covers all content */}
+          {/* Dark overlay */}
           <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.75)' }} />
 
           {/* Step 1: highlight the "?" help button */}
           {showStep1Onboarding && btnRect && (
             <>
-              {/* Ping beacon */}
               <span
                 className="animate-ping"
                 style={{
@@ -292,7 +295,6 @@ const Header = ({ tabs = [], activeTab, onTabChange }) => {
                   pointerEvents: 'none',
                 }}
               />
-              {/* Clickable clone button */}
               <button
                 onClick={handleHelpClick}
                 style={{
@@ -315,7 +317,6 @@ const Header = ({ tabs = [], activeTab, onTabChange }) => {
               >
                 <Question size={20} />
               </button>
-              {/* Callout tooltip */}
               <div
                 style={{
                   position: 'absolute',
@@ -352,10 +353,9 @@ const Header = ({ tabs = [], activeTab, onTabChange }) => {
             </>
           )}
 
-          {/* Step 2: highlight the user menu button → open Characters tab */}
+          {/* Step 2: highlight the user menu pill button */}
           {showStep2Onboarding && userMenuBtnRect && (
             <>
-              {/* Ping beacon ring */}
               <span
                 className="animate-ping"
                 style={{
@@ -365,11 +365,10 @@ const Header = ({ tabs = [], activeTab, onTabChange }) => {
                   width: userMenuBtnRect.width + 8,
                   height: userMenuBtnRect.height + 8,
                   borderRadius: 9999,
-                  background: 'rgba(255,175,157,0.4)',
+                  background: 'rgba(14,165,233,0.35)',
                   pointerEvents: 'none',
                 }}
               />
-              {/* Clickable clone of user menu pill */}
               <button
                 onClick={handleCharOnboardingClick}
                 style={{
@@ -379,8 +378,8 @@ const Header = ({ tabs = [], activeTab, onTabChange }) => {
                   width: userMenuBtnRect.width,
                   height: userMenuBtnRect.height,
                   borderRadius: 9999,
-                  background: '#ffaf9d',
-                  border: '2px solid rgba(255,255,255,0.3)',
+                  background: STEP2_COLOR,
+                  border: '2px solid rgba(255,255,255,0.25)',
                   cursor: 'pointer',
                   display: 'flex',
                   alignItems: 'center',
@@ -395,7 +394,7 @@ const Header = ({ tabs = [], activeTab, onTabChange }) => {
                   {user?.characterName || user?.username}
                 </span>
                 <span style={{
-                  background: 'rgba(255,255,255,0.25)',
+                  background: 'rgba(255,255,255,0.2)',
                   borderRadius: 9999,
                   padding: '4px 12px',
                   fontSize: 13,
@@ -405,7 +404,6 @@ const Header = ({ tabs = [], activeTab, onTabChange }) => {
                   {user?.currentDkp || 0} DKP
                 </span>
               </button>
-              {/* Callout tooltip */}
               <div
                 style={{
                   position: 'absolute',
@@ -423,10 +421,10 @@ const Header = ({ tabs = [], activeTab, onTabChange }) => {
                   height: 0,
                   borderLeft: '7px solid transparent',
                   borderRight: '7px solid transparent',
-                  borderBottom: '7px solid #ffaf9d',
+                  borderBottom: `7px solid ${STEP2_COLOR}`,
                 }} />
                 <div style={{
-                  background: '#ffaf9d',
+                  background: STEP2_COLOR,
                   color: '#fff',
                   fontSize: 12,
                   fontWeight: 600,

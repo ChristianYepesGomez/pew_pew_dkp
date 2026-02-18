@@ -47,17 +47,17 @@ const InstallPrompt = () => {
         </div>
         <div className="flex-1 min-w-0">
           <p className="text-midnight-silver text-sm font-medium">
-            {t('install_app') || 'Install DKP Manager'}
+            {t('install_app')}
           </p>
           <p className="text-midnight-glow text-xs opacity-70">
-            {t('install_app_desc') || 'Quick access from your home screen'}
+            {t('install_app_desc')}
           </p>
         </div>
         <button
           onClick={handleInstall}
           className="px-3 py-1.5 bg-midnight-bright-purple text-white text-sm rounded-lg hover:bg-midnight-accent transition-colors flex-shrink-0"
         >
-          {t('install') || 'Install'}
+          {t('install')}
         </button>
         <button
           onClick={handleDismiss}

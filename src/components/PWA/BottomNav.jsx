@@ -93,7 +93,7 @@ const BottomNav = ({ activeTab, setActiveTab, calendarBadge, auctionCount }) => 
             }`}
           >
             <i className={`fas fa-ellipsis-h text-lg`}></i>
-            <span className="text-[10px] mt-1 font-medium leading-none">{t('more') || 'More'}</span>
+            <span className="text-[10px] mt-1 font-medium leading-none">{t('more')}</span>
           </button>
         </div>
       </nav>

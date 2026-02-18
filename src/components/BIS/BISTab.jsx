@@ -26,6 +26,7 @@ const BISTab = () => {
   // Guild BIS state
   const [members, setMembers] = useState([])
   const [selectedMember, setSelectedMember] = useState(null)
+  const [selectedMemberData, setSelectedMemberData] = useState(null)
   const [memberBIS, setMemberBIS] = useState([])
   const [memberLoading, setMemberLoading] = useState(false)
   const [guildSelectedSlot, setGuildSelectedSlot] = useState(null)
@@ -307,16 +308,18 @@ const BISTab = () => {
           >
             <User size={16} />{t('bis_my_list')}
           </button>
-          <button
-            onClick={() => { setSubTab('guild'); setSelectedSlot(null) }}
-            className={`px-4 py-2 rounded-lg font-semibold text-sm transition-all inline-flex items-center gap-2 ${
-              subTab === 'guild'
-                ? 'bg-coral text-indigo'
-                : 'bg-indigo border border-lavender-20/30 text-lavender hover:text-white'
-            }`}
-          >
-            <UsersThree size={16} />{t('bis_guild_list')}
-          </button>
+          {(user?.role === 'admin' || user?.role === 'officer') && (
+            <button
+              onClick={() => { setSubTab('guild'); setSelectedSlot(null) }}
+              className={`px-4 py-2 rounded-lg font-semibold text-sm transition-all inline-flex items-center gap-2 ${
+                subTab === 'guild'
+                  ? 'bg-coral text-indigo'
+                  : 'bg-indigo border border-lavender-20/30 text-lavender hover:text-white'
+              }`}
+            >
+              <UsersThree size={16} />{t('bis_guild_list')}
+            </button>
+          )}
         </div>
       </div>
 
@@ -401,7 +404,13 @@ const BISTab = () => {
           <div className="flex flex-wrap items-center gap-4">
             <select
               value={selectedMember || ''}
-              onChange={(e) => { setSelectedMember(e.target.value ? parseInt(e.target.value) : null); setGuildSelectedSlot(null) }}
+              onChange={(e) => {
+                const memberId = e.target.value ? parseInt(e.target.value) : null
+                const memberData = memberId ? members.find(m => (m.userId || m.id) === memberId) : null
+                setSelectedMember(memberId)
+                setSelectedMemberData(memberData || null)
+                setGuildSelectedSlot(null)
+              }}
               className="px-4 py-2.5 rounded-lg bg-indigo border border-lavender-20/30 text-white min-w-[250px]"
             >
               <option value="">{t('bis_select_member')}</option>
@@ -410,7 +419,7 @@ const BISTab = () => {
                 .sort((a, b) => (a.characterName || a.character_name).localeCompare(b.characterName || b.character_name))
                 .map(m => (
                   <option key={m.userId || m.id} value={m.userId || m.id}>
-                    {m.characterName || m.character_name} — {m.characterClass || m.character_class}
+                    {m.characterName || m.character_name}
                   </option>
                 ))}
             </select>
@@ -434,6 +443,38 @@ const BISTab = () => {
               <CircleNotch size={30} className="animate-spin text-coral" />
             </div>
           ) : (
+            <>
+            {/* Character name + spec header */}
+            {selectedMemberData && (() => {
+              const cls = selectedMemberData.characterClass || selectedMemberData.character_class
+              const name = selectedMemberData.characterName || selectedMemberData.character_name
+              const spec = selectedMemberData.spec
+              return (
+                <div className="flex items-center gap-3 mb-2">
+                  <span
+                    className="text-lg font-bold tracking-wide"
+                    style={{ color: CLASS_COLORS[cls] || '#fff' }}
+                  >
+                    {name}
+                  </span>
+                  {spec && (
+                    <span
+                      className="text-sm font-semibold opacity-80"
+                      style={{ color: CLASS_COLORS[cls] || '#ccc' }}
+                    >
+                      {spec}
+                    </span>
+                  )}
+                  <span
+                    className="text-xs px-2 py-0.5 rounded-full border border-opacity-30"
+                    style={{ color: CLASS_COLORS[cls] || '#ccc', borderColor: CLASS_COLORS[cls] || '#666' }}
+                  >
+                    {cls}
+                  </span>
+                </div>
+              )
+            })()}
+
             <div className="flex flex-col lg:flex-row gap-6">
               {/* Paper Doll (left side — read-only view) */}
               <div className="lg:w-[280px] flex-shrink-0">
@@ -489,6 +530,7 @@ const BISTab = () => {
                 )}
               </div>
             </div>
+            </>
           )}
         </>
       )}

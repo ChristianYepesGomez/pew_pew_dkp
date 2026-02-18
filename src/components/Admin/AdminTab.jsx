@@ -62,7 +62,7 @@ const AdminTab = () => {
 
     // Confirmation dialog before applying bulk DKP to all members
     const confirmed = window.confirm(
-      `${t('bulk_dkp_confirm') || `Are you sure you want to adjust DKP by ${bulkAmount} for ALL guild members?\n\nReason: ${bulkReason}\n\nThis action cannot be easily undone.`}`
+      `${t('bulk_dkp_confirm')}\n\n${t('amount')}: ${bulkAmount}\n${t('reason')}: ${bulkReason}`
     )
     if (!confirmed) return
 
@@ -147,7 +147,7 @@ const AdminTab = () => {
       const res = await warcraftLogsAPI.autoProcess(code)
       // Set the preview data and open it
       setWclPreview(res.data)
-      showNotification('info', t('auto_process_preview') || 'Log previewed. Confirm to apply DKP.')
+      showNotification('info', t('auto_process_preview'))
     } catch (error) {
       showNotification('error', error.response?.data?.error || 'Failed to process report')
     }
@@ -309,7 +309,7 @@ const AdminTab = () => {
             <div className="flex items-center justify-between mb-3">
               <h4 className="text-yellow-400 font-bold flex items-center gap-2 m-0">
                 <Bell size={18} className="animate-pulse" />
-                {t('pending_wcl_reports') || 'Logs pendientes'}
+                {t('pending_wcl_reports')}
                 <span className="bg-yellow-500 text-white text-xs px-2 py-0.5 rounded-full">{pendingReports.length}</span>
               </h4>
               <button
@@ -322,7 +322,7 @@ const AdminTab = () => {
               </button>
             </div>
             <p className="mb-3 text-xs text-lavender/80">
-              {t('logs_from') || 'Logs de'}: <span className="text-yellow-400">{pendingUploaderName}</span>
+              {t('logs_from')}: <span className="text-yellow-400">{pendingUploaderName}</span>
             </p>
             <div className="space-y-2">
               {pendingReports.map(report => (
@@ -343,7 +343,7 @@ const AdminTab = () => {
                       target="_blank"
                       rel="noopener noreferrer"
                       className="rounded-full bg-blue-600/25 px-3 py-2 text-sm text-blue-200 transition-colors hover:bg-blue-600/40"
-                      title={t('view_on_wcl') || 'Ver en WCL'}
+                      title={t('view_on_wcl')}
                     >
                       <ArrowSquareOut size={16} />
                     </a>
@@ -352,7 +352,7 @@ const AdminTab = () => {
                       className="flex items-center gap-2 rounded-full bg-green-600/25 px-4 py-2 text-sm font-semibold text-green-300 transition-colors hover:bg-green-600/40"
                     >
                       <Lightning size={16} />
-                      {t('process') || 'Procesar'}
+                      {t('process')}
                     </button>
                   </div>
                 </div>
@@ -527,7 +527,7 @@ const AdminTab = () => {
                 >
                   <div className="flex items-center justify-between mb-2">
                     <span className={`font-bold ${day.isActive ? 'text-coral' : 'text-lavender'}`}>
-                      {DAY_NAMES[day.dayOfWeek]?.[t('lang_code') || 'en'] || DAY_NAMES[day.dayOfWeek]?.en}
+                      {DAY_NAMES[day.dayOfWeek]?.[t('lang_code')] || DAY_NAMES[day.dayOfWeek]?.en}
                     </span>
                     <div className={`w-5 h-5 rounded-full flex items-center justify-center ${
                       day.isActive ? 'bg-coral' : 'bg-lavender-20'

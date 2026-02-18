@@ -23,7 +23,7 @@ const OfflineBanner = () => {
   return (
     <div className="fixed top-0 left-0 right-0 z-[60] bg-amber-600 text-white text-center py-2 px-4 text-sm font-medium shadow-lg">
       <i className="fas fa-wifi-slash mr-2"></i>
-      {t('offline_banner') || "You're offline — some features may be limited"}
+      {t('offline_banner')}
     </div>
   )
 }

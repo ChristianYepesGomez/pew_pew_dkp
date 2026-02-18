@@ -46,6 +46,7 @@ export const authAPI = {
   updateProfile: (data) => api.put('/auth/profile', data),
   forgotPassword: (usernameOrEmail) => api.post('/auth/forgot-password', { usernameOrEmail }),
   resetPassword: (token, password) => api.post('/auth/reset-password', { token, password }),
+  setOnboardingStep: (step) => api.put('/auth/onboarding-step', { step }),
 }
 
 export const dkpAPI = {

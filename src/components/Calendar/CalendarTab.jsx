@@ -1368,7 +1368,7 @@ const WCLLinkModal = ({ date, onClose, onLinked, t, language }) => {
                 icon={ArrowLeft}
                 className="w-fit"
               >
-                {t('back') || 'Volver'}
+                {t('back')}
               </Button>
 
               {preview && (
