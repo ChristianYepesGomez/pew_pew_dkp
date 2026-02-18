@@ -94,41 +94,6 @@ const Header = ({ tabs = [], activeTab, onTabChange }) => {
             alt="Pew Pew Kittens with Guns"
             className="h-16 w-auto object-contain"
           />
-          {secondaryTabs.length > 0 && (
-            <PopoverMenu
-              open={showSecondaryMenu}
-              onOpenChange={setShowSecondaryMenu}
-              menuId={SECONDARY_MENU_ID}
-              menuClassName="min-w-44 w-max"
-              trigger={({ triggerProps }) => (
-                <button
-                  {...triggerProps}
-                  className={`w-9 h-9 rounded-full flex items-center justify-center transition-colors ${
-                    isSecondaryActive
-                      ? 'text-coral bg-coral/10'
-                      : 'text-lavender hover:text-cream hover:bg-lavender-12'
-                  }`}
-                  title={t('more')}
-                >
-                  <List size={20} />
-                </button>
-              )}
-            >
-              {secondaryTabs.map((tab) => {
-                const TabIcon = tab.icon
-                return (
-                  <PopoverMenuItem
-                    key={tab.id}
-                    leading={<TabIcon size={18} />}
-                    onClick={() => { onTabChange(tab.id); setShowSecondaryMenu(false) }}
-                    className={activeTab === tab.id ? 'text-coral' : ''}
-                  >
-                    {tab.label}
-                  </PopoverMenuItem>
-                )
-              })}
-            </PopoverMenu>
-          )}
         </div>
 
         <IconContext.Provider value={{ weight: 'regular' }}>
@@ -211,6 +176,20 @@ const Header = ({ tabs = [], activeTab, onTabChange }) => {
           })}
 
           <PopoverMenuDivider />
+
+          <PopoverMenuItem
+            leading={<ChartLine size={18} />}
+            onClick={handleStatsClick}
+          >
+            {t('stats')}
+          </PopoverMenuItem>
+
+          <PopoverMenuItem
+            leading={<Scroll size={18} />}
+            onClick={handleBisClick}
+          >
+            {t('bis')}
+          </PopoverMenuItem>
 
           {isAdmin && (
             <>

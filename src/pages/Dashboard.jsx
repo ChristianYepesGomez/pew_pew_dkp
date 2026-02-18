@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Users, CalendarDots, Gavel, ClockCounterClockwise, Skull, ChartLine, Scroll } from '@phosphor-icons/react'
+import { Users, CalendarDots, Gavel, ClockCounterClockwise, Skull } from '@phosphor-icons/react'
 import { useAuth } from '../hooks/useAuth'
 import { useLanguage } from '../hooks/useLanguage'
 import { calendarAPI } from '../services/api'
@@ -73,14 +73,9 @@ const Dashboard = () => {
     { id: 'bosses', icon: Skull, label: t('bosses') },
   ]
 
-  const secondaryTabs = [
-    { id: 'stats', icon: ChartLine, label: t('stats') },
-    { id: 'bis', icon: Scroll, label: t('bis') },
-  ]
-
   return (
     <div className="flex min-h-screen flex-col gap-14 p-12">
-      <Header tabs={tabs} secondaryTabs={secondaryTabs} activeTab={activeTab} onTabChange={setActiveTab} />
+      <Header tabs={tabs} activeTab={activeTab} onTabChange={setActiveTab} />
 
       <div className="mx-auto w-full max-w-[960px] animate-fade-in">
         {activeTab === 'members' && <MembersTab />}
