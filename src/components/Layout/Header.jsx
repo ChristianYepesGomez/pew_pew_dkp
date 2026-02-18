@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { SignOut, CaretDown, IconContext, Crown, Translate, User, Users, Coins } from '@phosphor-icons/react'
+import { SignOut, CaretDown, IconContext, Crown, Translate, User, Users, Coins, Question } from '@phosphor-icons/react'
 import { useAuth } from '../../hooks/useAuth'
 import { useLanguage } from '../../hooks/useLanguage'
 import { useSocket } from '../../hooks/useSocket'
@@ -7,6 +7,7 @@ import MyCharacterModal from '../Character/MyCharacterModal'
 import { CHARACTER_MODAL_VIEW, CHARACTER_MODAL_VIEW_ORDER } from '../Character/characterModalViews'
 import PillButton from '../ui/PillButton'
 import PopoverMenu, { PopoverMenuDivider, PopoverMenuItem } from '../ui/PopoverMenu'
+import DKPInfoModal from '../Common/DKPInfoModal'
 
 const USER_MENU_ID = 'header-user-menu'
 
@@ -28,6 +29,7 @@ const Header = ({ tabs = [], activeTab, onTabChange }) => {
   const [showUserMenu, setShowUserMenu] = useState(false)
   const [showCharacterModal, setShowCharacterModal] = useState(false)
   const [characterModalTab, setCharacterModalTab] = useState(CHARACTER_MODAL_VIEW.ACCOUNT)
+  const [showDkpInfo, setShowDkpInfo] = useState(false)
   const isAdmin = user?.role === 'admin'
 
   useSocket({
@@ -85,6 +87,14 @@ const Header = ({ tabs = [], activeTab, onTabChange }) => {
             ))}
           </div>
         </IconContext.Provider>
+
+        <button
+          onClick={() => setShowDkpInfo(true)}
+          className="shrink-0 w-9 h-9 rounded-full flex items-center justify-center text-lavender hover:text-cream hover:bg-lavender-12 transition-colors"
+          title={t('dkp_how_it_works')}
+        >
+          <Question size={20} />
+        </button>
 
         <PopoverMenu
           open={showUserMenu}
@@ -166,6 +176,8 @@ const Header = ({ tabs = [], activeTab, onTabChange }) => {
           onClose={() => setShowCharacterModal(false)}
         />
       )}
+
+      {showDkpInfo && <DKPInfoModal onClose={() => setShowDkpInfo(false)} />}
     </>
   )
 }
