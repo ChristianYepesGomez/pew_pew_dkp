@@ -33,7 +33,8 @@ import {
   Crosshair,
   DiceFive,
   HandCoins,
-  ShieldStar
+  ShieldStar,
+  Star,
 } from '@phosphor-icons/react'
 
 // Map FA icon class names to Phosphor components for dynamic sound icon rendering
@@ -538,11 +539,17 @@ const AuctionTab = () => {
             {auctions.map((auction) => {
               const time = timeRemaining[auction.id]
               const isExpired = time?.expired
+              const isMyBis = bisData[auction.id]?.some(b => b.user_id === user?.id)
 
               return (
                 <div
                   key={auction.id}
-                  className={`rounded-xl border border-lavender-20/50 bg-indigo p-4 ${isExpired ? 'opacity-60' : ''}`}
+                  className={`rounded-xl border p-4 transition-all ${isExpired ? 'opacity-60' : ''} ${
+                    isMyBis
+                      ? 'border-yellow-400/70 bg-yellow-950/20'
+                      : 'border-lavender-20/50 bg-indigo'
+                  }`}
+                  style={isMyBis ? { boxShadow: '0 0 18px 3px rgba(234,179,8,0.22)' } : undefined}
                 >
                   <div className="flex flex-col gap-4 lg:flex-row lg:items-center">
                     {/* Item Icon */}
@@ -571,7 +578,7 @@ const AuctionTab = () => {
                       </div>
                     </WowheadTooltip>
 
-                    {/* Item Name + BIS Badge */}
+                    {/* Item Name + BIS badges */}
                     <div className="min-w-0 flex-1">
                       <h4
                         className="mb-0 truncate text-lg"
@@ -579,14 +586,22 @@ const AuctionTab = () => {
                       >
                         {auction.itemName}
                       </h4>
-                      {bisData[auction.id]?.length > 0 && (
-                        <div className="mt-1 flex items-center gap-1" title={bisData[auction.id].map(b => `${b.character_name}${b.priority ? ` #${b.priority}` : ''}`).join(', ')}>
-                          <Crosshair size={12} className="text-yellow-400" />
-                          <span className="text-xs text-yellow-400">
-                            {bisData[auction.id].length} {t('bis_raiders_want')}
-                          </span>
-                        </div>
-                      )}
+                      <div className="mt-1 flex items-center gap-3">
+                        {isMyBis && (
+                          <div className="flex items-center gap-1">
+                            <Star size={12} weight="fill" className="text-yellow-400" />
+                            <span className="text-xs font-bold text-yellow-400">{t('your_bis')}</span>
+                          </div>
+                        )}
+                        {isAdmin && bisData[auction.id]?.length > 0 && (
+                          <div className="flex items-center gap-1" title={bisData[auction.id].map(b => `${b.character_name}${b.priority ? ` #${b.priority}` : ''}`).join(', ')}>
+                            <Crosshair size={12} className="text-yellow-400/70" />
+                            <span className="text-xs text-yellow-400/70">
+                              {bisData[auction.id].length} {t('bis_raiders_want')}
+                            </span>
+                          </div>
+                        )}
+                      </div>
                     </div>
 
                     {/* Highest Bidder / Tie Info */}
