@@ -310,6 +310,11 @@ const MembersTab = () => {
   return (
     <div className="flex flex-col gap-6">
       <SectionHeader icon={Users} title={t('members_list')}>
+        <span className="text-sm text-lavender tabular-nums">
+          {filteredAndSortedMembers.length === members.length
+            ? `${members.length} ${t('members').toLowerCase()}`
+            : `${filteredAndSortedMembers.length} / ${members.length}`}
+        </span>
         <PillInput
           type="text"
           value={filterText}
