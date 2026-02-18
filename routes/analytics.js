@@ -265,7 +265,8 @@ router.get('/my-performance', authenticateToken, async (req, res) => {
              pbp.best_dps as bestDps, pbp.best_hps as bestHps,
              ROUND(CAST(pbp.total_healing AS REAL) / NULLIF(pbp.fights_participated, 0)) as avgHps,
              COALESCE(bs.total_kills, 0) as guildKills,
-             COALESCE(bs.total_wipes, 0) as guildWipes
+             COALESCE(bs.total_wipes, 0) as guildWipes,
+             bs.best_wipe_percent as bestWipePercent
       FROM player_boss_performance pbp
       JOIN wcl_bosses wb ON pbp.boss_id = wb.id
       LEFT JOIN player_boss_deaths pbd ON pbd.user_id = pbp.user_id AND pbd.boss_id = pbp.boss_id AND pbd.difficulty = pbp.difficulty
@@ -404,7 +405,7 @@ router.get('/guild-insights', authenticateToken, async (req, res) => {
 // When Midnight expansion launches, add the new healing potion name to that pattern.
 router.get('/guild-leaderboards', authenticateToken, async (req, res) => {
   try {
-    const MIN_FIGHTS = 3;
+    const MIN_FIGHTS = 1;
 
     // Top 3 DPS — avg damage per fight, DPS players only (healing < damage)
     const topDps = await req.db.all(`

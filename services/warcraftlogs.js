@@ -145,6 +145,7 @@ async function getReportData(reportCode) {
             difficulty
             startTime
             endTime
+            fightPercentage
           }
           masterData(translate: true) {
             actors(type: "Player") {
@@ -188,7 +189,8 @@ function parseReportData(report) {
     difficulty: fight.difficulty,
     startTime: fight.startTime,
     endTime: fight.endTime,
-    duration: fight.endTime - fight.startTime
+    duration: fight.endTime - fight.startTime,
+    fightPercentage: fight.fightPercentage ?? null,
   }));
 
   // Group fights by encounterID to get unique bosses

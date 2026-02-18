@@ -443,7 +443,7 @@ export async function processFightStats(db, reportCode, fight, difficulty) {
 
   // Get or create statistics entry
   const existingStats = await db.get(
-    `SELECT id, total_kills, total_wipes, fastest_kill_ms, total_kill_time_ms
+    `SELECT id, total_kills, total_wipes, fastest_kill_ms, total_kill_time_ms, best_wipe_percent
      FROM boss_statistics WHERE boss_id = ? AND difficulty = ?`,
     boss.id, normalizedDifficulty
   );
@@ -490,19 +490,26 @@ export async function processFightStats(db, reportCode, fight, difficulty) {
         boss.id, normalizedDifficulty, reportCode, fight.id, fightDuration
       );
     } else {
-      // Update wipe count
+      // Update wipe count and best wipe percent (lowest boss HP% remaining = best attempt)
+      const wipePct = fight.fightPercentage != null ? fight.fightPercentage : null;
+      const newBestWipePct = wipePct != null
+        ? (existingStats.best_wipe_percent != null
+          ? Math.min(existingStats.best_wipe_percent, wipePct)
+          : wipePct)
+        : existingStats.best_wipe_percent;
       await db.run(
-        `UPDATE boss_statistics SET total_wipes = total_wipes + 1, updated_at = CURRENT_TIMESTAMP
+        `UPDATE boss_statistics SET total_wipes = total_wipes + 1, best_wipe_percent = ?, updated_at = CURRENT_TIMESTAMP
          WHERE id = ?`,
-        existingStats.id
+        newBestWipePct, existingStats.id
       );
     }
   } else {
     // Create new statistics entry
     const today = new Date().toISOString().split('T')[0];
+    const firstWipePct = !fight.kill && fight.fightPercentage != null ? fight.fightPercentage : null;
     await db.run(
-      `INSERT INTO boss_statistics (boss_id, difficulty, total_kills, total_wipes, fastest_kill_ms, avg_kill_time_ms, total_kill_time_ms, last_kill_date, wipes_to_first_kill, first_kill_date)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO boss_statistics (boss_id, difficulty, total_kills, total_wipes, fastest_kill_ms, avg_kill_time_ms, total_kill_time_ms, last_kill_date, wipes_to_first_kill, first_kill_date, best_wipe_percent)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       boss.id, normalizedDifficulty,
       fight.kill ? 1 : 0,
       fight.kill ? 0 : 1,
@@ -511,7 +518,8 @@ export async function processFightStats(db, reportCode, fight, difficulty) {
       fight.kill ? fightDuration : 0,
       fight.kill ? today : null,
       fight.kill ? 0 : null, // wipes_to_first_kill is 0 if killed on first try
-      fight.kill ? today : null
+      fight.kill ? today : null,
+      firstWipePct
     );
 
     if (fight.kill) {

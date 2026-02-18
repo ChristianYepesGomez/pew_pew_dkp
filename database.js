@@ -516,6 +516,7 @@ export async function runMigrations(targetDb, connectionUrl = dbUrl) {
     "ALTER TABLE bis_items ADD COLUMN source_type TEXT DEFAULT 'raid'",
     'ALTER TABLE bis_items ADD COLUMN slot_position TEXT',
     'ALTER TABLE users ADD COLUMN discord_id TEXT',
+    'ALTER TABLE boss_statistics ADD COLUMN best_wipe_percent REAL',
   ];
   for (const sql of columnMigrations) {
     try { await targetDb.exec(sql); } catch (_e) { /* column already exists */ }
