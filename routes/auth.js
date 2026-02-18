@@ -183,9 +183,7 @@ router.post('/forgot-password', forgotPasswordLimiter, async (req, res) => {
       log.info(`Password reset link for ${user.username}: ${resetUrl}`);
     }
 
-    return success(res, {
-      ...((!emailSent || process.env.NODE_ENV !== 'production') && { resetToken })
-    }, emailSent ? 'Password reset link sent to your email' : 'Email not configured. Check server console for reset link.');
+    return success(res, {}, emailSent ? 'Password reset link sent to your email' : 'Email not configured. Check server console for reset link.');
 
   } catch (err) {
     log.error('Forgot password error', err);
