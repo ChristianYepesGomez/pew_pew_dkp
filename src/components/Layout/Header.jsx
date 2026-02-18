@@ -1,6 +1,6 @@
 import { useState, useLayoutEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
-import { SignOut, CaretDown, IconContext, Crown, Translate, User, Users, Coins, Question, ChartLine, Scroll } from '@phosphor-icons/react'
+import { SignOut, CaretDown, IconContext, Crown, Translate, User, Users, Coins, Question, ClockCounterClockwise, Scroll } from '@phosphor-icons/react'
 import { useAuth } from '../../hooks/useAuth'
 import { useLanguage } from '../../hooks/useLanguage'
 import { useSocket } from '../../hooks/useSocket'
@@ -108,8 +108,8 @@ const Header = ({ tabs = [], activeTab, onTabChange }) => {
     closeUserMenu()
   }
 
-  const handleStatsClick = () => {
-    onTabChange?.('stats')
+  const handleHistoryClick = () => {
+    onTabChange?.('history')
     closeUserMenu()
   }
 
@@ -215,10 +215,10 @@ const Header = ({ tabs = [], activeTab, onTabChange }) => {
           <PopoverMenuDivider />
 
           <PopoverMenuItem
-            leading={<ChartLine size={18} />}
-            onClick={handleStatsClick}
+            leading={<ClockCounterClockwise size={18} />}
+            onClick={handleHistoryClick}
           >
-            {t('stats')}
+            {t('auction_history')}
           </PopoverMenuItem>
 
           <PopoverMenuItem

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Users, CalendarDots, Gavel, ClockCounterClockwise, Skull } from '@phosphor-icons/react'
+import { Users, CalendarDots, Gavel, ChartLine, Skull } from '@phosphor-icons/react'
 import { useAuth } from '../hooks/useAuth'
 import { useLanguage } from '../hooks/useLanguage'
 import { calendarAPI } from '../services/api'
@@ -69,7 +69,7 @@ const Dashboard = () => {
     { id: 'members', icon: Users, label: t('members') },
     { id: 'calendar', icon: CalendarDots, label: t('calendar') },
     { id: 'auction', icon: Gavel, label: t('active_auction') },
-    { id: 'history', icon: ClockCounterClockwise, label: t('auction_history') },
+    { id: 'stats', icon: ChartLine, label: t('stats') },
     { id: 'bosses', icon: Skull, label: t('bosses') },
   ]
 
