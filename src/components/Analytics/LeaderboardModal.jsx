@@ -88,12 +88,24 @@ const LeaderboardModal = ({ title, Icon, color, entries, format, valueColorFn, b
                     </span>
                   )}
                 </div>
-                <span
-                  className="text-sm font-bold tabular-nums flex-shrink-0"
-                  style={{ color: valueColorFn ? valueColorFn(entry.value) : color }}
-                >
-                  {format(entry.value)}
-                </span>
+                {entry.url ? (
+                  <a
+                    href={entry.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-sm font-bold tabular-nums flex-shrink-0 hover:opacity-75 transition-opacity hover:underline underline-offset-2"
+                    style={{ color: valueColorFn ? valueColorFn(entry.value) : color }}
+                  >
+                    {format(entry.value)}
+                  </a>
+                ) : (
+                  <span
+                    className="text-sm font-bold tabular-nums flex-shrink-0"
+                    style={{ color: valueColorFn ? valueColorFn(entry.value) : color }}
+                  >
+                    {format(entry.value)}
+                  </span>
+                )}
               </div>
             ))
           ) : (

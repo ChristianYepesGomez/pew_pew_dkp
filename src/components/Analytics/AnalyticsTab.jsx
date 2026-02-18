@@ -154,7 +154,7 @@ const AnalyticsTab = () => {
       title: t('analytics_most_damage_taken'),
       Icon: Shield,
       color: '#f97316',
-      format: (v) => `${fmtWow(v)} DTPS`,
+      format: (v) => fmtWow(v),
       badge: t('analytics_excl_tanks'),
     },
     {
@@ -323,6 +323,9 @@ const AnalyticsTab = () => {
           entries={(leaderboards?.[openModal] || []).map((e) => ({
             ...e,
             extra: activeLeaderboard.extraFn ? activeLeaderboard.extraFn(e) : undefined,
+            url: (e.report_code && e.fight_id)
+              ? `https://www.warcraftlogs.com/reports/${e.report_code}#fight=${e.fight_id}`
+              : undefined,
           }))}
           format={activeLeaderboard.format}
           valueColorFn={activeLeaderboard.valueColorFn}
