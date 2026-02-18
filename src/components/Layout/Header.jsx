@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { SignOut, CaretDown, IconContext, Crown, Translate, User, Users, Coins, Question, List } from '@phosphor-icons/react'
+import { SignOut, CaretDown, IconContext, Crown, Translate, User, Users, Coins, Question, ChartLine, Scroll } from '@phosphor-icons/react'
 import { useAuth } from '../../hooks/useAuth'
 import { useLanguage } from '../../hooks/useLanguage'
 import { useSocket } from '../../hooks/useSocket'
@@ -33,8 +33,21 @@ const Header = ({ tabs = [], secondaryTabs = [], activeTab, onTabChange }) => {
   const [showCharacterModal, setShowCharacterModal] = useState(false)
   const [characterModalTab, setCharacterModalTab] = useState(CHARACTER_MODAL_VIEW.ACCOUNT)
   const [showDkpInfo, setShowDkpInfo] = useState(false)
+  const [hasSeenOnboarding, setHasSeenOnboarding] = useState(
+    () => !!localStorage.getItem(`dkp_onboarding_seen_${user?.id}`)
+  )
   const isAdmin = user?.role === 'admin'
   const isSecondaryActive = secondaryTabs.some(tab => tab.id === activeTab)
+
+  const markOnboardingSeen = () => {
+    if (user?.id) localStorage.setItem(`dkp_onboarding_seen_${user.id}`, '1')
+    setHasSeenOnboarding(true)
+  }
+
+  const handleHelpClick = () => {
+    if (!hasSeenOnboarding) markOnboardingSeen()
+    setShowDkpInfo(true)
+  }
 
   useSocket({
     dkp_updated: (data) => {
@@ -127,13 +140,30 @@ const Header = ({ tabs = [], secondaryTabs = [], activeTab, onTabChange }) => {
           </div>
         </IconContext.Provider>
 
-        <button
-          onClick={() => setShowDkpInfo(true)}
-          className="shrink-0 w-9 h-9 rounded-full flex items-center justify-center text-lavender hover:text-cream hover:bg-lavender-12 transition-colors"
-          title={t('dkp_how_it_works')}
-        >
-          <Question size={20} />
-        </button>
+        <div className={`shrink-0${!hasSeenOnboarding ? ' relative z-[50]' : ''}`}>
+          {!hasSeenOnboarding && (
+            <span className="absolute inset-0 rounded-full bg-coral/50 animate-ping" />
+          )}
+          <button
+            onClick={handleHelpClick}
+            className={`shrink-0 w-9 h-9 rounded-full flex items-center justify-center transition-colors ${
+              !hasSeenOnboarding
+                ? 'text-cream bg-coral hover:bg-coral/80'
+                : 'text-lavender hover:text-cream hover:bg-lavender-12'
+            }`}
+            title={t('dkp_how_it_works')}
+          >
+            <Question size={20} />
+          </button>
+          {!hasSeenOnboarding && (
+            <div className="absolute top-full right-0 mt-2 flex flex-col items-end pointer-events-none">
+              <div className="mr-[14px] w-0 h-0 border-l-[7px] border-r-[7px] border-b-[7px] border-l-transparent border-r-transparent border-b-coral" />
+              <div className="bg-coral text-white text-xs rounded-lg px-3 py-2 whitespace-nowrap font-semibold shadow-lg">
+                {t('onboarding_hint')}
+              </div>
+            </div>
+          )}
+        </div>
 
         <PopoverMenu
           open={showUserMenu}
@@ -207,6 +237,10 @@ const Header = ({ tabs = [], secondaryTabs = [], activeTab, onTabChange }) => {
           </PopoverMenuItem>
         </PopoverMenu>
       </nav>
+
+      {!hasSeenOnboarding && (
+        <div className="fixed inset-0 z-[49] bg-black/70" />
+      )}
 
       {showCharacterModal && (
         <MyCharacterModal

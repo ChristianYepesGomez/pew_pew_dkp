@@ -211,11 +211,11 @@ const HistoryTab = () => {
                   className="w-full px-4 py-2 text-sm text-lavender hover:text-cream hover:bg-lavender-12/20 transition-colors border-t border-lavender-20/10 flex items-center justify-center gap-2"
                 >
                   {isLoading ? (
-                    <><CircleNotch className="animate-spin inline" /> {t('loading')}</>
+                    <><CircleNotch size={14} className="animate-spin" /> {t('loading')}</>
                   ) : isExpanded ? (
-                    <><CaretUp className="inline" /> {t('hide_bids')}</>
+                    <><CaretUp size={14} /> {t('hide_bids')}</>
                   ) : (
-                    <><CaretDown className="inline" /> {t('show_bids')} ({a.bid_count})</>
+                    <><CaretDown size={14} /> {t('show_bids')} ({a.bid_count})</>
                   )}
                 </button>
               )}
