@@ -21,6 +21,6 @@ export default [
     },
   },
   {
-    ignores: ['node_modules/', 'dist/', 'data/', 'src/', 'tests/auction-stress-test.js'],
+    ignores: ['node_modules/', 'dist/', 'data/', 'tests/auction-stress-test.js'],
   },
 ];

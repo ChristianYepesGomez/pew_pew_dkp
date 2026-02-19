@@ -5,3 +5,4 @@ process.env.JWT_SECRET = 'test-secret-key-do-not-use-in-prod';
 process.env.NODE_ENV = 'test';
 process.env.PORT = '0'; // random port
 process.env.CRON_SECRET = 'test-cron-secret';
+process.env.OAUTH_STATE_SECRET = 'test-oauth-state-secret-do-not-use-in-prod';
