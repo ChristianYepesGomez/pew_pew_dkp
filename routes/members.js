@@ -20,7 +20,7 @@ router.get('/', authenticateToken, async (req, res) => {
 
     const { limit, offset } = parsePagination(req.query, { limit: 200, maxLimit: 500 });
 
-    const { total } = await req.db.get('SELECT COUNT(*) as total FROM users WHERE is_active = 1');
+    const { total } = await req.db.get("SELECT COUNT(*) as total FROM users WHERE is_active = 1 AND character_name IS NOT NULL AND character_name != ''");
 
     const members = await req.db.all(`
       SELECT u.id, u.username, u.character_name, u.character_class, u.role, u.raid_role, u.spec, u.avatar,
@@ -28,7 +28,7 @@ router.get('/', authenticateToken, async (req, res) => {
              md.weekly_vault_completed, md.vault_week
       FROM users u
       LEFT JOIN member_dkp md ON u.id = md.user_id
-      WHERE u.is_active = 1
+      WHERE u.is_active = 1 AND u.character_name IS NOT NULL AND u.character_name != ''
       ORDER BY md.current_dkp DESC
       LIMIT ? OFFSET ?
     `, limit, offset);
