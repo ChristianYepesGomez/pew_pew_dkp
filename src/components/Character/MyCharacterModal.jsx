@@ -640,60 +640,83 @@ const MyCharacterModal = ({
   return createPortal(
     <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[100] p-4" onClick={onClose}>
       <div className="bg-indigo border-2 border-lavender-20 rounded-2xl w-full max-w-2xl shadow-2xl max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
-        {/* Header */}
-        <div className="p-6 border-b border-lavender-20/30 flex-shrink-0">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              {/* Editable Avatar */}
-              <div
-                className="relative cursor-pointer group"
-                onMouseEnter={() => setAvatarHover(true)}
-                onMouseLeave={() => setAvatarHover(false)}
-              >
+        {/* Header — banner style */}
+        {(() => {
+          const classColor = CLASS_COLORS[user?.characterClass] || '#A78BFA'
+          return (
+            <div className="flex-shrink-0">
+              {/* Banner */}
+              <div className="relative h-28 rounded-t-2xl overflow-hidden">
                 <div
-                  className="w-16 h-16 rounded-full bg-lavender-12 flex items-center justify-center overflow-hidden border-2 transition-all group-hover:border-coral"
-                  style={{ borderColor: avatarHover ? undefined : (CLASS_COLORS[user?.characterClass] || '#A78BFA') }}
-                  onClick={() => window._avatarInput?.click()}
-                >
-                  {user?.avatar ? (
-                    <img src={user.avatar} alt="Avatar" className="w-full h-full object-cover" />
-                  ) : (
-                    <img src="/logo.svg" alt="Default" className="w-full h-full object-cover" />
-                  )}
-                </div>
-                {/* Hover overlay with pencil */}
-                <div
-                  className={`absolute inset-0 rounded-full bg-black/50 flex items-center justify-center transition-opacity ${avatarHover ? 'opacity-100' : 'opacity-0'}`}
-                  onClick={() => window._avatarInput?.click()}
-                >
-                  {avatarSaving ? (
-                    <CircleNotch size={20} className="text-white animate-spin" />
-                  ) : (
-                    <PencilSimple size={20} className="text-white" />
-                  )}
-                </div>
-                {/* Delete button on hover (only if avatar exists) */}
-                {user?.avatar && !avatarSaving && (
-                  <button
-                    onClick={(e) => { e.stopPropagation(); handleRemoveAvatar() }}
-                    className={`absolute -top-1 -right-1 w-5 h-5 rounded-full bg-red-500 hover:bg-red-400 flex items-center justify-center transition-all ${avatarHover ? 'opacity-100 scale-100' : 'opacity-0 scale-75'}`}
-                    title={t('remove_avatar')}
-                  >
-                    <X size={10} className="text-white" />
-                  </button>
-                )}
-                {/* Hidden file input */}
-                <input
-                  ref={avatarInputRef}
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp,image/gif"
-                  onChange={handleAvatarUpload}
-                  disabled={avatarSaving}
-                  className="hidden"
+                  className="absolute inset-0"
+                  style={{
+                    background: `linear-gradient(135deg, ${classColor}60 0%, ${classColor}25 55%, transparent 100%)`,
+                  }}
                 />
+                {/* Subtle diagonal pattern overlay */}
+                <div className="absolute inset-0 opacity-10"
+                  style={{ backgroundImage: 'repeating-linear-gradient(45deg, #fff 0, #fff 1px, transparent 0, transparent 50%)', backgroundSize: '12px 12px' }}
+                />
+                {/* Close button */}
+                <button
+                  onClick={onClose}
+                  className="absolute top-3 right-3 text-lavender hover:text-cream transition-colors bg-black/30 rounded-full p-1"
+                >
+                  <X size={20} />
+                </button>
+                {/* Avatar — overlapping the banner bottom */}
+                <div
+                  className="absolute -bottom-10 left-6 cursor-pointer group"
+                  onMouseEnter={() => setAvatarHover(true)}
+                  onMouseLeave={() => setAvatarHover(false)}
+                >
+                  <div
+                    className="w-20 h-20 rounded-full bg-lavender-12 flex items-center justify-center overflow-hidden border-4 transition-all"
+                    style={{ borderColor: avatarHover ? '#FF6B6B' : classColor }}
+                    onClick={() => window._avatarInput?.click()}
+                  >
+                    {user?.avatar ? (
+                      <img src={user.avatar} alt="Avatar" className="w-full h-full object-cover" />
+                    ) : (
+                      <img src="/logo.svg" alt="Default" className="w-full h-full object-cover" />
+                    )}
+                  </div>
+                  {/* Hover overlay */}
+                  <div
+                    className={`absolute inset-0 rounded-full bg-black/50 flex items-center justify-center transition-opacity ${avatarHover ? 'opacity-100' : 'opacity-0'}`}
+                    onClick={() => window._avatarInput?.click()}
+                  >
+                    {avatarSaving ? (
+                      <CircleNotch size={20} className="text-white animate-spin" />
+                    ) : (
+                      <PencilSimple size={20} className="text-white" />
+                    )}
+                  </div>
+                  {/* Delete button */}
+                  {user?.avatar && !avatarSaving && (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleRemoveAvatar() }}
+                      className={`absolute -top-1 -right-1 w-5 h-5 rounded-full bg-red-500 hover:bg-red-400 flex items-center justify-center transition-all ${avatarHover ? 'opacity-100 scale-100' : 'opacity-0 scale-75'}`}
+                      title={t('remove_avatar')}
+                    >
+                      <X size={10} className="text-white" />
+                    </button>
+                  )}
+                  {/* Hidden file input */}
+                  <input
+                    ref={avatarInputRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp,image/gif"
+                    onChange={handleAvatarUpload}
+                    disabled={avatarSaving}
+                    className="hidden"
+                  />
+                </div>
               </div>
-              <div>
-                <h3 className="text-2xl font-bold m-0" style={{ color: user?.characterClass ? (CLASS_COLORS[user.characterClass] || '#A78BFA') : '#A78BFA' }}>
+
+              {/* Name / class row */}
+              <div className="pt-12 px-6 pb-4 border-b border-lavender-20/30">
+                <h3 className="text-2xl font-bold m-0" style={{ color: classColor }}>
                   {user?.characterName || user?.username}
                 </h3>
                 {user?.characterClass ? (
@@ -702,17 +725,14 @@ const MyCharacterModal = ({
                   <p className="text-lavender m-0">{t('no_character')}</p>
                 )}
                 {avatarMsg && (
-                  <p className={`text-xs m-0 ${avatarMsg === t('avatar_saved') || avatarMsg === t('avatar_removed') ? 'text-green-400' : 'text-red-400'}`}>
+                  <p className={`text-xs m-0 mt-1 ${avatarMsg === t('avatar_saved') || avatarMsg === t('avatar_removed') ? 'text-green-400' : 'text-red-400'}`}>
                     {avatarMsg}
                   </p>
                 )}
               </div>
             </div>
-            <button onClick={onClose} className="text-2xl text-lavender transition-colors hover:text-cream">
-              <X size={24} />
-            </button>
-          </div>
-        </div>
+          )
+        })()}
 
         {showTabs && (
           <div className="flex border-b border-lavender-20/30 flex-shrink-0">
