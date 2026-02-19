@@ -63,10 +63,10 @@ const BUFFS = [
   // Paladin (Avenging Wrath is shared across all specs)
   { id: 'avengingWrath', name: 'Avenging Wrath', duration: 20, icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_holy_avenginewrath.jpg', classes: ['Paladin'], casterRole: null, type: 'self' },
   // Warlock (spec-specific summons)
-  { id: 'darkSoul', name: 'Dark Soul', duration: 20, icon: 'https://wow.zamimg.com/images/wow/icons/large/warlock_darksoultorment.jpg', classes: ['Warlock'], casterRole: 'DPS', type: 'self' },
+  { id: 'darkSoul', name: 'Dark Soul', duration: 20, icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_warlock_demonsoul.jpg', classes: ['Warlock'], casterRole: 'DPS', type: 'self' },
   { id: 'summonDarkglare', name: 'Summon Darkglare', duration: 20, icon: 'https://wow.zamimg.com/images/wow/icons/large/inv_beholderwarlock.jpg', classes: ['Warlock'], casterSpecs: ['Affliction'], type: 'self' },
   { id: 'summonInfernal', name: 'Summon Infernal', duration: 30, icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_shadow_summoninfernal.jpg', classes: ['Warlock'], casterSpecs: ['Destruction'], type: 'self' },
-  { id: 'summonDemonic', name: 'Demonic Tyrant', duration: 15, icon: 'https://wow.zamimg.com/images/wow/icons/large/inv_demonictyrant.jpg', classes: ['Warlock'], casterSpecs: ['Demonology'], type: 'self' },
+  { id: 'summonDemonic', name: 'Demonic Tyrant', duration: 15, icon: 'https://wow.zamimg.com/images/wow/icons/large/ability_warlock_empoweredimp.jpg', classes: ['Warlock'], casterSpecs: ['Demonology'], type: 'self' },
   // Monk DPS (Windwalker only)
   { id: 'stormEarthFire', name: 'Storm, Earth, and Fire', duration: 15, icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_nature_giftofthewild.jpg', classes: ['Monk'], casterSpecs: ['Windwalker'], type: 'self' },
   { id: 'invokeXuen', name: 'Invoke Xuen', duration: 20, icon: 'https://wow.zamimg.com/images/wow/icons/large/ability_monk_summontigerstatue.jpg', classes: ['Monk'], casterSpecs: ['Windwalker'], type: 'self' },
