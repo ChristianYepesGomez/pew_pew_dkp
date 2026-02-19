@@ -4,7 +4,7 @@ import { useAuth } from '../../hooks/useAuth'
 import { useLanguage } from '../../hooks/useLanguage'
 import { dkpAPI, authAPI, charactersAPI, blizzardAPI } from '../../services/api'
 import WowheadTooltip from '../Common/WowheadTooltip'
-import { X, CircleNotch, PencilSimple, Crop, MagnifyingGlassMinus, MagnifyingGlassPlus, User, Users, Coins, Envelope, Key, FloppyDisk, Gavel, ClockCounterClockwise, WarningCircle, DownloadSimple, ArrowsClockwise, Trash, Star, Info } from '@phosphor-icons/react'
+import { X, CircleNotch, PencilSimple, Crop, MagnifyingGlassMinus, MagnifyingGlassPlus, User, Users, Coins, Envelope, Key, FloppyDisk, Gavel, ClockCounterClockwise, WarningCircle, DownloadSimple, ArrowsClockwise, Trash, Star, Info, Camera } from '@phosphor-icons/react'
 import Button from '../ui/Button'
 import Input from '../ui/Input'
 import Select from '../ui/Select'
@@ -91,39 +91,37 @@ const TAB_ICONS = {
 
 // CLASSES removed - manual character creation disabled, only Blizzard import allowed
 
-// Crop and compress image to a square, centered based on user selection
-// Uses 400x400 for retina quality, WebP for better compression with JPEG fallback
-const cropAndCompressImage = (imageSrc, cropData, outputSize = 400, maxBytes = 150 * 1024) => {
+// Crop and compress image based on user selection.
+// containerW/containerH = preview container dimensions in screen pixels.
+// outputW/outputH = final output dimensions.
+const cropAndCompressImage = (
+  imageSrc, cropData,
+  outputW = 400, outputH = 400,
+  containerW = 256, containerH = 256,
+  maxBytes = 150 * 1024
+) => {
   return new Promise((resolve, reject) => {
     const img = new Image()
     img.onload = () => {
       const canvas = document.createElement('canvas')
-      canvas.width = outputSize
-      canvas.height = outputSize
+      canvas.width = outputW
+      canvas.height = outputH
       const ctx = canvas.getContext('2d')
-
-      // Enable image smoothing for better quality
       ctx.imageSmoothingEnabled = true
       ctx.imageSmoothingQuality = 'high'
 
-      // Calculate the source area based on crop data.
-      // The preview container is 256px (w-64 h-64). Position (x,y) is a screen-pixel
-      // offset from center. To convert to image pixels: divide by scale.
-      // Crop size in image pixels = container_size / scale.
+      // Position (x,y) is a screen-pixel offset from center. Convert to image pixels by dividing by scale.
       const { x, y, scale } = cropData
-      const containerSize = 256 // matches w-64 h-64 in Tailwind
-      const cropSize = containerSize / scale
-      const sourceX = img.width / 2 - x / scale - cropSize / 2
-      const sourceY = img.height / 2 - y / scale - cropSize / 2
+      const cropW = containerW / scale
+      const cropH = containerH / scale
+      const sourceX = img.width / 2 - x / scale - cropW / 2
+      const sourceY = img.height / 2 - y / scale - cropH / 2
 
-      // Draw the cropped and scaled image
-      ctx.drawImage(img, sourceX, sourceY, cropSize, cropSize, 0, 0, outputSize, outputSize)
+      ctx.drawImage(img, sourceX, sourceY, cropW, cropH, 0, 0, outputW, outputH)
 
-      // Try WebP first for better compression, fallback to JPEG
       const supportsWebP = canvas.toDataURL('image/webp').startsWith('data:image/webp')
       const format = supportsWebP ? 'image/webp' : 'image/jpeg'
 
-      // Compress with quality reduction until under maxBytes
       let quality = 0.92
       let dataUrl = canvas.toDataURL(format, quality)
       while (dataUrl.length > maxBytes && quality > 0.3) {
@@ -178,7 +176,8 @@ const AvatarCropModal = ({ imageSrc, onConfirm, onCancel, t }) => {
   }
 
   const handleConfirm = async () => {
-    const croppedImage = await cropAndCompressImage(imageSrc, { ...position, scale })
+    // Square avatar: 400x400 output, 256x256 preview container
+    const croppedImage = await cropAndCompressImage(imageSrc, { ...position, scale }, 400, 400, 256, 256)
     onConfirm(croppedImage)
   }
 
@@ -265,6 +264,130 @@ const AvatarCropModal = ({ imageSrc, onConfirm, onCancel, t }) => {
   )
 }
 
+// Banner Crop Modal — wide 3:1 aspect ratio (900×300 output, ~384×128 preview)
+const BANNER_CONTAINER_W = 384
+const BANNER_CONTAINER_H = 128
+
+const BannerCropModal = ({ imageSrc, onConfirm, onCancel, t }) => {
+  const [position, setPosition] = useState({ x: 0, y: 0 })
+  const [scale, setScale] = useState(0.5)
+  const [dragging, setDragging] = useState(false)
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 })
+
+  const handleMouseDown = (e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setDragging(true)
+    setDragStart({ x: e.clientX - position.x, y: e.clientY - position.y })
+  }
+
+  const handleMouseMove = (e) => {
+    if (!dragging) return
+    const maxOffsetX = (BANNER_CONTAINER_W / 2) * scale
+    const maxOffsetY = (BANNER_CONTAINER_H / 2) * scale
+    const newX = Math.max(-maxOffsetX, Math.min(maxOffsetX, e.clientX - dragStart.x))
+    const newY = Math.max(-maxOffsetY, Math.min(maxOffsetY, e.clientY - dragStart.y))
+    setPosition({ x: newX, y: newY })
+  }
+
+  const handleMouseUp = () => setDragging(false)
+
+  const handleTouchStart = (e) => {
+    const touch = e.touches[0]
+    setDragging(true)
+    setDragStart({ x: touch.clientX - position.x, y: touch.clientY - position.y })
+  }
+
+  const handleTouchMove = (e) => {
+    if (!dragging) return
+    const touch = e.touches[0]
+    const maxOffsetX = (BANNER_CONTAINER_W / 2) * scale
+    const maxOffsetY = (BANNER_CONTAINER_H / 2) * scale
+    const newX = Math.max(-maxOffsetX, Math.min(maxOffsetX, touch.clientX - dragStart.x))
+    const newY = Math.max(-maxOffsetY, Math.min(maxOffsetY, touch.clientY - dragStart.y))
+    setPosition({ x: newX, y: newY })
+  }
+
+  const handleConfirm = async () => {
+    // Banner: 900×300 output, 384×128 preview container
+    const croppedImage = await cropAndCompressImage(
+      imageSrc, { ...position, scale },
+      900, 300,
+      BANNER_CONTAINER_W, BANNER_CONTAINER_H,
+      300 * 1024
+    )
+    onConfirm(croppedImage)
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[110]" onClick={(e) => e.stopPropagation()}>
+      <div className="bg-indigo border-2 border-lavender-20 rounded-2xl p-6 w-full max-w-lg" onClick={(e) => e.stopPropagation()}>
+        <h4 className="text-lg text-coral mb-4 text-center">
+          <Camera size={18} className="inline mr-2" />{t('crop_banner') || 'Ajustar banner'}
+        </h4>
+
+        {/* Crop area — wide 3:1 */}
+        <div
+          className="relative mx-auto mb-4 overflow-hidden rounded-lg border-2 border-lavender-20 cursor-move"
+          style={{ width: BANNER_CONTAINER_W, height: BANNER_CONTAINER_H, background: 'rgba(0,0,0,0.5)' }}
+          onMouseDown={handleMouseDown}
+          onMouseMove={handleMouseMove}
+          onMouseUp={handleMouseUp}
+          onMouseLeave={handleMouseUp}
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleMouseUp}
+        >
+          <img
+            src={imageSrc}
+            alt="Banner preview"
+            className="absolute select-none pointer-events-none"
+            style={{
+              top: '50%',
+              left: '50%',
+              transform: `translate(calc(-50% + ${position.x}px), calc(-50% + ${position.y}px)) scale(${scale})`,
+              maxWidth: 'none',
+              width: 'auto',
+              height: 'auto',
+              minWidth: '100%',
+              minHeight: '100%',
+            }}
+            draggable={false}
+          />
+        </div>
+
+        {/* Zoom slider */}
+        <div className="flex items-center gap-3 mb-4 px-4">
+          <MagnifyingGlassMinus size={16} className="text-lavender" />
+          <input
+            type="range"
+            min="0.3"
+            max="3"
+            step="0.05"
+            value={scale}
+            onChange={(e) => setScale(parseFloat(e.target.value))}
+            className="flex-1 accent-lavender-20"
+          />
+          <MagnifyingGlassPlus size={16} className="text-lavender" />
+        </div>
+
+        <p className="text-xs text-lavender text-center mb-4">
+          {t('drag_to_position')}
+        </p>
+
+        <div className="flex gap-3">
+          <Button onClick={onCancel} variant="outline" size="sm" radius="round" className="flex-1">
+            {t('cancel')}
+          </Button>
+          <Button onClick={handleConfirm} variant="primary" size="sm" radius="round" className="flex-1 font-bold">
+            {t('confirm')}
+          </Button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 const MyCharacterModal = ({
   onClose,
   initialTab = CHARACTER_MODAL_VIEW.ACCOUNT,
@@ -298,9 +421,17 @@ const MyCharacterModal = ({
   const [avatarSaving, setAvatarSaving] = useState(false)
   const [avatarHover, setAvatarHover] = useState(false)
   const avatarInputRef = useCallback(node => { if (node) window._avatarInput = node }, [])
-  // Crop modal state
+  // Avatar crop modal state
   const [cropModalOpen, setCropModalOpen] = useState(false)
   const [cropImageSrc, setCropImageSrc] = useState(null)
+  // Banner state
+  const [bannerHover, setBannerHover] = useState(false)
+  const [bannerSaving, setBannerSaving] = useState(false)
+  const [bannerMsg, setBannerMsg] = useState('')
+  const bannerInputRef = useRef(null)
+  // Banner crop modal state
+  const [bannerCropOpen, setBannerCropOpen] = useState(false)
+  const [bannerCropImageSrc, setBannerCropImageSrc] = useState(null)
   // Edit spec state
   const [editingCharId, setEditingCharId] = useState(null)
   const [editingSaving, setEditingSaving] = useState(false)
@@ -449,6 +580,61 @@ const MyCharacterModal = ({
       setAvatarMsg(error.response?.data?.error || 'Error')
     } finally {
       setAvatarSaving(false)
+    }
+  }
+
+  const handleBannerUpload = async (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif']
+    if (!validTypes.includes(file.type)) {
+      setBannerMsg(t('avatar_invalid_type'))
+      setTimeout(() => setBannerMsg(''), 3000)
+      return
+    }
+    const reader = new FileReader()
+    reader.onload = (ev) => {
+      setBannerCropImageSrc(ev.target.result)
+      setBannerCropOpen(true)
+    }
+    reader.readAsDataURL(file)
+    e.target.value = ''
+  }
+
+  const handleBannerCropConfirm = async (croppedImage) => {
+    setBannerCropOpen(false)
+    setBannerCropImageSrc(null)
+    setBannerSaving(true)
+    setBannerMsg('')
+    try {
+      await authAPI.updateProfile({ banner: croppedImage })
+      await refreshUser()
+      setBannerMsg(t('avatar_saved') || 'Banner guardado')
+      setTimeout(() => setBannerMsg(''), 3000)
+    } catch (error) {
+      setBannerMsg(error.response?.data?.error || 'Error uploading banner')
+    } finally {
+      setBannerSaving(false)
+    }
+  }
+
+  const handleBannerCropCancel = () => {
+    setBannerCropOpen(false)
+    setBannerCropImageSrc(null)
+  }
+
+  const handleRemoveBanner = async () => {
+    setBannerSaving(true)
+    setBannerMsg('')
+    try {
+      await authAPI.updateProfile({ banner: null })
+      await refreshUser()
+      setBannerMsg(t('avatar_removed') || 'Banner eliminado')
+      setTimeout(() => setBannerMsg(''), 3000)
+    } catch (error) {
+      setBannerMsg(error.response?.data?.error || 'Error')
+    } finally {
+      setBannerSaving(false)
     }
   }
 
@@ -646,34 +832,75 @@ const MyCharacterModal = ({
           return (
             <div className="flex-shrink-0">
               {/* Banner */}
-              <div className="relative h-28 rounded-t-2xl overflow-hidden">
-                <div
-                  className="absolute inset-0"
-                  style={{
-                    background: `linear-gradient(135deg, ${classColor}60 0%, ${classColor}25 55%, transparent 100%)`,
-                  }}
-                />
-                {/* Subtle diagonal pattern overlay */}
-                <div className="absolute inset-0 opacity-10"
-                  style={{ backgroundImage: 'repeating-linear-gradient(45deg, #fff 0, #fff 1px, transparent 0, transparent 50%)', backgroundSize: '12px 12px' }}
-                />
+              <div
+                className="relative h-28 rounded-t-2xl overflow-hidden cursor-pointer group/banner"
+                onMouseEnter={() => setBannerHover(true)}
+                onMouseLeave={() => setBannerHover(false)}
+                onClick={() => !bannerSaving && bannerInputRef.current?.click()}
+              >
+                {/* Background: uploaded image or gradient fallback */}
+                {user?.banner ? (
+                  <img src={user.banner} alt="Banner" className="absolute inset-0 w-full h-full object-cover" />
+                ) : (
+                  <>
+                    <div
+                      className="absolute inset-0"
+                      style={{ background: `linear-gradient(135deg, ${classColor}60 0%, ${classColor}25 55%, transparent 100%)` }}
+                    />
+                    <div className="absolute inset-0 opacity-10"
+                      style={{ backgroundImage: 'repeating-linear-gradient(45deg, #fff 0, #fff 1px, transparent 0, transparent 50%)', backgroundSize: '12px 12px' }}
+                    />
+                  </>
+                )}
+
+                {/* Banner hover overlay */}
+                <div className={`absolute inset-0 bg-black/40 flex items-center justify-center transition-opacity ${bannerHover ? 'opacity-100' : 'opacity-0'}`}>
+                  {bannerSaving ? (
+                    <CircleNotch size={28} className="text-white animate-spin" />
+                  ) : (
+                    <Camera size={28} className="text-white drop-shadow" />
+                  )}
+                </div>
+
+                {/* Remove banner button */}
+                {user?.banner && !bannerSaving && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); handleRemoveBanner() }}
+                    className={`absolute top-2 left-2 w-6 h-6 rounded-full bg-black/60 hover:bg-red-500 flex items-center justify-center transition-all ${bannerHover ? 'opacity-100' : 'opacity-0'}`}
+                    title="Eliminar banner"
+                  >
+                    <X size={12} className="text-white" />
+                  </button>
+                )}
+
                 {/* Close button */}
                 <button
-                  onClick={onClose}
-                  className="absolute top-3 right-3 text-lavender hover:text-cream transition-colors bg-black/30 rounded-full p-1"
+                  onClick={(e) => { e.stopPropagation(); onClose() }}
+                  className="absolute top-3 right-3 text-lavender hover:text-cream transition-colors bg-black/30 rounded-full p-1 z-10"
                 >
                   <X size={20} />
                 </button>
+
+                {/* Hidden banner file input */}
+                <input
+                  ref={bannerInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/gif"
+                  onChange={handleBannerUpload}
+                  disabled={bannerSaving}
+                  className="hidden"
+                />
+
                 {/* Avatar — overlapping the banner bottom */}
                 <div
-                  className="absolute -bottom-10 left-6 cursor-pointer group"
-                  onMouseEnter={() => setAvatarHover(true)}
+                  className="absolute -bottom-10 left-6 cursor-pointer"
+                  onMouseEnter={(e) => { e.stopPropagation(); setBannerHover(false); setAvatarHover(true) }}
                   onMouseLeave={() => setAvatarHover(false)}
+                  onClick={(e) => { e.stopPropagation(); window._avatarInput?.click() }}
                 >
                   <div
                     className="w-20 h-20 rounded-full bg-lavender-12 flex items-center justify-center overflow-hidden border-4 transition-all"
                     style={{ borderColor: avatarHover ? '#FF6B6B' : classColor }}
-                    onClick={() => window._avatarInput?.click()}
                   >
                     {user?.avatar ? (
                       <img src={user.avatar} alt="Avatar" className="w-full h-full object-cover" />
@@ -681,10 +908,9 @@ const MyCharacterModal = ({
                       <img src="/logo.svg" alt="Default" className="w-full h-full object-cover" />
                     )}
                   </div>
-                  {/* Hover overlay */}
+                  {/* Avatar hover overlay */}
                   <div
                     className={`absolute inset-0 rounded-full bg-black/50 flex items-center justify-center transition-opacity ${avatarHover ? 'opacity-100' : 'opacity-0'}`}
-                    onClick={() => window._avatarInput?.click()}
                   >
                     {avatarSaving ? (
                       <CircleNotch size={20} className="text-white animate-spin" />
@@ -692,7 +918,7 @@ const MyCharacterModal = ({
                       <PencilSimple size={20} className="text-white" />
                     )}
                   </div>
-                  {/* Delete button */}
+                  {/* Delete avatar button */}
                   {user?.avatar && !avatarSaving && (
                     <button
                       onClick={(e) => { e.stopPropagation(); handleRemoveAvatar() }}
@@ -702,7 +928,7 @@ const MyCharacterModal = ({
                       <X size={10} className="text-white" />
                     </button>
                   )}
-                  {/* Hidden file input */}
+                  {/* Hidden avatar file input */}
                   <input
                     ref={avatarInputRef}
                     type="file"
@@ -728,6 +954,9 @@ const MyCharacterModal = ({
                   <p className={`text-xs m-0 mt-1 ${avatarMsg === t('avatar_saved') || avatarMsg === t('avatar_removed') ? 'text-green-400' : 'text-red-400'}`}>
                     {avatarMsg}
                   </p>
+                )}
+                {bannerMsg && (
+                  <p className="text-xs m-0 mt-1 text-green-400">{bannerMsg}</p>
                 )}
               </div>
             </div>
@@ -1137,6 +1366,16 @@ const MyCharacterModal = ({
           imageSrc={cropImageSrc}
           onConfirm={handleCropConfirm}
           onCancel={handleCropCancel}
+          t={t}
+        />
+      )}
+
+      {/* Banner Crop Modal */}
+      {bannerCropOpen && bannerCropImageSrc && (
+        <BannerCropModal
+          imageSrc={bannerCropImageSrc}
+          onConfirm={handleBannerCropConfirm}
+          onCancel={handleBannerCropCancel}
           t={t}
         />
       )}
