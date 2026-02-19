@@ -143,6 +143,7 @@ const AvatarCropModal = ({ imageSrc, onConfirm, onCancel, t }) => {
 
   const handleMouseDown = (e) => {
     e.preventDefault()
+    e.stopPropagation()
     setDragging(true)
     setDragStart({ x: e.clientX - position.x, y: e.clientY - position.y })
   }
@@ -178,8 +179,8 @@ const AvatarCropModal = ({ imageSrc, onConfirm, onCancel, t }) => {
   }
 
   return (
-    <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[110]">
-      <div className="bg-indigo border-2 border-lavender-20 rounded-2xl p-6 w-full max-w-sm">
+    <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[110]" onClick={(e) => e.stopPropagation()}>
+      <div className="bg-indigo border-2 border-lavender-20 rounded-2xl p-6 w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
         <h4 className="text-lg text-coral mb-4 text-center">
           <Crop size={18} className="inline mr-2" />{t('crop_avatar')}
         </h4>
