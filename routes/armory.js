@@ -85,7 +85,7 @@ router.get('/:userId/profile', authenticateToken, validateParams({ userId: 'inte
     const { userId } = req.params;
 
     const member = await req.db.get(`
-      SELECT u.id, u.character_name, u.character_class, u.spec, u.raid_role, u.avatar, u.server,
+      SELECT u.id, u.character_name, u.character_class, u.spec, u.raid_role, u.avatar, u.banner, u.server,
              md.current_dkp, md.lifetime_gained, md.lifetime_spent
       FROM users u
       LEFT JOIN member_dkp md ON u.id = md.user_id
@@ -109,6 +109,7 @@ router.get('/:userId/profile', authenticateToken, validateParams({ userId: 'inte
       spec: member.spec,
       raidRole: member.raid_role,
       avatar: member.avatar,
+      banner: member.banner || null,
       server: member.server,
       currentDkp: member.current_dkp || 0,
       lifetimeGained: member.lifetime_gained || 0,
