@@ -441,6 +441,7 @@ const MembersTab = () => {
                         alt={activeBuffs[m.id].buff.name}
                         className="w-5 h-5 rounded border border-yellow-400"
                         style={{ boxShadow: `0 0 8px ${activeBuffs[m.id].buff.raidWide ? '#ff4444' : '#ffff00'}` }}
+                        onError={(e) => { e.currentTarget.style.display = 'none' }}
                       />
                     </div>
                   )}
