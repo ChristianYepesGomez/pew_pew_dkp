@@ -428,6 +428,7 @@ const MyCharacterModal = ({
   const [bannerHover, setBannerHover] = useState(false)
   const [bannerSaving, setBannerSaving] = useState(false)
   const [bannerMsg, setBannerMsg] = useState('')
+  const [bannerMsgOk, setBannerMsgOk] = useState(true)
   const bannerInputRef = useRef(null)
   // Banner crop modal state
   const [bannerCropOpen, setBannerCropOpen] = useState(false)
@@ -589,6 +590,7 @@ const MyCharacterModal = ({
     const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif']
     if (!validTypes.includes(file.type)) {
       setBannerMsg(t('avatar_invalid_type'))
+      setBannerMsgOk(false)
       setTimeout(() => setBannerMsg(''), 3000)
       return
     }
@@ -609,10 +611,13 @@ const MyCharacterModal = ({
     try {
       await authAPI.updateProfile({ banner: croppedImage })
       await refreshUser()
-      setBannerMsg(t('avatar_saved') || 'Banner guardado')
+      setBannerMsgOk(true)
+      setBannerMsg('Banner guardado')
       setTimeout(() => setBannerMsg(''), 3000)
     } catch (error) {
-      setBannerMsg(error.response?.data?.error || 'Error uploading banner')
+      const msg = error.response?.data?.error
+      setBannerMsgOk(false)
+      setBannerMsg(msg || (error.code === 'ERR_NETWORK' || !error.response ? 'Error de conexión — inténtalo de nuevo' : 'Error al subir el banner'))
     } finally {
       setBannerSaving(false)
     }
@@ -629,9 +634,11 @@ const MyCharacterModal = ({
     try {
       await authAPI.updateProfile({ banner: null })
       await refreshUser()
-      setBannerMsg(t('avatar_removed') || 'Banner eliminado')
+      setBannerMsgOk(true)
+      setBannerMsg('Banner eliminado')
       setTimeout(() => setBannerMsg(''), 3000)
     } catch (error) {
+      setBannerMsgOk(false)
       setBannerMsg(error.response?.data?.error || 'Error')
     } finally {
       setBannerSaving(false)
@@ -953,7 +960,7 @@ const MyCharacterModal = ({
                   <p className={`text-xs m-0 mt-1 ${avatarMsg === t('avatar_saved') || avatarMsg === t('avatar_removed') ? 'text-green-400' : 'text-red-400'}`}>{avatarMsg}</p>
                 )}
                 {bannerMsg && (
-                  <p className="text-xs m-0 mt-1 text-green-400">{bannerMsg}</p>
+                  <p className={`text-xs m-0 mt-1 ${bannerMsgOk ? 'text-green-400' : 'text-red-400'}`}>{bannerMsg}</p>
                 )}
               </div>
             </div>
