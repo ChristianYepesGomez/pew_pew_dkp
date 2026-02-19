@@ -826,80 +826,83 @@ const MyCharacterModal = ({
   return createPortal(
     <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[100] p-4" onClick={onClose}>
       <div className="bg-indigo border-2 border-lavender-20 rounded-2xl w-full max-w-2xl shadow-2xl max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
-        {/* Header — banner style */}
+        {/* Header — banner + avatar */}
         {(() => {
           const classColor = CLASS_COLORS[user?.characterClass] || '#A78BFA'
+          const roleBadge = user?.raidRole
+            ? user.raidRole === 'Healer' ? 'bg-green-500/20 text-green-400'
+            : user.raidRole === 'Tank' ? 'bg-blue-500/20 text-blue-400'
+            : 'bg-orange-500/20 text-orange-400'
+            : null
           return (
             <div className="flex-shrink-0">
-              {/* Banner */}
-              <div
-                className="relative h-28 rounded-t-2xl overflow-hidden cursor-pointer group/banner"
-                onMouseEnter={() => setBannerHover(true)}
-                onMouseLeave={() => setBannerHover(false)}
-                onClick={() => !bannerSaving && bannerInputRef.current?.click()}
-              >
-                {/* Background: uploaded image or gradient fallback */}
-                {user?.banner ? (
-                  <img src={user.banner} alt="Banner" className="absolute inset-0 w-full h-full object-cover" />
-                ) : (
-                  <>
-                    <div
-                      className="absolute inset-0"
-                      style={{ background: `linear-gradient(135deg, ${classColor}60 0%, ${classColor}25 55%, transparent 100%)` }}
-                    />
-                    <div className="absolute inset-0 opacity-10"
-                      style={{ backgroundImage: 'repeating-linear-gradient(45deg, #fff 0, #fff 1px, transparent 0, transparent 50%)', backgroundSize: '12px 12px' }}
-                    />
-                  </>
-                )}
-
-                {/* Banner hover overlay */}
-                <div className={`absolute inset-0 bg-black/40 flex items-center justify-center transition-opacity ${bannerHover ? 'opacity-100' : 'opacity-0'}`}>
-                  {bannerSaving ? (
-                    <CircleNotch size={28} className="text-white animate-spin" />
+              {/*
+                Wrapper: relative + pb-10 (40px) creates space below the banner
+                for the avatar to hang. The avatar is absolute bottom-0 so it
+                sits 40px below the banner without being clipped by overflow-hidden.
+              */}
+              <div className="relative pb-10">
+                {/* Banner — overflow-hidden only clips the background, NOT the avatar */}
+                <div
+                  className="relative h-36 rounded-t-2xl overflow-hidden cursor-pointer"
+                  onMouseEnter={() => setBannerHover(true)}
+                  onMouseLeave={() => setBannerHover(false)}
+                  onClick={() => !bannerSaving && bannerInputRef.current?.click()}
+                >
+                  {/* Background */}
+                  {user?.banner ? (
+                    <img src={user.banner} alt="" className="absolute inset-0 w-full h-full object-cover" />
                   ) : (
-                    <Camera size={28} className="text-white drop-shadow" />
+                    <>
+                      <div className="absolute inset-0" style={{ background: `linear-gradient(135deg, ${classColor}70 0%, ${classColor}30 50%, #1a1a3e 100%)` }} />
+                      <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'repeating-linear-gradient(45deg, #fff 0, #fff 1px, transparent 0, transparent 50%)', backgroundSize: '12px 12px' }} />
+                    </>
                   )}
+
+                  {/* Hover overlay with camera hint */}
+                  <div className={`absolute inset-0 bg-black/45 flex flex-col items-center justify-center gap-1.5 transition-opacity ${bannerHover ? 'opacity-100' : 'opacity-0'}`}>
+                    {bannerSaving ? (
+                      <CircleNotch size={26} className="text-white animate-spin" />
+                    ) : (
+                      <>
+                        <Camera size={26} className="text-white" />
+                        <span className="text-xs text-white/80 font-medium">Cambiar banner</span>
+                      </>
+                    )}
+                  </div>
+
+                  {/* Remove banner */}
+                  {user?.banner && !bannerSaving && (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleRemoveBanner() }}
+                      className={`absolute top-2 left-2 w-6 h-6 rounded-full bg-black/60 hover:bg-red-500 flex items-center justify-center transition-all ${bannerHover ? 'opacity-100' : 'opacity-0'}`}
+                      title="Eliminar banner"
+                    >
+                      <X size={12} className="text-white" />
+                    </button>
+                  )}
+
+                  {/* Close modal */}
+                  <button
+                    onClick={(e) => { e.stopPropagation(); onClose() }}
+                    className="absolute top-3 right-3 text-white/70 hover:text-white transition-colors bg-black/30 hover:bg-black/50 rounded-full p-1.5 z-10"
+                  >
+                    <X size={18} />
+                  </button>
+
+                  {/* Hidden banner input */}
+                  <input ref={bannerInputRef} type="file" accept="image/jpeg,image/png,image/webp,image/gif" onChange={handleBannerUpload} disabled={bannerSaving} className="hidden" />
                 </div>
 
-                {/* Remove banner button */}
-                {user?.banner && !bannerSaving && (
-                  <button
-                    onClick={(e) => { e.stopPropagation(); handleRemoveBanner() }}
-                    className={`absolute top-2 left-2 w-6 h-6 rounded-full bg-black/60 hover:bg-red-500 flex items-center justify-center transition-all ${bannerHover ? 'opacity-100' : 'opacity-0'}`}
-                    title="Eliminar banner"
-                  >
-                    <X size={12} className="text-white" />
-                  </button>
-                )}
-
-                {/* Close button */}
-                <button
-                  onClick={(e) => { e.stopPropagation(); onClose() }}
-                  className="absolute top-3 right-3 text-lavender hover:text-cream transition-colors bg-black/30 rounded-full p-1 z-10"
-                >
-                  <X size={20} />
-                </button>
-
-                {/* Hidden banner file input */}
-                <input
-                  ref={bannerInputRef}
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp,image/gif"
-                  onChange={handleBannerUpload}
-                  disabled={bannerSaving}
-                  className="hidden"
-                />
-
-                {/* Avatar — overlapping the banner bottom */}
+                {/* Avatar — outside banner div so overflow-hidden doesn't clip it */}
                 <div
-                  className="absolute -bottom-10 left-6 cursor-pointer"
-                  onMouseEnter={(e) => { e.stopPropagation(); setBannerHover(false); setAvatarHover(true) }}
+                  className="absolute bottom-0 left-6 cursor-pointer z-10"
+                  onMouseEnter={() => { setBannerHover(false); setAvatarHover(true) }}
                   onMouseLeave={() => setAvatarHover(false)}
-                  onClick={(e) => { e.stopPropagation(); window._avatarInput?.click() }}
+                  onClick={() => window._avatarInput?.click()}
                 >
                   <div
-                    className="w-20 h-20 rounded-full bg-lavender-12 flex items-center justify-center overflow-hidden border-4 transition-all"
+                    className="w-24 h-24 rounded-full bg-lavender-12 flex items-center justify-center overflow-hidden border-4 shadow-xl transition-all duration-200"
                     style={{ borderColor: avatarHover ? '#FF6B6B' : classColor }}
                   >
                     {user?.avatar ? (
@@ -909,16 +912,10 @@ const MyCharacterModal = ({
                     )}
                   </div>
                   {/* Avatar hover overlay */}
-                  <div
-                    className={`absolute inset-0 rounded-full bg-black/50 flex items-center justify-center transition-opacity ${avatarHover ? 'opacity-100' : 'opacity-0'}`}
-                  >
-                    {avatarSaving ? (
-                      <CircleNotch size={20} className="text-white animate-spin" />
-                    ) : (
-                      <PencilSimple size={20} className="text-white" />
-                    )}
+                  <div className={`absolute inset-0 rounded-full bg-black/50 flex items-center justify-center transition-opacity ${avatarHover ? 'opacity-100' : 'opacity-0'}`}>
+                    {avatarSaving ? <CircleNotch size={20} className="text-white animate-spin" /> : <PencilSimple size={20} className="text-white" />}
                   </div>
-                  {/* Delete avatar button */}
+                  {/* Remove avatar */}
                   {user?.avatar && !avatarSaving && (
                     <button
                       onClick={(e) => { e.stopPropagation(); handleRemoveAvatar() }}
@@ -928,32 +925,32 @@ const MyCharacterModal = ({
                       <X size={10} className="text-white" />
                     </button>
                   )}
-                  {/* Hidden avatar file input */}
-                  <input
-                    ref={avatarInputRef}
-                    type="file"
-                    accept="image/jpeg,image/png,image/webp,image/gif"
-                    onChange={handleAvatarUpload}
-                    disabled={avatarSaving}
-                    className="hidden"
-                  />
+                  {/* Hidden avatar input */}
+                  <input ref={avatarInputRef} type="file" accept="image/jpeg,image/png,image/webp,image/gif" onChange={handleAvatarUpload} disabled={avatarSaving} className="hidden" />
                 </div>
               </div>
 
-              {/* Name / class row */}
-              <div className="pt-12 px-6 pb-4 border-b border-lavender-20/30">
-                <h3 className="text-2xl font-bold m-0" style={{ color: classColor }}>
+              {/* Name / class / spec row — starts exactly at avatar bottom */}
+              <div className="px-6 pt-2 pb-4 border-b border-lavender-20/30">
+                <h3 className="text-xl font-bold m-0 leading-tight" style={{ color: classColor }}>
                   {user?.characterName || user?.username}
                 </h3>
                 {user?.characterClass ? (
-                  <p className="text-lavender m-0">{user?.characterClass} - {user?.spec || '-'}</p>
+                  <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                    <p className="text-sm text-lavender m-0">
+                      {user.characterClass}{user.spec ? ` · ${user.spec}` : ''}
+                    </p>
+                    {roleBadge && (
+                      <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${roleBadge}`}>
+                        {user.raidRole}
+                      </span>
+                    )}
+                  </div>
                 ) : (
-                  <p className="text-lavender m-0">{t('no_character')}</p>
+                  <p className="text-sm text-lavender m-0">{t('no_character')}</p>
                 )}
                 {avatarMsg && (
-                  <p className={`text-xs m-0 mt-1 ${avatarMsg === t('avatar_saved') || avatarMsg === t('avatar_removed') ? 'text-green-400' : 'text-red-400'}`}>
-                    {avatarMsg}
-                  </p>
+                  <p className={`text-xs m-0 mt-1 ${avatarMsg === t('avatar_saved') || avatarMsg === t('avatar_removed') ? 'text-green-400' : 'text-red-400'}`}>{avatarMsg}</p>
                 )}
                 {bannerMsg && (
                   <p className="text-xs m-0 mt-1 text-green-400">{bannerMsg}</p>
