@@ -26,8 +26,11 @@ async function getRaidDates(db, weeks = 2) {
   });
   const spainDateStr = spainFormatter.format(new Date()); // "2024-02-06" format
   const [year, month, day] = spainDateStr.split('-').map(Number);
-  const today = new Date(year, month - 1, day);
-  today.setHours(0, 0, 0, 0);
+  const realToday = new Date(year, month - 1, day);
+  realToday.setHours(0, 0, 0, 0);
+  // No mostrar fechas de raid antes del inicio oficial de temporada (18 marzo 2026)
+  const seasonStart = new Date(2026, 2, 18); // March 18, 2026
+  const today = realToday < seasonStart ? seasonStart : realToday;
 
   for (let i = 0; i < weeks * 7; i++) {
     const date = new Date(today);
