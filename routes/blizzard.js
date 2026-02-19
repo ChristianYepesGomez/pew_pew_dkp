@@ -13,8 +13,8 @@ const router = Router();
 
 // ── OAuth CSRF State Protection ──
 const OAUTH_STATE_SECRET = process.env.OAUTH_STATE_SECRET;
-if (!OAUTH_STATE_SECRET) {
-  throw new Error('FATAL: OAUTH_STATE_SECRET env var must be set');
+if (isBlizzardOAuthConfigured() && !OAUTH_STATE_SECRET) {
+  throw new Error('FATAL: OAUTH_STATE_SECRET env var must be set when Blizzard OAuth is configured');
 }
 
 function signState(data) {
