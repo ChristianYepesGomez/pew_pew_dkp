@@ -156,50 +156,62 @@ const ArmoryModal = ({ memberId, onClose }) => {
         className="bg-indigo border-2 border-lavender-20 rounded-2xl w-full max-w-3xl shadow-2xl max-h-[90vh] flex flex-col"
         onClick={e => e.stopPropagation()}
       >
-        {/* Header: banner + avatar */}
-        <div className="relative pb-10 shrink-0">
-          {/* Banner area */}
-          <div
-            className="relative h-36 rounded-t-2xl overflow-hidden"
-            style={profile.banner
-              ? { backgroundImage: `url(${profile.banner})`, backgroundSize: 'cover', backgroundPosition: 'center' }
-              : { background: 'linear-gradient(135deg, #1e1b2e 0%, #2d1b3d 50%, #1a2640 100%)' }
-            }
-          >
-            {/* Bottom gradient for visual continuity */}
-            <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent" />
-            {/* Close button */}
-            <button
-              onClick={onClose}
-              className="absolute top-3 right-3 text-white/70 hover:text-white transition-colors bg-black/30 rounded-full p-1"
-            >
-              <X size={20} />
+        {/* Header: banner background, avatar + text in one row */}
+        <div className="relative p-6 border-b border-lavender-20 overflow-hidden rounded-t-2xl shrink-0">
+          {/* Banner background image */}
+          {profile.banner && (
+            <div
+              className="absolute inset-0"
+              style={{ backgroundImage: `url(${profile.banner})`, backgroundSize: 'cover', backgroundPosition: 'center' }}
+            />
+          )}
+          {/* Gradient overlay: dark on left (where text is), fades right */}
+          {profile.banner && (
+            <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/50 to-black/10" />
+          )}
+          {/* Content row (relative so it sits above the overlay) */}
+          <div className="relative flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div
+                className="w-16 h-16 rounded-full bg-lavender-12 flex items-center justify-center overflow-hidden border-2 shrink-0"
+                style={{ borderColor: CLASS_COLORS[profile.characterClass] || '#b1a7d0' }}
+              >
+                {profile.avatar ? (
+                  <img src={profile.avatar} alt="" className="w-full h-full object-cover" />
+                ) : (
+                  <span className="text-2xl font-bold" style={{ color: CLASS_COLORS[profile.characterClass] || '#FFF' }}>
+                    {profile.characterName?.charAt(0).toUpperCase()}
+                  </span>
+                )}
+              </div>
+              <div>
+                <h3
+                  className="text-2xl font-bold"
+                  style={{
+                    color: CLASS_COLORS[profile.characterClass] || '#ffaf9d',
+                    textShadow: profile.banner ? '0 1px 4px rgba(0,0,0,0.9)' : 'none',
+                  }}
+                >
+                  {profile.characterName}
+                </h3>
+                <div className="flex items-center gap-2 mt-1">
+                  {SPEC_ICONS[profile.spec] && <img src={SPEC_ICONS[profile.spec]} alt="" className="w-5 h-5 rounded" />}
+                  <p
+                    className="text-sm"
+                    style={{
+                      color: profile.banner ? 'rgba(255,255,255,0.85)' : undefined,
+                      textShadow: profile.banner ? '0 1px 3px rgba(0,0,0,0.8)' : 'none',
+                    }}
+                  >
+                    {profile.characterClass} {profile.spec ? `- ${profile.spec}` : ''}
+                  </p>
+                  <PillBadge color={roleColor}>{role}</PillBadge>
+                </div>
+              </div>
+            </div>
+            <button onClick={onClose} className="text-lavender hover:text-cream transition-colors shrink-0 self-start">
+              <X size={24} />
             </button>
-          </div>
-          {/* Avatar — outside overflow-hidden so it hangs below the banner */}
-          <div
-            className="absolute bottom-0 left-6 w-20 h-20 rounded-full bg-lavender-12 flex items-center justify-center overflow-hidden border-4 shadow-xl"
-            style={{ borderColor: CLASS_COLORS[profile.characterClass] || '#b1a7d0' }}
-          >
-            {profile.avatar ? (
-              <img src={profile.avatar} alt="" className="w-full h-full object-cover" />
-            ) : (
-              <span className="text-2xl font-bold" style={{ color: CLASS_COLORS[profile.characterClass] || '#FFF' }}>
-                {profile.characterName?.charAt(0).toUpperCase()}
-              </span>
-            )}
-          </div>
-        </div>
-
-        {/* Name / class / spec row */}
-        <div className="px-6 pt-2 pb-4 border-b border-lavender-20 shrink-0">
-          <h3 className="text-2xl font-bold" style={{ color: CLASS_COLORS[profile.characterClass] || '#ffaf9d' }}>
-            {profile.characterName}
-          </h3>
-          <div className="flex items-center gap-2 mt-1">
-            {SPEC_ICONS[profile.spec] && <img src={SPEC_ICONS[profile.spec]} alt="" className="w-5 h-5 rounded" />}
-            <p className="text-lavender text-sm">{profile.characterClass} {profile.spec ? `- ${profile.spec}` : ''}</p>
-            <PillBadge color={roleColor}>{role}</PillBadge>
           </div>
         </div>
 
