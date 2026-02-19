@@ -302,7 +302,7 @@ router.post('/admin-reset-password', authenticateToken, authorizeRole(['admin', 
 router.get('/me', authenticateToken, async (req, res) => {
   try {
     const user = await req.db.get(`
-      SELECT u.id, u.username, u.character_name, u.character_class, u.role, u.spec, u.raid_role, u.email, u.avatar,
+      SELECT u.id, u.username, u.character_name, u.character_class, u.role, u.spec, u.raid_role, u.email, u.avatar, u.banner,
              u.onboarding_step, md.current_dkp, md.lifetime_gained, md.lifetime_spent
       FROM users u
       LEFT JOIN member_dkp md ON u.id = md.user_id
@@ -323,6 +323,7 @@ router.get('/me', authenticateToken, async (req, res) => {
       raidRole: user.raid_role,
       email: user.email || null,
       avatar: user.avatar || null,
+      banner: user.banner || null,
       onboardingStep: user.onboarding_step ?? 0,
       currentDkp: user.current_dkp || 0,
       lifetimeGained: user.lifetime_gained || 0,
@@ -334,10 +335,10 @@ router.get('/me', authenticateToken, async (req, res) => {
   }
 });
 
-// Update own profile (email, password, avatar) — 5mb limit for avatar uploads
-router.put('/profile', express.json({ limit: '5mb' }), authenticateToken, async (req, res) => {
+// Update own profile (email, password, avatar, banner) — 10mb limit for image uploads
+router.put('/profile', express.json({ limit: '10mb' }), authenticateToken, async (req, res) => {
   try {
-    const { email, currentPassword, newPassword, avatar } = req.body;
+    const { email, currentPassword, newPassword, avatar, banner } = req.body;
     const userId = req.user.userId;
 
     // Handle email update
@@ -395,6 +396,22 @@ router.put('/profile', express.json({ limit: '5mb' }), authenticateToken, async 
       }
       // Notify clients to refresh member list (avatar changed)
       req.app.get('io').emit('member_updated', { memberId: userId });
+    }
+
+    // Handle banner upload (Base64 image, max 500KB)
+    if (banner !== undefined) {
+      if (banner === null || banner === '') {
+        await req.db.run('UPDATE users SET banner = NULL, updated_at = CURRENT_TIMESTAMP WHERE id = ?', userId);
+      } else {
+        const base64Pattern = /^data:image\/(jpeg|jpg|png|webp|gif);base64,/i;
+        if (!base64Pattern.test(banner)) {
+          return error(res, 'Invalid banner format. Use JPEG, PNG, WebP, or GIF.', 400, ErrorCodes.VALIDATION_ERROR);
+        }
+        if (banner.length > 700000) {
+          return error(res, 'Banner too large. Maximum 500KB allowed.', 400, ErrorCodes.VALIDATION_ERROR);
+        }
+        await req.db.run('UPDATE users SET banner = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', banner, userId);
+      }
     }
 
     return success(res, null, 'Profile updated successfully');
