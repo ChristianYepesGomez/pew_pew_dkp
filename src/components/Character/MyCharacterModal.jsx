@@ -106,11 +106,15 @@ const cropAndCompressImage = (imageSrc, cropData, outputSize = 400, maxBytes = 1
       ctx.imageSmoothingEnabled = true
       ctx.imageSmoothingQuality = 'high'
 
-      // Calculate the source area based on crop data
+      // Calculate the source area based on crop data.
+      // The preview container is 256px (w-64 h-64). Position (x,y) is a screen-pixel
+      // offset from center. To convert to image pixels: divide by scale.
+      // Crop size in image pixels = container_size / scale.
       const { x, y, scale } = cropData
-      const cropSize = Math.min(img.width, img.height) / scale
-      const sourceX = (img.width / 2) - (cropSize / 2) - (x * cropSize / outputSize)
-      const sourceY = (img.height / 2) - (cropSize / 2) - (y * cropSize / outputSize)
+      const containerSize = 256 // matches w-64 h-64 in Tailwind
+      const cropSize = containerSize / scale
+      const sourceX = img.width / 2 - x / scale - cropSize / 2
+      const sourceY = img.height / 2 - y / scale - cropSize / 2
 
       // Draw the cropped and scaled image
       ctx.drawImage(img, sourceX, sourceY, cropSize, cropSize, 0, 0, outputSize, outputSize)
