@@ -1,6 +1,6 @@
 import { useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
-import { X } from '@phosphor-icons/react'
+import { X, ArrowSquareOut } from '@phosphor-icons/react'
 import { useLanguage } from '../../hooks/useLanguage'
 import CLASS_COLORS from '../../utils/classColors'
 import ExternalBuffBadge from './ExternalBuffBadge'
@@ -95,10 +95,11 @@ const LeaderboardModal = ({ title, Icon, color, entries, format, valueColorFn, b
                     href={entry.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-sm font-bold tabular-nums flex-shrink-0 hover:opacity-75 transition-opacity hover:underline underline-offset-2"
+                    className="inline-flex items-center gap-1 text-sm font-bold tabular-nums flex-shrink-0 hover:opacity-75 transition-opacity hover:underline underline-offset-2"
                     style={{ color: valueColorFn ? valueColorFn(entry.value) : color }}
                   >
                     {format(entry.value)}
+                    <ArrowSquareOut size={12} />
                   </a>
                 ) : (
                   <span

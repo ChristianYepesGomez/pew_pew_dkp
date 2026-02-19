@@ -66,12 +66,24 @@ const LeaderboardCard = ({ cardKey, title, Icon, color, entries, format, valueCo
                 {entry.character_name}
               </span>
               {showBuffs && <ExternalBuffBadge buffsJson={entry.external_buffs_json} />}
-              <span
-                className="text-sm font-bold tabular-nums flex-shrink-0"
-                style={{ color: valueColorFn ? valueColorFn(entry.value) : color }}
-              >
-                {format(entry.value)}
-              </span>
+              {(entry.report_code && entry.fight_id) ? (
+                <a
+                  href={`https://www.warcraftlogs.com/reports/${entry.report_code}#fight=${entry.fight_id}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-sm font-bold tabular-nums flex-shrink-0 hover:opacity-75 transition-opacity hover:underline underline-offset-2"
+                  style={{ color: valueColorFn ? valueColorFn(entry.value) : color }}
+                >
+                  {format(entry.value)}
+                </a>
+              ) : (
+                <span
+                  className="text-sm font-bold tabular-nums flex-shrink-0"
+                  style={{ color: valueColorFn ? valueColorFn(entry.value) : color }}
+                >
+                  {format(entry.value)}
+                </span>
+              )}
             </div>
           ))}
         </div>
