@@ -1,4 +1,4 @@
-import { SlashCommandBuilder, ChannelType, PermissionFlagsBits } from 'discord.js';
+import { SlashCommandBuilder, ChannelType } from 'discord.js';
 import { db } from '../../database.js';
 import { resolveUser, hasRole } from '../utils/permissions.js';
 import { createLogger } from '../../lib/logger.js';

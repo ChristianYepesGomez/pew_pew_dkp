@@ -4,6 +4,7 @@ import { request, setupTestDb, cleanupTestDb, createTestUser, expectSuccess, exp
 describe('BIS wishlist — /api/bis', () => {
   let userAToken, userAId;
   let userBToken, userBId;
+  let officerToken;
 
   // Shared item data
   const sampleItem = {
@@ -23,10 +24,12 @@ describe('BIS wishlist — /api/bis', () => {
     await setupTestDb();
     const userA = await createTestUser({ role: 'raider' });
     const userB = await createTestUser({ role: 'raider' });
+    const officer = await createTestUser({ role: 'officer' });
     userAToken = userA.token;
     userAId = userA.userId;
     userBToken = userB.token;
     userBId = userB.userId;
+    officerToken = officer.token;
   });
 
   afterAll(async () => {
@@ -238,10 +241,10 @@ describe('BIS wishlist — /api/bis', () => {
 
   // ── GET /api/bis/user/:userId ──────────────────────────────────
   describe('GET /api/bis/user/:userId', () => {
-    it('returns another user BIS list', async () => {
+    it('officer can view another user BIS list', async () => {
       const res = await request
         .get(`/api/bis/user/${userBId}`)
-        .set('Authorization', `Bearer ${userAToken}`);
+        .set('Authorization', `Bearer ${officerToken}`);
 
       const data = expectSuccess(res);
       expect(Array.isArray(data)).toBe(true);
@@ -253,16 +256,24 @@ describe('BIS wishlist — /api/bis', () => {
       const newUser = await createTestUser();
       const res = await request
         .get(`/api/bis/user/${newUser.userId}`)
-        .set('Authorization', `Bearer ${userAToken}`);
+        .set('Authorization', `Bearer ${officerToken}`);
 
       const data = expectSuccess(res);
       expect(data).toEqual([]);
     });
 
+    it('raider cannot view another user BIS list (403)', async () => {
+      const res = await request
+        .get(`/api/bis/user/${userBId}`)
+        .set('Authorization', `Bearer ${userAToken}`);
+
+      expect(res.status).toBe(403);
+    });
+
     it('rejects invalid userId (400)', async () => {
       const res = await request
         .get('/api/bis/user/abc')
-        .set('Authorization', `Bearer ${userAToken}`);
+        .set('Authorization', `Bearer ${officerToken}`);
 
       expect(res.status).toBe(400);
     });

@@ -12,7 +12,10 @@ const log = createLogger('Route:Blizzard');
 const router = Router();
 
 // ── OAuth CSRF State Protection ──
-const OAUTH_STATE_SECRET = process.env.OAUTH_STATE_SECRET || 'dev-oauth-state-secret';
+const OAUTH_STATE_SECRET = process.env.OAUTH_STATE_SECRET;
+if (!OAUTH_STATE_SECRET) {
+  throw new Error('FATAL: OAUTH_STATE_SECRET env var must be set');
+}
 
 function signState(data) {
   const payload = JSON.stringify(data);

@@ -625,6 +625,8 @@ export async function runMigrations(targetDb, connectionUrl = dbUrl) {
     'CREATE INDEX IF NOT EXISTS idx_refresh_tokens_family ON refresh_tokens(token_family)',
     'CREATE INDEX IF NOT EXISTS idx_refresh_tokens_user ON refresh_tokens(user_id)',
     'CREATE INDEX IF NOT EXISTS idx_users_discord_id ON users(discord_id)',
+    'CREATE INDEX IF NOT EXISTS idx_users_username ON users(username)',
+    'CREATE INDEX IF NOT EXISTS idx_characters_name ON characters(character_name)',
     'CREATE INDEX IF NOT EXISTS idx_bot_config_guild ON bot_config(guild_id)',
     'CREATE INDEX IF NOT EXISTS idx_discord_link_codes_code ON discord_link_codes(code)',
     // Loot Council indexes

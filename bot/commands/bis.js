@@ -1,7 +1,7 @@
 import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
 import { db } from '../../database.js';
 import { resolveUser, formatUser } from '../utils/permissions.js';
-import { CLASS_COLORS, RARITY_COLORS } from '../../src/utils/constants.js';
+import { CLASS_COLORS } from '../../src/utils/constants.js';
 import { createLogger } from '../../lib/logger.js';
 
 const log = createLogger('Bot:BIS');

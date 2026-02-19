@@ -106,7 +106,7 @@ async function seedFightPerformance() {
         // Skip ~15% of fights (player absent)
         if (Math.random() < 0.15) continue;
 
-        let dps, hps, dtps, damageDone, healingDone, damageTaken;
+        let dps, hps, dtps, damageDone, healingDone;
 
         if (profile.role === 'healer') {
           hps = rf(profile.hps[0], profile.hps[1]);
@@ -121,7 +121,7 @@ async function seedFightPerformance() {
           damageDone = Math.round(dps * durationSec);
           healingDone = Math.round(hps * durationSec);
         }
-        damageTaken = Math.round(dtps * durationSec);
+        const damageTaken = Math.round(dtps * durationSec);
 
         const deaths = Math.random() < 0.12 ? 1 : 0;
         const healthPotions = Math.random() < profile.potions[1] ? (Math.random() < profile.potions[0] ? 2 : 1) : 0;

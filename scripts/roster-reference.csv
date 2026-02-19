@@ -1,0 +1,14 @@
+Clase,Specs disponibles,Roles
+Death Knight,"Blood, Frost, Unholy",Tank / DPS
+Demon Hunter,"Havoc, Vengeance",Tank / DPS
+Druid,"Balance, Feral, Guardian, Restoration",Tank / Healer / DPS
+Evoker,"Augmentation, Devastation, Preservation",Healer / DPS
+Hunter,"Beast Mastery, Marksmanship, Survival",DPS
+Mage,"Arcane, Fire, Frost",DPS
+Monk,"Brewmaster, Mistweaver, Windwalker",Tank / Healer / DPS
+Paladin,"Holy, Protection, Retribution",Tank / Healer / DPS
+Priest,"Discipline, Holy, Shadow",Healer / DPS
+Rogue,"Assassination, Outlaw, Subtlety",DPS
+Shaman,"Elemental, Enhancement, Restoration",Healer / DPS
+Warlock,"Affliction, Demonology, Destruction",DPS
+Warrior,"Arms, Fury, Protection",Tank / DPS

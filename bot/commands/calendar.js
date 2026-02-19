@@ -1,7 +1,6 @@
 import { SlashCommandBuilder } from 'discord.js';
 import { db } from '../../database.js';
-import { resolveUser } from '../utils/permissions.js';
-import { buildCalendarEmbed, buildMySignupsEmbed } from '../embeds/calendar.js';
+import { buildCalendarEmbed } from '../embeds/calendar.js';
 import { createLogger } from '../../lib/logger.js';
 
 const log = createLogger('Bot:Calendar');

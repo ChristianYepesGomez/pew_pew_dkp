@@ -1,8 +1,8 @@
 import { createClient } from '@libsql/client';
 
 const client = createClient({
-  url: 'libsql://dkp-christianyepesgomez.aws-eu-west-1.turso.io',
-  authToken: 'eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJhIjoicnciLCJpYXQiOjE3NzAxNTY2NTUsImlkIjoiYmMzNmI0ODQtMDExNy00MTkyLTkyYjMtODY0MzM4OGU5ODYzIiwicmlkIjoiNTU2ZDEwYjctMmM1My00ODBjLTk5YTEtMmM0Njk3OTlmMmFkIn0.dEZ_2bHHo18xoPhwJv6YmpNQnIcGcqrigQGKePJ5-OUSujnrYURgLiPIu5DO8X8lTgNUpmqrvY4o8rda2AuQDw'
+  url: process.env.TURSO_DATABASE_URL,
+  authToken: process.env.TURSO_AUTH_TOKEN,
 });
 
 async function main() {

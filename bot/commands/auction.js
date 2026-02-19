@@ -1,7 +1,7 @@
 import { SlashCommandBuilder } from 'discord.js';
 import { db } from '../../database.js';
 import { resolveUser, hasRole } from '../utils/permissions.js';
-import { buildAuctionListEmbed, buildAuctionEmbed } from '../embeds/auction.js';
+import { buildAuctionListEmbed } from '../embeds/auction.js';
 import { scheduleAuctionClose, SNIPE_THRESHOLD_MS, SNIPE_EXTENSION_MS } from '../../lib/auctionScheduler.js';
 import { createLogger } from '../../lib/logger.js';
 

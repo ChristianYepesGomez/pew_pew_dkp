@@ -15,8 +15,11 @@ export async function sendPasswordResetEmail(toEmail, username, resetUrl) {
   const from = process.env.SMTP_FROM || 'Pew Pew Kittens DKP <onboarding@resend.dev>';
 
   try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8000);
     const res = await fetch(RESEND_API, {
       method: 'POST',
+      signal: controller.signal,
       headers: {
         'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
@@ -48,7 +51,7 @@ export async function sendPasswordResetEmail(toEmail, username, resetUrl) {
       </div>
     `,
       }),
-    });
+    }).finally(() => clearTimeout(timeout));
 
     if (!res.ok) {
       const body = await res.json().catch(() => ({}));
@@ -56,7 +59,7 @@ export async function sendPasswordResetEmail(toEmail, username, resetUrl) {
       return false;
     }
 
-    log.info(`Password reset email sent to ${toEmail}`);
+    log.info('Password reset email sent', { domain: toEmail.split('@')[1] });
     return true;
   } catch (err) {
     log.error('Failed to send email via Resend', { error: err.message });

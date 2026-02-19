@@ -75,7 +75,7 @@ router.post('/preview', adminLimiter, authenticateToken, authorizeRole(['admin',
     }
 
     if (!isWCLConfigured()) {
-      return error(res, 'Warcraft Logs API not configured. Please set credentials in .env', 503, ErrorCodes.EXTERNAL_API_ERROR);
+      return error(res, 'Warcraft Logs integration not available', 503, ErrorCodes.EXTERNAL_API_ERROR);
     }
 
     const reportData = await processWarcraftLog(url);

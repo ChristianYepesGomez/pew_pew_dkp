@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import bcrypt from 'bcryptjs';
+import crypto from 'crypto';
 import { authenticateToken, authorizeRole } from '../middleware/auth.js';
 import { adminLimiter } from '../lib/rateLimiters.js';
 import { getCachedConfig, getCurrentRaidWeek, addDkpWithCap } from '../lib/helpers.js';
@@ -141,13 +142,17 @@ export const vaultRouter = Router();
 // Cron endpoint for processing weekly vault (called by external scheduler like cron-job.org)
 // Secured by CRON_SECRET header - no user auth needed
 // Schedule: Wednesdays at 8:00 AM Madrid time
-vaultRouter.post('/cron/process-vault', async (req, res) => {
+vaultRouter.post('/cron/process-vault', adminLimiter, async (req, res) => {
   try {
     const cronSecret = process.env.CRON_SECRET;
-    const providedSecret = req.headers['x-cron-secret'] || req.query.secret;
+    const providedSecret = req.headers['x-cron-secret'];
 
-    if (!cronSecret || providedSecret !== cronSecret) {
-      log.info('Cron vault: Invalid or missing secret');
+    const isValid = cronSecret && providedSecret &&
+      providedSecret.length === cronSecret.length &&
+      crypto.timingSafeEqual(Buffer.from(providedSecret), Buffer.from(cronSecret));
+
+    if (!isValid) {
+      log.warn('Cron vault: Invalid or missing secret');
       return error(res, 'Unauthorized', 401, ErrorCodes.UNAUTHORIZED);
     }
 

@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { authenticateToken } from '../middleware/auth.js';
+import { userLimiter } from '../lib/rateLimiters.js';
 import { createLogger } from '../lib/logger.js';
 import { success, error } from '../lib/response.js';
 import { ErrorCodes } from '../lib/errorCodes.js';
@@ -34,7 +35,7 @@ router.get('/', authenticateToken, async (req, res) => {
 });
 
 // Create new character
-router.post('/', authenticateToken, async (req, res) => {
+router.post('/', userLimiter, authenticateToken, async (req, res) => {
   try {
     const { characterName, characterClass, spec, raidRole, realm, realmSlug } = req.body;
     const userId = req.user.userId;

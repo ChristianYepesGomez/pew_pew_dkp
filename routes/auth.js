@@ -119,7 +119,7 @@ router.post('/register', authLimiter, async (req, res) => {
       VALUES (?, 0, 0, 0, 'DPS')
     `, userId);
 
-    log.info(`New user registered: ${username} (email: ${email})`);
+    log.info(`New user registered: ${username}`);
 
     // Issue tokens on registration so user is immediately logged in
     const newUser = { id: userId, username: username.trim(), role: 'raider' };
@@ -184,7 +184,7 @@ router.post('/forgot-password', forgotPasswordLimiter, async (req, res) => {
       log.info(`Password reset link for ${user.username}: ${resetUrl}`);
     }
 
-    return success(res, {}, emailSent ? 'Password reset link sent to your email' : 'Email not configured. Check server console for reset link.');
+    return success(res, emailSent ? {} : { resetToken }, emailSent ? 'Password reset link sent to your email' : 'Email not configured. Check server console for reset link.');
 
   } catch (err) {
     log.error('Forgot password error', err);
@@ -197,8 +197,8 @@ router.post('/reset-password', authLimiter, async (req, res) => {
   try {
     const { token, password } = req.body;
 
-    if (!token || !password) {
-      return error(res, 'Token and password required', 400, ErrorCodes.VALIDATION_ERROR);
+    if (!token || !password || password.length < 6) {
+      return error(res, 'Token and password required (min 6 characters)', 400, ErrorCodes.VALIDATION_ERROR);
     }
 
     let decoded;

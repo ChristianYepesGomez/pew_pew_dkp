@@ -10,7 +10,7 @@ import axios from 'axios';
 
 const API_URL = process.env.API_URL || 'http://localhost:3000/api';
 const ADMIN_USERNAME = process.env.ADMIN_USERNAME || 'chris';
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'asd';
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
 
 const WCL_REPORTS = [
   'https://www.warcraftlogs.com/reports/pBwWjLCGZbHyadYP',

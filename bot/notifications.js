@@ -1,6 +1,5 @@
 import { db } from '../database.js';
 import { buildAuctionEndedEmbed, buildBidEmbed } from './embeds/auction.js';
-import { buildRaidSummaryEmbed } from './embeds/calendar.js';
 import { createLogger } from '../lib/logger.js';
 import { EmbedBuilder } from 'discord.js';
 

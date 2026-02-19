@@ -11,7 +11,8 @@ const router = Router();
 // Attendance analytics
 router.get('/attendance', authenticateToken, async (req, res) => {
   try {
-    const weeks = parseInt(String(req.query.weeks)) || 8;
+    let weeks = parseInt(String(req.query.weeks)) || 8;
+    if (isNaN(weeks) || weeks < 1 || weeks > 52) weeks = 8;
     const results = await req.db.all(`
       SELECT u.id, u.character_name, u.character_class,
         COUNT(CASE WHEN ma.status = 'confirmed' THEN 1 END) as confirmed,
@@ -47,7 +48,8 @@ router.get('/attendance', authenticateToken, async (req, res) => {
 // DKP trends
 router.get('/dkp-trends', authenticateToken, async (req, res) => {
   try {
-    const weeks = parseInt(String(req.query.weeks)) || 12;
+    let weeks = parseInt(String(req.query.weeks)) || 12;
+    if (isNaN(weeks) || weeks < 1 || weeks > 52) weeks = 12;
     const trends = await req.db.all(`
       SELECT
         strftime('%Y-%W', created_at) as week,

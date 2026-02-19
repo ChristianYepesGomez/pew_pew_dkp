@@ -2,8 +2,8 @@ import fetch from 'node-fetch';
 import { createClient } from '@libsql/client';
 
 const client = createClient({
-  url: 'libsql://dkp-christianyepesgomez.aws-eu-west-1.turso.io',
-  authToken: 'eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJhIjoicnciLCJpYXQiOjE3NzAxNTY2NTUsImlkIjoiYmMzNmI0ODQtMDExNy00MTkyLTkyYjMtODY0MzM4OGU5ODYzIiwicmlkIjoiNTU2ZDEwYjctMmM1My00ODBjLTk5YTEtMmM0Njk3OTlmMmFkIn0.dEZ_2bHHo18xoPhwJv6YmpNQnIcGcqrigQGKePJ5-OUSujnrYURgLiPIu5DO8X8lTgNUpmqrvY4o8rda2AuQDw'
+  url: process.env.TURSO_DATABASE_URL,
+  authToken: process.env.TURSO_AUTH_TOKEN,
 });
 
 // Get WCL access token
@@ -11,7 +11,7 @@ async function getAccessToken() {
   const tokenRes = await fetch('https://www.warcraftlogs.com/oauth/token', {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: 'grant_type=client_credentials&client_id=a0fca498-35b2-424f-b5c9-7d7522e623e2&client_secret=YMuWfAzw5l7fSHkso3ZKO2jzj5M65JY4lNHeQQzu'
+    body: `grant_type=client_credentials&client_id=${process.env.WCL_CLIENT_ID}&client_secret=${process.env.WCL_CLIENT_SECRET}`
   });
   const data = await tokenRes.json();
   return data.access_token;
