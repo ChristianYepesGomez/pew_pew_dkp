@@ -7,7 +7,6 @@ import Register from './pages/Register'
 import ForgotPassword from './pages/ForgotPassword'
 import ResetPassword from './pages/ResetPassword'
 import Dashboard from './pages/Dashboard'
-import RoleSwitcher from './components/Dev/RoleSwitcher'
 import OfflineBanner from './components/Common/OfflineBanner'
 
 class ErrorBoundary extends Component {
@@ -66,7 +65,6 @@ function App() {
         <Route path="/reset-password/:token" element={!isAuthenticated ? <ResetPassword /> : <Navigate to="/" />} />
         <Route path="/" element={isAuthenticated ? <Dashboard /> : <Navigate to="/login" />} />
       </Routes>
-      {isAuthenticated && <RoleSwitcher />}
     </ErrorBoundary>
   )
 }
