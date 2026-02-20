@@ -29,10 +29,11 @@ const getOAuthUrl = (region) => `https://${region}.battle.net/oauth/token`;
 
 // Current raid instance IDs - UPDATE THESE WHEN NEW RAIDS RELEASE
 // Find IDs at: https://wowhead.com/raids or via Blizzard API journal-instance index
+// Also update EXPANSION_DATA + CURRENT_EXPANSION/CURRENT_TIER in services/raids.js
 const CURRENT_RAID_INSTANCES = [
   { id: 1302, name: 'Manaforge Omega', expansion: 'The War Within', season: 3 },
-  // Add more raids here when they release
-  // { id: 1296, name: 'Liberation of Undermine', expansion: 'The War Within', season: 2 },
+  // TODO (nueva expansión): añadir la nueva raid aquí y comentar la anterior
+  // { id: ???, name: '???', expansion: 'Midnight', season: 1 },
 ];
 
 // Excluded item types (crafting mats, currency, etc.)

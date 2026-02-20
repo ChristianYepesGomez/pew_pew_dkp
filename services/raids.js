@@ -74,10 +74,52 @@ const EXPANSION_DATA = {
         ]
       }
     ]
-  }
+  },
+
+  // ── NEW EXPANSION ──────────────────────────────────────────────────────
+  // TODO: Fill in all values marked with ??? once the expansion is live
+  //
+  // WCL Zone ID:      warcraftlogs.com/zone/rankings/??? (número en la URL)
+  // WCL Encounter ID: WCL API explorer o del primer log importado
+  // Blizzard ID:      develop.battle.net → Game Data → Raid → Journal Instance
+  // Boss slugs:       mythictrap.com cuando publiquen las guías
+  //
+  // IMPORTANTE: También actualizar en blizzardAPI.js → CURRENT_RAID_INSTANCES
+  //             y cambiar CURRENT_EXPANSION + CURRENT_TIER abajo
+  // ──────────────────────────────────────────────────────────────────────
+  // 'Midnight': {
+  //   id: ???, // TODO: expansion ID en WCL (warcraftlogs.com/zone/rankings, ver el expansion filter)
+  //   tiers: [
+  //     {
+  //       tier: 1,
+  //       zones: [
+  //         {
+  //           wclZoneId: ???, // TODO: zona de WCL (número en la URL de rankings)
+  //           name: "???",    // TODO: nombre de la raid
+  //           slug: "???",    // TODO: slug para MythicTrap (kebab-case del nombre)
+  //           bosses: [
+  //             { encounterID: ???, name: "???", slug: "???", order: 1 },
+  //             { encounterID: ???, name: "???", slug: "???", order: 2 },
+  //             { encounterID: ???, name: "???", slug: "???", order: 3 },
+  //             { encounterID: ???, name: "???", slug: "???", order: 4 },
+  //             { encounterID: ???, name: "???", slug: "???", order: 5 },
+  //             { encounterID: ???, name: "???", slug: "???", order: 6 },
+  //             { encounterID: ???, name: "???", slug: "???", order: 7 },
+  //             { encounterID: ???, name: "???", slug: "???", order: 8 },
+  //           ]
+  //         }
+  //       ]
+  //     }
+  //   ]
+  // },
 };
 
-// Current tier (update when new tier releases)
+// ── Current expansion/tier tracking ──────────────────────────────────
+// Update BOTH values when a new expansion or tier releases.
+// CURRENT_EXPANSION must match exactly a key in EXPANSION_DATA above.
+// This prevents is_current=1 from being set on same-numbered tiers
+// in multiple expansions (e.g. tier 1 of TWW vs tier 1 of Midnight).
+const CURRENT_EXPANSION = 'The War Within';
 const CURRENT_TIER = 3;
 
 // ── Mythic Trap URL Helper ────────────────────────────────────────────
@@ -101,7 +143,7 @@ export async function seedRaidData(db) {
 
   for (const [expansion, data] of Object.entries(EXPANSION_DATA)) {
     for (const tierData of data.tiers) {
-      const isCurrent = tierData.tier === CURRENT_TIER ? 1 : 0;
+      const isCurrent = (expansion === CURRENT_EXPANSION && tierData.tier === CURRENT_TIER) ? 1 : 0;
 
       for (const zone of tierData.zones) {
         // Insert or update zone
