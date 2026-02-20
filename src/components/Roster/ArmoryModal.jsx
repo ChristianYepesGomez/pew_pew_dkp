@@ -345,23 +345,24 @@ const ArmoryModal = ({ memberId, onClose }) => {
                     )
                   }
                   return (
-                    <div className="flex gap-2 items-start">
-                      {/* Left column */}
-                      <div className="flex-1 flex flex-col gap-2">
+                    <div className="flex gap-2" style={{ minHeight: '360px' }}>
+                      {/* Left column — items from top */}
+                      <div className="flex-1 flex flex-col gap-2 justify-start">
                         {leftItems.map(renderItem)}
                       </div>
-                      {/* Center: character model — no background, just the PNG */}
+                      {/* Center: character model — stretches to fill full height */}
                       {characterMedia?.mainRaw && (
-                        <div className="hidden sm:flex shrink-0 w-[160px] items-center justify-center self-stretch">
+                        <div className="hidden sm:flex shrink-0 w-[190px] self-stretch items-center justify-center overflow-visible">
                           <img
                             src={characterMedia.mainRaw}
                             alt={profile.characterName}
-                            className="w-full h-auto object-contain drop-shadow-lg"
+                            className="h-full w-auto object-contain drop-shadow-xl"
+                            style={{ minHeight: '360px' }}
                           />
                         </div>
                       )}
-                      {/* Right column */}
-                      <div className="flex-1 flex flex-col gap-2">
+                      {/* Right column — items from top */}
+                      <div className="flex-1 flex flex-col gap-2 justify-start">
                         {rightItems.map(renderItem)}
                       </div>
                     </div>
