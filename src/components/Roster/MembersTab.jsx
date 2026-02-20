@@ -154,13 +154,23 @@ const MembersTab = () => {
           } else if (data.type === 'buff_applied') {
             setActiveBuffs(prev => {
               const newBuffs = { ...prev }
+              const buffEntry = {
+                buff: data.buff,
+                expiresAt: data.expiresAt,
+                casterName: data.casterName,
+                casterId: data.casterId,
+                isSelfCast: data.isSelfCast,
+              }
               for (const targetId of data.targets) {
-                newBuffs[targetId] = {
-                  buff: data.buff,
-                  expiresAt: data.expiresAt,
-                  casterName: data.casterName,
-                  casterId: data.casterId,
-                  isSelfCast: data.isSelfCast,
+                const existing = newBuffs[targetId] || []
+                // Replace if same buff already active (renewal), otherwise append
+                const dupIdx = existing.findIndex(b => b.buff.id === data.buff.id)
+                if (dupIdx !== -1) {
+                  const renewed = [...existing]
+                  renewed[dupIdx] = buffEntry
+                  newBuffs[targetId] = renewed
+                } else {
+                  newBuffs[targetId] = [...existing, buffEntry]
                 }
               }
               return newBuffs
@@ -194,8 +204,9 @@ const MembersTab = () => {
       setActiveBuffs(prev => {
         const now = Date.now()
         const updated = {}
-        for (const [id, data] of Object.entries(prev)) {
-          if (data.expiresAt > now) updated[id] = data
+        for (const [id, buffs] of Object.entries(prev)) {
+          const active = buffs.filter(b => b.expiresAt > now)
+          if (active.length > 0) updated[id] = active
         }
         return updated
       })
@@ -431,20 +442,21 @@ const MembersTab = () => {
                   >
                     {m.characterName}
                   </button>
-                  {activeBuffs[m.id] && (
+                  {(activeBuffs[m.id] || []).map((buffData, i) => (
                     <div
+                      key={`${buffData.buff.id}-${buffData.expiresAt}`}
                       className="animate-pulse"
-                      title={`${activeBuffs[m.id].buff.name}${!activeBuffs[m.id].isSelfCast && activeBuffs[m.id].casterName && activeBuffs[m.id].casterId !== m.id ? ` (${activeBuffs[m.id].casterName})` : ''}`}
+                      title={`${buffData.buff.name}${!buffData.isSelfCast && buffData.casterName && buffData.casterId !== m.id ? ` (${buffData.casterName})` : ''}`}
                     >
                       <img
-                        src={activeBuffs[m.id].buff.icon}
-                        alt={activeBuffs[m.id].buff.name}
+                        src={buffData.buff.icon}
+                        alt={buffData.buff.name}
                         className="w-5 h-5 rounded border border-yellow-400"
-                        style={{ boxShadow: `0 0 8px ${activeBuffs[m.id].buff.raidWide ? '#ff4444' : '#ffff00'}` }}
+                        style={{ boxShadow: `0 0 8px ${buffData.buff.raidWide ? '#ff4444' : '#ffff00'}` }}
                         onError={(e) => { e.currentTarget.style.display = 'none' }}
                       />
                     </div>
-                  )}
+                  ))}
                 </div>
 
                 <div className="flex items-center gap-2">
