@@ -66,7 +66,7 @@ const BUFFS = [
   { id: 'darkSoul', name: 'Dark Soul', duration: 20, icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_warlock_demonsoul.jpg', classes: ['Warlock'], casterRole: 'DPS', type: 'self' },
   { id: 'summonDarkglare', name: 'Summon Darkglare', duration: 20, icon: 'https://wow.zamimg.com/images/wow/icons/large/inv_beholderwarlock.jpg', classes: ['Warlock'], casterSpecs: ['Affliction'], type: 'self' },
   { id: 'summonInfernal', name: 'Summon Infernal', duration: 30, icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_shadow_summoninfernal.jpg', classes: ['Warlock'], casterSpecs: ['Destruction'], type: 'self' },
-  { id: 'summonDemonic', name: 'Demonic Tyrant', duration: 15, icon: 'https://wow.zamimg.com/images/wow/icons/large/ability_warlock_empoweredimp.jpg', classes: ['Warlock'], casterSpecs: ['Demonology'], type: 'self' },
+  { id: 'summonDemonic', name: 'Demonic Tyrant', duration: 15, icon: 'https://wow.zamimg.com/images/wow/icons/large/inv_summondemonictyrant.jpg', classes: ['Warlock'], casterSpecs: ['Demonology'], type: 'self' },
   // Monk DPS (Windwalker only)
   { id: 'stormEarthFire', name: 'Storm, Earth, and Fire', duration: 15, icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_nature_giftofthewild.jpg', classes: ['Monk'], casterSpecs: ['Windwalker'], type: 'self' },
   { id: 'invokeXuen', name: 'Invoke Xuen', duration: 20, icon: 'https://wow.zamimg.com/images/wow/icons/large/ability_monk_summontigerstatue.jpg', classes: ['Monk'], casterSpecs: ['Windwalker'], type: 'self' },
@@ -150,11 +150,11 @@ const BUFFS = [
   // Survival of the Fittest: 2min CD, any Hunter damage reduction
   { id: 'survivalOfTheFittest', name: 'Survival of the Fittest', duration: 6, icon: 'https://wow.zamimg.com/images/wow/icons/large/ability_hunter_survivalofthefittest.jpg', classes: ['Hunter'], casterRole: null, type: 'self' },
   // Exhilaration: 1.5min CD, any Hunter self-heal burst
-  { id: 'exhilaration', name: 'Exhilaration', duration: 8, icon: 'https://wow.zamimg.com/images/wow/icons/large/ability_hunter_posthaste.jpg', classes: ['Hunter'], casterRole: null, type: 'self' },
+  { id: 'exhilaration', name: 'Exhilaration', duration: 8, icon: 'https://wow.zamimg.com/images/wow/icons/large/ability_hunter_onewithnature.jpg', classes: ['Hunter'], casterRole: null, type: 'self' },
 
   // ─── MONK — BREWMASTER ────────────────────────────────────────────────────
   // Invoke Niuzao, the Black Ox: 3min CD, Brewmaster tank summon
-  { id: 'invokeNiuzao', name: 'Invoke Niuzao, the Black Ox', duration: 25, icon: 'https://wow.zamimg.com/images/wow/icons/large/ability_monk_provoke.jpg', classes: ['Monk'], casterSpecs: ['Brewmaster'], type: 'self' },
+  { id: 'invokeNiuzao', name: 'Invoke Niuzao, the Black Ox', duration: 25, icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_monk_brewmaster_spec.jpg', classes: ['Monk'], casterSpecs: ['Brewmaster'], type: 'self' },
 
   // ─── DEMON HUNTER — VENGEANCE ─────────────────────────────────────────────
   // Metamorphosis (tank): 3min CD, Vengeance major defensive CD
