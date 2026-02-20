@@ -36,10 +36,11 @@ const Header = ({ tabs = [], activeTab, onTabChange }) => {
   const [characterModalTab, setCharacterModalTab] = useState(CHARACTER_MODAL_VIEW.ACCOUNT)
   const [showDkpInfo, setShowDkpInfo] = useState(false)
   // Onboarding step comes from the server (user.onboardingStep):
-  //   0 = show DKP help button beacon
-  //   1 = show user menu beacon → import button beacon inside modal
-  //   2 = done
-  const [onboardingStep, setOnboardingStep] = useState(() => user?.onboardingStep ?? 2)
+  //   0 = show DKP help button beacon (1/3)
+  //   1 = (inside DKP modal) pulse on Addons tab (2/3) — handled by DKPInfoModal
+  //   2 = show user menu beacon → import chars (3/3)
+  //   3 = done
+  const [onboardingStep, setOnboardingStep] = useState(() => user?.onboardingStep ?? 0)
 
   const btnRef = useRef(null)
   const [btnRect, setBtnRect] = useState(null)
