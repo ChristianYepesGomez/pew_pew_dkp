@@ -12,7 +12,6 @@ const GENERAL_SITES = [
   { name: 'Raidbots', url: 'https://www.raidbots.com', favicon: 'raidbots.com' },
   { name: 'Bloodmallet', url: 'https://bloodmallet.com', favicon: 'bloodmallet.com' },
   { name: 'Wago.io', url: 'https://wago.io', favicon: 'wago.io' },
-  { name: 'Lorrgs — top parse cooldown timings', url: 'https://lorrgs.io', favicon: 'lorrgs.io' },
 ]
 
 // Verified active class-specific sites (2025-2026).
