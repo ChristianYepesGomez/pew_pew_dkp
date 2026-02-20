@@ -889,7 +889,7 @@ const MyCharacterModal = ({
               {/* Close modal */}
               <button
                 onClick={(e) => { e.stopPropagation(); onClose() }}
-                className="absolute top-3 right-3 text-white/70 hover:text-white transition-colors bg-black/30 hover:bg-black/50 rounded-full p-1.5 z-10"
+                className="absolute top-3 right-3 text-white/70 hover:text-white transition-colors bg-black/30 hover:bg-black/50 rounded-full p-1.5 z-20"
               >
                 <X size={18} />
               </button>
