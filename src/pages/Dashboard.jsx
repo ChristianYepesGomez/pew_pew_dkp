@@ -78,7 +78,7 @@ const Dashboard = () => {
     <div className="flex min-h-screen flex-col gap-14 p-12">
       <Header tabs={tabs} activeTab={activeTab} onTabChange={setActiveTab} />
 
-      <div className="mx-auto w-full max-w-[960px] animate-fade-in">
+      <div className="mx-auto w-full max-w-[960px] animate-fade-in flex-1">
         {activeTab === 'members' && <MembersTab />}
         {activeTab === 'bosses' && <BossesTab />}
         {activeTab === 'calendar' && <CalendarTab />}
