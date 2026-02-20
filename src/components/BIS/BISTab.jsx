@@ -333,6 +333,8 @@ const BISTab = () => {
                 bisItems={myItems}
                 selectedSlot={selectedSlot}
                 onSlotClick={handleSlotClick}
+                characterSpec={user?.spec}
+                characterClass={user?.characterClass || user?.character_class}
               />
             </div>
 

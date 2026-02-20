@@ -315,46 +315,58 @@ const ArmoryModal = ({ memberId, onClose }) => {
                   </button>
                 </div>
               ) : equipment && equipment.length > 0 ? (
-                <div className="flex gap-4">
-                  {characterMedia?.mainRaw && (
-                    <div className="hidden sm:flex shrink-0 w-[200px] items-start justify-center">
-                      <div className="relative w-full rounded-xl overflow-hidden bg-lavender-12 border border-lavender-20">
-                        <img
-                          src={characterMedia.mainRaw}
-                          alt={profile.characterName}
-                          className="w-full h-auto object-contain"
-                        />
+                (() => {
+                  const mid = Math.ceil(equipment.length / 2)
+                  const leftItems = equipment.slice(0, mid)
+                  const rightItems = equipment.slice(mid)
+                  const renderItem = (item) => {
+                    const quality = (item.rarity || item.quality || 'epic').toLowerCase()
+                    const rarityColor = RARITY_COLORS[quality] || RARITY_COLORS.epic
+                    const slotName = (item.slotName || item.slot || '').replace(/_/g, ' ')
+                    return (
+                      <WowheadTooltip key={item.slot} itemId={item.itemId}>
+                        <div className="bg-lavender-12 rounded-xl p-2 flex items-center gap-2 cursor-help hover:bg-lavender-20 transition-colors">
+                          <div
+                            className="w-9 h-9 rounded bg-indigo flex items-center justify-center border-2 shrink-0 overflow-hidden"
+                            style={{ borderColor: rarityColor }}
+                          >
+                            {item.icon ? (
+                              <img src={item.icon} alt="" className="w-full h-full object-cover" />
+                            ) : (
+                              <Question size={16} className="text-lavender" />
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-bold truncate" style={{ color: rarityColor }}>{item.name}</p>
+                            <p className="text-xs text-lavender">{slotName} {item.itemLevel ? `\u2022 iLvl ${item.itemLevel}` : ''}</p>
+                          </div>
+                        </div>
+                      </WowheadTooltip>
+                    )
+                  }
+                  return (
+                    <div className="flex gap-2 items-start">
+                      {/* Left column */}
+                      <div className="flex-1 flex flex-col gap-2">
+                        {leftItems.map(renderItem)}
+                      </div>
+                      {/* Center: character model — no background, just the PNG */}
+                      {characterMedia?.mainRaw && (
+                        <div className="hidden sm:flex shrink-0 w-[160px] items-center justify-center self-stretch">
+                          <img
+                            src={characterMedia.mainRaw}
+                            alt={profile.characterName}
+                            className="w-full h-auto object-contain drop-shadow-lg"
+                          />
+                        </div>
+                      )}
+                      {/* Right column */}
+                      <div className="flex-1 flex flex-col gap-2">
+                        {rightItems.map(renderItem)}
                       </div>
                     </div>
-                  )}
-                  <div className={`flex-1 grid gap-2 ${characterMedia?.mainRaw ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-2'}`}>
-                    {equipment.map((item) => {
-                      const quality = (item.rarity || item.quality || 'epic').toLowerCase()
-                      const rarityColor = RARITY_COLORS[quality] || RARITY_COLORS.epic
-                      const slotName = (item.slotName || item.slot || '').replace(/_/g, ' ')
-                      return (
-                        <WowheadTooltip key={item.slot} itemId={item.itemId}>
-                          <div className="bg-lavender-12 rounded-xl p-2 flex items-center gap-2 cursor-help hover:bg-lavender-20 transition-colors">
-                            <div
-                              className="w-9 h-9 rounded bg-indigo flex items-center justify-center border-2 shrink-0 overflow-hidden"
-                              style={{ borderColor: rarityColor }}
-                            >
-                              {item.icon ? (
-                                <img src={item.icon} alt="" className="w-full h-full object-cover" />
-                              ) : (
-                                <Question size={16} className="text-lavender" />
-                              )}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-xs font-bold truncate" style={{ color: rarityColor }}>{item.name}</p>
-                              <p className="text-xs text-lavender">{slotName} {item.itemLevel ? `\u2022 iLvl ${item.itemLevel}` : ''}</p>
-                            </div>
-                          </div>
-                        </WowheadTooltip>
-                      )
-                    })}
-                  </div>
-                </div>
+                  )
+                })()
               ) : (
                 <div className="text-center py-8">
                   <ShieldStar size={48} className="text-lavender mx-auto mb-4" />
