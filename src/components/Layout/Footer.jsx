@@ -3,22 +3,27 @@ const GENERAL_SITES = [
   { name: 'Wowhead', url: 'https://www.wowhead.com', favicon: 'wowhead.com' },
   { name: 'Raider.IO', url: 'https://raider.io', favicon: 'raider.io' },
   { name: 'Icy Veins', url: 'https://www.icy-veins.com/wow', favicon: 'icy-veins.com' },
-  { name: 'Maxroll', url: 'https://maxroll.gg/wow', favicon: 'maxroll.gg' },
+  { name: 'Method', url: 'https://www.method.gg/guides', favicon: 'method.gg' },
   { name: 'Archon', url: 'https://www.archon.gg', favicon: 'archon.gg' },
   { name: 'Murlok.IO', url: 'https://murlok.io', favicon: 'murlok.io' },
   { name: 'WoWAnalyzer', url: 'https://wowanalyzer.com', favicon: 'wowanalyzer.com' },
   { name: 'Raidbots', url: 'https://www.raidbots.com', favicon: 'raidbots.com' },
   { name: 'Bloodmallet', url: 'https://bloodmallet.com', favicon: 'bloodmallet.com' },
   { name: 'Wago.io', url: 'https://wago.io', favicon: 'wago.io' },
+  { name: 'Lorrgs — top parse cooldown timings', url: 'https://lorrgs.io', favicon: 'lorrgs.io' },
 ]
 
-// Class-specific sites — verified active as of early 2026
-// Altered Time (Mage), Ravenholdt (Rogue), Skyhold (Warrior), Petopia (Hunter): connection refused — excluded
+// Class-specific sites — verified active (2025-2026)
+// Dead/offline: Altered Time (Mage forums), Ravenholdt (Rogue), Skyhold (Warrior),
+//              HuntsmansLodge (outdated since WotLK), Lock One Stop Shop (Warlock),
+//              Chain Heal (Resto Shaman), Petopia (Hunter pet DB)
 const CLASS_SITES = [
-  { name: 'WingsIsUp — Holy Paladin', url: 'https://wingsisup.com', favicon: 'wingsisup.com', label: 'Paladin' },
+  { name: 'Mage Hub — Mago (Toegrinder)', url: 'https://mage-hub.com', favicon: 'mage-hub.com', label: 'Mago' },
+  { name: 'WingsIsUp — Holy Paladin', url: 'https://wingsisup.com', favicon: 'wingsisup.com', label: 'Paladín' },
   { name: 'Peak of Serenity — Monk', url: 'https://www.peakofserenity.com', favicon: 'peakofserenity.com', label: 'Monk' },
   { name: 'Dreamgrove — Druid', url: 'https://dreamgrove.gg', favicon: 'dreamgrove.gg', label: 'Druida' },
   { name: 'StormEarthandLava — Elemental Shaman', url: 'https://www.stormearthandlava.com', favicon: 'stormearthandlava.com', label: 'Shamán' },
+  { name: 'Warcraft Hunters Union — Hunter', url: 'https://warcrafthuntersunion.com', favicon: 'warcrafthuntersunion.com', label: 'Cazador' },
 ]
 
 const SiteIcon = ({ name, url, favicon }) => (
