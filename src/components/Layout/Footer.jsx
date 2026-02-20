@@ -1,3 +1,5 @@
+import { useAuth } from '../../hooks/useAuth'
+
 const GENERAL_SITES = [
   { name: 'Warcraft Logs', url: 'https://www.warcraftlogs.com', favicon: 'warcraftlogs.com' },
   { name: 'Wowhead', url: 'https://www.wowhead.com', favicon: 'wowhead.com' },
@@ -13,18 +15,17 @@ const GENERAL_SITES = [
   { name: 'Lorrgs — top parse cooldown timings', url: 'https://lorrgs.io', favicon: 'lorrgs.io' },
 ]
 
-// Class-specific sites — verified active (2025-2026)
-// Dead/offline: Altered Time (Mage forums), Ravenholdt (Rogue), Skyhold (Warrior),
-//              HuntsmansLodge (outdated since WotLK), Lock One Stop Shop (Warlock),
-//              Chain Heal (Resto Shaman), Petopia (Hunter pet DB)
-const CLASS_SITES = [
-  { name: 'Mage Hub — Mago (Toegrinder)', url: 'https://mage-hub.com', favicon: 'mage-hub.com', label: 'Mago' },
-  { name: 'WingsIsUp — Holy Paladin', url: 'https://wingsisup.com', favicon: 'wingsisup.com', label: 'Paladín' },
-  { name: 'Peak of Serenity — Monk', url: 'https://www.peakofserenity.com', favicon: 'peakofserenity.com', label: 'Monk' },
-  { name: 'Dreamgrove — Druid', url: 'https://dreamgrove.gg', favicon: 'dreamgrove.gg', label: 'Druida' },
-  { name: 'StormEarthandLava — Elemental Shaman', url: 'https://www.stormearthandlava.com', favicon: 'stormearthandlava.com', label: 'Shamán' },
-  { name: 'Warcraft Hunters Union — Hunter', url: 'https://warcrafthuntersunion.com', favicon: 'warcrafthuntersunion.com', label: 'Cazador' },
-]
+// Verified active class-specific sites (2025-2026).
+// Classes without a dedicated site (Warrior, Rogue, Priest, Warlock, DK, DH, Evoker)
+// rely on Icy Veins / Method in the general list.
+const CLASS_SITES = {
+  'Mage':    { name: 'Mage Hub — Toegrinder', url: 'https://mage-hub.com', favicon: 'mage-hub.com' },
+  'Paladin': { name: 'WingsIsUp — Holy Paladin', url: 'https://wingsisup.com', favicon: 'wingsisup.com' },
+  'Monk':    { name: 'Peak of Serenity — Monk', url: 'https://www.peakofserenity.com', favicon: 'peakofserenity.com' },
+  'Druid':   { name: 'Dreamgrove — Druid', url: 'https://dreamgrove.gg', favicon: 'dreamgrove.gg' },
+  'Shaman':  { name: 'StormEarthandLava — Shaman', url: 'https://www.stormearthandlava.com', favicon: 'stormearthandlava.com' },
+  'Hunter':  { name: 'Warcraft Hunters Union', url: 'https://warcrafthuntersunion.com', favicon: 'warcrafthuntersunion.com' },
+}
 
 const SiteIcon = ({ name, url, favicon }) => (
   <a
@@ -44,34 +45,20 @@ const SiteIcon = ({ name, url, favicon }) => (
   </a>
 )
 
-const Footer = () => (
-  <footer className="mx-auto w-full max-w-[960px] pb-8">
-    <div className="flex flex-col items-center gap-3">
-      {/* General tools */}
+const Footer = () => {
+  const { user } = useAuth()
+  const classSite = CLASS_SITES[user?.characterClass]
+  const sites = classSite ? [...GENERAL_SITES, classSite] : GENERAL_SITES
+
+  return (
+    <footer className="mx-auto w-full max-w-[960px] pb-8">
       <div className="flex flex-wrap items-center justify-center gap-2.5">
-        {GENERAL_SITES.map(site => (
+        {sites.map(site => (
           <SiteIcon key={site.name} {...site} />
         ))}
       </div>
-
-      {/* Class-specific divider */}
-      <div className="flex items-center gap-3 w-full max-w-xs">
-        <div className="flex-1 h-px bg-lavender-20/30" />
-        <span className="text-[10px] text-lavender/25 uppercase tracking-widest">por clase</span>
-        <div className="flex-1 h-px bg-lavender-20/30" />
-      </div>
-
-      {/* Class-specific sites */}
-      <div className="flex flex-wrap items-center justify-center gap-4">
-        {CLASS_SITES.map(site => (
-          <div key={site.name} className="flex flex-col items-center gap-1">
-            <SiteIcon {...site} />
-            <span className="text-[9px] text-lavender/25 uppercase tracking-wide">{site.label}</span>
-          </div>
-        ))}
-      </div>
-    </div>
-  </footer>
-)
+    </footer>
+  )
+}
 
 export default Footer
