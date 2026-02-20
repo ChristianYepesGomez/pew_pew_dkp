@@ -350,13 +350,15 @@ const ArmoryModal = ({ memberId, onClose }) => {
                       <div className="flex-1 flex flex-col gap-2 justify-start">
                         {leftItems.map(renderItem)}
                       </div>
-                      {/* Center: character model */}
+                      {/* Center: character model — image overflows container to compensate for
+                          Blizzard's transparent padding (~40% of canvas around the character) */}
                       {characterMedia?.mainRaw && (
-                        <div className="hidden sm:block shrink-0 w-[200px]">
+                        <div className="hidden sm:block shrink-0 w-[180px] overflow-visible">
                           <img
                             src={characterMedia.mainRaw}
                             alt={profile.characterName}
-                            className="w-full object-contain drop-shadow-xl"
+                            className="drop-shadow-xl block"
+                            style={{ width: '170%', marginLeft: '-35%' }}
                           />
                         </div>
                       )}
