@@ -1,11 +1,9 @@
 import { useState, useEffect } from 'react'
-import { useAuth } from '../../hooks/useAuth'
 import { useLanguage } from '../../hooks/useLanguage'
 import { bossesAPI } from '../../services/api'
 import CLASS_COLORS from '../../utils/classColors'
-import { CircleNotch, WarningCircle, Skull, Book, BookOpen, ArrowsClockwise, CaretDown, CaretRight, CheckCircle, XCircle, Lightning, ArrowSquareOut, X, ChartBar, Trophy, Heart, ShieldStar, Fire, Flag, ClockCounterClockwise, Sword } from '@phosphor-icons/react'
+import { CircleNotch, WarningCircle, Skull, BookOpen, CaretDown, CaretRight, CheckCircle, XCircle, Lightning, ArrowSquareOut, X, ChartBar, Trophy, Heart, ShieldStar, Fire, Flag, ClockCounterClockwise, Sword } from '@phosphor-icons/react'
 import SectionHeader from '../ui/SectionHeader'
-import Button from '../ui/Button'
 
 // Difficulty colors
 const DIFFICULTY_COLORS = {
@@ -23,18 +21,14 @@ const DIFFICULTY_SHORT = {
 }
 
 const BossesTab = () => {
-  const { user } = useAuth()
   const { t } = useLanguage()
-  const [data, setData] = useState({ current: [], legacy: [] })
+  const [data, setData] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
-  const [activeTab, setActiveTab] = useState('current')
   const [expandedZones, setExpandedZones] = useState({})
   const [selectedBoss, setSelectedBoss] = useState(null)
   const [bossDetails, setBossDetails] = useState(null)
   const [loadingDetails, setLoadingDetails] = useState(false)
-
-  const isAdmin = user?.role === 'admin'
 
   useEffect(() => {
     loadBosses()
@@ -45,32 +39,14 @@ const BossesTab = () => {
       setLoading(true)
       const response = await bossesAPI.getAll()
       setData(response.data)
-      // Auto-expand first current zone
-      if (response.data.current.length > 0) {
-        setExpandedZones({ [response.data.current[0].id]: true })
+      // Auto-expand first zone
+      if (response.data.length > 0) {
+        setExpandedZones({ [response.data[0].id]: true })
       }
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to load bosses')
     } finally {
       setLoading(false)
-    }
-  }
-
-  const handleSync = async () => {
-    try {
-      await bossesAPI.sync()
-      loadBosses()
-    } catch (err) {
-      console.error('Sync error:', err)
-    }
-  }
-
-  const handleToggleLegacy = async (zoneId, currentlyLegacy) => {
-    try {
-      await bossesAPI.setZoneLegacy(zoneId, !currentlyLegacy)
-      loadBosses()
-    } catch (err) {
-      console.error('Toggle legacy error:', err)
     }
   }
 
@@ -118,64 +94,18 @@ const BossesTab = () => {
     )
   }
 
-  const zones = activeTab === 'current' ? data.current : data.legacy
-
   return (
     <div className="space-y-6">
-      <SectionHeader icon={Skull} title={t('bosses')}>
-        <div className="flex items-center gap-2">
-          <Button
-            onClick={() => setActiveTab('current')}
-            variant={activeTab === 'current' ? 'primary' : 'secondary'}
-            size="md"
-            radius="pill"
-            className="font-semibold"
-          >
-            <Skull size={16} />
-            {t('current_raids')}
-            {data.current.length > 0 && (
-              <span className="rounded-full bg-indigo px-2 py-0.5 text-xs text-coral">
-                {data.current.length}
-              </span>
-            )}
-          </Button>
-          <Button
-            onClick={() => setActiveTab('legacy')}
-            variant={activeTab === 'legacy' ? 'primary' : 'secondary'}
-            size="md"
-            radius="pill"
-            className="font-semibold"
-          >
-            <Book size={16} />
-            {t('legacy_raids')}
-            {data.legacy.length > 0 && (
-              <span className="rounded-full bg-indigo px-2 py-0.5 text-xs text-lavender">
-                {data.legacy.length}
-              </span>
-            )}
-          </Button>
-          {isAdmin && (
-            <Button
-              onClick={handleSync}
-              variant="outline"
-              size="md"
-              radius="pill"
-              icon={ArrowsClockwise}
-            >
-              {t('sync_zones')}
-            </Button>
-          )}
-        </div>
-      </SectionHeader>
+      <SectionHeader icon={Skull} title={t('bosses')} />
 
       <div className="space-y-3">
-        {zones.length === 0 ? (
+        {data.length === 0 ? (
           <div className="rounded-2xl bg-indigo py-10 text-center text-lavender outline outline-2 outline-lavender-20">
             <Sword size={40} className="mx-auto mb-4 opacity-60" />
             <p>{t('no_bosses')}</p>
           </div>
         ) : (
-          zones.map(zone => {
+          data.map(zone => {
             const diffColor = DIFFICULTY_COLORS[zone.highestDifficulty] || '#555'
             return (
               <div key={zone.id} className="overflow-hidden rounded-2xl bg-indigo outline outline-2 outline-lavender-20">
@@ -199,20 +129,7 @@ const BossesTab = () => {
                       </span>
                     )}
                   </div>
-                  <div className="flex items-center gap-3">
-                    <span className="text-sm text-lavender">{zone.bossCount} bosses</span>
-                    {isAdmin && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          handleToggleLegacy(zone.id, activeTab === 'legacy')
-                        }}
-                        className="rounded-full bg-lavender-12 px-3 py-1 text-xs text-cream transition-colors hover:bg-lavender-20"
-                      >
-                        {activeTab === 'legacy' ? t('mark_current') : t('mark_legacy')}
-                      </button>
-                    )}
-                  </div>
+                  <span className="text-sm text-lavender">{zone.bossCount} bosses</span>
                 </button>
 
                 {/* Boss Grid */}

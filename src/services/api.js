@@ -123,8 +123,6 @@ export const calendarAPI = {
 export const bossesAPI = {
   getAll: () => api.get('/bosses'),
   getDetails: (bossId, difficulty = null) => api.get(`/bosses/${bossId}${difficulty ? `?difficulty=${difficulty}` : ''}`),
-  sync: () => api.post('/bosses/sync'),
-  setZoneLegacy: (zoneId, isLegacy) => api.put(`/bosses/zones/${zoneId}/legacy`, { isLegacy }),
 }
 
 export const vaultAPI = {
