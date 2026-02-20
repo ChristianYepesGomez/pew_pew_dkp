@@ -363,13 +363,16 @@ const ArmoryModal = ({ memberId, onClose }) => {
                           {rightItems.map(renderItem)}
                         </div>
                       </div>
-                      {/* Character model — absolutely positioned over the spacer, fills full height */}
+                      {/* Character model — absolutely positioned over the spacer, fills full height.
+                          object-cover zooms into the character instead of letterboxing the
+                          full transparent canvas of the Blizzard main-raw render. */}
                       {characterMedia?.mainRaw && (
-                        <div className="hidden sm:block absolute inset-y-0 left-1/2 -translate-x-1/2 w-[220px] pointer-events-none">
+                        <div className="hidden sm:block absolute inset-y-0 left-1/2 -translate-x-1/2 w-[220px] pointer-events-none overflow-hidden">
                           <img
                             src={characterMedia.mainRaw}
                             alt={profile.characterName}
-                            className="w-full h-full object-contain drop-shadow-xl"
+                            className="w-full h-full object-cover drop-shadow-xl"
+                            style={{ objectPosition: 'center 15%' }}
                           />
                         </div>
                       )}
