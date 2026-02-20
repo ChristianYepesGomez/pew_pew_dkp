@@ -1,8 +1,10 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
+import { useAuth } from '../../hooks/useAuth'
+import { useSocket } from '../../hooks/useSocket'
 import { useLanguage } from '../../hooks/useLanguage'
 import { bossesAPI } from '../../services/api'
 import CLASS_COLORS from '../../utils/classColors'
-import { CircleNotch, WarningCircle, Skull, BookOpen, CaretDown, CaretRight, CheckCircle, XCircle, Lightning, ArrowSquareOut, X, ChartBar, Trophy, Heart, ShieldStar, Fire, Flag, ClockCounterClockwise, Sword } from '@phosphor-icons/react'
+import { CircleNotch, WarningCircle, Skull, BookOpen, CaretDown, CaretRight, CheckCircle, XCircle, Lightning, ArrowSquareOut, X, ChartBar, Trophy, Heart, ShieldStar, Fire, Flag, ClockCounterClockwise, Sword, Clipboard, Check, Pencil } from '@phosphor-icons/react'
 import SectionHeader from '../ui/SectionHeader'
 
 // Difficulty colors
@@ -22,6 +24,9 @@ const DIFFICULTY_SHORT = {
 
 const BossesTab = () => {
   const { t } = useLanguage()
+  const { user } = useAuth()
+  const canEdit = user?.role === 'admin' || user?.role === 'officer'
+
   const [data, setData] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -29,6 +34,12 @@ const BossesTab = () => {
   const [selectedBoss, setSelectedBoss] = useState(null)
   const [bossDetails, setBossDetails] = useState(null)
   const [loadingDetails, setLoadingDetails] = useState(false)
+
+  // MRT state — lazy loaded per boss on hover
+  const [mrtNotes, setMrtNotes] = useState({}) // { [bossId]: { note_text, loaded, loading } }
+  const [copiedBossId, setCopiedBossId] = useState(null)
+  const [noNoteBossId, setNoNoteBossId] = useState(null)
+  const [editState, setEditState] = useState(null) // { bossId, text, saving }
 
   useEffect(() => {
     loadBosses()
@@ -77,6 +88,63 @@ const BossesTab = () => {
     setSelectedBoss(null)
     setBossDetails(null)
   }
+
+  // MRT actions
+  const fetchMrtNote = useCallback(async (bossId) => {
+    if (mrtNotes[bossId]?.loaded || mrtNotes[bossId]?.loading) return
+    setMrtNotes(prev => ({ ...prev, [bossId]: { ...prev[bossId], loading: true } }))
+    try {
+      const res = await bossesAPI.getMrtNote(bossId)
+      setMrtNotes(prev => ({ ...prev, [bossId]: { note_text: res.data.note_text, loaded: true, loading: false } }))
+    } catch {
+      setMrtNotes(prev => ({ ...prev, [bossId]: { note_text: '', loaded: true, loading: false } }))
+    }
+  }, [mrtNotes])
+
+  const copyMrtNote = useCallback(async (e, bossId) => {
+    e.stopPropagation()
+    const note = mrtNotes[bossId]?.note_text
+    if (!note) {
+      setNoNoteBossId(bossId)
+      setTimeout(() => setNoNoteBossId(null), 2000)
+      return
+    }
+    try {
+      await navigator.clipboard.writeText(note)
+      setCopiedBossId(bossId)
+      setTimeout(() => setCopiedBossId(null), 2000)
+    } catch { /* ignore clipboard errors */ }
+  }, [mrtNotes])
+
+  const openEdit = useCallback((e, bossId) => {
+    e.stopPropagation()
+    setEditState({ bossId, text: mrtNotes[bossId]?.note_text || '', saving: false })
+  }, [mrtNotes])
+
+  const closeEdit = useCallback(() => setEditState(null), [])
+
+  const saveEdit = useCallback(async () => {
+    if (!editState || editState.saving) return
+    setEditState(prev => ({ ...prev, saving: true }))
+    try {
+      await bossesAPI.saveMrtNote(editState.bossId, editState.text)
+      setMrtNotes(prev => ({ ...prev, [editState.bossId]: { note_text: editState.text, loaded: true, loading: false } }))
+      setEditState(null)
+    } catch {
+      setEditState(prev => ({ ...prev, saving: false }))
+    }
+  }, [editState])
+
+  // Invalidate note cache on remote update so next hover refetches
+  useSocket({
+    mrt_note_updated: ({ bossId }) => {
+      setMrtNotes(prev => {
+        const entry = prev[bossId]
+        if (!entry) return prev
+        return { ...prev, [bossId]: { ...entry, loaded: false } }
+      })
+    },
+  })
 
   if (loading) {
     return (
@@ -141,6 +209,19 @@ const BossesTab = () => {
                         boss={boss}
                         onClick={() => openBossDetails(boss)}
                         t={t}
+                        onMouseEnter={() => fetchMrtNote(boss.id)}
+                        mrtNote={mrtNotes[boss.id]}
+                        isCopied={copiedBossId === boss.id}
+                        isNoNote={noNoteBossId === boss.id}
+                        canEdit={canEdit}
+                        isEditing={editState?.bossId === boss.id}
+                        editText={editState?.bossId === boss.id ? editState.text : ''}
+                        editSaving={editState?.bossId === boss.id ? editState.saving : false}
+                        onCopy={(e) => copyMrtNote(e, boss.id)}
+                        onOpenEdit={(e) => openEdit(e, boss.id)}
+                        onEditChange={(text) => setEditState(prev => ({ ...prev, text }))}
+                        onEditSave={saveEdit}
+                        onEditCancel={closeEdit}
                       />
                     ))}
                   </div>
@@ -167,12 +248,13 @@ const BossesTab = () => {
 }
 
 // Boss Card Component - Cinematic design with full artwork
-const BossCard = ({ boss, onClick, t }) => {
+const BossCard = ({ boss, onClick, t, onMouseEnter, mrtNote, isCopied, isNoNote, canEdit, isEditing, editText, editSaving, onCopy, onOpenEdit, onEditChange, onEditSave, onEditCancel }) => {
   const diffColor = DIFFICULTY_COLORS[boss.highestDifficulty] || '#888'
 
   return (
     <div
-      onClick={onClick}
+      onClick={!isEditing ? onClick : undefined}
+      onMouseEnter={onMouseEnter}
       className="relative rounded-xl overflow-hidden cursor-pointer group aspect-[4/3] min-h-[180px]"
     >
       {/* Background Image */}
@@ -202,46 +284,105 @@ const BossCard = ({ boss, onClick, t }) => {
         </div>
       )}
 
-      {/* Content Overlay */}
-      <div className="absolute inset-0 flex flex-col justify-end p-4 z-10">
-        {/* Boss Name */}
-        <h4 className="font-bold text-base text-white drop-shadow-lg mb-2 leading-tight line-clamp-1 group-hover:text-coral transition-colors" title={boss.name}>
-          {boss.name}
-        </h4>
-
-        {/* Stats Badges */}
-        <div className="flex items-center gap-1.5">
-          <span className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-bold backdrop-blur-sm ${boss.kills > 0 ? 'bg-green-400/20 text-green-400' : 'bg-white/10 text-lavender/50'}`}>
-            <CheckCircle size={11} weight={boss.kills > 0 ? 'fill' : 'regular'} />
-            {boss.kills || 0}
-          </span>
-          <span className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-bold backdrop-blur-sm ${boss.wipes > 0 ? 'bg-red-400/20 text-red-400' : 'bg-white/10 text-lavender/50'}`}>
-            <XCircle size={11} weight={boss.wipes > 0 ? 'fill' : 'regular'} />
-            {boss.wipes || 0}
-          </span>
-          {boss.fastestKill && (
-            <span className="flex items-center gap-1 rounded-full bg-yellow-400/20 px-2 py-0.5 text-xs font-bold text-yellow-400 backdrop-blur-sm">
-              <Lightning size={11} weight="fill" />
-              {boss.fastestKill}
-            </span>
-          )}
-        </div>
-
-        {/* Guide Link - appears on hover */}
-        {boss.mythicTrapUrl && (
-          <a
-            href={boss.mythicTrapUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={(e) => e.stopPropagation()}
-            className="mt-3 flex items-center justify-center gap-2 py-2 bg-coral/20 backdrop-blur-sm rounded-lg text-coral text-sm font-medium opacity-0 group-hover:opacity-100 translate-y-2 group-hover:translate-y-0 transition-all duration-300 hover:bg-coral/30"
+      {/* MRT Icons — top-left, revealed on hover */}
+      <div className="absolute top-3 left-3 z-20 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+        <button
+          onClick={onCopy}
+          className={`flex items-center justify-center w-7 h-7 rounded-full backdrop-blur-sm transition-colors ${
+            isCopied
+              ? 'bg-green-500/80 text-white'
+              : isNoNote
+                ? 'bg-red-500/80 text-white'
+                : 'bg-black/60 text-lavender hover:bg-black/80 hover:text-cream'
+          }`}
+          title={isCopied ? '¡Copiado!' : isNoNote ? 'Sin nota MRT' : 'Copiar nota MRT'}
+        >
+          {isCopied ? <Check size={13} weight="bold" /> : <Clipboard size={13} />}
+        </button>
+        {canEdit && (
+          <button
+            onClick={onOpenEdit}
+            className="flex items-center justify-center w-7 h-7 rounded-full bg-black/60 text-lavender backdrop-blur-sm transition-colors hover:bg-black/80 hover:text-cream"
+            title="Editar nota MRT"
           >
-            <BookOpen size={16} />
-            {t('view_guide')}
-            <ArrowSquareOut size={14} />
-          </a>
+            <Pencil size={13} />
+          </button>
         )}
       </div>
+
+      {/* Edit Overlay */}
+      {isEditing && (
+        <div
+          className="absolute inset-0 z-30 bg-black/90 flex flex-col p-3 gap-2"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <textarea
+            value={editText}
+            onChange={(e) => onEditChange(e.target.value)}
+            className="flex-1 resize-none rounded bg-white/10 text-white text-xs p-2 border border-white/20 focus:outline-none focus:border-coral/60 placeholder-lavender/40"
+            placeholder="Pega la nota MRT aquí..."
+            autoFocus
+          />
+          <div className="flex gap-2">
+            <button
+              onClick={onEditSave}
+              disabled={editSaving}
+              className="flex-1 py-1.5 bg-coral/80 hover:bg-coral rounded text-white text-xs font-bold transition-colors disabled:opacity-50"
+            >
+              {editSaving ? '...' : 'Guardar'}
+            </button>
+            <button
+              onClick={onEditCancel}
+              className="px-3 py-1.5 bg-white/10 hover:bg-white/20 rounded text-white text-xs transition-colors"
+            >
+              Cancelar
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Content Overlay */}
+      {!isEditing && (
+        <div className="absolute inset-0 flex flex-col justify-end p-4 z-10">
+          {/* Boss Name */}
+          <h4 className="font-bold text-base text-white drop-shadow-lg mb-2 leading-tight line-clamp-1 group-hover:text-coral transition-colors" title={boss.name}>
+            {boss.name}
+          </h4>
+
+          {/* Stats Badges */}
+          <div className="flex items-center gap-1.5">
+            <span className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-bold backdrop-blur-sm ${boss.kills > 0 ? 'bg-green-400/20 text-green-400' : 'bg-white/10 text-lavender/50'}`}>
+              <CheckCircle size={11} weight={boss.kills > 0 ? 'fill' : 'regular'} />
+              {boss.kills || 0}
+            </span>
+            <span className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-bold backdrop-blur-sm ${boss.wipes > 0 ? 'bg-red-400/20 text-red-400' : 'bg-white/10 text-lavender/50'}`}>
+              <XCircle size={11} weight={boss.wipes > 0 ? 'fill' : 'regular'} />
+              {boss.wipes || 0}
+            </span>
+            {boss.fastestKill && (
+              <span className="flex items-center gap-1 rounded-full bg-yellow-400/20 px-2 py-0.5 text-xs font-bold text-yellow-400 backdrop-blur-sm">
+                <Lightning size={11} weight="fill" />
+                {boss.fastestKill}
+              </span>
+            )}
+          </div>
+
+          {/* Guide Link - appears on hover */}
+          {boss.mythicTrapUrl && (
+            <a
+              href={boss.mythicTrapUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className="mt-3 flex items-center justify-center gap-2 py-2 bg-coral/20 backdrop-blur-sm rounded-lg text-coral text-sm font-medium opacity-0 group-hover:opacity-100 translate-y-2 group-hover:translate-y-0 transition-all duration-300 hover:bg-coral/30"
+            >
+              <BookOpen size={16} />
+              {t('view_guide')}
+              <ArrowSquareOut size={14} />
+            </a>
+          )}
+        </div>
+      )}
 
       {/* Hover Border Effect */}
       <div className="absolute inset-0 rounded-xl border-2 border-transparent group-hover:border-coral/50 transition-colors duration-300 pointer-events-none" />

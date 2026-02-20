@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react'
-import { Users, CalendarDots, Gavel, ChartLine, Skull, ShieldStar } from '@phosphor-icons/react'
+import { Users, CalendarDots, Gavel, ChartLine, Skull } from '@phosphor-icons/react'
 import { useAuth } from '../hooks/useAuth'
 import { useLanguage } from '../hooks/useLanguage'
 import { calendarAPI } from '../services/api'
 import Header from '../components/Layout/Header'
+import Footer from '../components/Layout/Footer'
 import MembersTab from '../components/Roster/MembersTab'
 import AuctionTab from '../components/Auction/AuctionTab'
 import HistoryTab from '../components/Auction/HistoryTab'
@@ -12,7 +13,6 @@ import AdminTab from '../components/Admin/AdminTab'
 import BossesTab from '../components/Bosses/BossesTab'
 import AnalyticsTab from '../components/Analytics/AnalyticsTab'
 import BISTab from '../components/BIS/BISTab'
-import CooldownsTab from '../components/Cooldowns/CooldownsTab'
 
 const Dashboard = () => {
   const [activeTab, setActiveTab] = useState('members')
@@ -21,8 +21,6 @@ const Dashboard = () => {
   const { user } = useAuth()
 
   const isAdmin = user?.role === 'admin'
-  const isOfficer = user?.role === 'officer'
-  const canManageCDs = isAdmin || isOfficer
 
   useEffect(() => {
     const checkUnconfirmed = async () => {
@@ -89,8 +87,9 @@ const Dashboard = () => {
         {activeTab === 'stats' && <AnalyticsTab />}
         {activeTab === 'bis' && <BISTab />}
         {activeTab === 'admin' && isAdmin && <AdminTab />}
-        {activeTab === 'cooldowns' && canManageCDs && <CooldownsTab />}
       </div>
+
+      <Footer />
     </div>
   )
 }

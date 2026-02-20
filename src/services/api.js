@@ -123,6 +123,8 @@ export const calendarAPI = {
 export const bossesAPI = {
   getAll: () => api.get('/bosses'),
   getDetails: (bossId, difficulty = null) => api.get(`/bosses/${bossId}${difficulty ? `?difficulty=${difficulty}` : ''}`),
+  getMrtNote: (bossId) => api.get(`/bosses/${bossId}/mrt`),
+  saveMrtNote: (bossId, note_text) => api.post(`/bosses/${bossId}/mrt`, { note_text }),
 }
 
 export const vaultAPI = {
@@ -192,17 +194,6 @@ export const armoryAPI = {
   getMedia: (realm, character) => api.get(`/armory/media/${encodeURIComponent(realm)}/${encodeURIComponent(character)}`),
 }
 
-export const cooldownsAPI = {
-  getDefinitions: (category) => api.get(`/cooldowns/definitions${category ? `?category=${category}` : ''}`),
-  getRosterCDs: () => api.get('/cooldowns/roster-cds'),
-  getMyAssignments: () => api.get('/cooldowns/my-assignments'),
-  getEvents: (bossId, difficulty) => api.get(`/cooldowns/events/${bossId}?difficulty=${difficulty}`),
-  createEvent: (data) => api.post('/cooldowns/events', data),
-  deleteEvent: (eventId) => api.delete(`/cooldowns/events/${eventId}`),
-  createAssignment: (data) => api.post('/cooldowns/assignments', data),
-  deleteAssignment: (assignmentId) => api.delete(`/cooldowns/assignments/${assignmentId}`),
-  getMrtNote: (bossId, difficulty) => api.get(`/cooldowns/mrt-note/${bossId}?difficulty=${difficulty}`),
-}
 
 export const addonsAPI = {
   getAll: () => api.get('/addons'),
