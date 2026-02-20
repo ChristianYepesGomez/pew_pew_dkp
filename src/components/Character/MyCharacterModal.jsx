@@ -420,7 +420,7 @@ const MyCharacterModal = ({
   const [avatarMsg, setAvatarMsg] = useState('')
   const [avatarSaving, setAvatarSaving] = useState(false)
   const [avatarHover, setAvatarHover] = useState(false)
-  const avatarInputRef = useCallback(node => { if (node) window._avatarInput = node }, [])
+  const avatarInputRef = useRef(null)
   // Avatar crop modal state
   const [cropModalOpen, setCropModalOpen] = useState(false)
   const [cropImageSrc, setCropImageSrc] = useState(null)
