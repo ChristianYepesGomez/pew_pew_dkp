@@ -103,7 +103,7 @@ export function startBuffManager(db) {
       applyRandomBuff();
     }
     // Schedule next buff
-    const nextDelay = 30000 + Math.random() * 60000; // 30-90 seconds
+    const nextDelay = 5000 + Math.random() * 25000; // 5-30 seconds
     buffIntervalId = setTimeout(applyNextBuff, nextDelay);
   };
 
@@ -207,21 +207,45 @@ function applyRandomBuff() {
 
   const isSelfCast = buff.type === 'self' && !buff.raidWide;
 
-  // Store active buffs
+  const MAX_BUFFS_PER_PLAYER = 3;
+
+  const buffEntry = {
+    buff: {
+      id: buff.id,
+      name: buff.name,
+      icon: buff.icon,
+      duration: buff.duration,
+      raidWide: buff.raidWide,
+    },
+    expiresAt,
+    casterName: caster.character_name,
+    casterId: caster.id,
+    isSelfCast,
+  };
+
+  // Track which targets actually got a new buff (for cleanup scheduling)
+  const newTargets = [];
+
   for (const targetId of targets) {
-    activeBuffs.set(targetId, {
-      buff: {
-        id: buff.id,
-        name: buff.name,
-        icon: buff.icon,
-        duration: buff.duration,
-        raidWide: buff.raidWide,
-      },
-      expiresAt,
-      casterName: caster.character_name,
-      casterId: caster.id,
-      isSelfCast,
-    });
+    const existing = activeBuffs.get(targetId) || [];
+
+    // If this exact buff is already active, renew expiry instead of stacking
+    const dupIdx = existing.findIndex(b => b.buff.id === buff.id);
+    if (dupIdx !== -1) {
+      const renewed = [...existing];
+      renewed[dupIdx] = buffEntry;
+      activeBuffs.set(targetId, renewed);
+      newTargets.push(targetId);
+      continue;
+    }
+
+    // Respect per-player cap — drop oldest if at limit
+    const capped = existing.length >= MAX_BUFFS_PER_PLAYER
+      ? existing.slice(existing.length - (MAX_BUFFS_PER_PLAYER - 1))
+      : existing;
+
+    activeBuffs.set(targetId, [...capped, buffEntry]);
+    newTargets.push(targetId);
   }
 
   // Broadcast to all clients
@@ -245,12 +269,16 @@ function applyRandomBuff() {
 
   log.info(`${caster.character_name} cast ${buff.name}${buff.raidWide ? ' (RAID-WIDE)' : ''} on ${targets.length} target(s)`);
 
-  // Schedule buff expiration cleanup
+  // Schedule buff expiration cleanup — remove only this specific buff entry
   setTimeout(() => {
-    for (const targetId of targets) {
+    for (const targetId of newTargets) {
       const current = activeBuffs.get(targetId);
-      if (current && current.expiresAt === expiresAt) {
+      if (!current) continue;
+      const remaining = current.filter(b => !(b.buff.id === buff.id && b.expiresAt === expiresAt));
+      if (remaining.length === 0) {
         activeBuffs.delete(targetId);
+      } else {
+        activeBuffs.set(targetId, remaining);
       }
     }
   }, buff.duration * 1000);
@@ -266,9 +294,10 @@ export function registerClient(clientId, res) {
   // Send current active buffs to the new client
   const currentBuffs = {};
   const now = Date.now();
-  for (const [memberId, data] of activeBuffs.entries()) {
-    if (data.expiresAt > now) {
-      currentBuffs[memberId] = data;
+  for (const [memberId, buffs] of activeBuffs.entries()) {
+    const active = buffs.filter(b => b.expiresAt > now);
+    if (active.length > 0) {
+      currentBuffs[memberId] = active;
     }
   }
 
@@ -324,9 +353,10 @@ function broadcast(data) {
 export function getActiveBuffs() {
   const result = {};
   const now = Date.now();
-  for (const [memberId, data] of activeBuffs.entries()) {
-    if (data.expiresAt > now) {
-      result[memberId] = data;
+  for (const [memberId, buffs] of activeBuffs.entries()) {
+    const active = buffs.filter(b => b.expiresAt > now);
+    if (active.length > 0) {
+      result[memberId] = active;
     }
   }
   return result;
