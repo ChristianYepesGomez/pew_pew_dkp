@@ -628,6 +628,15 @@ export async function runMigrations(targetDb, connectionUrl = dbUrl) {
     UNIQUE(boss_cd_event_id, cooldown_id, assigned_user_id)
   )`); } catch (_e) { /* table already exists */ }
 
+  try { await targetDb.exec(`CREATE TABLE IF NOT EXISTS addons (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    title TEXT NOT NULL,
+    body TEXT NOT NULL,
+    category TEXT NOT NULL CHECK(category IN ('required', 'recommended')),
+    display_order INTEGER DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  )`); } catch (_e) { /* table already exists */ }
+
   await targetDb.exec(`CREATE TABLE IF NOT EXISTS db_migrations (
     id INTEGER PRIMARY KEY, version TEXT NOT NULL UNIQUE,
     applied_at TEXT DEFAULT (datetime('now')), description TEXT

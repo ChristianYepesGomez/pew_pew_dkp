@@ -22,7 +22,7 @@ const BUFFS = [
   { id: 'timewarp', name: 'Time Warp', duration: 40, icon: 'https://wow.zamimg.com/images/wow/icons/large/ability_mage_timewarp.jpg', classes: ['Mage'], casterRole: null, type: 'self', raidWide: true },
 
   // Healer externals (Healer role required)
-  { id: 'powerinfusion', name: 'Power Infusion', duration: 15, icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_holy_powerinfusion.jpg', classes: ['Priest'], casterRole: 'Healer', type: 'external' },
+  { id: 'powerinfusion', name: 'Power Infusion', duration: 15, icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_holy_powerinfusion.jpg', classes: ['Priest'], casterRole: null, type: 'external' },
   { id: 'innervate', name: 'Innervate', duration: 8, icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_nature_lightning.jpg', classes: ['Druid'], casterSpecs: ['Restoration Druid'], type: 'external', targetRoles: ['Healer'] },
   { id: 'painsuppression', name: 'Pain Suppression', duration: 8, icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_holy_painsupression.jpg', classes: ['Priest'], casterSpecs: ['Discipline'], type: 'external', targetRoles: ['Tank'] },
   { id: 'ironbark', name: 'Ironbark', duration: 12, icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_druid_ironbark.jpg', classes: ['Druid'], casterSpecs: ['Restoration Druid'], type: 'external', targetRoles: ['Tank'] },
@@ -75,6 +75,106 @@ const BUFFS = [
   { id: 'theHunt', name: 'The Hunt', duration: 30, icon: 'https://wow.zamimg.com/images/wow/icons/large/ability_ardenweald_demonhunter.jpg', classes: ['Demon Hunter'], casterRole: 'DPS', type: 'self' },
   // Evoker DPS
   { id: 'dragonrage', name: 'Dragonrage', duration: 18, icon: 'https://wow.zamimg.com/images/wow/icons/large/ability_evoker_dragonrage.jpg', classes: ['Evoker'], casterSpecs: ['Devastation'], type: 'self' },
+
+  // --- Shadow Priest ---
+  // Dark Ascension: ~1.5min CD, major Shadow DPS CD
+  { id: 'darkAscension', name: 'Dark Ascension', duration: 20, icon: 'https://wow.zamimg.com/images/wow/icons/large/ability_priest_darkascension.jpg', classes: ['Priest'], casterSpecs: ['Shadow'], type: 'self' },
+  // Desperate Prayer: 1.5min CD, self-heal/defensive for any Priest spec
+  { id: 'desperatePrayer', name: 'Desperate Prayer', duration: 10, icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_holy_desperateprayer.jpg', classes: ['Priest'], casterRole: null, type: 'self' },
+
+  // --- Shaman DPS CDs ---
+  // Feral Spirit: 2.5min CD, Enhancement wolves
+  { id: 'feralSpirit', name: 'Feral Spirit', duration: 15, icon: 'https://wow.zamimg.com/images/wow/icons/large/ability_shaman_feralspirit.jpg', classes: ['Shaman'], casterSpecs: ['Enhancement'], type: 'self' },
+  // Ascendance: ~3min CD, shared by all Shaman specs (different effects per spec)
+  { id: 'ascendance', name: 'Ascendance', duration: 15, icon: 'https://wow.zamimg.com/images/wow/icons/large/ability_shaman_ascendance.jpg', classes: ['Shaman'], casterRole: null, type: 'self' },
+  // Stormkeeper: ~1.5min CD, Elemental burst enabler
+  { id: 'stormkeeper', name: 'Stormkeeper', duration: 15, icon: 'https://wow.zamimg.com/images/wow/icons/large/ability_shaman_stormkeeper.jpg', classes: ['Shaman'], casterSpecs: ['Elemental'], type: 'self' },
+  // Astral Shift: 1.5min CD, defensive for any Shaman spec
+  { id: 'astralShift', name: 'Astral Shift', duration: 8, icon: 'https://wow.zamimg.com/images/wow/icons/large/ability_shaman_astralshift.jpg', classes: ['Shaman'], casterRole: null, type: 'self' },
+
+  // --- Mistweaver Monk ---
+  // Invoke Chi-Ji: 3min CD, major healing CD
+  { id: 'invokeChiJi', name: 'Invoke Chi-Ji', duration: 25, icon: 'https://wow.zamimg.com/images/wow/icons/large/ability_monk_summonredcranestatue.jpg', classes: ['Monk'], casterSpecs: ['Mistweaver'], type: 'self' },
+  // Revival: 3min CD, raid-wide heal / dispel
+  { id: 'revival', name: 'Revival', duration: 8, icon: 'https://wow.zamimg.com/images/wow/icons/large/ability_monk_revival.jpg', classes: ['Monk'], casterSpecs: ['Mistweaver'], type: 'self' },
+  // Fortifying Brew: 6min CD, defensive for any Monk spec
+  { id: 'fortifyingBrew', name: 'Fortifying Brew', duration: 15, icon: 'https://wow.zamimg.com/images/wow/icons/large/ability_monk_fortifyingale_new.jpg', classes: ['Monk'], casterRole: null, type: 'self' },
+
+  // --- Blood Death Knight defensives ---
+  // Vampiric Blood: 1.5min CD, major tank survival CD
+  { id: 'vampiricBlood', name: 'Vampiric Blood', duration: 10, icon: 'https://wow.zamimg.com/images/wow/icons/large/ability_deathknight_vampiricblood.jpg', classes: ['Death Knight'], casterSpecs: ['Blood'], type: 'self' },
+  // Icebound Fortitude: 3min CD, defensive for any DK spec
+  { id: 'iceboundFortitude', name: 'Icebound Fortitude', duration: 8, icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_deathknight_iceboundfortitude.jpg', classes: ['Death Knight'], casterRole: null, type: 'self' },
+
+  // --- Warlock defensive ---
+  // Unending Resolve: 3min CD, major defensive for any Warlock spec
+  { id: 'unendingResolve', name: 'Unending Resolve', duration: 8, icon: 'https://wow.zamimg.com/images/wow/icons/large/ability_warlock_unendingresolution.jpg', classes: ['Warlock'], casterRole: null, type: 'self' },
+
+  // ─── WARRIOR ──────────────────────────────────────────────────────────────
+  // Rallying Cry: 10min CD, raid-wide +10% HP bonus
+  { id: 'rallyingCry', name: 'Rallying Cry', duration: 10, icon: 'https://wow.zamimg.com/images/wow/icons/large/ability_warrior_rallyingcry.jpg', classes: ['Warrior'], casterRole: null, type: 'self', raidWide: true },
+  // Shield Wall: 4min CD, Protection Warrior major defensive
+  { id: 'shieldWall', name: 'Shield Wall', duration: 8, icon: 'https://wow.zamimg.com/images/wow/icons/large/ability_warrior_shieldwall.jpg', classes: ['Warrior'], casterSpecs: ['Protection Warrior'], type: 'self' },
+  // Last Stand: 3min CD, Protection Warrior HP boost
+  { id: 'lastStand', name: 'Last Stand', duration: 15, icon: 'https://wow.zamimg.com/images/wow/icons/large/ability_warrior_laststand.jpg', classes: ['Warrior'], casterSpecs: ['Protection Warrior'], type: 'self' },
+  // Die by the Sword: 2min CD, Arms Warrior parry/defensive
+  { id: 'dieByTheSword', name: 'Die by the Sword', duration: 8, icon: 'https://wow.zamimg.com/images/wow/icons/large/ability_warrior_diebythesword.jpg', classes: ['Warrior'], casterSpecs: ['Arms'], type: 'self' },
+
+  // ─── DRUID ────────────────────────────────────────────────────────────────
+  // Survival Instincts: 3min CD, Feral / Guardian defensive
+  { id: 'survivalInstincts', name: 'Survival Instincts', duration: 6, icon: 'https://wow.zamimg.com/images/wow/icons/large/ability_druid_survivalinstincts.jpg', classes: ['Druid'], casterSpecs: ['Feral', 'Guardian'], type: 'self' },
+  // Tranquility: 3min CD, Restoration Druid raid-wide channel heal
+  { id: 'tranquility', name: 'Tranquility', duration: 8, icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_nature_tranquility.jpg', classes: ['Druid'], casterSpecs: ['Restoration Druid'], type: 'self' },
+  // Convoke the Spirits: 2min CD, any Druid burst
+  { id: 'convokeTheSpirits', name: 'Convoke the Spirits', duration: 4, icon: 'https://wow.zamimg.com/images/wow/icons/large/ability_druid_convoke.jpg', classes: ['Druid'], casterRole: null, type: 'self' },
+
+  // ─── PALADIN ──────────────────────────────────────────────────────────────
+  // Divine Shield: 5min CD, any Paladin full immunity ("bubble")
+  { id: 'divineShield', name: 'Divine Shield', duration: 8, icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_holy_divineprotection.jpg', classes: ['Paladin'], casterRole: null, type: 'self' },
+  // Lay on Hands: 10min CD, any Paladin external emergency heal on Tank
+  { id: 'layOnHands', name: 'Lay on Hands', duration: 5, icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_holy_layonhands.jpg', classes: ['Paladin'], casterRole: null, type: 'external', targetRoles: ['Tank'] },
+  // Ardent Defender: 2min CD, Protection Paladin emergency survival
+  { id: 'ardentDefender', name: 'Ardent Defender', duration: 8, icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_holy_ardentdefender.jpg', classes: ['Paladin'], casterSpecs: ['Protection Paladin'], type: 'self' },
+
+  // ─── MAGE ─────────────────────────────────────────────────────────────────
+  // Ice Block: 4min CD, any Mage full immunity
+  { id: 'iceBlock', name: 'Ice Block', duration: 10, icon: 'https://wow.zamimg.com/images/wow/icons/large/ability_mage_iceblock.jpg', classes: ['Mage'], casterRole: null, type: 'self' },
+
+  // ─── ROGUE ────────────────────────────────────────────────────────────────
+  // Evasion: 2min CD, any Rogue dodge burst
+  { id: 'evasion', name: 'Evasion', duration: 10, icon: 'https://wow.zamimg.com/images/wow/icons/large/ability_rogue_evasion.jpg', classes: ['Rogue'], casterRole: null, type: 'self' },
+  // Cloak of Shadows: 2min CD, any Rogue magic immunity
+  { id: 'cloakOfShadows', name: 'Cloak of Shadows', duration: 5, icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_shadow_nethercloak.jpg', classes: ['Rogue'], casterRole: null, type: 'self' },
+
+  // ─── HUNTER ───────────────────────────────────────────────────────────────
+  // Survival of the Fittest: 2min CD, any Hunter damage reduction
+  { id: 'survivalOfTheFittest', name: 'Survival of the Fittest', duration: 6, icon: 'https://wow.zamimg.com/images/wow/icons/large/ability_hunter_survivalofthefittest.jpg', classes: ['Hunter'], casterRole: null, type: 'self' },
+  // Exhilaration: 1.5min CD, any Hunter self-heal burst
+  { id: 'exhilaration', name: 'Exhilaration', duration: 8, icon: 'https://wow.zamimg.com/images/wow/icons/large/ability_hunter_posthaste.jpg', classes: ['Hunter'], casterRole: null, type: 'self' },
+
+  // ─── MONK — BREWMASTER ────────────────────────────────────────────────────
+  // Invoke Niuzao, the Black Ox: 3min CD, Brewmaster tank summon
+  { id: 'invokeNiuzao', name: 'Invoke Niuzao, the Black Ox', duration: 25, icon: 'https://wow.zamimg.com/images/wow/icons/large/ability_monk_provoke.jpg', classes: ['Monk'], casterSpecs: ['Brewmaster'], type: 'self' },
+
+  // ─── DEMON HUNTER — VENGEANCE ─────────────────────────────────────────────
+  // Metamorphosis (tank): 3min CD, Vengeance major defensive CD
+  { id: 'metamorphosisTank', name: 'Metamorphosis', duration: 30, icon: 'https://wow.zamimg.com/images/wow/icons/large/ability_demonhunter_metamorphasis.jpg', classes: ['Demon Hunter'], casterSpecs: ['Vengeance'], type: 'self' },
+  // Fiery Brand: 1.5min CD, Vengeance single-target tank defensive
+  { id: 'fieryBrand', name: 'Fiery Brand', duration: 8, icon: 'https://wow.zamimg.com/images/wow/icons/large/ability_demonhunter_fierybrand.jpg', classes: ['Demon Hunter'], casterSpecs: ['Vengeance'], type: 'self' },
+
+  // ─── EVOKER — PRESERVATION ────────────────────────────────────────────────
+  // Rewind: 2min CD, Preservation major healing CD (reverses damage dealt)
+  { id: 'rewind', name: 'Rewind', duration: 5, icon: 'https://wow.zamimg.com/images/wow/icons/large/ability_evoker_rewind.jpg', classes: ['Evoker'], casterSpecs: ['Preservation'], type: 'self' },
+  // Stasis: 1.5min CD, Preservation healing storage
+  { id: 'stasis', name: 'Stasis', duration: 8, icon: 'https://wow.zamimg.com/images/wow/icons/large/ability_evoker_stasis.jpg', classes: ['Evoker'], casterSpecs: ['Preservation'], type: 'self' },
+
+  // ─── EVOKER — AUGMENTATION ────────────────────────────────────────────────
+  // Breath of Eons: 2min CD, Augmentation major support CD (buffs nearby allies)
+  { id: 'breathOfEons', name: 'Breath of Eons', duration: 10, icon: 'https://wow.zamimg.com/images/wow/icons/large/ability_evoker_breathofeons.jpg', classes: ['Evoker'], casterSpecs: ['Augmentation'], type: 'self' },
+
+  // ─── DEATH KNIGHT ─────────────────────────────────────────────────────────
+  // Army of the Dead: 8min CD, any DK — dramatic undead army summon
+  { id: 'armyOfTheDead', name: 'Army of the Dead', duration: 8, icon: 'https://wow.zamimg.com/images/wow/icons/large/spell_deathknight_armyofthedead.jpg', classes: ['Death Knight'], casterRole: null, type: 'self' },
 ];
 
 // Buff interval timer

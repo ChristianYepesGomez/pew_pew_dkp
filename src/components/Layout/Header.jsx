@@ -1,6 +1,6 @@
 import { useState, useLayoutEffect, useRef, useCallback } from 'react'
 import { createPortal } from 'react-dom'
-import { SignOut, CaretDown, IconContext, Crown, Translate, User, Users, Coins, Question, ClockCounterClockwise, Scroll, ShieldStar, Wrench } from '@phosphor-icons/react'
+import { SignOut, CaretDown, IconContext, Crown, Translate, User, Users, Coins, Question, ClockCounterClockwise, Scroll, ShieldStar } from '@phosphor-icons/react'
 import { useAuth } from '../../hooks/useAuth'
 import { useLanguage } from '../../hooks/useLanguage'
 import { useSocket } from '../../hooks/useSocket'
@@ -11,7 +11,6 @@ import PillButton from '../ui/PillButton'
 import PopoverMenu, { PopoverMenuDivider, PopoverMenuItem } from '../ui/PopoverMenu'
 import DKPInfoModal from '../Common/DKPInfoModal'
 import MyCooldownsWidget from '../Cooldowns/MyCooldownsWidget'
-import AddonRecommendationsModal from '../Cooldowns/AddonRecommendationsModal'
 
 const USER_MENU_ID = 'header-user-menu'
 
@@ -39,12 +38,11 @@ const Header = ({ tabs = [], activeTab, onTabChange }) => {
   const [showDkpInfo, setShowDkpInfo] = useState(false)
 
   // Onboarding step comes from the server (user.onboardingStep):
-  //   0 = show DKP help button beacon
-  //   1 = show user menu beacon → import button beacon inside modal
-  //   2 = done
-  const [onboardingStep, setOnboardingStep] = useState(() => user?.onboardingStep ?? 2)
-
-  const [showAddonModal, setShowAddonModal] = useState(false)
+  //   0 = show DKP help button beacon (1/3)
+  //   1 = inside DKP modal — Addons tab highlighted (2/3)
+  //   2 = show user menu beacon → import button beacon inside modal (3/3)
+  //   3 = done
+  const [onboardingStep, setOnboardingStep] = useState(() => user?.onboardingStep ?? 3)
 
   const btnRef = useRef(null)
   const [btnRect, setBtnRect] = useState(null)
@@ -118,8 +116,8 @@ const Header = ({ tabs = [], activeTab, onTabChange }) => {
   // --- end easter egg ---
 
   const showStep1Onboarding = onboardingStep === 0
-  const showStep2Onboarding = onboardingStep === 1 && !showDkpInfo && !showCharacterModal
-  const importOnboarding = onboardingStep === 1 && showCharacterModal
+  const showStep2Onboarding = onboardingStep === 2 && !showDkpInfo && !showCharacterModal
+  const importOnboarding = onboardingStep === 2 && showCharacterModal
 
   // Measure help button for step 1
   useLayoutEffect(() => {
@@ -194,11 +192,6 @@ const Header = ({ tabs = [], activeTab, onTabChange }) => {
 
   const handleCdManagerClick = () => {
     onTabChange?.('cooldowns')
-    closeUserMenu()
-  }
-
-  const handleAddonModalClick = () => {
-    setShowAddonModal(true)
     closeUserMenu()
   }
 
@@ -343,13 +336,6 @@ const Header = ({ tabs = [], activeTab, onTabChange }) => {
           )}
 
           <PopoverMenuItem
-            leading={<Wrench size={18} />}
-            onClick={handleAddonModalClick}
-          >
-            Addons Recomendados
-          </PopoverMenuItem>
-
-          <PopoverMenuItem
             leading={<Translate size={18} />}
             onClick={handleToggleLanguage}
             trailing={(
@@ -376,14 +362,18 @@ const Header = ({ tabs = [], activeTab, onTabChange }) => {
           initialTab={characterModalTab}
           showTabs={false}
           importOnboarding={importOnboarding}
-          onImportClicked={() => advanceOnboardingStep(2)}
+          onImportClicked={() => advanceOnboardingStep(3)}
           onClose={() => setShowCharacterModal(false)}
         />
       )}
 
-      {showDkpInfo && <DKPInfoModal onClose={() => setShowDkpInfo(false)} />}
-
-      {showAddonModal && <AddonRecommendationsModal onClose={() => setShowAddonModal(false)} />}
+      {showDkpInfo && (
+        <DKPInfoModal
+          onClose={() => setShowDkpInfo(false)}
+          onboardingStep={onboardingStep}
+          onAdvanceOnboarding={advanceOnboardingStep}
+        />
+      )}
 
       {/* Onboarding portal — renders directly in document.body, above everything */}
       {(showStep1Onboarding || showStep2Onboarding) && createPortal(
@@ -459,7 +449,7 @@ const Header = ({ tabs = [], activeTab, onTabChange }) => {
                   boxShadow: '0 4px 12px rgba(0,0,0,0.4)',
                 }}>
                   {t('onboarding_hint')}
-                  <span style={{ opacity: 0.75, fontWeight: 400, marginLeft: 6 }}>1/2</span>
+                  <span style={{ opacity: 0.75, fontWeight: 400, marginLeft: 6 }}>1/3</span>
                 </div>
               </div>
             </>
@@ -551,7 +541,7 @@ const Header = ({ tabs = [], activeTab, onTabChange }) => {
                 }}>
                   <span>
                     {t('onboarding_chars_hint')}
-                    <span style={{ opacity: 0.75, fontWeight: 400, marginLeft: 6 }}>2/2</span>
+                    <span style={{ opacity: 0.75, fontWeight: 400, marginLeft: 6 }}>3/3</span>
                   </span>
                   <span style={{ opacity: 0.85, fontWeight: 400, fontSize: 11 }}>
                     {t('onboarding_chars_sub')}
