@@ -345,19 +345,18 @@ const ArmoryModal = ({ memberId, onClose }) => {
                     )
                   }
                   return (
-                    <div className="flex gap-2" style={{ minHeight: '360px' }}>
+                    <div className="flex gap-2">
                       {/* Left column — items from top */}
                       <div className="flex-1 flex flex-col gap-2 justify-start">
                         {leftItems.map(renderItem)}
                       </div>
-                      {/* Center: character model — stretches to fill full height */}
+                      {/* Center: character model */}
                       {characterMedia?.mainRaw && (
-                        <div className="hidden sm:flex shrink-0 w-[190px] self-stretch items-center justify-center overflow-visible">
+                        <div className="hidden sm:block shrink-0 w-[200px]">
                           <img
                             src={characterMedia.mainRaw}
                             alt={profile.characterName}
-                            className="h-full w-auto object-contain drop-shadow-xl"
-                            style={{ minHeight: '360px' }}
+                            className="w-full object-contain drop-shadow-xl"
                           />
                         </div>
                       )}
@@ -378,14 +377,6 @@ const ArmoryModal = ({ memberId, onClose }) => {
           )}
         </div>
 
-        <div className="p-4 border-t border-lavender-20 shrink-0">
-          <button
-            onClick={onClose}
-            className="w-full px-4 py-3 rounded-full bg-coral text-indigo font-bold hover:opacity-90 transition-opacity"
-          >
-            {t('close')}
-          </button>
-        </div>
       </div>
     </div>,
     document.body
