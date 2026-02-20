@@ -204,4 +204,11 @@ export const cooldownsAPI = {
   getMrtNote: (bossId, difficulty) => api.get(`/cooldowns/mrt-note/${bossId}?difficulty=${difficulty}`),
 }
 
+export const addonsAPI = {
+  getAll: () => api.get('/addons'),
+  create: (data) => api.post('/addons', data),
+  update: (id, data) => api.put(`/addons/${id}`, data),
+  remove: (id) => api.delete(`/addons/${id}`),
+}
+
 export default api

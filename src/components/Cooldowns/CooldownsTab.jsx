@@ -8,14 +8,7 @@ import {
 import SectionHeader from '../ui/SectionHeader'
 import Button from '../ui/Button'
 
-const DIFFICULTIES = ['Mythic', 'Heroic', 'Normal', 'LFR']
-
-const DIFFICULTY_COLORS = {
-  Mythic: 'text-orange-400',
-  Heroic: 'text-purple-400',
-  Normal: 'text-green-400',
-  LFR:    'text-blue-400',
-}
+const DIFFICULTY = 'Mythic'
 
 const CATEGORY_ICON = {
   healing:   { Icon: Heart,      color: 'text-green-400' },
@@ -319,7 +312,6 @@ function MrtNotePanel({ bossId, difficulty, bossName }) {
 export default function CooldownsTab() {
   const [zones, setZones] = useState([])
   const [selectedBossId, setSelectedBossId] = useState('')
-  const [difficulty, setDifficulty] = useState('Mythic')
   const [events, setEvents] = useState([])
   const [rosterCDs, setRosterCDs] = useState([])
   const [loading, setLoading] = useState(false)
@@ -334,7 +326,7 @@ export default function CooldownsTab() {
 
   useEffect(() => {
     if (selectedBossId) loadEvents()
-  }, [selectedBossId, difficulty])
+  }, [selectedBossId])
 
   useSocket({ cooldowns_updated: () => { if (selectedBossId) loadEvents() } })
 
@@ -360,7 +352,7 @@ export default function CooldownsTab() {
     setLoading(true)
     setError('')
     try {
-      const res = await cooldownsAPI.getEvents(selectedBossId, difficulty)
+      const res = await cooldownsAPI.getEvents(selectedBossId, DIFFICULTY)
       setEvents(res.data.events)
     } catch (err) {
       setError(err.response?.data?.error || 'Error al cargar eventos')
@@ -388,43 +380,32 @@ export default function CooldownsTab() {
     }
   }
 
-  // All bosses across all zones (current ones)
-  const allBosses = zones
-    .filter(z => z.is_current)
-    .flatMap(z => (z.bosses || []).map(b => ({ ...b, zoneName: z.name })))
+  // Current zones with their bosses
+  const currentZones = zones.filter(z => z.is_current && (z.bosses || []).length > 0)
 
   return (
     <div className="space-y-6">
       <SectionHeader icon={ShieldStar} title="CD Manager" />
 
-      {/* Boss + Difficulty selectors */}
-      <div className="flex flex-wrap gap-3 items-center">
+      {/* Boss selector — grouped by zone, always Mythic */}
+      <div className="flex items-center gap-3">
         <select
           value={selectedBossId}
           onChange={e => setSelectedBossId(e.target.value)}
-          className="bg-indigo border border-lavender-20 rounded-lg px-3 py-2 text-sm text-cream min-w-0"
+          className="bg-indigo border border-lavender-20 rounded-lg px-3 py-2 text-sm text-cream"
         >
           <option value="">— Selecciona un boss —</option>
-          {allBosses.map(b => (
-            <option key={b.id} value={b.id}>{b.name} ({b.zoneName})</option>
+          {currentZones.map(zone => (
+            <optgroup key={zone.id} label={zone.name}>
+              {(zone.bosses || []).map(b => (
+                <option key={b.id} value={b.id}>{b.name}</option>
+              ))}
+            </optgroup>
           ))}
         </select>
-
-        <div className="flex gap-1">
-          {DIFFICULTIES.map(d => (
-            <button
-              key={d}
-              onClick={() => setDifficulty(d)}
-              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                difficulty === d
-                  ? 'bg-lavender-20 ' + DIFFICULTY_COLORS[d]
-                  : 'text-muted hover:bg-lavender-12'
-              }`}
-            >
-              {d}
-            </button>
-          ))}
-        </div>
+        <span className="text-xs font-medium text-orange-400 bg-orange-400/10 border border-orange-400/30 rounded-full px-3 py-1">
+          Mítico
+        </span>
       </div>
 
       {/* Events table */}
@@ -457,7 +438,7 @@ export default function CooldownsTab() {
                 ))}
                 <AddEventRow
                   bossId={parseInt(selectedBossId, 10)}
-                  difficulty={difficulty}
+                  difficulty={DIFFICULTY}
                   onCreated={loadEvents}
                 />
               </tbody>
@@ -474,7 +455,7 @@ export default function CooldownsTab() {
       {selectedBossId && events.length > 0 && (
         <MrtNotePanel
           bossId={parseInt(selectedBossId, 10)}
-          difficulty={difficulty}
+          difficulty={DIFFICULTY}
           bossName={selectedBoss?.name || ''}
         />
       )}
