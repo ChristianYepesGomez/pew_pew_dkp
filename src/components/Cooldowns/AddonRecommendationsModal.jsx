@@ -182,7 +182,7 @@ export default function AddonRecommendationsModal({ onClose }) {
       <div className="relative w-full max-w-lg bg-indigo border border-lavender-20 rounded-2xl shadow-2xl overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-lavender-12">
-          <h2 className="text-base font-semibold text-cream">Addons para Raid</h2>
+          <h2 className="text-base font-semibold text-cream">Addons</h2>
           <button onClick={onClose} className="text-muted hover:text-cream transition-colors">
             <X size={20} />
           </button>

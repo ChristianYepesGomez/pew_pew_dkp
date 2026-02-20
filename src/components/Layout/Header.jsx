@@ -345,7 +345,7 @@ const Header = ({ tabs = [], activeTab, onTabChange }) => {
             leading={<Wrench size={18} />}
             onClick={handleAddonModalClick}
           >
-            Addons Recomendados
+            Addons
           </PopoverMenuItem>
 
           <PopoverMenuItem
