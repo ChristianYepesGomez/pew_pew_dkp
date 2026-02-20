@@ -380,8 +380,8 @@ export default function CooldownsTab() {
     }
   }
 
-  // Current zones with their bosses
-  const currentZones = zones.filter(z => z.is_current && (z.bosses || []).length > 0)
+  // bossesAPI.getAll() already filters to is_current zones only
+  const currentZones = zones.filter(z => (z.bosses || []).length > 0)
 
   return (
     <div className="space-y-6">
