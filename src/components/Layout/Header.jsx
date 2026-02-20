@@ -1,6 +1,6 @@
-import { useState, useLayoutEffect, useRef } from 'react'
+import { useState, useLayoutEffect, useRef, useCallback } from 'react'
 import { createPortal } from 'react-dom'
-import { SignOut, CaretDown, IconContext, Crown, Translate, User, Users, Coins, Question, ClockCounterClockwise, Scroll } from '@phosphor-icons/react'
+import { SignOut, CaretDown, IconContext, Crown, Translate, User, Users, Coins, Question, ClockCounterClockwise, Scroll, ShieldStar, Wrench } from '@phosphor-icons/react'
 import { useAuth } from '../../hooks/useAuth'
 import { useLanguage } from '../../hooks/useLanguage'
 import { useSocket } from '../../hooks/useSocket'
@@ -10,6 +10,8 @@ import { CHARACTER_MODAL_VIEW, CHARACTER_MODAL_VIEW_ORDER } from '../Character/c
 import PillButton from '../ui/PillButton'
 import PopoverMenu, { PopoverMenuDivider, PopoverMenuItem } from '../ui/PopoverMenu'
 import DKPInfoModal from '../Common/DKPInfoModal'
+import MyCooldownsWidget from '../Cooldowns/MyCooldownsWidget'
+import AddonRecommendationsModal from '../Cooldowns/AddonRecommendationsModal'
 
 const USER_MENU_ID = 'header-user-menu'
 
@@ -42,11 +44,78 @@ const Header = ({ tabs = [], activeTab, onTabChange }) => {
   //   2 = done
   const [onboardingStep, setOnboardingStep] = useState(() => user?.onboardingStep ?? 2)
 
+  const [showAddonModal, setShowAddonModal] = useState(false)
+
   const btnRef = useRef(null)
   const [btnRect, setBtnRect] = useState(null)
   const userMenuBtnRef = useRef(null)
   const [userMenuBtnRect, setUserMenuBtnRect] = useState(null)
   const isAdmin = user?.role === 'admin'
+  const canManageCDs = isAdmin || user?.role === 'officer'
+
+  // --- Cat logo easter egg ---
+  const [isBaldomero, setIsBaldomero] = useState(false)
+  const clickTimestampsRef = useRef([])
+  const audioCtxRef = useRef(null)
+
+  const playMeow = useCallback(() => {
+    try {
+      const AudioContext = window.AudioContext || window.webkitAudioContext
+      if (!AudioContext) return
+      if (!audioCtxRef.current || audioCtxRef.current.state === 'closed') {
+        audioCtxRef.current = new AudioContext()
+      }
+      if (audioCtxRef.current.state === 'suspended') {
+        audioCtxRef.current.resume()
+      }
+      const ctx = audioCtxRef.current
+      const now = ctx.currentTime
+      const duration = 0.65
+
+      const osc = ctx.createOscillator()
+      osc.type = 'sawtooth'
+      osc.frequency.setValueAtTime(580, now)
+      osc.frequency.linearRampToValueAtTime(880, now + 0.18)
+      osc.frequency.linearRampToValueAtTime(500, now + 0.5)
+      osc.frequency.linearRampToValueAtTime(380, now + duration)
+
+      const filter = ctx.createBiquadFilter()
+      filter.type = 'bandpass'
+      filter.frequency.setValueAtTime(900, now)
+      filter.frequency.linearRampToValueAtTime(1700, now + 0.18)
+      filter.frequency.linearRampToValueAtTime(1000, now + duration)
+      filter.Q.value = 2
+
+      const gain = ctx.createGain()
+      gain.gain.setValueAtTime(0, now)
+      gain.gain.linearRampToValueAtTime(0.22, now + 0.06)
+      gain.gain.setValueAtTime(0.18, now + 0.45)
+      gain.gain.linearRampToValueAtTime(0, now + duration)
+
+      osc.connect(filter)
+      filter.connect(gain)
+      gain.connect(ctx.destination)
+      osc.start(now)
+      osc.stop(now + duration)
+    } catch (_e) {
+      // Ignore audio errors silently
+    }
+  }, [])
+
+  const handleLogoClick = useCallback(() => {
+    playMeow()
+
+    const now = Date.now()
+    const recent = clickTimestampsRef.current.filter(t => now - t < 10000)
+    recent.push(now)
+    clickTimestampsRef.current = recent
+
+    if (recent.length >= 10) {
+      setIsBaldomero(prev => !prev)
+      clickTimestampsRef.current = []
+    }
+  }, [playMeow])
+  // --- end easter egg ---
 
   const showStep1Onboarding = onboardingStep === 0
   const showStep2Onboarding = onboardingStep === 1 && !showDkpInfo && !showCharacterModal
@@ -123,6 +192,16 @@ const Header = ({ tabs = [], activeTab, onTabChange }) => {
     closeUserMenu()
   }
 
+  const handleCdManagerClick = () => {
+    onTabChange?.('cooldowns')
+    closeUserMenu()
+  }
+
+  const handleAddonModalClick = () => {
+    setShowAddonModal(true)
+    closeUserMenu()
+  }
+
   const handleToggleLanguage = () => {
     changeLanguage(language === 'es' ? 'en' : 'es')
     closeUserMenu()
@@ -137,11 +216,23 @@ const Header = ({ tabs = [], activeTab, onTabChange }) => {
     <>
       <nav className="flex items-center justify-between">
         <div className="flex items-center gap-3 shrink-0">
-          <img
-            src="/logo.svg"
-            alt="Pew Pew Kittens with Guns"
-            className="h-16 w-auto object-contain"
-          />
+          {/* Logo with clickable cat face — meow on every click, Baldomero after 10 clicks in 10s */}
+          <div className="relative h-16" style={{ width: 'max-content' }}>
+            <img
+              src={isBaldomero ? '/logo-baldomero.svg' : '/logo.svg'}
+              alt="Pew Pew Kittens with Guns"
+              className="h-16 w-auto object-contain"
+              style={{ transition: 'opacity 0.2s' }}
+            />
+            {/* Transparent overlay covering only the cat faces (~42.5% of SVG width = 104/245) */}
+            <button
+              onClick={handleLogoClick}
+              className="absolute inset-y-0 left-0"
+              style={{ width: '42.5%', background: 'transparent', border: 'none', padding: 0, cursor: 'pointer' }}
+              aria-label={isBaldomero ? '¡Baldomero!' : 'Meow!'}
+              title={isBaldomero ? '¡Baldomero, el gato de Kel\'thuzad!' : 'Meow!'}
+            />
+          </div>
         </div>
 
         <IconContext.Provider value={{ weight: 'regular' }}>
@@ -160,6 +251,9 @@ const Header = ({ tabs = [], activeTab, onTabChange }) => {
         </IconContext.Provider>
 
         <div className="flex items-center gap-3 shrink-0">
+          {/* My cooldowns widget — visible only when user has assignments */}
+          <MyCooldownsWidget />
+
           {/* Real button — invisible during step 1 onboarding, stays in layout for measurement */}
           <button
             ref={btnRef}
@@ -228,6 +322,15 @@ const Header = ({ tabs = [], activeTab, onTabChange }) => {
             {t('bis')}
           </PopoverMenuItem>
 
+          {canManageCDs && (
+            <PopoverMenuItem
+              leading={<ShieldStar size={18} />}
+              onClick={handleCdManagerClick}
+            >
+              CD Manager
+            </PopoverMenuItem>
+          )}
+
           {isAdmin && (
             <>
               <PopoverMenuItem
@@ -238,6 +341,13 @@ const Header = ({ tabs = [], activeTab, onTabChange }) => {
               </PopoverMenuItem>
             </>
           )}
+
+          <PopoverMenuItem
+            leading={<Wrench size={18} />}
+            onClick={handleAddonModalClick}
+          >
+            Addons Recomendados
+          </PopoverMenuItem>
 
           <PopoverMenuItem
             leading={<Translate size={18} />}
@@ -272,6 +382,8 @@ const Header = ({ tabs = [], activeTab, onTabChange }) => {
       )}
 
       {showDkpInfo && <DKPInfoModal onClose={() => setShowDkpInfo(false)} />}
+
+      {showAddonModal && <AddonRecommendationsModal onClose={() => setShowAddonModal(false)} />}
 
       {/* Onboarding portal — renders directly in document.body, above everything */}
       {(showStep1Onboarding || showStep2Onboarding) && createPortal(
