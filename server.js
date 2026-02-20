@@ -52,7 +52,6 @@ import onboardingRoutes from './routes/onboarding.js';
 import notificationsRoutes from './routes/notifications.js';
 import lootCouncilRoutes from './routes/lootCouncil.js';
 import epgpRoutes from './routes/epgp.js';
-import cooldownsRoutes from './routes/cooldowns.js';
 import addonsRoutes from './routes/addons.js';
 
 const app = express();
@@ -158,7 +157,6 @@ app.use('/api/onboarding', onboardingRoutes);
 app.use('/api/notifications', notificationsRoutes);
 app.use('/api/loot-council', lootCouncilRoutes);
 app.use('/api/epgp', epgpRoutes);
-app.use('/api/cooldowns', cooldownsRoutes);
 app.use('/api/addons', addonsRoutes);
 
 // ============================================

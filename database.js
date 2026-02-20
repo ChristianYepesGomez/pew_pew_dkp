@@ -586,47 +586,21 @@ export async function runMigrations(targetDb, connectionUrl = dbUrl) {
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
   )`); } catch (_e) { /* table already exists */ }
 
-  // ── CD Assignment tables ────────────────────────────────────────
-  try { await targetDb.exec(`CREATE TABLE IF NOT EXISTS cooldown_definitions (
+  // ── MRT Notes (one note per boss, stored by RL for raiders to copy) ──
+  try { await targetDb.exec(`CREATE TABLE IF NOT EXISTS mrt_notes (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    spell_id INTEGER NOT NULL,
-    name TEXT NOT NULL,
-    icon_slug TEXT,
-    class_required TEXT NOT NULL,
-    spec_required TEXT,
-    category TEXT NOT NULL CHECK(category IN ('healing', 'defensive', 'interrupt')),
-    cooldown_seconds INTEGER DEFAULT 0,
-    duration_seconds INTEGER DEFAULT 0,
-    description TEXT
-  )`); } catch (_e) { /* table already exists */ }
-
-  try { await targetDb.exec(`CREATE TABLE IF NOT EXISTS boss_cd_events (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    boss_id INTEGER NOT NULL,
-    difficulty TEXT NOT NULL,
-    event_label TEXT NOT NULL,
-    timestamp_seconds INTEGER NOT NULL,
-    created_by INTEGER,
-    created_at TEXT DEFAULT (datetime('now')),
-    FOREIGN KEY (boss_id) REFERENCES wcl_bosses(id) ON DELETE CASCADE,
-    FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL
-  )`); } catch (_e) { /* table already exists */ }
-
-  try { await targetDb.exec(`CREATE TABLE IF NOT EXISTS cd_assignments (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    boss_cd_event_id INTEGER NOT NULL,
-    cooldown_id INTEGER NOT NULL,
-    assigned_user_id INTEGER NOT NULL,
-    notes TEXT,
-    created_by INTEGER,
-    created_at TEXT DEFAULT (datetime('now')),
+    boss_id INTEGER NOT NULL UNIQUE,
+    note_text TEXT NOT NULL DEFAULT '',
+    updated_by INTEGER,
     updated_at TEXT DEFAULT (datetime('now')),
-    FOREIGN KEY (boss_cd_event_id) REFERENCES boss_cd_events(id) ON DELETE CASCADE,
-    FOREIGN KEY (cooldown_id) REFERENCES cooldown_definitions(id) ON DELETE CASCADE,
-    FOREIGN KEY (assigned_user_id) REFERENCES users(id) ON DELETE CASCADE,
-    FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL,
-    UNIQUE(boss_cd_event_id, cooldown_id, assigned_user_id)
+    FOREIGN KEY (boss_id) REFERENCES wcl_bosses(id) ON DELETE CASCADE,
+    FOREIGN KEY (updated_by) REFERENCES users(id) ON DELETE SET NULL
   )`); } catch (_e) { /* table already exists */ }
+
+  // ── Cleanup: drop obsolete CD Manager tables ──────────────────
+  try { await targetDb.exec('DROP TABLE IF EXISTS cd_assignments'); } catch (_e) {}
+  try { await targetDb.exec('DROP TABLE IF EXISTS boss_cd_events'); } catch (_e) {}
+  try { await targetDb.exec('DROP TABLE IF EXISTS cooldown_definitions'); } catch (_e) {}
 
   try { await targetDb.exec(`CREATE TABLE IF NOT EXISTS addons (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -754,49 +728,6 @@ export async function runMigrations(targetDb, connectionUrl = dbUrl) {
       }
       log.info('Characters migration complete');
     }
-  }
-
-  // Seed cooldown definitions (healing/defensive/interrupt CDs per class)
-  const cdCount = await targetDb.get('SELECT COUNT(*) as count FROM cooldown_definitions');
-  if (cdCount.count === 0) {
-    log.info('Seeding cooldown definitions');
-    const cooldowns = [
-      // Healing CDs
-      [740,    'Tranquility',               'spell_nature_tranquility',       'Druid',         'Restoration', 'healing',   180, 8,  'Canal AoE heal'],
-      [64843,  'Divine Hymn',               'spell_holy_divinehymn',          'Priest',        'Holy',        'healing',   180, 8,  'Canal AoE heal'],
-      [115310, 'Revival',                   'ability_monk_revival',           'Monk',          'Mistweaver',  'healing',   180, 0,  'AoE heal + cleanse instant'],
-      [98008,  'Spirit Link Totem',         'spell_shaman_spiritlink',        'Shaman',        'Restoration', 'healing',   180, 6,  'Redistribuye vida del raid'],
-      [31821,  'Aura Mastery',              'spell_holy_auramastery',         'Paladin',       'Holy',        'healing',   180, 8,  'Potencia aura de Devoción'],
-      [724,    'Lightwell',                 'spell_holy_summonlightwell',     'Priest',        'Holy',        'healing',   180, 180,'Totem de heal clickeable'],
-      [6788,   'Power Word: Barrier',       'spell_holy_powerwordbarrier',    'Priest',        'Discipline',  'healing',   180, 10, 'Burbuja AoE en zona'],
-      [207399, 'Ancestral Protection Totem','spell_nature_reincarnation',     'Shaman',        'Restoration', 'healing',   300, 30, 'Totem res + mitiga mortal'],
-      // Defensive / raid CDs (any role can use these)
-      [196718, 'Darkness',                  'ability_demonhunter_darkness',   'Demon Hunter',  null,          'defensive', 300, 8,  '20% evade ataques en zona'],
-      [51052,  'Anti-Magic Zone',           'spell_deathknight_antimagiczone','Death Knight',  null,          'defensive', 120, 8,  'Burbuja anti-magia AoE'],
-      [122507, 'Rallying Cry',              'ability_warrior_rallyingcry',    'Warrior',       null,          'defensive', 180, 10, '+15% HP temporal raid'],
-      [15286,  'Vampiric Embrace',          'spell_shadow_unsummonbuilding',  'Priest',        'Shadow',      'defensive', 0,   0,  'Pasivo heal con daño Shadow'],
-      [204018, 'Darkness (PvP)',            'ability_demonhunter_darkness',   'Demon Hunter',  'Havoc',       'defensive', 300, 8,  '20% evade ataques en zona'],
-      // Interrupts
-      [1766,   'Kick',                      'ability_kick',                   'Rogue',         null,          'interrupt', 15,  0,  'Interrupt melee'],
-      [147362, 'Counter Shot',              'ability_hunter_countershot',     'Hunter',        null,          'interrupt', 24,  0,  'Interrupt rango'],
-      [57994,  'Wind Shear',               'ability_shaman_windshear',       'Shaman',        null,          'interrupt', 12,  0,  'Interrupt rango corto CD'],
-      [116705, 'Spear Hand Strike',         'ability_monk_spearhand',         'Monk',          null,          'interrupt', 15,  0,  'Interrupt melee'],
-      [78675,  'Solar Beam',               'spell_nature_solarflare',        'Druid',         null,          'interrupt', 60,  0,  'Silence + interrupt AoE'],
-      [15487,  'Silence',                  'spell_shadow_impphaseshift',     'Priest',        'Shadow',      'interrupt', 45,  0,  'Silence rango'],
-      [47528,  'Mind Freeze',              'spell_deathknight_mindfreeze',   'Death Knight',  null,          'interrupt', 15,  0,  'Interrupt melee'],
-      [2139,   'Counterspell',             'spell_frost_iceshock',           'Mage',          null,          'interrupt', 24,  0,  'Interrupt + lock 6s'],
-      [19647,  'Spell Lock',               'spell_shadow_mindrot',           'Warlock',       null,          'interrupt', 24,  0,  'Interrupt + lock'],
-      [96231,  'Rebuke',                   'spell_holy_rebuke',              'Paladin',       null,          'interrupt', 15,  0,  'Interrupt melee'],
-      [106839, 'Skull Bash',               'ability_druid_skulbash',         'Druid',         null,          'interrupt', 15,  0,  'Interrupt melee'],
-      [6552,   'Pummel',                   'ability_warrior_pummle',         'Warrior',       null,          'interrupt', 15,  0,  'Interrupt melee'],
-    ];
-    for (const [spell_id, name, icon_slug, class_required, spec_required, category, cooldown_seconds, duration_seconds, description] of cooldowns) {
-      await targetDb.run(
-        'INSERT INTO cooldown_definitions (spell_id, name, icon_slug, class_required, spec_required, category, cooldown_seconds, duration_seconds, description) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-        spell_id, name, icon_slug, class_required, spec_required, category, cooldown_seconds, duration_seconds, description
-      );
-    }
-    log.info('Cooldown definitions seeded');
   }
 
   const calDkp = await targetDb.get("SELECT config_value FROM dkp_config WHERE config_key = 'calendar_dkp_per_day'");

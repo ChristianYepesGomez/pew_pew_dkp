@@ -71,4 +71,64 @@ router.get('/:bossId', authenticateToken, async (req, res) => {
 });
 
 
+// ── GET /api/bosses/:bossId/mrt ──────────────────────────────────
+// Returns the saved MRT note for a boss. Accessible to all authenticated users.
+router.get('/:bossId/mrt', authenticateToken, async (req, res) => {
+  try {
+    const bossId = parseInt(req.params.bossId, 10);
+    if (isNaN(bossId)) return error(res, 'Invalid boss ID', 400, ErrorCodes.VALIDATION_ERROR);
+
+    const note = await req.db.get(
+      `SELECT n.note_text, n.updated_at, u.character_name AS updated_by
+       FROM mrt_notes n
+       LEFT JOIN users u ON u.id = n.updated_by
+       WHERE n.boss_id = ?`,
+      bossId
+    );
+    return success(res, {
+      note_text: note?.note_text || '',
+      updated_at: note?.updated_at || null,
+      updated_by: note?.updated_by || null,
+    });
+  } catch (err) {
+    log.error('Get MRT note error', err);
+    return error(res, 'Failed to get MRT note', 500, ErrorCodes.INTERNAL_ERROR);
+  }
+});
+
+// ── POST /api/bosses/:bossId/mrt ─────────────────────────────────
+// Save or update MRT note for a boss. Admin/Officer only.
+router.post('/:bossId/mrt', authenticateToken, authorizeRole(['admin', 'officer']), adminLimiter, async (req, res) => {
+  try {
+    const bossId = parseInt(req.params.bossId, 10);
+    if (isNaN(bossId)) return error(res, 'Invalid boss ID', 400, ErrorCodes.VALIDATION_ERROR);
+
+    const { note_text } = req.body;
+    if (typeof note_text !== 'string') {
+      return error(res, 'note_text is required', 400, ErrorCodes.VALIDATION_ERROR);
+    }
+
+    const boss = await req.db.get('SELECT id FROM wcl_bosses WHERE id = ?', bossId);
+    if (!boss) return error(res, 'Boss not found', 404, ErrorCodes.NOT_FOUND);
+
+    await req.db.run(
+      `INSERT INTO mrt_notes (boss_id, note_text, updated_by, updated_at)
+       VALUES (?, ?, ?, datetime('now'))
+       ON CONFLICT(boss_id) DO UPDATE SET
+         note_text = excluded.note_text,
+         updated_by = excluded.updated_by,
+         updated_at = datetime('now')`,
+      bossId, note_text.trim(), req.user.userId
+    );
+
+    const io = req.app.get('io');
+    if (io) io.emit('mrt_note_updated', { bossId });
+
+    return success(res, { ok: true });
+  } catch (err) {
+    log.error('Save MRT note error', err);
+    return error(res, 'Failed to save MRT note', 500, ErrorCodes.INTERNAL_ERROR);
+  }
+});
+
 export default router;
