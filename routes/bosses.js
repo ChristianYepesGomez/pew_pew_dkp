@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { authenticateToken, authorizeRole } from '../middleware/auth.js';
 import { adminLimiter } from '../lib/rateLimiters.js';
-import { getAllZonesWithBosses, getBossDetails, seedRaidData, setZoneLegacy } from '../services/raids.js';
+import { getAllZonesWithBosses, getBossDetails } from '../services/raids.js';
 import { success, error } from '../lib/response.js';
 import { ErrorCodes } from '../lib/errorCodes.js';
 import { createLogger } from '../lib/logger.js';
@@ -70,31 +70,5 @@ router.get('/:bossId', authenticateToken, async (req, res) => {
   }
 });
 
-// Reseed raid data from static definitions (admin only)
-router.post('/sync', adminLimiter, authenticateToken, authorizeRole(['admin']), async (req, res) => {
-  try {
-    await seedRaidData(req.db);
-    return success(res, null, 'Raid data synced successfully');
-  } catch (err) {
-    log.error('Sync raid data error', err);
-    return error(res, 'Failed to sync raid data', 500, ErrorCodes.INTERNAL_ERROR);
-  }
-});
-
-// Mark a zone as legacy or current (admin only)
-router.put('/zones/:zoneId/legacy', adminLimiter, authenticateToken, authorizeRole(['admin']), async (req, res) => {
-  try {
-    const zoneId = parseInt(req.params.zoneId, 10);
-    if (isNaN(zoneId)) return error(res, 'Invalid zone ID', 400, ErrorCodes.VALIDATION_ERROR);
-
-    const { isLegacy } = req.body;
-
-    await setZoneLegacy(req.db, zoneId, isLegacy);
-    return success(res, null, `Zone marked as ${isLegacy ? 'legacy' : 'current'}`);
-  } catch (err) {
-    log.error('Set zone legacy error', err);
-    return error(res, 'Failed to update zone status', 500, ErrorCodes.INTERNAL_ERROR);
-  }
-});
 
 export default router;

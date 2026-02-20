@@ -179,7 +179,7 @@ export async function getAllZonesWithBosses(db) {
     ORDER BY z.tier DESC, z.name
   `);
 
-  const result = { current: [], legacy: [] };
+  const result = [];
 
   for (const zone of zones) {
     const bosses = await db.all(`
@@ -244,11 +244,7 @@ export async function getAllZonesWithBosses(db) {
       }))
     };
 
-    if (zone.is_current) {
-      result.current.push(zoneData);
-    } else {
-      result.legacy.push(zoneData);
-    }
+    result.push(zoneData);
   }
 
   return result;
@@ -780,5 +776,4 @@ export default {
   processFightStats,
   recordPlayerDeaths,
   recordPlayerPerformance,
-  setZoneLegacy,
 };
