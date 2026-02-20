@@ -344,28 +344,35 @@ const ArmoryModal = ({ memberId, onClose }) => {
                       </WowheadTooltip>
                     )
                   }
+                  // Character model uses absolute positioning so it fills the full height
+                  // of the item columns. overflow-auto on an ancestor clips any visual
+                  // overflow tricks, so we must stay within bounds.
+                  // A spacer div reserves the center column in the flex layout;
+                  // the absolutely positioned image fills that same space top-to-bottom.
                   return (
-                    <div className="flex gap-2">
-                      {/* Left column — items from top */}
-                      <div className="flex-1 flex flex-col gap-2 justify-start">
-                        {leftItems.map(renderItem)}
+                    <div className="relative min-h-[420px]">
+                      {/* Flex layout with spacer reserving center column */}
+                      <div className="relative z-10 flex gap-2">
+                        <div className="flex-1 flex flex-col gap-2 justify-start">
+                          {leftItems.map(renderItem)}
+                        </div>
+                        {characterMedia?.mainRaw && (
+                          <div className="hidden sm:block shrink-0 w-[220px]" />
+                        )}
+                        <div className="flex-1 flex flex-col gap-2 justify-start">
+                          {rightItems.map(renderItem)}
+                        </div>
                       </div>
-                      {/* Center: character model — image overflows container to compensate for
-                          Blizzard's transparent padding (~40% of canvas around the character) */}
+                      {/* Character model — absolutely positioned over the spacer, fills full height */}
                       {characterMedia?.mainRaw && (
-                        <div className="hidden sm:block shrink-0 w-[180px] overflow-visible">
+                        <div className="hidden sm:block absolute inset-y-0 left-1/2 -translate-x-1/2 w-[220px] pointer-events-none">
                           <img
                             src={characterMedia.mainRaw}
                             alt={profile.characterName}
-                            className="drop-shadow-xl block"
-                            style={{ width: '170%', marginLeft: '-35%' }}
+                            className="w-full h-full object-contain drop-shadow-xl"
                           />
                         </div>
                       )}
-                      {/* Right column — items from top */}
-                      <div className="flex-1 flex flex-col gap-2 justify-start">
-                        {rightItems.map(renderItem)}
-                      </div>
                     </div>
                   )
                 })()
