@@ -218,6 +218,7 @@ export async function getAllZonesWithBosses(db) {
     SELECT z.*,
            (SELECT COUNT(*) FROM wcl_bosses WHERE zone_id = z.id) as boss_count
     FROM wcl_zones z
+    WHERE z.is_current = 1
     ORDER BY z.tier DESC, z.name
   `);
 

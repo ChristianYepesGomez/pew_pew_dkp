@@ -214,8 +214,8 @@ export async function getPlayerDetailedPerformance(db, userId, options = {}) {
   cutoff.setDate(cutoff.getDate() - (weeks * 7));
   const cutoffDate = cutoff.toISOString().split('T')[0];
 
-  // Base WHERE clause
-  let where = 'WHERE p.user_id = ? AND p.fight_date >= ?';
+  // Base WHERE clause — restricted to current-season bosses only
+  let where = 'WHERE p.user_id = ? AND p.fight_date >= ? AND p.boss_id IN (SELECT wb.id FROM wcl_bosses wb JOIN wcl_zones wz ON wb.zone_id = wz.id WHERE wz.is_current = 1)';
   const params = [userId, cutoffDate];
   if (bossId) { where += ' AND p.boss_id = ?'; params.push(bossId); }
   if (difficulty) { where += ' AND p.difficulty = ?'; params.push(difficulty); }
