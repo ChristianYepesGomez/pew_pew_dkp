@@ -247,18 +247,28 @@ const Header = ({ tabs = [], activeTab, onTabChange }) => {
       <nav className="flex items-center justify-between">
         <div className="flex items-center gap-3 shrink-0">
           {/* Logo with clickable cat face — meow on every click, Baldomero after 10 clicks in 10s */}
-          <div className={`relative ${baldState !== 'normal' ? 'h-40' : 'h-16'}`} style={{ width: 'max-content' }}>
+          {/* Container stays h-16 always — Baldomero overflows via absolute positioning, no layout shift */}
+          <div className="relative h-16 overflow-visible" style={{ width: baldState !== 'normal' ? '120px' : 'max-content' }}>
             <img
               src={baldState === 'dead' ? '/logo-baldomero-dead.svg' : baldState === 'alive' ? '/logo-baldomero.svg' : '/logo.svg'}
               alt="Pew Pew Kittens with Guns"
-              className={`${baldState !== 'normal' ? 'h-40' : 'h-16'} w-auto object-contain`}
-              style={{ transition: 'opacity 0.3s' }}
+              style={baldState !== 'normal' ? {
+                position: 'absolute', width: '120px', height: 'auto',
+                top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
+              } : { height: '64px', width: 'auto', objectFit: 'contain' }}
             />
-            {/* Transparent overlay — full width for Baldomero face, cat-area only for default logo */}
+            {/* Click overlay — covers cat-face area for default, full image for Baldomero */}
             <button
               onClick={handleLogoClick}
-              className="absolute inset-y-0 left-0"
-              style={{ width: baldState !== 'normal' ? '100%' : '42.5%', background: 'transparent', border: 'none', padding: 0, cursor: baldState === 'alive' ? 'inherit' : 'pointer' }}
+              style={baldState !== 'normal' ? {
+                position: 'absolute', width: '120px', height: '160px',
+                top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
+                background: 'transparent', border: 'none', padding: 0,
+                cursor: baldState === 'alive' ? 'inherit' : 'pointer', zIndex: 1,
+              } : {
+                position: 'absolute', top: 0, bottom: 0, left: 0, width: '42.5%',
+                background: 'transparent', border: 'none', padding: 0, cursor: 'pointer',
+              }}
               aria-label={baldState === 'dead' ? '...' : baldState === 'alive' ? '¡Baldomero!' : 'Meow!'}
               title={baldState === 'dead' ? 'Descansa en paz, Baldomero' : baldState === 'alive' ? "¡Baldomero, el gato de Kel'thuzad!" : 'Meow!'}
             />
