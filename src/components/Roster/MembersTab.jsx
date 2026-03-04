@@ -414,7 +414,10 @@ const MembersTab = () => {
 
             return (
               <React.Fragment key={m.id}>
-                <div className="flex items-center justify-center">
+                <div className="flex items-center justify-center relative">
+                  {m.baldomerKiller && (
+                    <span className="absolute left-0" title="Asesino de Baldomero" style={{ fontSize: '12px', lineHeight: 1 }}>🔪</span>
+                  )}
                   {m.avatar ? (
                     <img
                       src={m.avatar}
@@ -442,9 +445,6 @@ const MembersTab = () => {
                   >
                     {m.characterName}
                   </button>
-                  {m.baldomerKiller && (
-                    <span title="Asesino de Baldomero" style={{ fontSize: '14px', lineHeight: 1 }}>🔪</span>
-                  )}
                   {(activeBuffs[m.id] || []).map((buffData, i) => (
                     <div
                       key={`${buffData.buff.id}-${buffData.expiresAt}`}
