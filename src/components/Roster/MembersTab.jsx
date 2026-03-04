@@ -416,7 +416,7 @@ const MembersTab = () => {
               <React.Fragment key={m.id}>
                 <div className="flex items-center justify-center relative">
                   {m.baldomerKiller && (
-                    <span className="absolute" title="Asesino de Baldomero" style={{ left: '-30px', fontSize: '15px', lineHeight: 1 }}>🔪</span>
+                    <span className="absolute" title="Asesino de Baldomero" style={{ left: '-27px', fontSize: '15px', lineHeight: 1 }}>🔪</span>
                   )}
                   {m.avatar ? (
                     <img
