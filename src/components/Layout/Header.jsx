@@ -1,4 +1,4 @@
-import { useState, useLayoutEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { SignOut, CaretDown, IconContext, Crown, Translate, User, Users, Coins, Question, ClockCounterClockwise, Scroll, Wrench } from '@phosphor-icons/react'
 import { useAuth } from '../../hooks/useAuth'
@@ -49,68 +49,106 @@ const Header = ({ tabs = [], activeTab, onTabChange }) => {
   const [userMenuBtnRect, setUserMenuBtnRect] = useState(null)
   const isAdmin = user?.role === 'admin'
 
-  // --- Cat logo easter egg ---
-  const [isBaldomero, setIsBaldomero] = useState(false)
+  // --- Cat logo easter egg — 3 states: normal → alive → dead → normal ---
+  // 'normal': original logo | 'alive': Baldomero vivo | 'dead': Baldomero muerto
+  const [baldState, setBaldState] = useState('normal')
   const clickTimestampsRef = useRef([])
   const audioCtxRef = useRef(null)
 
+  const getAudioCtx = useCallback(() => {
+    const AC = window.AudioContext || window.webkitAudioContext
+    if (!AC) return null
+    if (!audioCtxRef.current || audioCtxRef.current.state === 'closed') {
+      audioCtxRef.current = new AC()
+    }
+    if (audioCtxRef.current.state === 'suspended') audioCtxRef.current.resume()
+    return audioCtxRef.current
+  }, [])
+
   const playMeow = useCallback(() => {
     try {
-      const AudioContext = window.AudioContext || window.webkitAudioContext
-      if (!AudioContext) return
-      if (!audioCtxRef.current || audioCtxRef.current.state === 'closed') {
-        audioCtxRef.current = new AudioContext()
-      }
-      if (audioCtxRef.current.state === 'suspended') {
-        audioCtxRef.current.resume()
-      }
-      const ctx = audioCtxRef.current
-      const now = ctx.currentTime
-      const duration = 0.65
-
+      const ctx = getAudioCtx(); if (!ctx) return
+      const now = ctx.currentTime, dur = 0.65
       const osc = ctx.createOscillator()
       osc.type = 'sawtooth'
       osc.frequency.setValueAtTime(580, now)
       osc.frequency.linearRampToValueAtTime(880, now + 0.18)
       osc.frequency.linearRampToValueAtTime(500, now + 0.5)
-      osc.frequency.linearRampToValueAtTime(380, now + duration)
-
+      osc.frequency.linearRampToValueAtTime(380, now + dur)
       const filter = ctx.createBiquadFilter()
       filter.type = 'bandpass'
       filter.frequency.setValueAtTime(900, now)
       filter.frequency.linearRampToValueAtTime(1700, now + 0.18)
-      filter.frequency.linearRampToValueAtTime(1000, now + duration)
+      filter.frequency.linearRampToValueAtTime(1000, now + dur)
       filter.Q.value = 2
-
       const gain = ctx.createGain()
       gain.gain.setValueAtTime(0, now)
       gain.gain.linearRampToValueAtTime(0.22, now + 0.06)
       gain.gain.setValueAtTime(0.18, now + 0.45)
-      gain.gain.linearRampToValueAtTime(0, now + duration)
+      gain.gain.linearRampToValueAtTime(0, now + dur)
+      osc.connect(filter); filter.connect(gain); gain.connect(ctx.destination)
+      osc.start(now); osc.stop(now + dur)
+    } catch (_e) {}
+  }, [getAudioCtx])
 
-      osc.connect(filter)
-      filter.connect(gain)
-      gain.connect(ctx.destination)
-      osc.start(now)
-      osc.stop(now + duration)
-    } catch (_e) {
-      // Ignore audio errors silently
+  const playDying = useCallback(() => {
+    try {
+      const ctx = getAudioCtx(); if (!ctx) return
+      const now = ctx.currentTime, dur = 1.8
+      // Long descending wail
+      const osc = ctx.createOscillator()
+      osc.type = 'sawtooth'
+      osc.frequency.setValueAtTime(700, now)
+      osc.frequency.linearRampToValueAtTime(900, now + 0.1)
+      osc.frequency.linearRampToValueAtTime(200, now + dur)
+      const filter = ctx.createBiquadFilter()
+      filter.type = 'bandpass'
+      filter.frequency.setValueAtTime(1200, now)
+      filter.frequency.linearRampToValueAtTime(300, now + dur)
+      filter.Q.value = 3
+      const gain = ctx.createGain()
+      gain.gain.setValueAtTime(0.3, now)
+      gain.gain.setValueAtTime(0.28, now + 0.15)
+      gain.gain.linearRampToValueAtTime(0, now + dur)
+      osc.connect(filter); filter.connect(gain); gain.connect(ctx.destination)
+      osc.start(now); osc.stop(now + dur)
+    } catch (_e) {}
+  }, [getAudioCtx])
+
+  // Knife cursor while Baldomero is alive
+  useEffect(() => {
+    if (baldState === 'alive') {
+      document.body.style.cursor = `url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='32' height='32'><text y='28' font-size='28'>🔪</text></svg>") 4 28, auto`
+    } else {
+      document.body.style.cursor = ''
     }
-  }, [])
+    return () => { document.body.style.cursor = '' }
+  }, [baldState])
 
   const handleLogoClick = useCallback(() => {
+    if (baldState === 'dead') {
+      // Reset to normal
+      setBaldState('normal')
+      clickTimestampsRef.current = []
+      return
+    }
+    if (baldState === 'alive') {
+      // Kill Baldomero
+      playDying()
+      setBaldState('dead')
+      return
+    }
+    // Normal: meow + count clicks
     playMeow()
-
     const now = Date.now()
     const recent = clickTimestampsRef.current.filter(t => now - t < 10000)
     recent.push(now)
     clickTimestampsRef.current = recent
-
     if (recent.length >= 10) {
-      setIsBaldomero(prev => !prev)
+      setBaldState('alive')
       clickTimestampsRef.current = []
     }
-  }, [playMeow])
+  }, [baldState, playMeow, playDying])
   // --- end easter egg ---
 
   const showStep1Onboarding = onboardingStep === 0
@@ -210,18 +248,18 @@ const Header = ({ tabs = [], activeTab, onTabChange }) => {
           {/* Logo with clickable cat face — meow on every click, Baldomero after 10 clicks in 10s */}
           <div className="relative h-16" style={{ width: 'max-content' }}>
             <img
-              src={isBaldomero ? '/logo-baldomero.svg' : '/logo.svg'}
+              src={baldState === 'dead' ? '/logo-baldomero-dead.svg' : baldState === 'alive' ? '/logo-baldomero.svg' : '/logo.svg'}
               alt="Pew Pew Kittens with Guns"
               className="h-16 w-auto object-contain"
-              style={{ transition: 'opacity 0.2s' }}
+              style={{ transition: 'opacity 0.3s' }}
             />
             {/* Transparent overlay covering only the cat faces (~42.5% of SVG width = 104/245) */}
             <button
               onClick={handleLogoClick}
               className="absolute inset-y-0 left-0"
-              style={{ width: '42.5%', background: 'transparent', border: 'none', padding: 0, cursor: 'pointer' }}
-              aria-label={isBaldomero ? '¡Baldomero!' : 'Meow!'}
-              title={isBaldomero ? '¡Baldomero, el gato de Kel\'thuzad!' : 'Meow!'}
+              style={{ width: '42.5%', background: 'transparent', border: 'none', padding: 0, cursor: baldState === 'alive' ? 'inherit' : 'pointer' }}
+              aria-label={baldState === 'dead' ? '...' : baldState === 'alive' ? '¡Baldomero!' : 'Meow!'}
+              title={baldState === 'dead' ? 'Descansa en paz, Baldomero' : baldState === 'alive' ? "¡Baldomero, el gato de Kel'thuzad!" : 'Meow!'}
             />
           </div>
         </div>
