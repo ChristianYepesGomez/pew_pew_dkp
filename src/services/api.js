@@ -60,6 +60,7 @@ export const membersAPI = {
   create: (data) => api.post('/members', data),
   remove: (id) => api.delete(`/members/${id}`),
   toggleVault: (id) => api.put(`/members/${id}/vault`),
+  baldomerKill: () => api.post('/members/baldomero-kill'),
 }
 
 export const auctionsAPI = {

@@ -4,7 +4,7 @@ import { SignOut, CaretDown, IconContext, Crown, Translate, User, Users, Coins, 
 import { useAuth } from '../../hooks/useAuth'
 import { useLanguage } from '../../hooks/useLanguage'
 import { useSocket } from '../../hooks/useSocket'
-import { authAPI } from '../../services/api'
+import { authAPI, membersAPI } from '../../services/api'
 import MyCharacterModal from '../Character/MyCharacterModal'
 import { CHARACTER_MODAL_VIEW, CHARACTER_MODAL_VIEW_ORDER } from '../Character/characterModalViews'
 import PillButton from '../ui/PillButton'
@@ -133,9 +133,10 @@ const Header = ({ tabs = [], activeTab, onTabChange }) => {
       return
     }
     if (baldState === 'alive') {
-      // Kill Baldomero
+      // Kill Baldomero — record it permanently for the authenticated user
       playDying()
       setBaldState('dead')
+      membersAPI.baldomerKill().catch(() => {})
       return
     }
     // Normal: meow + count clicks

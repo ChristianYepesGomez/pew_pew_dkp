@@ -442,6 +442,9 @@ const MembersTab = () => {
                   >
                     {m.characterName}
                   </button>
+                  {m.baldomerKiller && (
+                    <span title="Asesino de Baldomero" style={{ fontSize: '14px', lineHeight: 1 }}>🔪</span>
+                  )}
                   {(activeBuffs[m.id] || []).map((buffData, i) => (
                     <div
                       key={`${buffData.buff.id}-${buffData.expiresAt}`}
