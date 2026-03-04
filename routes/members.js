@@ -24,6 +24,7 @@ router.get('/', authenticateToken, async (req, res) => {
 
     const members = await req.db.all(`
       SELECT u.id, u.username, u.character_name, u.character_class, u.role, u.raid_role, u.spec, u.avatar,
+             u.baldomero_killer,
              md.current_dkp, md.lifetime_gained, md.lifetime_spent,
              md.weekly_vault_completed, md.vault_week
       FROM users u
@@ -46,6 +47,7 @@ router.get('/', authenticateToken, async (req, res) => {
       raidRole: m.raid_role,
       spec: m.spec,
       avatar: m.avatar || null,
+      baldomerKiller: m.baldomero_killer === 1,
       currentDkp: m.current_dkp || 0,
       lifetimeGained: m.lifetime_gained || 0,
       lifetimeSpent: m.lifetime_spent || 0,
@@ -55,6 +57,18 @@ router.get('/', authenticateToken, async (req, res) => {
   } catch (err) {
     log.error('Get members error', err);
     return error(res, 'Failed to get members', 500, ErrorCodes.INTERNAL_ERROR);
+  }
+});
+
+// Record Baldomero easter egg kill — marks authenticated user as a Baldomero killer
+router.post('/baldomero-kill', authenticateToken, async (req, res) => {
+  try {
+    await req.db.run('UPDATE users SET baldomero_killer = 1 WHERE id = ?', req.user.userId);
+    req.app.get('io').emit('member_updated', { memberId: req.user.userId });
+    return success(res, null, 'Baldomero has been slain');
+  } catch (err) {
+    log.error('Baldomero kill error', err);
+    return error(res, 'Failed to record kill', 500, ErrorCodes.INTERNAL_ERROR);
   }
 });
 
