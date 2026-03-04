@@ -248,12 +248,12 @@ const Header = ({ tabs = [], activeTab, onTabChange }) => {
         <div className="flex items-center gap-3 shrink-0">
           {/* Logo with clickable cat face — meow on every click, Baldomero after 10 clicks in 10s */}
           {/* Container stays h-16 always — Baldomero overflows via absolute positioning, no layout shift */}
-          <div className="relative h-16 overflow-visible" style={{ width: baldState !== 'normal' ? '120px' : 'max-content' }}>
+          <div className="relative h-16 overflow-visible" style={{ width: baldState !== 'normal' ? '156px' : 'max-content' }}>
             <img
               src={baldState === 'dead' ? '/logo-baldomero-dead.svg' : baldState === 'alive' ? '/logo-baldomero.svg' : '/logo.svg'}
               alt="Pew Pew Kittens with Guns"
               style={baldState !== 'normal' ? {
-                position: 'absolute', width: '120px', height: 'auto',
+                position: 'absolute', width: '156px', height: 'auto',
                 top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
               } : { height: '64px', width: 'auto', objectFit: 'contain' }}
             />
@@ -261,7 +261,7 @@ const Header = ({ tabs = [], activeTab, onTabChange }) => {
             <button
               onClick={handleLogoClick}
               style={baldState !== 'normal' ? {
-                position: 'absolute', width: '120px', height: '160px',
+                position: 'absolute', width: '156px', height: '208px',
                 top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
                 background: 'transparent', border: 'none', padding: 0,
                 cursor: baldState === 'alive' ? 'inherit' : 'pointer', zIndex: 1,
