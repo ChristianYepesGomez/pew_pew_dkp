@@ -247,18 +247,18 @@ const Header = ({ tabs = [], activeTab, onTabChange }) => {
       <nav className="flex items-center justify-between">
         <div className="flex items-center gap-3 shrink-0">
           {/* Logo with clickable cat face — meow on every click, Baldomero after 10 clicks in 10s */}
-          <div className="relative h-16" style={{ width: 'max-content' }}>
+          <div className={`relative ${baldState !== 'normal' ? 'h-24' : 'h-16'}`} style={{ width: 'max-content' }}>
             <img
               src={baldState === 'dead' ? '/logo-baldomero-dead.svg' : baldState === 'alive' ? '/logo-baldomero.svg' : '/logo.svg'}
               alt="Pew Pew Kittens with Guns"
-              className="h-16 w-auto object-contain"
+              className={`${baldState !== 'normal' ? 'h-24' : 'h-16'} w-auto object-contain`}
               style={{ transition: 'opacity 0.3s' }}
             />
-            {/* Transparent overlay covering only the cat faces (~42.5% of SVG width = 104/245) */}
+            {/* Transparent overlay — full width for Baldomero face, cat-area only for default logo */}
             <button
               onClick={handleLogoClick}
               className="absolute inset-y-0 left-0"
-              style={{ width: '42.5%', background: 'transparent', border: 'none', padding: 0, cursor: baldState === 'alive' ? 'inherit' : 'pointer' }}
+              style={{ width: baldState !== 'normal' ? '100%' : '42.5%', background: 'transparent', border: 'none', padding: 0, cursor: baldState === 'alive' ? 'inherit' : 'pointer' }}
               aria-label={baldState === 'dead' ? '...' : baldState === 'alive' ? '¡Baldomero!' : 'Meow!'}
               title={baldState === 'dead' ? 'Descansa en paz, Baldomero' : baldState === 'alive' ? "¡Baldomero, el gato de Kel'thuzad!" : 'Meow!'}
             />
