@@ -247,11 +247,11 @@ const Header = ({ tabs = [], activeTab, onTabChange }) => {
       <nav className="flex items-center justify-between">
         <div className="flex items-center gap-3 shrink-0">
           {/* Logo with clickable cat face — meow on every click, Baldomero after 10 clicks in 10s */}
-          <div className={`relative ${baldState !== 'normal' ? 'h-24' : 'h-16'}`} style={{ width: 'max-content' }}>
+          <div className={`relative ${baldState !== 'normal' ? 'h-40' : 'h-16'}`} style={{ width: 'max-content' }}>
             <img
               src={baldState === 'dead' ? '/logo-baldomero-dead.svg' : baldState === 'alive' ? '/logo-baldomero.svg' : '/logo.svg'}
               alt="Pew Pew Kittens with Guns"
-              className={`${baldState !== 'normal' ? 'h-24' : 'h-16'} w-auto object-contain`}
+              className={`${baldState !== 'normal' ? 'h-40' : 'h-16'} w-auto object-contain`}
               style={{ transition: 'opacity 0.3s' }}
             />
             {/* Transparent overlay — full width for Baldomero face, cat-area only for default logo */}
