@@ -246,33 +246,45 @@ const Header = ({ tabs = [], activeTab, onTabChange }) => {
     <>
       <nav className="flex items-center justify-between">
         <div className="flex items-center gap-3 shrink-0">
-          {/* Logo with clickable cat face — meow on every click, Baldomero after 10 clicks in 10s */}
-          {/* Container stays h-16 always — Baldomero overflows via absolute positioning, no layout shift */}
-          <div className="relative h-16 overflow-visible" style={{ width: baldState !== 'normal' ? '156px' : 'max-content' }}>
-            <img
-              src={baldState === 'dead' ? '/logo-baldomero-dead.svg' : baldState === 'alive' ? '/logo-baldomero.svg' : '/logo.svg'}
-              alt="Pew Pew Kittens with Guns"
-              style={baldState !== 'normal' ? {
-                position: 'absolute', width: '156px', height: 'auto',
-                top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
-              } : { height: '64px', width: 'auto', objectFit: 'contain' }}
-            />
-            {/* Click overlay — covers cat-face area for default, full image for Baldomero */}
-            <button
-              onClick={handleLogoClick}
-              style={baldState !== 'normal' ? {
-                position: 'absolute', width: '156px', height: '208px',
-                top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
-                background: 'transparent', border: 'none', padding: 0,
-                cursor: baldState === 'alive' ? 'inherit' : 'pointer', zIndex: 1,
-              } : {
-                position: 'absolute', top: 0, bottom: 0, left: 0, width: '42.5%',
-                background: 'transparent', border: 'none', padding: 0, cursor: 'pointer',
-              }}
-              aria-label={baldState === 'dead' ? '...' : baldState === 'alive' ? '¡Baldomero!' : 'Meow!'}
-              title={baldState === 'dead' ? 'Descansa en paz, Baldomero' : baldState === 'alive' ? "¡Baldomero, el gato de Kel'thuzad!" : 'Meow!'}
-            />
-          </div>
+          {/* Logo — normal: original SVG | alive/dead: composite (Baldomero face + styled text) */}
+          {baldState === 'normal' ? (
+            <div className="relative h-16">
+              <img src="/logo.svg" alt="Pew Pew Kittens with Guns" style={{ height: '64px', width: 'auto', objectFit: 'contain' }} />
+              {/* Click overlay on cat-face area (left 42.5% of logo) */}
+              <button
+                onClick={handleLogoClick}
+                style={{ position: 'absolute', top: 0, bottom: 0, left: 0, width: '42.5%', background: 'transparent', border: 'none', padding: 0, cursor: 'pointer' }}
+                aria-label="Meow!"
+                title="Meow!"
+              />
+            </div>
+          ) : (
+            /* Composite logo: Baldomero face (cat-area width) + guild-name-style text */
+            <div className="flex items-center h-16" style={{ gap: '8px' }}>
+              {/* Face — clickable, same height as logo */}
+              <button
+                onClick={handleLogoClick}
+                style={{ background: 'transparent', border: 'none', padding: 0, cursor: baldState === 'alive' ? 'inherit' : 'pointer', height: '64px', flexShrink: 0 }}
+                aria-label={baldState === 'alive' ? '¡Baldomero!' : '...'}
+                title={baldState === 'alive' ? "¡Baldomero, el gato de Kel'thuzad!" : 'Descansa en paz, Baldomero'}
+              >
+                <img
+                  src={baldState === 'dead' ? '/logo-baldomero-dead.svg' : '/logo-baldomero.svg'}
+                  alt="Baldomero"
+                  style={{ height: '64px', width: 'auto', objectFit: 'contain', display: 'block' }}
+                />
+              </button>
+              {/* Text — same visual style as original logo (cream + teal, bold condensed) */}
+              <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', lineHeight: 1.15, userSelect: 'none' }}>
+                <span style={{ color: '#FFECCD', fontFamily: "Impact, 'Arial Narrow', Arial, sans-serif", fontSize: '17px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '1px' }}>
+                  {t(baldState === 'alive' ? 'baldomero_line1_alive' : 'baldomero_line1_dead')}
+                </span>
+                <span style={{ color: '#40C7BE', fontFamily: "Impact, 'Arial Narrow', Arial, sans-serif", fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1.5px' }}>
+                  {t(baldState === 'alive' ? 'baldomero_line2_alive' : 'baldomero_line2_dead')}
+                </span>
+              </div>
+            </div>
+          )}
         </div>
 
         <IconContext.Provider value={{ weight: 'regular' }}>

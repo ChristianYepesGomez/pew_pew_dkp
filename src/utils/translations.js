@@ -2,6 +2,10 @@ export const translations = {
   es: {
     guild_name: 'Pew Pew Kittens with Guns',
     midnight_edition: 'Midnight Edition',
+    baldomero_line1_alive: '¡BALDOMERO,',
+    baldomero_line2_alive: 'EL GATO DE KEL\'THUZAD',
+    baldomero_line1_dead: 'DESCANSA EN PAZ,',
+    baldomero_line2_dead: 'BALDOMERO',
     logout: 'Salir',
     language: 'Idioma',
     light_mode: 'Modo claro',
@@ -603,6 +607,10 @@ export const translations = {
   en: {
     guild_name: 'Pew Pew Kittens with Guns',
     midnight_edition: 'Midnight Edition',
+    baldomero_line1_alive: 'BALDOMERO,',
+    baldomero_line2_alive: 'THE CAT OF KEL\'THUZAD',
+    baldomero_line1_dead: 'REST IN PEACE,',
+    baldomero_line2_dead: 'BALDOMERO',
     logout: 'Logout',
     language: 'Language',
     light_mode: 'Light mode',
