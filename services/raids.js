@@ -76,42 +76,56 @@ const EXPANSION_DATA = {
     ]
   },
 
-  // ── NEW EXPANSION ──────────────────────────────────────────────────────
-  // TODO: Fill in all values marked with ??? once the expansion is live
+  // ── MIDNIGHT (lanzada 2 marzo 2026) ────────────────────────────────────
+  // Season 1 raids abren 17 marzo 2026 (Normal/Heroic), Mythic semana siguiente.
   //
-  // WCL Zone ID:      warcraftlogs.com/zone/rankings/??? (número en la URL)
-  // WCL Encounter ID: WCL API explorer o del primer log importado
-  // Blizzard ID:      develop.battle.net → Game Data → Raid → Journal Instance
-  // Boss slugs:       mythictrap.com cuando publiquen las guías
+  // TODO (pendiente de datos reales):
+  //   wclZoneId    → warcraftlogs.com/zone/rankings/??? (número en la URL)
+  //   encounterID  → del primer log importado en WCL (campo encounterID en fights[])
+  //   Blizzard IDs → blizzardAPI.js → CURRENT_RAID_INSTANCES (develop.battle.net Journal Instance)
   //
   // IMPORTANTE: También actualizar en blizzardAPI.js → CURRENT_RAID_INSTANCES
-  //             y cambiar CURRENT_EXPANSION + CURRENT_TIER abajo
   // ──────────────────────────────────────────────────────────────────────
-  // 'Midnight': {
-  //   id: ???, // TODO: expansion ID en WCL (warcraftlogs.com/zone/rankings, ver el expansion filter)
-  //   tiers: [
-  //     {
-  //       tier: 1,
-  //       zones: [
-  //         {
-  //           wclZoneId: ???, // TODO: zona de WCL (número en la URL de rankings)
-  //           name: "???",    // TODO: nombre de la raid
-  //           slug: "???",    // TODO: slug para MythicTrap (kebab-case del nombre)
-  //           bosses: [
-  //             { encounterID: ???, name: "???", slug: "???", order: 1 },
-  //             { encounterID: ???, name: "???", slug: "???", order: 2 },
-  //             { encounterID: ???, name: "???", slug: "???", order: 3 },
-  //             { encounterID: ???, name: "???", slug: "???", order: 4 },
-  //             { encounterID: ???, name: "???", slug: "???", order: 5 },
-  //             { encounterID: ???, name: "???", slug: "???", order: 6 },
-  //             { encounterID: ???, name: "???", slug: "???", order: 7 },
-  //             { encounterID: ???, name: "???", slug: "???", order: 8 },
-  //           ]
-  //         }
-  //       ]
-  //     }
-  //   ]
-  // },
+  'Midnight': {
+    id: 6, // TODO: confirmar expansion ID en WCL
+    tiers: [
+      {
+        tier: 1,
+        zones: [
+          {
+            wclZoneId: 48, // The Voidspire — WCL posiblemente zone 48 (VS/DR/MQD están agrupados, confirmar)
+            name: "The Voidspire",
+            slug: "the-voidspire",
+            bosses: [
+              { encounterID: 0, name: "Imperator Averzian",        slug: "imperator-averzian",   order: 1 }, // TODO: encounterID real
+              { encounterID: 0, name: "Vorasius",                  slug: "vorasius",             order: 2 }, // TODO: encounterID real
+              { encounterID: 0, name: "Fallen-King Salhadaar",     slug: "fallen-king-salhadaar",order: 3 }, // TODO: encounterID real
+              { encounterID: 0, name: "Vaelgor and Ezzorak",       slug: "vaelgor-and-ezzorak",  order: 4 }, // TODO: encounterID real
+              { encounterID: 0, name: "The Lightblinded Vanguard", slug: "lightblinded-vanguard",order: 5 }, // TODO: encounterID real
+              { encounterID: 0, name: "Crown of the Cosmos",       slug: "crown-of-the-cosmos",  order: 6 }, // TODO: encounterID real
+            ]
+          },
+          {
+            wclZoneId: 0, // The Dreamrift — TODO: wclZoneId real (puede compartir zona 48 con Voidspire)
+            name: "The Dreamrift",
+            slug: "the-dreamrift",
+            bosses: [
+              { encounterID: 0, name: "Chimaerus, the Undreamt God", slug: "chimaerus", order: 1 }, // TODO: encounterID real
+            ]
+          },
+          {
+            wclZoneId: 0, // March on Quel'Danas — TODO: wclZoneId real
+            name: "March on Quel'Danas",
+            slug: "march-on-queldanas",
+            bosses: [
+              { encounterID: 0, name: "Belo'ren", slug: "beloren", order: 1 }, // TODO: encounterID real
+              { encounterID: 0, name: "L'ura",    slug: "lura",    order: 2 }, // TODO: encounterID real
+            ]
+          },
+        ]
+      }
+    ]
+  },
 };
 
 // ── Current expansion/tier tracking ──────────────────────────────────
@@ -119,8 +133,8 @@ const EXPANSION_DATA = {
 // CURRENT_EXPANSION must match exactly a key in EXPANSION_DATA above.
 // This prevents is_current=1 from being set on same-numbered tiers
 // in multiple expansions (e.g. tier 1 of TWW vs tier 1 of Midnight).
-const CURRENT_EXPANSION = 'The War Within';
-const CURRENT_TIER = 3;
+const CURRENT_EXPANSION = 'Midnight';
+const CURRENT_TIER = 1;
 
 // ── Mythic Trap URL Helper ────────────────────────────────────────────
 

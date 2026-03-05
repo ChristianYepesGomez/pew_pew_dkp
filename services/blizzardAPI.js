@@ -31,9 +31,15 @@ const getOAuthUrl = (region) => `https://${region}.battle.net/oauth/token`;
 // Find IDs at: https://wowhead.com/raids or via Blizzard API journal-instance index
 // Also update EXPANSION_DATA + CURRENT_EXPANSION/CURRENT_TIER in services/raids.js
 const CURRENT_RAID_INSTANCES = [
-  { id: 1302, name: 'Manaforge Omega', expansion: 'The War Within', season: 3 },
-  // TODO (nueva expansión): añadir la nueva raid aquí y comentar la anterior
-  // { id: ???, name: '???', expansion: 'Midnight', season: 1 },
+  // The War Within (legacy — comentar cuando no se necesite el loot cache de TWW)
+  // { id: 1302, name: 'Manaforge Omega', expansion: 'The War Within', season: 3 },
+
+  // Midnight Season 1 — IDs de Blizzard Journal Instance (develop.battle.net)
+  // TODO: rellenar los IDs reales consultando la API de Blizzard:
+  //   GET https://eu.api.blizzard.com/data/wow/journal-instance/index?namespace=static-eu&locale=es_ES
+  { id: 0, name: 'The Voidspire',        expansion: 'Midnight', season: 1 }, // TODO: id real
+  { id: 0, name: 'The Dreamrift',        expansion: 'Midnight', season: 1 }, // TODO: id real
+  { id: 0, name: "March on Quel'Danas",  expansion: 'Midnight', season: 1 }, // TODO: id real
 ];
 
 // Excluded item types (crafting mats, currency, etc.)
