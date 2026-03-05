@@ -262,24 +262,25 @@ const Header = ({ tabs = [], activeTab, onTabChange }) => {
             /* Composite logo: Baldomero face (cat-area width) + guild-name-style text */
             <div className="flex items-center h-16" style={{ gap: '8px' }}>
               {/* Face — clickable, same height as logo */}
+              {/* Face: width=104px matches original cat area; height auto overflows header vertically */}
               <button
                 onClick={handleLogoClick}
-                style={{ background: 'transparent', border: 'none', padding: 0, cursor: baldState === 'alive' ? 'inherit' : 'pointer', height: '64px', flexShrink: 0 }}
+                style={{ background: 'transparent', border: 'none', padding: 0, cursor: baldState === 'alive' ? 'inherit' : 'pointer', width: '104px', flexShrink: 0, overflow: 'visible' }}
                 aria-label={baldState === 'alive' ? '¡Baldomero!' : '...'}
                 title={baldState === 'alive' ? "¡Baldomero, el gato de Kel'thuzad!" : 'Descansa en paz, Baldomero'}
               >
                 <img
                   src={baldState === 'dead' ? '/logo-baldomero-dead.svg' : '/logo-baldomero.svg'}
                   alt="Baldomero"
-                  style={{ height: '64px', width: 'auto', objectFit: 'contain', display: 'block' }}
+                  style={{ width: '104px', height: 'auto', display: 'block' }}
                 />
               </button>
               {/* Text — same visual style as original logo (cream + teal, bold condensed) */}
-              <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', lineHeight: 1.15, userSelect: 'none' }}>
-                <span style={{ color: '#FFECCD', fontFamily: "Impact, 'Arial Narrow', Arial, sans-serif", fontSize: '17px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '1px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', lineHeight: 1.2, userSelect: 'none' }}>
+                <span style={{ color: '#FFECCD', fontFamily: "Impact, 'Arial Narrow', Arial, sans-serif", fontSize: '22px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '1px' }}>
                   {t(baldState === 'alive' ? 'baldomero_line1_alive' : 'baldomero_line1_dead')}
                 </span>
-                <span style={{ color: '#40C7BE', fontFamily: "Impact, 'Arial Narrow', Arial, sans-serif", fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1.5px' }}>
+                <span style={{ color: '#40C7BE', fontFamily: "Impact, 'Arial Narrow', Arial, sans-serif", fontSize: '13px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1.5px' }}>
                   {t(baldState === 'alive' ? 'baldomero_line2_alive' : 'baldomero_line2_dead')}
                 </span>
               </div>
