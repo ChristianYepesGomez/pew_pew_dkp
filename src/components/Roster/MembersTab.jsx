@@ -416,7 +416,25 @@ const MembersTab = () => {
               <React.Fragment key={m.id}>
                 <div className="flex items-center justify-center relative">
                   {m.baldomerKiller && (
-                    <span className="absolute" title="Asesino de Baldomero" style={{ left: '-27px', fontSize: '15px', lineHeight: 1 }}>🔪</span>
+                    <span className="absolute" title="Asesino de Baldomero" style={{ left: '-27px', lineHeight: 1 }}>
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 30" width="12" height="30">
+                        {/* Blade */}
+                        <polygon points="6,0 4.2,15 7.8,15" fill="#E8E8E8" stroke="#A0A0A0" strokeWidth="0.4"/>
+                        {/* Fuller (blood groove) */}
+                        <line x1="6" y1="2" x2="6" y2="13" stroke="#B8B8B8" strokeWidth="0.5"/>
+                        {/* Crossguard */}
+                        <rect x="1.5" y="15" width="9" height="2" rx="1" fill="#C8960A"/>
+                        <rect x="1.5" y="15" width="9" height="0.7" rx="0.5" fill="#F0B820"/>
+                        {/* Grip */}
+                        <rect x="4.5" y="17" width="3" height="9" rx="0.8" fill="#6B3520"/>
+                        <line x1="4.5" y1="18.8" x2="7.5" y2="18.8" stroke="#3D1E0E" strokeWidth="0.7"/>
+                        <line x1="4.5" y1="20.6" x2="7.5" y2="20.6" stroke="#3D1E0E" strokeWidth="0.7"/>
+                        <line x1="4.5" y1="22.4" x2="7.5" y2="22.4" stroke="#3D1E0E" strokeWidth="0.7"/>
+                        {/* Pommel */}
+                        <ellipse cx="6" cy="27.2" rx="3" ry="2.2" fill="#C8960A"/>
+                        <ellipse cx="6" cy="26.8" rx="2.2" ry="1.4" fill="#F0B820"/>
+                      </svg>
+                    </span>
                   )}
                   {m.avatar ? (
                     <img

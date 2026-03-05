@@ -118,7 +118,7 @@ const Header = ({ tabs = [], activeTab, onTabChange }) => {
   // Knife cursor while Baldomero is alive
   useEffect(() => {
     if (baldState === 'alive') {
-      document.body.style.cursor = `url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='32' height='32'><text y='28' font-size='28'>🔪</text></svg>") 4 28, auto`
+      document.body.style.cursor = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 30' width='18' height='45'%3E%3Cpolygon points='6,0 4.2,15 7.8,15' fill='%23E8E8E8' stroke='%23A0A0A0' stroke-width='0.4'/%3E%3Cline x1='6' y1='2' x2='6' y2='13' stroke='%23B8B8B8' stroke-width='0.5'/%3E%3Crect x='1.5' y='15' width='9' height='2' rx='1' fill='%23C8960A'/%3E%3Crect x='4.5' y='17' width='3' height='9' rx='0.8' fill='%236B3520'/%3E%3Cellipse cx='6' cy='27.2' rx='3' ry='2.2' fill='%23C8960A'/%3E%3C/svg%3E") 9 0, auto`
     } else {
       document.body.style.cursor = ''
     }
