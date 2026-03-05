@@ -93,9 +93,10 @@ const EXPANSION_DATA = {
         tier: 1,
         zones: [
           {
-            wclZoneId: 48, // The Voidspire — WCL posiblemente zone 48 (VS/DR/MQD están agrupados, confirmar)
+            wclZoneId: 48, // The Voidspire — TODO: confirmar zone 48 en warcraftlogs.com/zone/rankings/48
             name: "The Voidspire",
             slug: "the-voidspire",
+            mythicTrapDisabled: true, // Guías aún no publicadas en MythicTrap; quitar cuando estén online
             bosses: [
               { encounterID: 0, name: "Imperator Averzian",        slug: "imperator-averzian",   order: 1 }, // TODO: encounterID real
               { encounterID: 0, name: "Vorasius",                  slug: "vorasius",             order: 2 }, // TODO: encounterID real
@@ -106,17 +107,19 @@ const EXPANSION_DATA = {
             ]
           },
           {
-            wclZoneId: 0, // The Dreamrift — TODO: wclZoneId real (puede compartir zona 48 con Voidspire)
+            wclZoneId: 49, // The Dreamrift — TODO: confirmar zone ID real en WCL
             name: "The Dreamrift",
             slug: "the-dreamrift",
+            mythicTrapDisabled: true,
             bosses: [
               { encounterID: 0, name: "Chimaerus, the Undreamt God", slug: "chimaerus", order: 1 }, // TODO: encounterID real
             ]
           },
           {
-            wclZoneId: 0, // March on Quel'Danas — TODO: wclZoneId real
+            wclZoneId: 50, // March on Quel'Danas — TODO: confirmar zone ID real en WCL
             name: "March on Quel'Danas",
             slug: "march-on-queldanas",
+            mythicTrapDisabled: true,
             bosses: [
               { encounterID: 0, name: "Belo'ren", slug: "beloren", order: 1 }, // TODO: encounterID real
               { encounterID: 0, name: "L'ura",    slug: "lura",    order: 2 }, // TODO: encounterID real
@@ -160,10 +163,13 @@ export async function seedRaidData(db) {
       const isCurrent = (expansion === CURRENT_EXPANSION && tierData.tier === CURRENT_TIER) ? 1 : 0;
 
       for (const zone of tierData.zones) {
-        // Insert or update zone
+        // Insert or update zone.
+        // Look up by slug first (reliable unique key) then by wclZoneId as fallback.
+        // This prevents zones with placeholder IDs (e.g. Dreamrift/MQD before real IDs
+        // are known) from colliding with each other.
         const existingZone = await db.get(
-          'SELECT id FROM wcl_zones WHERE wcl_zone_id = ?',
-          zone.wclZoneId
+          'SELECT id FROM wcl_zones WHERE slug = ? OR wcl_zone_id = ?',
+          zone.slug, zone.wclZoneId
         );
 
         let zoneId;
@@ -188,15 +194,18 @@ export async function seedRaidData(db) {
 
         // Insert or update bosses
         for (const boss of zone.bosses) {
-          // Only add Mythic Trap URL for current raids
-          const mythicTrapUrl = isCurrent ? getMythicTrapUrl(zone.slug, boss.slug) : null;
-          // Boss image: Mythic Trap for current raids (high quality)
-          const bossImage = isCurrent ? getMythicTrapBossImage(zone.slug, boss.slug) : null;
+          // Only generate MythicTrap URL/image when the zone has published guides.
+          // Set mythicTrapDisabled: true on a zone to suppress until guides are live.
+          const guidesReady = isCurrent && !zone.mythicTrapDisabled;
+          const mythicTrapUrl = guidesReady ? getMythicTrapUrl(zone.slug, boss.slug) : null;
+          const bossImage    = guidesReady ? getMythicTrapBossImage(zone.slug, boss.slug) : null;
 
-          const existingBoss = await db.get(
-            'SELECT id, image_url FROM wcl_bosses WHERE wcl_encounter_id = ?',
-            boss.encounterID
-          );
+          // Lookup by encounterID when it's a real ID (!=0).
+          // When encounterID is 0 (placeholder), use zone_id+slug as unique key to
+          // prevent all placeholder bosses from colliding into a single DB row.
+          const existingBoss = boss.encounterID !== 0
+            ? await db.get('SELECT id, image_url FROM wcl_bosses WHERE wcl_encounter_id = ?', boss.encounterID)
+            : await db.get('SELECT id, image_url FROM wcl_bosses WHERE zone_id = ? AND slug = ?', zoneId, boss.slug);
 
           if (existingBoss) {
             // IMPORTANT: Never overwrite existing image_url with null
