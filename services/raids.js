@@ -98,14 +98,14 @@ const EXPANSION_DATA = {
             slug: "the-voidspire",
             mythicTrapDisabled: true, // Guías aún no publicadas en MythicTrap; quitar cuando estén online
             bosses: [
-              // IDs negativos = placeholders únicos (WCL solo usa positivos → sin colisión)
-              // Reemplazar por el encounterID real de WCL cuando esté disponible
-              { encounterID: -101, name: "Imperator Averzian",        slug: "imperator-averzian",   order: 1 },
-              { encounterID: -102, name: "Vorasius",                  slug: "vorasius",             order: 2 },
-              { encounterID: -103, name: "Fallen-King Salhadaar",     slug: "fallen-king-salhadaar",order: 3 },
-              { encounterID: -104, name: "Vaelgor and Ezzorak",       slug: "vaelgor-and-ezzorak",  order: 4 },
-              { encounterID: -105, name: "The Lightblinded Vanguard", slug: "lightblinded-vanguard",order: 5 },
-              { encounterID: -106, name: "Crown of the Cosmos",       slug: "crown-of-the-cosmos",  order: 6 },
+              // WCL encounter IDs pendientes — usar negativos como placeholder único hasta tener logs reales
+              // Blizzard journal IDs (referencia): 2733, 2734, 2736, 2735, 2737, 2738
+              { encounterID: -101, name: "Imperator Averzian",    slug: "imperator-averzian",   order: 1 },
+              { encounterID: -102, name: "Vorasius",              slug: "vorasius",             order: 2 },
+              { encounterID: -103, name: "Fallen-King Salhadaar", slug: "fallen-king-salhadaar",order: 3 },
+              { encounterID: -104, name: "Vaelgor & Ezzorak",     slug: "vaelgor-and-ezzorak",  order: 4 },
+              { encounterID: -105, name: "Lightblinded Vanguard", slug: "lightblinded-vanguard",order: 5 },
+              { encounterID: -106, name: "Crown of the Cosmos",   slug: "crown-of-the-cosmos",  order: 6 },
             ]
           },
           {
@@ -114,7 +114,7 @@ const EXPANSION_DATA = {
             slug: "the-dreamrift",
             mythicTrapDisabled: true,
             bosses: [
-              { encounterID: -107, name: "Chimaerus, the Undreamt God", slug: "chimaerus", order: 1 },
+              { encounterID: -107, name: "Chimaerus the Undreamt God", slug: "chimaerus", order: 1 }, // Blizzard: 2795
             ]
           },
           {
@@ -123,8 +123,8 @@ const EXPANSION_DATA = {
             slug: "march-on-queldanas",
             mythicTrapDisabled: true,
             bosses: [
-              { encounterID: -108, name: "Belo'ren", slug: "beloren", order: 1 },
-              { encounterID: -109, name: "L'ura",    slug: "lura",    order: 2 },
+              { encounterID: -108, name: "Belo'ren, Child of Al'ar", slug: "beloren", order: 1 }, // Blizzard: 2739
+              { encounterID: -109, name: "Midnight Falls",           slug: "lura",    order: 2 }, // Blizzard: 2740
             ]
           },
         ]
@@ -196,11 +196,12 @@ export async function seedRaidData(db) {
 
         // Insert or update bosses
         for (const boss of zone.bosses) {
-          // Always try MythicTrap images for current bosses — frontend handles 404 gracefully
-          // with the gradient fallback. Only suppress the guide LINK when guides aren't
-          // published yet (mythicTrapDisabled), to avoid redirecting to the wrong boss.
-          const mythicTrapUrl = (isCurrent && !zone.mythicTrapDisabled) ? getMythicTrapUrl(zone.slug, boss.slug) : null;
-          const bossImage    = isCurrent ? getMythicTrapBossImage(zone.slug, boss.slug) : null;
+          // mythicTrapDisabled suppresses both the guide URL and the seed-generated image.
+          // Images patched directly in the DB (e.g. Blizzard render URLs) are preserved
+          // via the `existingBoss.image_url` fallback below.
+          const guidesReady = isCurrent && !zone.mythicTrapDisabled;
+          const mythicTrapUrl = guidesReady ? getMythicTrapUrl(zone.slug, boss.slug) : null;
+          const bossImage    = guidesReady ? getMythicTrapBossImage(zone.slug, boss.slug) : null;
 
           // Lookup by encounterID when it's a real WCL ID (positive).
           // Negative IDs are local placeholders (used until real WCL IDs are known);

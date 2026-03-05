@@ -34,12 +34,10 @@ const CURRENT_RAID_INSTANCES = [
   // The War Within (legacy — comentar cuando no se necesite el loot cache de TWW)
   // { id: 1302, name: 'Manaforge Omega', expansion: 'The War Within', season: 3 },
 
-  // Midnight Season 1 — IDs de Blizzard Journal Instance (develop.battle.net)
-  // TODO: rellenar los IDs reales consultando la API de Blizzard:
-  //   GET https://eu.api.blizzard.com/data/wow/journal-instance/index?namespace=static-eu&locale=es_ES
-  { id: 0, name: 'The Voidspire',        expansion: 'Midnight', season: 1 }, // TODO: id real
-  { id: 0, name: 'The Dreamrift',        expansion: 'Midnight', season: 1 }, // TODO: id real
-  { id: 0, name: "March on Quel'Danas",  expansion: 'Midnight', season: 1 }, // TODO: id real
+  // Midnight Season 1
+  { id: 1307, name: 'The Voidspire',       expansion: 'Midnight', season: 1 },
+  { id: 1314, name: 'The Dreamrift',       expansion: 'Midnight', season: 1 },
+  { id: 1308, name: "March on Quel'Danas", expansion: 'Midnight', season: 1 },
 ];
 
 // Excluded item types (crafting mats, currency, etc.)
