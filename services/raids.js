@@ -98,12 +98,14 @@ const EXPANSION_DATA = {
             slug: "the-voidspire",
             mythicTrapDisabled: true, // Guías aún no publicadas en MythicTrap; quitar cuando estén online
             bosses: [
-              { encounterID: 0, name: "Imperator Averzian",        slug: "imperator-averzian",   order: 1 }, // TODO: encounterID real
-              { encounterID: 0, name: "Vorasius",                  slug: "vorasius",             order: 2 }, // TODO: encounterID real
-              { encounterID: 0, name: "Fallen-King Salhadaar",     slug: "fallen-king-salhadaar",order: 3 }, // TODO: encounterID real
-              { encounterID: 0, name: "Vaelgor and Ezzorak",       slug: "vaelgor-and-ezzorak",  order: 4 }, // TODO: encounterID real
-              { encounterID: 0, name: "The Lightblinded Vanguard", slug: "lightblinded-vanguard",order: 5 }, // TODO: encounterID real
-              { encounterID: 0, name: "Crown of the Cosmos",       slug: "crown-of-the-cosmos",  order: 6 }, // TODO: encounterID real
+              // IDs negativos = placeholders únicos (WCL solo usa positivos → sin colisión)
+              // Reemplazar por el encounterID real de WCL cuando esté disponible
+              { encounterID: -101, name: "Imperator Averzian",        slug: "imperator-averzian",   order: 1 },
+              { encounterID: -102, name: "Vorasius",                  slug: "vorasius",             order: 2 },
+              { encounterID: -103, name: "Fallen-King Salhadaar",     slug: "fallen-king-salhadaar",order: 3 },
+              { encounterID: -104, name: "Vaelgor and Ezzorak",       slug: "vaelgor-and-ezzorak",  order: 4 },
+              { encounterID: -105, name: "The Lightblinded Vanguard", slug: "lightblinded-vanguard",order: 5 },
+              { encounterID: -106, name: "Crown of the Cosmos",       slug: "crown-of-the-cosmos",  order: 6 },
             ]
           },
           {
@@ -112,7 +114,7 @@ const EXPANSION_DATA = {
             slug: "the-dreamrift",
             mythicTrapDisabled: true,
             bosses: [
-              { encounterID: 0, name: "Chimaerus, the Undreamt God", slug: "chimaerus", order: 1 }, // TODO: encounterID real
+              { encounterID: -107, name: "Chimaerus, the Undreamt God", slug: "chimaerus", order: 1 },
             ]
           },
           {
@@ -121,8 +123,8 @@ const EXPANSION_DATA = {
             slug: "march-on-queldanas",
             mythicTrapDisabled: true,
             bosses: [
-              { encounterID: 0, name: "Belo'ren", slug: "beloren", order: 1 }, // TODO: encounterID real
-              { encounterID: 0, name: "L'ura",    slug: "lura",    order: 2 }, // TODO: encounterID real
+              { encounterID: -108, name: "Belo'ren", slug: "beloren", order: 1 },
+              { encounterID: -109, name: "L'ura",    slug: "lura",    order: 2 },
             ]
           },
         ]
@@ -194,16 +196,16 @@ export async function seedRaidData(db) {
 
         // Insert or update bosses
         for (const boss of zone.bosses) {
-          // Only generate MythicTrap URL/image when the zone has published guides.
-          // Set mythicTrapDisabled: true on a zone to suppress until guides are live.
-          const guidesReady = isCurrent && !zone.mythicTrapDisabled;
-          const mythicTrapUrl = guidesReady ? getMythicTrapUrl(zone.slug, boss.slug) : null;
-          const bossImage    = guidesReady ? getMythicTrapBossImage(zone.slug, boss.slug) : null;
+          // Always try MythicTrap images for current bosses — frontend handles 404 gracefully
+          // with the gradient fallback. Only suppress the guide LINK when guides aren't
+          // published yet (mythicTrapDisabled), to avoid redirecting to the wrong boss.
+          const mythicTrapUrl = (isCurrent && !zone.mythicTrapDisabled) ? getMythicTrapUrl(zone.slug, boss.slug) : null;
+          const bossImage    = isCurrent ? getMythicTrapBossImage(zone.slug, boss.slug) : null;
 
-          // Lookup by encounterID when it's a real ID (!=0).
-          // When encounterID is 0 (placeholder), use zone_id+slug as unique key to
-          // prevent all placeholder bosses from colliding into a single DB row.
-          const existingBoss = boss.encounterID !== 0
+          // Lookup by encounterID when it's a real WCL ID (positive).
+          // Negative IDs are local placeholders (used until real WCL IDs are known);
+          // look up by zone_id+slug to avoid the UNIQUE(wcl_encounter_id) collision.
+          const existingBoss = boss.encounterID > 0
             ? await db.get('SELECT id, image_url FROM wcl_bosses WHERE wcl_encounter_id = ?', boss.encounterID)
             : await db.get('SELECT id, image_url FROM wcl_bosses WHERE zone_id = ? AND slug = ?', zoneId, boss.slug);
 
