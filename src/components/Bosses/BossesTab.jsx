@@ -257,16 +257,16 @@ const BossCard = ({ boss, onClick, t, onMouseEnter, mrtNote, isCopied, isNoNote,
       onMouseEnter={onMouseEnter}
       className="relative rounded-xl overflow-hidden cursor-pointer group aspect-[4/3] min-h-[180px]"
     >
-      {/* Background Image */}
-      {boss.imageUrl ? (
+      {/* Background: gradient always present as fallback layer */}
+      <div className="absolute inset-0 bg-gradient-to-br from-indigo to-purple-900" />
+      {/* Boss image sits on top; hides on error to reveal gradient behind it */}
+      {boss.imageUrl && (
         <img
           src={boss.imageUrl}
           alt={boss.name}
           className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
           onError={(e) => { e.target.style.display = 'none' }}
         />
-      ) : (
-        <div className="absolute inset-0 bg-gradient-to-br from-indigo to-purple-900" />
       )}
 
       {/* Gradient Overlay */}
@@ -400,14 +400,14 @@ const BossDetailModal = ({ boss, details, loading, onClose, onChangeDifficulty, 
       <div className="bg-gradient-to-br from-indigo to-lavender-12 rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-hidden">
         {/* Hero Header with Boss Image */}
         <div className="relative h-48 overflow-hidden">
-          {boss.imageUrl ? (
+          <div className="absolute inset-0 bg-gradient-to-br from-purple-900 to-indigo" />
+          {boss.imageUrl && (
             <img
               src={boss.imageUrl}
               alt={boss.name}
               className="absolute inset-0 w-full h-full object-cover"
+              onError={(e) => { e.target.style.display = 'none' }}
             />
-          ) : (
-            <div className="absolute inset-0 bg-gradient-to-br from-purple-900 to-indigo" />
           )}
           <div className="absolute inset-0 bg-gradient-to-t from-indigo via-indigo/60 to-transparent" />
 
