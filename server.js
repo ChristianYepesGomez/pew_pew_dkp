@@ -24,7 +24,7 @@ import { seedRaidData } from './services/raids.js';
 import { startBuffManager } from './services/buffManager.js';
 import { seedRaidItems, scheduleItemRefresh } from './services/raidItems.js';
 import { getAllDungeonItems } from './services/dungeonItems.js';
-import { scheduleExistingAuctions, setIO as setAuctionIO } from './lib/auctionScheduler.js';
+import { scheduleExistingAuctions, startAuctionSweep, setIO as setAuctionIO } from './lib/auctionScheduler.js';
 import { JWT_SECRET, FRONTEND_URL, DISCORD_TOKEN } from './lib/config.js';
 import { startBot } from './bot/index.js';
 
@@ -243,6 +243,7 @@ async function startServer() {
   await seedRaidData(db);
   await seedRaidItems(db);
   await scheduleExistingAuctions(db);
+  startAuctionSweep(db);
 
   // Also run startup tasks for all registered tenant guilds
   try {
@@ -253,6 +254,7 @@ async function startServer() {
         await seedRaidData(guildDb);
         await seedRaidItems(guildDb);
         await scheduleExistingAuctions(guildDb);
+        startAuctionSweep(guildDb);
       } catch (err) {
         log.error(`Failed startup tasks for guild ${guild.name}`, err);
       }

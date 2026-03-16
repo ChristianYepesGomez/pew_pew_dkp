@@ -130,7 +130,7 @@ router.get('/active', authenticateToken, async (req, res) => {
     const committed = await getCommittedBids(req.db, userId);
     const availableDkp = (userDkp?.current_dkp || 0) - committed;
 
-    return success(res, { auctions: auctionsWithBids, availableDkp });
+    return success(res, { auctions: auctionsWithBids, availableDkp, serverTime: new Date().toISOString() });
   } catch (err) {
     log.error('Get active auctions error', err);
     return error(res, 'Failed to get active auctions', 500, ErrorCodes.INTERNAL_ERROR);
