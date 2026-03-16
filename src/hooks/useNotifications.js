@@ -4,6 +4,7 @@ const STORAGE_KEY = 'dkp_notifications_enabled'
 const SOUND_STORAGE_KEY = 'dkp_notifications_sound'
 const SOUND_SELECTION_KEY = 'dkp_notifications_sound_selected'
 const CUSTOM_SOUND_KEY = 'dkp_notifications_custom_sound'
+const VOLUME_KEY = 'dkp_notifications_volume'
 
 // Real WoW sound effects from Wowhead CDN (wow.zamimg.com)
 export const NOTIFICATION_SOUNDS = [
@@ -116,6 +117,10 @@ export function useNotifications() {
   const [customSoundData, setCustomSoundData] = useState(() => {
     return localStorage.getItem(CUSTOM_SOUND_KEY) || null
   })
+  const [volume, setVolumeState] = useState(() => {
+    const stored = localStorage.getItem(VOLUME_KEY)
+    return stored !== null ? parseFloat(stored) : 0.5
+  })
 
   const audioRef = useRef(null)
 
@@ -128,14 +133,14 @@ export function useNotifications() {
     return sound?.url || NOTIFICATION_SOUNDS[0].url
   }, [selectedSound, customSoundData])
 
-  // Initialize/update audio element when sound changes
+  // Initialize/update audio element when sound or volume changes
   useEffect(() => {
     const url = getSoundUrl()
     if (url) {
       audioRef.current = new Audio(url)
-      audioRef.current.volume = 0.5
+      audioRef.current.volume = volume
     }
-  }, [getSoundUrl])
+  }, [getSoundUrl, volume])
 
   useEffect(() => {
     setIsSupported('Notification' in window)
@@ -158,6 +163,16 @@ export function useNotifications() {
   useEffect(() => {
     localStorage.setItem(SOUND_SELECTION_KEY, selectedSound)
   }, [selectedSound])
+
+  // Persist volume
+  useEffect(() => {
+    localStorage.setItem(VOLUME_KEY, String(volume))
+  }, [volume])
+
+  const setVolume = useCallback((val) => {
+    const clamped = Math.max(0, Math.min(1, val))
+    setVolumeState(clamped)
+  }, [])
 
   const requestPermission = useCallback(async () => {
     if (!isSupported) {
@@ -240,10 +255,10 @@ export function useNotifications() {
     const victory = NOTIFICATION_SOUNDS.find(s => s.id === 'pvp_victory')
     if (victory?.url) {
       const audio = new Audio(victory.url)
-      audio.volume = 0.6
+      audio.volume = Math.min(1, volume * 1.2) // slightly louder than normal
       audio.play().catch(() => {})
     }
-  }, [soundEnabled])
+  }, [soundEnabled, volume])
 
   // Preview a specific sound without changing selection
   const previewSound = useCallback((soundId) => {
@@ -256,10 +271,10 @@ export function useNotifications() {
     }
     if (url) {
       const audio = new Audio(url)
-      audio.volume = 0.5
+      audio.volume = volume
       audio.play().catch(() => {})
     }
-  }, [customSoundData])
+  }, [customSoundData, volume])
 
   const showNotification = useCallback((title, options = {}) => {
     // Check both browser permission AND user preference
@@ -312,12 +327,14 @@ export function useNotifications() {
     soundEnabled,
     selectedSound,
     customSoundData,
+    volume,
     isEnabled,
     requestPermission,
     enableNotifications,
     disableNotifications,
     toggleSound,
     changeSound,
+    setVolume,
     setCustomSound,
     clearCustomSound,
     previewSound,

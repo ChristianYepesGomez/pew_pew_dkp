@@ -27,6 +27,8 @@ import {
   BellSlash,
   SpeakerHigh,
   SpeakerSlash,
+  SpeakerLow,
+  SpeakerNone,
   GearSix,
   PlusCircle,
   Diamond,
@@ -57,10 +59,12 @@ const SOUND_ICON_MAP = {
 const SoundSettingsModal = ({
   selectedSound,
   customSoundData,
+  volume,
   onChangeSound,
   onPreviewSound,
   onSetCustomSound,
   onClearCustomSound,
+  onSetVolume,
   onClose,
   t
 }) => {
@@ -133,8 +137,39 @@ const SoundSettingsModal = ({
           </div>
         </div>
 
+        {/* Volume Control */}
+        <div className="px-4 pt-4 pb-2">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => onSetVolume(volume > 0 ? 0 : 0.5)}
+              className="text-lavender hover:text-cream transition-colors"
+              title={volume > 0 ? t('sound_mute') : t('sound_unmute')}
+            >
+              {volume === 0 ? (
+                <SpeakerNone size={18} weight="fill" />
+              ) : volume < 0.5 ? (
+                <SpeakerLow size={18} weight="fill" />
+              ) : (
+                <SpeakerHigh size={18} weight="fill" />
+              )}
+            </button>
+            <input
+              type="range"
+              min="0"
+              max="1"
+              step="0.05"
+              value={volume}
+              onChange={(e) => onSetVolume(parseFloat(e.target.value))}
+              className="flex-1 h-1.5 rounded-full appearance-none cursor-pointer accent-coral bg-lavender-20/50
+                [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-coral [&::-webkit-slider-thumb]:shadow-md
+                [&::-moz-range-thumb]:w-4 [&::-moz-range-thumb]:h-4 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-coral [&::-moz-range-thumb]:border-0"
+            />
+            <span className="text-xs text-lavender w-8 text-right">{Math.round(volume * 100)}%</span>
+          </div>
+        </div>
+
         {/* Sound List */}
-        <div className="p-4 overflow-auto space-y-2">
+        <div className="p-4 pt-2 overflow-auto space-y-2">
           {NOTIFICATION_SOUNDS.map((sound) => {
             const isSelected = selectedSound === sound.id
             const isCustom = sound.id === 'custom'
@@ -268,10 +303,12 @@ const AuctionTab = () => {
     soundEnabled,
     selectedSound,
     customSoundData,
+    volume,
     enableNotifications,
     disableNotifications,
     toggleSound,
     changeSound,
+    setVolume,
     setCustomSound,
     clearCustomSound,
     previewSound,
@@ -822,10 +859,12 @@ const AuctionTab = () => {
         <SoundSettingsModal
           selectedSound={selectedSound}
           customSoundData={customSoundData}
+          volume={volume}
           onChangeSound={changeSound}
           onPreviewSound={previewSound}
           onSetCustomSound={setCustomSound}
           onClearCustomSound={clearCustomSound}
+          onSetVolume={setVolume}
           onClose={() => setShowSoundModal(false)}
           t={t}
         />,
