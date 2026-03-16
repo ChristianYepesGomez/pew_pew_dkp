@@ -203,12 +203,20 @@ router.post('/:auctionId/bid', userLimiter, authenticateToken, validateParams({ 
 
     // Atomic bid placement: validate + delete old + insert new in one transaction
     const bidResult = await req.db.transaction(async (tx) => {
-      const highestBid = await tx.get(`
-        SELECT MAX(amount) as max_bid FROM auction_bids WHERE auction_id = ?
-      `, auctionId);
+      // Allow ties: a bid must be >= the highest OTHER user's bid, but strictly > your own previous bid
+      const highestOtherBid = await tx.get(`
+        SELECT MAX(amount) as max_bid FROM auction_bids WHERE auction_id = ? AND user_id != ?
+      `, auctionId, userId);
 
-      if (highestBid && highestBid.max_bid >= amount) {
-        throw new Error('Bid must be higher than current highest bid');
+      const ownBid = await tx.get(`
+        SELECT amount FROM auction_bids WHERE auction_id = ? AND user_id = ?
+      `, auctionId, userId);
+
+      if (highestOtherBid && highestOtherBid.max_bid > amount) {
+        throw new Error('Bid must be at least equal to the current highest bid');
+      }
+      if (ownBid && amount <= ownBid.amount) {
+        throw new Error('New bid must be higher than your previous bid');
       }
 
       // Get current top bidder BEFORE placing new bid (for outbid notification)
@@ -296,7 +304,7 @@ router.post('/:auctionId/end', adminLimiter, authenticateToken, authorizeRole(['
     const auctionId = parseInt(req.params.auctionId, 10);
 
     const auction = await req.db.get(
-      'SELECT id, item_name, item_image, status FROM auctions WHERE id = ? AND status = ?', auctionId, 'active'
+      'SELECT id, item_name, item_image, item_rarity, item_id, status FROM auctions WHERE id = ? AND status = ?', auctionId, 'active'
     );
     if (!auction) {
       return error(res, 'Active auction not found', 404, ErrorCodes.AUCTION_CLOSED);
@@ -424,6 +432,8 @@ router.post('/:auctionId/end', adminLimiter, authenticateToken, authorizeRole(['
       auctionId,
       itemName: auction.item_name,
       itemImage: auction.item_image,
+      itemRarity: auction.item_rarity,
+      itemId: auction.item_id,
       winnerId: result.winner?.userId || null,
       winningBid: result.winner?.amount || null,
       ...result

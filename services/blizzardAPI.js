@@ -34,12 +34,10 @@ const CURRENT_RAID_INSTANCES = [
   // The War Within (legacy — comentar cuando no se necesite el loot cache de TWW)
   // { id: 1302, name: 'Manaforge Omega', expansion: 'The War Within', season: 3 },
 
-  // Midnight Season 1 — IDs de Blizzard Journal Instance (develop.battle.net)
-  // TODO: rellenar los IDs reales consultando la API de Blizzard:
-  //   GET https://eu.api.blizzard.com/data/wow/journal-instance/index?namespace=static-eu&locale=es_ES
-  { id: 0, name: 'The Voidspire',        expansion: 'Midnight', season: 1 }, // TODO: id real
-  { id: 0, name: 'The Dreamrift',        expansion: 'Midnight', season: 1 }, // TODO: id real
-  { id: 0, name: "March on Quel'Danas",  expansion: 'Midnight', season: 1 }, // TODO: id real
+  // Midnight Season 1
+  { id: 1307, name: 'The Voidspire',       expansion: 'Midnight', season: 1 },
+  { id: 1314, name: 'The Dreamrift',       expansion: 'Midnight', season: 1 },
+  { id: 1308, name: "March on Quel'Danas", expansion: 'Midnight', season: 1 },
 ];
 
 // Excluded item types (crafting mats, currency, etc.)
@@ -838,15 +836,15 @@ export async function getCharacterMedia(realmSlug, characterName) {
 
 // Current M+ season dungeons — UPDATE THESE WHEN A NEW SEASON STARTS
 // journal-instance IDs used for fetching loot via journal-instance API
+// Midnight Season 1 dungeons (confirmed via Blizzard journal-instance API, March 2026)
 const CURRENT_MYTHIC_DUNGEONS = [
-  { id: 15093, name: 'Ara-Kara, City of Echoes' },
-  { id: 14971, name: 'The Dawnbreaker' },
-  { id: 15452, name: 'Operation: Floodgate' },
-  { id: 14954, name: 'Priory of the Sacred Flame' },
-  { id: 16104, name: 'Cinderbrew Meadery' },
-  { id: 12831, name: 'Halls of Atonement' },
-  { id: 1194,  name: 'Tazavesh, the Veiled Market' },
-  // Tazavesh Streets + So'leah's Gambit share journal instance 1194
+  { id: 1303, name: "Eco-Dome Al'dani" },
+  { id: 1304, name: 'Murder Row' },
+  { id: 1309, name: 'The Blinding Vale' },
+  { id: 1311, name: 'Den of Nalorakk' },
+  { id: 1313, name: 'Voidscar Arena' },
+  { id: 1315, name: 'Maisara Caverns' },
+  { id: 1316, name: 'Nexus-Point Xenas' },
 ];
 
 export async function discoverMythicDungeons() {
