@@ -203,12 +203,13 @@ export async function seedRaidData(db) {
           const mythicTrapUrl = guidesReady ? getMythicTrapUrl(mtSlug, boss.slug) : null;
           const bossImage    = guidesReady ? getMythicTrapBossImage(mtSlug, boss.slug) : null;
 
-          // Lookup by encounterID when it's a real WCL ID (positive).
-          // Negative IDs are local placeholders (used until real WCL IDs are known);
-          // look up by zone_id+slug to avoid the UNIQUE(wcl_encounter_id) collision.
-          const existingBoss = boss.encounterID > 0
-            ? await db.get('SELECT id, image_url FROM wcl_bosses WHERE wcl_encounter_id = ?', boss.encounterID)
-            : await db.get('SELECT id, image_url FROM wcl_bosses WHERE zone_id = ? AND slug = ?', zoneId, boss.slug);
+          // Lookup by encounterID first (works for both real and placeholder IDs since
+          // each has a unique value). Fallback to zone_id+slug for extra safety.
+          const existingBoss = await db.get(
+            'SELECT id, image_url FROM wcl_bosses WHERE wcl_encounter_id = ?', boss.encounterID
+          ) || await db.get(
+            'SELECT id, image_url FROM wcl_bosses WHERE zone_id = ? AND slug = ?', zoneId, boss.slug
+          );
 
           if (existingBoss) {
             // IMPORTANT: Never overwrite existing image_url with null
