@@ -8,7 +8,7 @@ import { Diamond, X, WarningCircle, CircleNotch, HandCoins } from '@phosphor-ico
 
 const BidModal = ({ auction, userDkp, onClose, onSuccess }) => {
   const { t } = useLanguage()
-  const minBid = (auction.currentBid || 0) + 1
+  const minBid = auction.currentBid || 1
   const [amount, setAmount] = useState(String(minBid))
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
