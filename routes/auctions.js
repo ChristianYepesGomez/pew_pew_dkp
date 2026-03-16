@@ -319,33 +319,14 @@ router.post('/:auctionId/end', adminLimiter, authenticateToken, authorizeRole(['
     `, auctionId);
 
     const result = await req.db.transaction(async (tx) => {
-      // Batch-load all bidder DKP in one query (eliminates N+1)
-      const bidderIds = [...new Set(allBids.map(b => b.user_id))];
-      const dkpMap = new Map();
-      if (bidderIds.length > 0) {
-        const ph = bidderIds.map(() => '?').join(',');
-        const dkpRows = await tx.all(
-          `SELECT user_id, current_dkp FROM member_dkp WHERE user_id IN (${ph})`, ...bidderIds
-        );
-        for (const row of dkpRows) dkpMap.set(row.user_id, row.current_dkp);
-      }
-
-      const validBids = allBids
-        .filter(bid => {
-          const dkp = dkpMap.get(bid.user_id);
-          return dkp !== undefined && dkp >= bid.amount;
-        })
-        .map(bid => ({ ...bid, currentDkp: dkpMap.get(bid.user_id) }));
-
-      if (validBids.length === 0) {
-        // No valid bids - cancel auction
+      if (allBids.length === 0) {
         await tx.run('UPDATE auctions SET status = ?, ended_at = CURRENT_TIMESTAMP WHERE id = ?', 'cancelled', auctionId);
         return { winner: null, wasTie: false, rolls: [] };
       }
 
-      // Find highest bid amount among valid bids
-      const highestAmount = validBids[0].amount;
-      const topBidders = validBids.filter(b => b.amount === highestAmount);
+      // Find highest bid amount and check for ties (DKP was validated at bid time)
+      const highestAmount = allBids[0].amount;
+      const topBidders = allBids.filter(b => b.amount === highestAmount);
 
       let winner;
       let wasTie = false;
