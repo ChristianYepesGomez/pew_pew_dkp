@@ -96,7 +96,7 @@ const EXPANSION_DATA = {
             wclZoneId: 48, // The Voidspire — TODO: confirmar zone 48 en warcraftlogs.com/zone/rankings/48
             name: "The Voidspire",
             slug: "the-voidspire",
-            mythicTrapDisabled: true, // Guías aún no publicadas en MythicTrap; quitar cuando estén online
+            mythicTrapSlug: "vs-dr-mqd", // MythicTrap agrupa las 3 raids de Midnight bajo un solo slug
             bosses: [
               // WCL encounter IDs pendientes — usar negativos como placeholder único hasta tener logs reales
               // Blizzard journal IDs (referencia): 2733, 2734, 2736, 2735, 2737, 2738
@@ -112,19 +112,19 @@ const EXPANSION_DATA = {
             wclZoneId: 49, // The Dreamrift — TODO: confirmar zone ID real en WCL
             name: "The Dreamrift",
             slug: "the-dreamrift",
-            mythicTrapDisabled: true,
+            mythicTrapSlug: "vs-dr-mqd",
             bosses: [
-              { encounterID: -107, name: "Chimaerus the Undreamt God", slug: "chimaerus", order: 1 }, // Blizzard: 2795
+              { encounterID: -107, name: "Chimaerus the Undreamt God", slug: "chimaerus-the-undreamt-god", order: 1 }, // Blizzard: 2795
             ]
           },
           {
             wclZoneId: 50, // March on Quel'Danas — TODO: confirmar zone ID real en WCL
             name: "March on Quel'Danas",
             slug: "march-on-queldanas",
-            mythicTrapDisabled: true,
+            mythicTrapSlug: "vs-dr-mqd",
             bosses: [
-              { encounterID: -108, name: "Belo'ren, Child of Al'ar", slug: "beloren", order: 1 }, // Blizzard: 2739
-              { encounterID: -109, name: "Midnight Falls",           slug: "lura",    order: 2 }, // Blizzard: 2740
+              { encounterID: -108, name: "Belo'ren, Child of Al'ar", slug: "beloren-child-of-alar", order: 1 }, // Blizzard: 2739
+              { encounterID: -109, name: "Midnight Falls",           slug: "midnight-falls",       order: 2 }, // Blizzard: 2740
             ]
           },
         ]
@@ -196,12 +196,12 @@ export async function seedRaidData(db) {
 
         // Insert or update bosses
         for (const boss of zone.bosses) {
-          // mythicTrapDisabled suppresses both the guide URL and the seed-generated image.
-          // Images patched directly in the DB (e.g. Blizzard render URLs) are preserved
-          // via the `existingBoss.image_url` fallback below.
+          // Use mythicTrapSlug override when the zone slug doesn't match MythicTrap's URL
+          // (e.g. Midnight's 3 raids are grouped under "vs-dr-mqd" on MythicTrap).
+          const mtSlug = zone.mythicTrapSlug || zone.slug;
           const guidesReady = isCurrent && !zone.mythicTrapDisabled;
-          const mythicTrapUrl = guidesReady ? getMythicTrapUrl(zone.slug, boss.slug) : null;
-          const bossImage    = guidesReady ? getMythicTrapBossImage(zone.slug, boss.slug) : null;
+          const mythicTrapUrl = guidesReady ? getMythicTrapUrl(mtSlug, boss.slug) : null;
+          const bossImage    = guidesReady ? getMythicTrapBossImage(mtSlug, boss.slug) : null;
 
           // Lookup by encounterID when it's a real WCL ID (positive).
           // Negative IDs are local placeholders (used until real WCL IDs are known);
