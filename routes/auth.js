@@ -22,13 +22,14 @@ router.post('/login', authLimiter, async (req, res) => {
   try {
     const { username, password } = req.body;
 
+    // Allow login with username OR email
     const user = await req.db.get(`
       SELECT u.id, u.username, u.password, u.character_name, u.character_class, u.role,
              u.onboarding_step, md.current_dkp
       FROM users u
       LEFT JOIN member_dkp md ON u.id = md.user_id
-      WHERE LOWER(u.username) = LOWER(?) AND u.is_active = 1
-    `, username);
+      WHERE (LOWER(u.username) = LOWER(?) OR LOWER(u.email) = LOWER(?)) AND u.is_active = 1
+    `, username, username);
 
     if (!user) {
       return error(res, 'Invalid credentials', 401, ErrorCodes.UNAUTHORIZED);
