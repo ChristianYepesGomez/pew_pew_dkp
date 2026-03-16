@@ -292,7 +292,7 @@ router.get('/summary/:date', authenticateToken, async (req, res) => {
     const users = await req.db.all(`
       SELECT u.id, u.character_name, u.character_class, u.raid_role, u.spec
       FROM users u
-      WHERE u.is_active = 1
+      WHERE u.is_active = 1 AND u.character_name IS NOT NULL AND TRIM(u.character_name) != ''
       ORDER BY u.character_name
     `);
 
@@ -356,7 +356,7 @@ router.get('/overview', authenticateToken, async (req, res) => {
     const users = await req.db.all(`
       SELECT id, character_name, character_class, raid_role, spec
       FROM users
-      WHERE is_active = 1
+      WHERE is_active = 1 AND character_name IS NOT NULL AND TRIM(character_name) != ''
       ORDER BY character_name
     `);
 

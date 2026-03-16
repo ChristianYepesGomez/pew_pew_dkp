@@ -304,7 +304,7 @@ router.post('/:auctionId/end', adminLimiter, authenticateToken, authorizeRole(['
     const auctionId = parseInt(req.params.auctionId, 10);
 
     const auction = await req.db.get(
-      'SELECT id, item_name, item_image, status FROM auctions WHERE id = ? AND status = ?', auctionId, 'active'
+      'SELECT id, item_name, item_image, item_rarity, item_id, status FROM auctions WHERE id = ? AND status = ?', auctionId, 'active'
     );
     if (!auction) {
       return error(res, 'Active auction not found', 404, ErrorCodes.AUCTION_CLOSED);
@@ -432,6 +432,8 @@ router.post('/:auctionId/end', adminLimiter, authenticateToken, authorizeRole(['
       auctionId,
       itemName: auction.item_name,
       itemImage: auction.item_image,
+      itemRarity: auction.item_rarity,
+      itemId: auction.item_id,
       winnerId: result.winner?.userId || null,
       winningBid: result.winner?.amount || null,
       ...result
