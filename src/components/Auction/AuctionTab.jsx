@@ -326,6 +326,7 @@ const AuctionTab = () => {
   const [wonAuctions, setWonAuctions] = useState([]) // Auctions in "celebration" state for 15s
   const timerRef = useRef(null)
   const wonTimeoutsRef = useRef(new Map()) // Cleanup timeouts for won auctions
+  const serverOffsetRef = useRef(0) // Server time minus local time (ms) — corrects client clock drift
   const auctionsRef = useRef([]) // Keep track of auctions for notifications
   const isAdmin = user?.role === 'admin' || user?.role === 'officer'
 
@@ -339,6 +340,10 @@ const AuctionTab = () => {
       const response = await auctionsAPI.getActive()
       setAuctions(response.data?.auctions || [])
       setAvailableDkp(response.data?.availableDkp ?? (user?.currentDkp || 0))
+      // Calculate clock offset: positive = client is behind server, negative = client is ahead
+      if (response.data?.serverTime) {
+        serverOffsetRef.current = new Date(response.data.serverTime).getTime() - Date.now()
+      }
     } catch (error) {
       console.error('Error loading auctions:', error)
       setAuctions([])
@@ -347,13 +352,13 @@ const AuctionTab = () => {
     }
   }
 
-  // Calculate time remaining for all auctions
+  // Calculate time remaining for all auctions (using server-synced time)
   const updateTimeRemaining = () => {
     const newTimes = {}
     auctions.forEach(auction => {
       if (auction.endsAt) {
         const endTime = new Date(auction.endsAt).getTime()
-        const now = Date.now()
+        const now = Date.now() + serverOffsetRef.current // Adjust for clock drift
         const diff = endTime - now
 
         if (diff > 0) {
@@ -411,14 +416,14 @@ const AuctionTab = () => {
   }, [isEnabled, showNotification, t])
 
   const handleBidPlaced = useCallback((data) => {
-    // If time was extended due to anti-snipe, update the auction's endsAt directly
+    // If time was extended due to anti-snipe, update the endsAt immediately for responsive UI
     if (data.timeExtended && data.newEndsAt) {
       setAuctions(prev => prev.map(a =>
         a.id === data.auctionId ? { ...a, endsAt: data.newEndsAt } : a
       ))
-    } else {
-      loadAuctions()
     }
+    // Always re-fetch to keep availableDkp and bid state in sync
+    loadAuctions()
 
     if (!isEnabled || !user) return
 
@@ -476,8 +481,9 @@ const AuctionTab = () => {
 
     setWonAuctions(prev => [...prev, wonAuction])
 
-    // Remove from active auctions
+    // Remove from active auctions and refresh availableDkp immediately
     setAuctions(prev => prev.filter(a => a.id !== data.auctionId))
+    loadAuctions()
 
     // Auto-remove after 15 seconds
     const timeout = setTimeout(() => {
