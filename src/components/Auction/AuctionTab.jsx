@@ -35,6 +35,8 @@ import {
   HandCoins,
   ShieldStar,
   Star,
+  Trophy,
+  Crown,
 } from '@phosphor-icons/react'
 
 // Map FA icon class names to Phosphor components for dynamic sound icon rendering
@@ -273,6 +275,7 @@ const AuctionTab = () => {
     setCustomSound,
     clearCustomSound,
     previewSound,
+    playVictorySound,
     showNotification
   } = useNotifications()
   const [auctions, setAuctions] = useState([])
@@ -283,7 +286,9 @@ const AuctionTab = () => {
   const [showSoundModal, setShowSoundModal] = useState(false)
   const [timeRemaining, setTimeRemaining] = useState({})
   const [bisData, setBisData] = useState({}) // { auctionId: [{ user_id, character_name, priority }] }
+  const [wonAuctions, setWonAuctions] = useState([]) // Auctions in "celebration" state for 15s
   const timerRef = useRef(null)
+  const wonTimeoutsRef = useRef(new Map()) // Cleanup timeouts for won auctions
   const auctionsRef = useRef([]) // Keep track of auctions for notifications
   const isAdmin = user?.role === 'admin' || user?.role === 'officer'
 
@@ -352,6 +357,7 @@ const AuctionTab = () => {
     }
     return () => {
       if (timerRef.current) clearInterval(timerRef.current)
+      wonTimeoutsRef.current.forEach(t => clearTimeout(t))
     }
   }, [auctions])
 
@@ -412,20 +418,53 @@ const AuctionTab = () => {
     }
   }, [isEnabled, showNotification, user, t])
 
-  // Handle auction ended - notify winner
+  // Handle auction ended - show winner for 15s then move to history
   const handleAuctionEnded = useCallback((data) => {
-    loadAuctions()
+    // Find the auction in current state to grab display data
+    const existing = auctionsRef.current.find(a => a.id === data.auctionId)
+
+    const wonAuction = {
+      id: data.auctionId,
+      itemName: data.itemName,
+      itemImage: data.itemImage || existing?.itemImage,
+      itemRarity: data.itemRarity || existing?.itemRarity || 'epic',
+      itemId: data.itemId || existing?.itemId,
+      winner: data.winner,
+      winningBid: data.winningBid,
+      wasTie: data.wasTie,
+      winningRoll: data.winningRoll,
+      rolls: data.rolls || [],
+      wonAt: Date.now(),
+    }
+
+    setWonAuctions(prev => [...prev, wonAuction])
+
+    // Remove from active auctions
+    setAuctions(prev => prev.filter(a => a.id !== data.auctionId))
+
+    // Auto-remove after 15 seconds
+    const timeout = setTimeout(() => {
+      setWonAuctions(prev => prev.filter(a => a.id !== data.auctionId))
+      wonTimeoutsRef.current.delete(data.auctionId)
+      loadAuctions() // Refresh to sync state
+    }, 15000)
+    wonTimeoutsRef.current.set(data.auctionId, timeout)
+
     if (!isEnabled || !user) return
 
-    // Notify winner
-    if (data.winnerId === user.id) {
-      showNotification(t('auction_won_notification'), {
-        body: `${data.itemName || 'Item'} por ${data.winningBid || 0} DKP`,
-        tag: `won-${data.auctionId}`,
-        requireInteraction: true,
-      })
+    // Victory sound + notification for winner
+    if (data.winnerId === user?.id) {
+      playVictorySound()
+      if (isEnabled) {
+        showNotification(t('auction_won_notification'), {
+          body: `${data.itemName || 'Item'} por ${data.winningBid || 0} DKP`,
+          tag: `won-${data.auctionId}`,
+          requireInteraction: true,
+          playSound: false, // Victory sound already playing
+        })
+      }
     }
-  }, [isEnabled, showNotification, user, t])
+  }, [isEnabled, showNotification, playVictorySound, user, t])
 
   useSocket({
     auction_started: handleAuctionStarted,
@@ -532,10 +571,93 @@ const AuctionTab = () => {
       </SectionHeader>
 
       <SurfaceCard className="space-y-4 p-5 sm:p-6">
-        {auctions.length === 0 ? (
+        {auctions.length === 0 && wonAuctions.length === 0 ? (
           <p className="py-8 text-center text-lavender">{t('no_active_auction')}</p>
         ) : (
           <div className="space-y-4">
+            {/* Won auctions - celebration display */}
+            {wonAuctions.map((won) => (
+              <div
+                key={`won-${won.id}`}
+                className="rounded-xl border-2 border-yellow-400/70 bg-gradient-to-r from-yellow-950/30 via-indigo to-yellow-950/30 p-4 transition-all animate-pulse-subtle"
+                style={{ boxShadow: '0 0 24px 4px rgba(234,179,8,0.25)' }}
+              >
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-center">
+                  {/* Item Icon */}
+                  <WowheadTooltip itemId={won.itemId}>
+                    <div
+                      className="h-14 w-14 flex-shrink-0 overflow-hidden rounded-lg border-2 bg-indigo"
+                      style={{ borderColor: RARITY_COLORS[won.itemRarity] }}
+                    >
+                      {won.itemImage && won.itemImage !== '🎁' ? (
+                        <img src={won.itemImage} alt={won.itemName} className="h-full w-full object-cover" />
+                      ) : (
+                        <Diamond size={28} weight="fill" style={{ color: RARITY_COLORS[won.itemRarity] }} className="mx-auto mt-3" />
+                      )}
+                    </div>
+                  </WowheadTooltip>
+
+                  {/* Item Name */}
+                  <div className="min-w-0 flex-1">
+                    <h4 className="mb-0 truncate text-lg" style={{ color: RARITY_COLORS[won.itemRarity] }}>
+                      {won.itemName}
+                    </h4>
+                    <p className="m-0 mt-1 text-xs text-yellow-400/80 font-semibold uppercase tracking-wider flex items-center gap-1">
+                      <Trophy size={12} weight="fill" />
+                      {t('auction_sold')}
+                    </p>
+                  </div>
+
+                  {/* Winner */}
+                  <div className="min-w-[160px] text-left lg:text-center">
+                    <p className="m-0 mb-1 text-xs text-yellow-400/80 flex items-center justify-center gap-1">
+                      <Crown size={12} weight="fill" />
+                      {t('winner')}
+                    </p>
+                    {won.winner ? (
+                      <p
+                        className="m-0 truncate text-lg font-bold"
+                        style={{ color: CLASS_COLORS[won.winner.characterClass] || '#FFF' }}
+                      >
+                        {won.winner.characterName}
+                      </p>
+                    ) : (
+                      <p className="m-0 text-lavender/60">{t('no_bids')}</p>
+                    )}
+                  </div>
+
+                  {/* Winning Bid */}
+                  <div className="min-w-[100px] text-left lg:text-center">
+                    <p className="m-0 mb-1 text-xs text-lavender">{t('winning_bid')}</p>
+                    <p className="m-0 text-xl font-bold text-green-400">
+                      {won.winningBid || 0} <span className="text-sm">DKP</span>
+                    </p>
+                  </div>
+
+                  {/* Tie Roll Info */}
+                  {won.wasTie && won.rolls?.length > 0 && (
+                    <div className="min-w-[120px] text-left lg:text-center">
+                      <p className="m-0 mb-1 text-xs text-yellow-400/80 flex items-center justify-center gap-1">
+                        <DiceFive size={12} weight="fill" />
+                        {t('tie_resolved')}
+                      </p>
+                      <div className="flex flex-col gap-0.5">
+                        {won.rolls.map((roll, i) => (
+                          <span
+                            key={i}
+                            className={`text-xs font-semibold ${roll.userId === won.winner?.userId ? 'text-yellow-400' : 'text-lavender/70'}`}
+                          >
+                            {roll.characterName}: {roll.roll}
+                            {roll.userId === won.winner?.userId && <Trophy size={10} weight="fill" className="inline ml-1" />}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+
             {auctions.map((auction) => {
               const time = timeRemaining[auction.id]
               const isExpired = time?.expired
@@ -610,10 +732,16 @@ const AuctionTab = () => {
                         {auction.hasTie ? t('tied_bidders') : t('highest_bidder')}
                       </p>
                       {auction.hasTie ? (
-                        <div className="flex items-center justify-center gap-1">
-                          <DiceFive size={16} weight="fill" className="animate-pulse text-yellow-400" />
-                          <span className="font-bold text-yellow-400">{auction.tiedBidders?.length || 0}</span>
-                          <span className="text-xs text-lavender">{t('players_tied')}</span>
+                        <div className="flex flex-col items-center gap-0.5">
+                          <div className="flex items-center gap-1">
+                            <DiceFive size={14} weight="fill" className="animate-pulse text-yellow-400" />
+                            <span className="font-bold text-yellow-400 text-sm">{auction.tiedBidders?.length || 0} {t('players_tied')}</span>
+                          </div>
+                          {auction.tiedBidders?.map((b, i) => (
+                            <span key={i} className="text-xs font-semibold truncate max-w-[120px]" style={{ color: CLASS_COLORS[b.characterClass] || '#FFF' }}>
+                              {b.characterName}
+                            </span>
+                          ))}
                         </div>
                       ) : auction.highestBidder ? (
                         <p

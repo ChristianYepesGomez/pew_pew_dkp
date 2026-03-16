@@ -234,6 +234,17 @@ export function useNotifications() {
     }
   }, [soundEnabled])
 
+  // Play victory sound (independent of notification permissions — only respects sound toggle)
+  const playVictorySound = useCallback(() => {
+    if (!soundEnabled) return
+    const victory = NOTIFICATION_SOUNDS.find(s => s.id === 'pvp_victory')
+    if (victory?.url) {
+      const audio = new Audio(victory.url)
+      audio.volume = 0.6
+      audio.play().catch(() => {})
+    }
+  }, [soundEnabled])
+
   // Preview a specific sound without changing selection
   const previewSound = useCallback((soundId) => {
     let url
@@ -310,6 +321,7 @@ export function useNotifications() {
     setCustomSound,
     clearCustomSound,
     previewSound,
+    playVictorySound,
     showNotification,
     playSound,
   }

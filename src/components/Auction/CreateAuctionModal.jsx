@@ -248,14 +248,18 @@ const CreateAuctionModal = ({ onClose, onSuccess }) => {
                 </div>
                 <div className="flex items-center gap-2">
                   <label className="text-lavender">{t('duration')}:</label>
-                  <select
+                  <input
+                    type="number"
+                    min={1}
+                    max={1440}
                     value={durationMinutes}
-                    onChange={(e) => setDurationMinutes(parseInt(e.target.value))}
-                    className="px-3 py-2 rounded-lg bg-indigo border border-lavender-20 text-white focus:outline-none focus:border-coral"
-                  >
-                    <option value={5}>5 {t('minutes')}</option>
-                    <option value={10}>10 {t('minutes')}</option>
-                  </select>
+                    onChange={(e) => {
+                      const val = parseInt(e.target.value)
+                      if (!isNaN(val) && val >= 1 && val <= 1440) setDurationMinutes(val)
+                    }}
+                    className="w-20 px-3 py-2 rounded-lg bg-indigo border border-lavender-20 text-white text-center focus:outline-none focus:border-coral"
+                  />
+                  <span className="text-lavender text-sm">{t('minutes')}</span>
                 </div>
               </div>
             </div>
