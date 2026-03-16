@@ -224,23 +224,20 @@ const HistoryTab = () => {
               {isExpanded && Array.isArray(bidsData) && bidsData.length > 0 && (
                 <div className="border-t border-lavender-20/10 bg-indigo/50">
                   <div className="px-4 py-2 space-y-1">
-                    {bidsData.map((bid, idx) => {
-                      const isWinner = hasWinner && bid.characterName === a.winner.characterName
-                      return (
-                        <div
-                          key={idx}
-                          className={`flex items-center justify-between text-sm py-1 ${isWinner ? 'text-yellow-400' : 'text-lavender'}`}
-                        >
-                          <span style={{ color: isWinner ? CLASS_COLORS[bid.characterClass] : undefined }}>
-                            {isWinner && <Trophy className="inline mr-2 text-yellow-400" weight="fill" />}
-                            {bid.characterName}
-                          </span>
-                          <span className={isWinner ? 'text-red-400 font-bold' : ''}>
-                            {bid.amount} DKP
-                          </span>
-                        </div>
-                      )
-                    })}
+                    {bidsData.map((bid, idx) => (
+                      <div
+                        key={idx}
+                        className={`flex items-center justify-between text-sm py-1 ${idx === 0 ? 'text-yellow-400' : 'text-lavender'}`}
+                      >
+                        <span style={{ color: idx === 0 ? CLASS_COLORS[bid.characterClass] : undefined }}>
+                          {idx === 0 && <Trophy className="inline mr-2 text-yellow-400" weight="fill" />}
+                          {bid.characterName}
+                        </span>
+                        <span className={idx === 0 ? 'text-red-400 font-bold' : ''}>
+                          {bid.amount} DKP
+                        </span>
+                      </div>
+                    ))}
                   </div>
                 </div>
               )}
