@@ -306,6 +306,9 @@ router.post('/confirm', adminLimiter, authenticateToken, authorizeRole(['admin',
       // Process in background to not delay response
       (async () => {
         try {
+          // Ensure boss data is seeded before processing fights
+          await seedRaidData(req.db);
+
           let statsProcessed = 0;
           const processedBosses = [];
 

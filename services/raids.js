@@ -93,38 +93,36 @@ const EXPANSION_DATA = {
         tier: 1,
         zones: [
           {
-            wclZoneId: 48, // The Voidspire — TODO: confirmar zone 48 en warcraftlogs.com/zone/rankings/48
+            wclZoneId: 46, // WCL groups all 3 Midnight raids under zone 46 ("VS / DR / MQD")
             name: "The Voidspire",
             slug: "the-voidspire",
-            mythicTrapSlug: "vs-dr-mqd", // MythicTrap agrupa las 3 raids de Midnight bajo un solo slug
+            mythicTrapSlug: "vs-dr-mqd",
             bosses: [
-              // WCL encounter IDs pendientes — usar negativos como placeholder único hasta tener logs reales
-              // Blizzard journal IDs (referencia): 2733, 2734, 2736, 2735, 2737, 2738
-              { encounterID: -101, name: "Imperator Averzian",    slug: "imperator-averzian",   order: 1 },
-              { encounterID: -102, name: "Vorasius",              slug: "vorasius",             order: 2 },
-              { encounterID: -103, name: "Fallen-King Salhadaar", slug: "fallen-king-salhadaar",order: 3 },
-              { encounterID: -104, name: "Vaelgor & Ezzorak",     slug: "vaelgor-and-ezzorak",  order: 4 },
-              { encounterID: -105, name: "Lightblinded Vanguard", slug: "lightblinded-vanguard",order: 5 },
-              { encounterID: -106, name: "Crown of the Cosmos",   slug: "crown-of-the-cosmos",  order: 6 },
+              { encounterID: 3176, name: "Imperator Averzian",    slug: "imperator-averzian",   order: 1 },
+              { encounterID: 3177, name: "Vorasius",              slug: "vorasius",             order: 2 },
+              { encounterID: 3179, name: "Fallen-King Salhadaar", slug: "fallen-king-salhadaar",order: 3 },
+              { encounterID: 3178, name: "Vaelgor & Ezzorak",     slug: "vaelgor-and-ezzorak",  order: 4 },
+              { encounterID: 3180, name: "Lightblinded Vanguard", slug: "lightblinded-vanguard",order: 5 },
+              { encounterID: 3181, name: "Crown of the Cosmos",   slug: "crown-of-the-cosmos",  order: 6 },
             ]
           },
           {
-            wclZoneId: 49, // The Dreamrift — TODO: confirmar zone ID real en WCL
+            wclZoneId: 46, // Same WCL zone as Voidspire
             name: "The Dreamrift",
             slug: "the-dreamrift",
             mythicTrapSlug: "vs-dr-mqd",
             bosses: [
-              { encounterID: -107, name: "Chimaerus the Undreamt God", slug: "chimaerus-the-undreamt-god", order: 1 }, // Blizzard: 2795
+              { encounterID: 3306, name: "Chimaerus the Undreamt God", slug: "chimaerus-the-undreamt-god", order: 1 },
             ]
           },
           {
-            wclZoneId: 50, // March on Quel'Danas — TODO: confirmar zone ID real en WCL
+            wclZoneId: 46, // Same WCL zone as Voidspire
             name: "March on Quel'Danas",
             slug: "march-on-queldanas",
             mythicTrapSlug: "vs-dr-mqd",
             bosses: [
-              { encounterID: -108, name: "Belo'ren, Child of Al'ar", slug: "beloren-child-of-alar", order: 1 }, // Blizzard: 2739
-              { encounterID: -109, name: "Midnight Falls",           slug: "midnight-falls",       order: 2 }, // Blizzard: 2740
+              { encounterID: 3182, name: "Belo'ren, Child of Al'ar", slug: "beloren-child-of-alar", order: 1 },
+              { encounterID: 3183, name: "Midnight Falls",           slug: "midnight-falls",       order: 2 },
             ]
           },
         ]
@@ -218,9 +216,9 @@ export async function seedRaidData(db) {
 
             await db.run(
               `UPDATE wcl_bosses SET
-                zone_id = ?, name = ?, slug = ?, boss_order = ?, mythic_trap_url = ?, image_url = ?
+                zone_id = ?, wcl_encounter_id = ?, name = ?, slug = ?, boss_order = ?, mythic_trap_url = ?, image_url = ?
                WHERE id = ?`,
-              zoneId, boss.name, boss.slug, boss.order, mythicTrapUrl, finalImageUrl, existingBoss.id
+              zoneId, boss.encounterID, boss.name, boss.slug, boss.order, mythicTrapUrl, finalImageUrl, existingBoss.id
             );
           } else {
             await db.run(
