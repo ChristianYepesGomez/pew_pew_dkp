@@ -80,7 +80,8 @@ router.post('/preview', adminLimiter, authenticateToken, authorizeRole(['admin',
 
     const reportData = await processWarcraftLog(url);
 
-    const raidDKP = 10;
+    const dkpConfig = await req.db.get("SELECT config_value FROM dkp_config WHERE config_key = 'raid_attendance_dkp'");
+    const raidDKP = parseInt(dkpConfig?.config_value) || 5;
 
     const matchResults = [];
     const anomalies = [];
