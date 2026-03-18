@@ -107,7 +107,7 @@ const EXPANSION_DATA = {
             ]
           },
           {
-            wclZoneId: 46, // Same WCL zone as Voidspire
+            wclZoneId: 4601, // Internal ID — WCL uses zone 46, but we split for display
             name: "The Dreamrift",
             slug: "the-dreamrift",
             mythicTrapSlug: "vs-dr-mqd",
@@ -116,7 +116,7 @@ const EXPANSION_DATA = {
             ]
           },
           {
-            wclZoneId: 46, // Same WCL zone as Voidspire
+            wclZoneId: 4602, // Internal ID — WCL uses zone 46, but we split for display
             name: "March on Quel'Danas",
             slug: "march-on-queldanas",
             mythicTrapSlug: "vs-dr-mqd",
@@ -164,12 +164,11 @@ export async function seedRaidData(db) {
 
       for (const zone of tierData.zones) {
         // Insert or update zone.
-        // Look up by slug first (reliable unique key) then by wclZoneId as fallback.
-        // This prevents zones with placeholder IDs (e.g. Dreamrift/MQD before real IDs
-        // are known) from colliding with each other.
+        // Look up by slug (reliable unique key). Avoid fallback to wclZoneId because
+        // WCL may group multiple raids under one zone ID (e.g. Midnight's 3 raids = zone 46).
         const existingZone = await db.get(
-          'SELECT id FROM wcl_zones WHERE slug = ? OR wcl_zone_id = ?',
-          zone.slug, zone.wclZoneId
+          'SELECT id FROM wcl_zones WHERE slug = ?',
+          zone.slug
         );
 
         let zoneId;
