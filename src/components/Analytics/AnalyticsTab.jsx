@@ -3,8 +3,8 @@ import { useLanguage } from '../../hooks/useLanguage'
 import { analyticsAPI } from '../../services/api'
 import CLASS_COLORS from '../../utils/classColors'
 import {
-  Crosshair, Heart, Skull, Shield, Lightning, Drop,
-  CircleNotch, UsersThree, Trophy, Sparkle, Flask, Calendar,
+  Crosshair, Heart, Skull, Shield, Lightning, Drop, DropHalf,
+  CircleNotch, UsersThree, Trophy, Sparkle, Flask, Calendar, FirstAidKit,
 } from '@phosphor-icons/react'
 import LeaderboardModal from './LeaderboardModal'
 import ExternalBuffBadge from './ExternalBuffBadge'
@@ -174,8 +174,6 @@ const AnalyticsTab = () => {
       badge: t('analytics_excl_tanks'),
     },
     {
-      // Health potions: currently tracks "Algari Healing Potion" (TWW).
-      // TODO Midnight: add new healing potion name to CONSUMABLE_PATTERNS.healthPotion in warcraftlogs.js
       key: 'topPotions',
       title: t('analytics_health_pots'),
       Icon: Drop,
@@ -208,6 +206,22 @@ const AnalyticsTab = () => {
       badge: null,
     },
     {
+      key: 'topHealthstones',
+      title: t('analytics_top_healthstones'),
+      Icon: FirstAidKit,
+      color: '#22c55e',
+      format: (v) => String(v),
+      badge: null,
+    },
+    {
+      key: 'topManaPotions',
+      title: t('analytics_top_mana_potions'),
+      Icon: DropHalf,
+      color: '#6366f1',
+      format: (v) => String(v),
+      badge: null,
+    },
+    {
       key: 'topAttendance',
       title: t('analytics_top_attendance'),
       Icon: Calendar,
@@ -222,10 +236,13 @@ const AnalyticsTab = () => {
       color: '#e268a8',
       format: (v) => `${Math.round(v)}%`,
       valueColorFn: wclColor,
-      // extraFn builds "BossName · 15 Feb" shown in the "Ver más" modal
+      // extraFn builds "⚔️ BossName · 15 Feb" or "💚 BossName · 15 Feb"
       extraFn: (entry) => {
-        if (!entry.boss_name && !entry.fight_date) return null
+        if (!entry.boss_name && !entry.fight_date && !entry.raid_role) return null
         const parts = []
+        // Role indicator: sword for DPS, green heart for Healer
+        if (entry.raid_role === 'Healer') parts.push('💚')
+        else parts.push('⚔️')
         if (entry.boss_name) parts.push(entry.boss_name)
         if (entry.fight_date) {
           const d = new Date(entry.fight_date + 'T00:00:00')
