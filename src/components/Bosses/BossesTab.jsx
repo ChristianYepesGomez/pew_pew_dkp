@@ -591,15 +591,9 @@ const BossDetailModal = ({ boss, details, loading, onClose, onChangeDifficulty, 
                           </span>
                         </div>
                         <div className="flex items-center gap-4 text-sm">
-                          <span className="text-red-400">
+                          <span className="text-red-400 font-semibold">
                             <Skull size={14} className="inline mr-1" />
                             {player.deaths}
-                          </span>
-                          <span className="text-lavender/80">
-                            {player.fights} {t('fights')}
-                          </span>
-                          <span className="text-yellow-400 font-semibold">
-                            {player.deathRate}
                           </span>
                         </div>
                       </div>
