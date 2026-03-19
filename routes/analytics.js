@@ -579,6 +579,30 @@ router.get('/guild-leaderboards', authenticateToken, async (req, res) => {
       ORDER BY value DESC LIMIT 10
     `, MIN_FIGHTS);
 
+    // Top 10 Healthstones — only current-season bosses
+    const topHealthstones = await req.db.all(`
+      SELECT u.character_name, u.character_class,
+             SUM(pfp.healthstones) as value
+      FROM player_fight_performance pfp
+      JOIN users u ON pfp.user_id = u.id
+      WHERE pfp.boss_id IN (SELECT wb.id FROM wcl_bosses wb JOIN wcl_zones wz ON wb.zone_id = wz.id WHERE wz.is_current = 1)
+      GROUP BY pfp.user_id
+      HAVING COUNT(*) >= ? AND SUM(pfp.healthstones) > 0
+      ORDER BY value DESC LIMIT 10
+    `, MIN_FIGHTS);
+
+    // Top 10 Mana Potions — only current-season bosses
+    const topManaPotions = await req.db.all(`
+      SELECT u.character_name, u.character_class,
+             SUM(pfp.mana_potions) as value
+      FROM player_fight_performance pfp
+      JOIN users u ON pfp.user_id = u.id
+      WHERE pfp.boss_id IN (SELECT wb.id FROM wcl_bosses wb JOIN wcl_zones wz ON wb.zone_id = wz.id WHERE wz.is_current = 1)
+      GROUP BY pfp.user_id
+      HAVING COUNT(*) >= ? AND SUM(pfp.mana_potions) > 0
+      ORDER BY value DESC LIMIT 10
+    `, MIN_FIGHTS);
+
     // Top 10 Attendance — unique raid days attended, only current-season bosses
     const topAttendance = await req.db.all(`
       SELECT u.character_name, u.character_class,
@@ -627,7 +651,7 @@ router.get('/guild-leaderboards', authenticateToken, async (req, res) => {
       ORDER BY value DESC LIMIT 10
     `);
 
-    return success(res, { topDps, topHps, topDeaths, topDamageTaken, topPotions, topInterrupts, topDispels, topCombatPotions, topAttendance, topPercentile });
+    return success(res, { topDps, topHps, topDeaths, topDamageTaken, topPotions, topInterrupts, topDispels, topCombatPotions, topHealthstones, topManaPotions, topAttendance, topPercentile });
   } catch (err) {
     log.error('Guild leaderboards error', err);
     return error(res, 'Failed to get guild leaderboards', 500, ErrorCodes.INTERNAL_ERROR);

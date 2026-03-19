@@ -521,6 +521,7 @@ export async function runMigrations(targetDb, connectionUrl = dbUrl) {
     'ALTER TABLE player_fight_performance ADD COLUMN dps_percentile REAL DEFAULT NULL',
     'ALTER TABLE player_fight_performance ADD COLUMN hps_percentile REAL DEFAULT NULL',
     'ALTER TABLE player_fight_performance ADD COLUMN external_buffs_json TEXT DEFAULT NULL',
+    'ALTER TABLE player_fight_performance ADD COLUMN mana_potions INTEGER DEFAULT 0',
     'ALTER TABLE users ADD COLUMN banner TEXT',
     'ALTER TABLE users ADD COLUMN baldomero_killer INTEGER DEFAULT 0',
   ];
@@ -743,6 +744,15 @@ export async function runMigrations(targetDb, connectionUrl = dbUrl) {
     ['raid_attendance_dkp', '5', 'DKP por asistencia a raid (por día)'],
     ['wcl_uploader_id', '565362', 'Warcraft Logs user ID for auto-detecting new reports'],
     ['loot_system', 'dkp', 'Loot system: dkp, loot_council, or epgp'],
+    // Vault automation configs
+    ['vault_season_start', '2026-03-18', 'Fecha de inicio de la season actual (para calcular grace period)'],
+    ['vault_grace_weeks', '2', 'Semanas de grace period al inicio de season (reglas relajadas)'],
+    ['vault_grace_min_raid_slots', '3', 'Slots de raid mínimos durante grace period'],
+    ['vault_grace_min_additional_slots', '3', 'Slots adicionales mínimos durante grace period (M+/delve/PvP)'],
+    ['vault_grace_min_tier', 'hero', 'Tier mínimo durante grace period (veteran/champion/hero/myth)'],
+    ['vault_normal_min_slots', '3', 'Slots mínimos rellenos después del grace period'],
+    ['vault_normal_min_tier', 'myth', 'Tier mínimo después del grace period'],
+    ['wowaudit_vault_tab', '', 'Nombre de la pestaña del vault en el sheet de WoWAudit (auto-detecta si vacío)'],
     // Onboarding configs
     ['guild_name', '', 'Guild name'],
     ['guild_server', '', 'Guild server/realm'],

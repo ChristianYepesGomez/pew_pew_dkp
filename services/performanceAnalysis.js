@@ -14,9 +14,10 @@ export function median(arr) {
 
 // ── Consumable detection patterns ──
 const CONSUMABLE_PATTERNS = {
-  healthPotion: /healing potion|potion of .*(heal|life)|algari healing/i,
+  healthPotion: /healing potion|potion of .*(heal|life)|algari healing|silvermoon health potion/i,
   healthstone: /healthstone/i,
-  combatPotion: /tempered potion|potion of unwavering focus|frontline potion|elemental potion|potion of the .*(war|twilight)/i,
+  combatPotion: /tempered potion|potion of unwavering focus|frontline potion|elemental potion|potion of the .*(war|twilight)|light'?s potential/i,
+  manaPotion: /mana potion|lightfused mana potion/i,
 };
 
 const BUFF_PATTERNS = {
@@ -50,7 +51,7 @@ export async function processExtendedFightData(db, reportCode, bossInfo, basicSt
     if (!playerData[name]) {
       playerData[name] = {
         damageDone: 0, healingDone: 0, damageTaken: 0, deaths: 0,
-        healthPotions: 0, healthstones: 0, combatPotions: 0,
+        healthPotions: 0, healthstones: 0, combatPotions: 0, manaPotions: 0,
         flaskUptime: 0, foodBuff: 0, augmentRune: 0,
         interrupts: 0, dispels: 0,
         dpsPercentile: null, hpsPercentile: null,
@@ -99,6 +100,9 @@ export async function processExtendedFightData(db, reportCode, bossInfo, basicSt
       }
       if (CONSUMABLE_PATTERNS.combatPotion.test(abilityName)) {
         playerData[entry.name].combatPotions += (ability.total || ability.hitCount || 1);
+      }
+      if (CONSUMABLE_PATTERNS.manaPotion.test(abilityName)) {
+        playerData[entry.name].manaPotions += (ability.total || ability.hitCount || 1);
       }
     }
   }
@@ -187,14 +191,14 @@ export async function processExtendedFightData(db, reportCode, bossInfo, basicSt
       await db.run(
         `INSERT OR IGNORE INTO player_fight_performance
          (user_id, report_code, fight_id, boss_id, difficulty, damage_done, healing_done, damage_taken, deaths,
-          fight_duration_ms, dps, hps, dtps, health_potions, healthstones, combat_potions,
+          fight_duration_ms, dps, hps, dtps, health_potions, healthstones, combat_potions, mana_potions,
           flask_uptime_pct, food_buff_active, augment_rune_active, interrupts, dispels,
           raid_median_dps, raid_median_dtps, fight_date, dps_percentile, hps_percentile, external_buffs_json)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         userId, reportCode, fightId, bossId, difficulty,
         data.damageDone, data.healingDone, data.damageTaken, data.deaths,
         fightDurationMs, dps, hps, dtps,
-        data.healthPotions, data.healthstones, data.combatPotions,
+        data.healthPotions, data.healthstones, data.combatPotions, data.manaPotions,
         data.flaskUptime, data.foodBuff, data.augmentRune,
         data.interrupts, data.dispels,
         medianDps, medianDtps,
