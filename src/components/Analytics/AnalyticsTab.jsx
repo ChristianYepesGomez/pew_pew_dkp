@@ -21,12 +21,13 @@ const POSITION_COLORS = ['#FFD700', '#C0C0C0', '#CD7F32']
 
 // WCL percentile tier colors (mirrors warcraftlogs.com color scheme)
 const wclColor = (pct) => {
-  if (pct >= 100) return '#e268a8' // Artifact
-  if (pct >= 99)  return '#ff8000' // Legendary
-  if (pct >= 95)  return '#a335ee' // Epic
-  if (pct >= 75)  return '#0070dd' // Rare
-  if (pct >= 50)  return '#1eff00' // Uncommon
-  return '#9d9d9d'                 // Common
+  if (pct >= 100) return '#e5cc80' // Gold
+  if (pct >= 99)  return '#e268a8' // Pink
+  if (pct >= 95)  return '#ff8000' // Orange
+  if (pct >= 75)  return '#a335ee' // Purple
+  if (pct >= 50)  return '#0070ff' // Blue
+  if (pct >= 25)  return '#1eff00' // Green
+  return '#666666'                 // Gray
 }
 
 // WoW-style number formatting: 125348 → "125.3K", 1234567 → "1.23M"
