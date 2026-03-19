@@ -424,6 +424,19 @@ router.post('/confirm', adminLimiter, authenticateToken, authorizeRole(['admin',
             }
           }
 
+          // Process item popularity from kill fights
+          const killFights = processedBosses
+            .filter(b => b.kill)
+            .map(b => ({ id: b.fightId, encounterID: fights.find(f => f.id === b.fightId)?.encounterID }))
+            .filter(f => f.encounterID);
+          if (killFights.length > 0) {
+            try {
+              await processReportPopularity(req.db, reportCode, killFights);
+            } catch (popErr) {
+              log.warn(`Item popularity failed for ${reportCode}: ${popErr.message}`);
+            }
+          }
+
           if (statsProcessed > 0) {
             log.info(`Boss stats updated: ${statsProcessed} fights from ${reportCode}`);
           }

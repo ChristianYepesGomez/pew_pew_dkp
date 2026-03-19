@@ -625,15 +625,11 @@ export async function getFightStatsWithDeathEvents(reportCode, fightInfo) {
     return result;
   }
 
-  // For wipes: don't count any deaths. Only kill deaths are meaningful.
-  // TODO: Future improvement — detect "mistake deaths" in wipes using cascade detection.
-  // Algorithm ready but needs tuning:
-  //   - Hard cap: only first 50% of fight
-  //   - Wipe trigger: forward-scan for cluster of 5+ deaths within 10s gap
-  //   - Count deaths before/including the trigger cluster, filter everything after
+  // For wipes: deaths are NOT counted (only kill deaths matter for the Hall of Shame).
+  // Wipe deaths are everyone dying — not useful for tracking individual mistakes.
   const result = {
     ...basicStats,
-    deaths: [], // No deaths counted for wipes
+    deaths: [],
     fightDuration,
     isKill: false,
     wipeDeathsFiltered: 0,
