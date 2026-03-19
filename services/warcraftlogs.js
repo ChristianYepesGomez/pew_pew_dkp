@@ -747,6 +747,7 @@ export async function getExtendedFightStats(reportCode, fightIds) {
       reportData {
         report(code: $reportCode) {
           casts: table(dataType: Casts, fightIDs: $fightIDs, hostilityType: Friendlies)
+          healing: table(dataType: Healing, fightIDs: $fightIDs, hostilityType: Friendlies)
           buffs: table(dataType: Buffs, fightIDs: $fightIDs, hostilityType: Friendlies)
           interrupts: table(dataType: Interrupts, fightIDs: $fightIDs, hostilityType: Friendlies)
           dispels: table(dataType: Dispels, fightIDs: $fightIDs, hostilityType: Friendlies)
@@ -769,6 +770,7 @@ export async function getExtendedFightStats(reportCode, fightIds) {
 
     const result = {
       casts: parseTable(report.casts),
+      healing: parseTable(report.healing),
       buffs: parseTable(report.buffs),
       interrupts: parseTable(report.interrupts),
       dispels: parseTable(report.dispels),
@@ -778,7 +780,7 @@ export async function getExtendedFightStats(reportCode, fightIds) {
     return result;
   } catch (error) {
     log.error('Error fetching extended fight stats', error);
-    return { casts: [], buffs: [], interrupts: [], dispels: [] };
+    return { casts: [], healing: [], buffs: [], interrupts: [], dispels: [] };
   }
 }
 

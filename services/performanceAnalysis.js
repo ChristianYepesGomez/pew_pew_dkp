@@ -1,4 +1,5 @@
 import { createLogger } from '../lib/logger.js';
+import { normalizeDifficulty } from './raids.js';
 
 const log = createLogger('Service:PerformanceAnalysis');
 
@@ -40,7 +41,8 @@ const EXTERNAL_BUFF_PATTERNS = {
  * Called during the import loop for each fight
  */
 export async function processExtendedFightData(db, reportCode, bossInfo, basicStats, extendedStats, participantUserMap, reportDate, rankingsData = { dps: {}, hps: {} }) {
-  const { bossId, fightId, difficulty, startTime, endTime } = bossInfo;
+  const { bossId, fightId, difficulty: rawDifficulty, startTime, endTime } = bossInfo;
+  const difficulty = normalizeDifficulty(rawDifficulty);
   const fightDurationMs = endTime - startTime;
   const fightDurationSec = fightDurationMs / 1000;
 
@@ -84,25 +86,34 @@ export async function processExtendedFightData(db, reportCode, bossInfo, basicSt
     playerData[e.name].deaths = e.total || 0;
   }
 
-  // Casts — scan for consumable usage
-  for (const entry of extendedStats.casts || []) {
+  // Healing table — health potions and healthstones appear here (not in Casts)
+  for (const entry of extendedStats.healing || []) {
     if (!entry.name) continue;
     ensurePlayer(entry.name);
-    // Check sub-entries (abilities) for consumable patterns
     const abilities = entry.abilities || entry.entries || [];
     for (const ability of abilities) {
       const abilityName = ability.name || '';
       if (CONSUMABLE_PATTERNS.healthPotion.test(abilityName)) {
-        playerData[entry.name].healthPotions += (ability.total || ability.hitCount || 1);
+        playerData[entry.name].healthPotions += 1;
       }
       if (CONSUMABLE_PATTERNS.healthstone.test(abilityName)) {
-        playerData[entry.name].healthstones += (ability.total || ability.hitCount || 1);
+        playerData[entry.name].healthstones += 1;
       }
+    }
+  }
+
+  // Casts — combat potions and mana potions
+  for (const entry of extendedStats.casts || []) {
+    if (!entry.name) continue;
+    ensurePlayer(entry.name);
+    const abilities = entry.abilities || entry.entries || [];
+    for (const ability of abilities) {
+      const abilityName = ability.name || '';
       if (CONSUMABLE_PATTERNS.combatPotion.test(abilityName)) {
-        playerData[entry.name].combatPotions += (ability.total || ability.hitCount || 1);
+        playerData[entry.name].combatPotions += (ability.total || 1);
       }
       if (CONSUMABLE_PATTERNS.manaPotion.test(abilityName)) {
-        playerData[entry.name].manaPotions += (ability.total || ability.hitCount || 1);
+        playerData[entry.name].manaPotions += (ability.total || 1);
       }
     }
   }
@@ -193,8 +204,8 @@ export async function processExtendedFightData(db, reportCode, bossInfo, basicSt
          (user_id, report_code, fight_id, boss_id, difficulty, damage_done, healing_done, damage_taken, deaths,
           fight_duration_ms, dps, hps, dtps, health_potions, healthstones, combat_potions, mana_potions,
           flask_uptime_pct, food_buff_active, augment_rune_active, interrupts, dispels,
-          raid_median_dps, raid_median_dtps, fight_date, dps_percentile, hps_percentile, external_buffs_json)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          raid_median_dps, raid_median_dtps, fight_date, dps_percentile, hps_percentile, external_buffs_json, is_kill)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         userId, reportCode, fightId, bossId, difficulty,
         data.damageDone, data.healingDone, data.damageTaken, data.deaths,
         fightDurationMs, dps, hps, dtps,
@@ -203,7 +214,7 @@ export async function processExtendedFightData(db, reportCode, bossInfo, basicSt
         data.interrupts, data.dispels,
         medianDps, medianDtps,
         reportDate || new Date().toISOString().split('T')[0],
-        dpsPercentile, hpsPercentile, externalBuffsJson
+        dpsPercentile, hpsPercentile, externalBuffsJson, bossInfo.kill ? 1 : 0
       );
       inserted++;
     } catch (err) {

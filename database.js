@@ -502,6 +502,8 @@ export async function runMigrations(targetDb, connectionUrl = dbUrl) {
     'ALTER TABLE warcraft_logs_processed ADD COLUMN reverted_at DATETIME',
     'ALTER TABLE dkp_transactions ADD COLUMN wcl_report_id INTEGER',
     'ALTER TABLE dkp_transactions ADD COLUMN auction_id INTEGER',
+    'ALTER TABLE dkp_transactions ADD COLUMN reverted INTEGER DEFAULT 0',
+    'ALTER TABLE dkp_transactions ADD COLUMN reverted_by_tx INTEGER',
     'ALTER TABLE users ADD COLUMN avatar TEXT',
     'ALTER TABLE auctions ADD COLUMN was_tie INTEGER DEFAULT 0',
     'ALTER TABLE auctions ADD COLUMN winning_roll INTEGER',
@@ -524,6 +526,7 @@ export async function runMigrations(targetDb, connectionUrl = dbUrl) {
     'ALTER TABLE player_fight_performance ADD COLUMN mana_potions INTEGER DEFAULT 0',
     'ALTER TABLE users ADD COLUMN banner TEXT',
     'ALTER TABLE users ADD COLUMN baldomero_killer INTEGER DEFAULT 0',
+    'ALTER TABLE player_fight_performance ADD COLUMN is_kill INTEGER DEFAULT 0',
   ];
   for (const sql of columnMigrations) {
     try { await targetDb.exec(sql); } catch (_e) { /* column already exists */ }
@@ -749,9 +752,9 @@ export async function runMigrations(targetDb, connectionUrl = dbUrl) {
     ['vault_grace_weeks', '2', 'Semanas de grace period al inicio de season (reglas relajadas)'],
     ['vault_grace_min_raid_slots', '3', 'Slots de raid mínimos durante grace period'],
     ['vault_grace_min_additional_slots', '3', 'Slots adicionales mínimos durante grace period (M+/delve/PvP)'],
-    ['vault_grace_min_tier', 'hero', 'Tier mínimo durante grace period (veteran/champion/hero/myth)'],
+    ['vault_grace_min_ilvl', '259', 'ilvl mínimo durante grace period (259 = Hero 1/6)'],
     ['vault_normal_min_slots', '3', 'Slots mínimos rellenos después del grace period'],
-    ['vault_normal_min_tier', 'myth', 'Tier mínimo después del grace period'],
+    ['vault_normal_min_ilvl', '272', 'ilvl mínimo después del grace period (272 = Myth 1/6)'],
     ['wowaudit_vault_tab', '', 'Nombre de la pestaña del vault en el sheet de WoWAudit (auto-detecta si vacío)'],
     // Onboarding configs
     ['guild_name', '', 'Guild name'],

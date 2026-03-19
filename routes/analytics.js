@@ -437,8 +437,7 @@ router.get('/guild-leaderboards', authenticateToken, async (req, res) => {
   try {
     const MIN_FIGHTS = 1;
 
-    // Top 10 DPS — best single fight DPS + external buffs from that fight, DPS players only
-    // Only fights against current-season bosses
+    // Top 10 DPS — best single fight DPS (kills only) + external buffs, DPS players only
     const topDps = await req.db.all(`
       WITH current_boss_ids AS (
         SELECT wb.id FROM wcl_bosses wb JOIN wcl_zones wz ON wb.zone_id = wz.id WHERE wz.is_current = 1
@@ -447,7 +446,7 @@ router.get('/guild-leaderboards', authenticateToken, async (req, res) => {
         SELECT user_id, COUNT(*) as fights,
                SUM(healing_done) as total_healing, SUM(damage_done) as total_damage
         FROM player_fight_performance
-        WHERE dps > 0 AND boss_id IN (SELECT id FROM current_boss_ids)
+        WHERE dps > 0 AND is_kill = 1 AND boss_id IN (SELECT id FROM current_boss_ids)
         GROUP BY user_id
         HAVING COUNT(*) >= ? AND SUM(healing_done) < SUM(damage_done)
       ),
@@ -456,7 +455,7 @@ router.get('/guild-leaderboards', authenticateToken, async (req, res) => {
                ROW_NUMBER() OVER (PARTITION BY pfp.user_id ORDER BY pfp.dps DESC) as rn
         FROM player_fight_performance pfp
         JOIN player_totals pt ON pfp.user_id = pt.user_id
-        WHERE pfp.dps > 0 AND pfp.boss_id IN (SELECT id FROM current_boss_ids)
+        WHERE pfp.dps > 0 AND pfp.is_kill = 1 AND pfp.boss_id IN (SELECT id FROM current_boss_ids)
       )
       SELECT u.character_name, u.character_class,
              ROUND(b.dps) as value, b.external_buffs_json, pt.fights
@@ -467,8 +466,7 @@ router.get('/guild-leaderboards', authenticateToken, async (req, res) => {
       ORDER BY value DESC LIMIT 10
     `, MIN_FIGHTS);
 
-    // Top 10 HPS — best single fight HPS + external buffs from that fight, healers only
-    // Only fights against current-season bosses
+    // Top 10 HPS — best single fight HPS (kills only) + external buffs, healers only
     const topHps = await req.db.all(`
       WITH current_boss_ids AS (
         SELECT wb.id FROM wcl_bosses wb JOIN wcl_zones wz ON wb.zone_id = wz.id WHERE wz.is_current = 1
@@ -477,7 +475,7 @@ router.get('/guild-leaderboards', authenticateToken, async (req, res) => {
         SELECT user_id, COUNT(*) as fights,
                SUM(healing_done) as total_healing, SUM(damage_done) as total_damage
         FROM player_fight_performance
-        WHERE hps > 0 AND boss_id IN (SELECT id FROM current_boss_ids)
+        WHERE hps > 0 AND is_kill = 1 AND boss_id IN (SELECT id FROM current_boss_ids)
         GROUP BY user_id
         HAVING COUNT(*) >= ? AND SUM(healing_done) > SUM(damage_done)
       ),
@@ -486,7 +484,7 @@ router.get('/guild-leaderboards', authenticateToken, async (req, res) => {
                ROW_NUMBER() OVER (PARTITION BY pfp.user_id ORDER BY pfp.hps DESC) as rn
         FROM player_fight_performance pfp
         JOIN player_totals pt ON pfp.user_id = pt.user_id
-        WHERE pfp.hps > 0 AND pfp.boss_id IN (SELECT id FROM current_boss_ids)
+        WHERE pfp.hps > 0 AND pfp.is_kill = 1 AND pfp.boss_id IN (SELECT id FROM current_boss_ids)
       )
       SELECT u.character_name, u.character_class,
              ROUND(b.hps) as value, b.external_buffs_json, pt.fights
@@ -512,8 +510,7 @@ router.get('/guild-leaderboards', authenticateToken, async (req, res) => {
       ORDER BY value DESC LIMIT 10
     `, MIN_FIGHTS);
 
-    // Top 10 Damage Taken — excludes tanks (by raid_role) and healers (by healing > damage)
-    // Only current-season bosses
+    // Top 10 Damage Taken — kills only, excludes tanks and healers
     const topDamageTaken = await req.db.all(`
       SELECT u.character_name, u.character_class,
              SUM(pfp.damage_taken) as value,
@@ -521,6 +518,7 @@ router.get('/guild-leaderboards', authenticateToken, async (req, res) => {
       FROM player_fight_performance pfp
       JOIN users u ON pfp.user_id = u.id
       WHERE pfp.damage_taken > 0
+        AND pfp.is_kill = 1
         AND u.raid_role != 'Tank'
         AND pfp.boss_id IN (SELECT wb.id FROM wcl_bosses wb JOIN wcl_zones wz ON wb.zone_id = wz.id WHERE wz.is_current = 1)
       GROUP BY pfp.user_id
@@ -615,48 +613,7 @@ router.get('/guild-leaderboards', authenticateToken, async (req, res) => {
       ORDER BY value DESC LIMIT 10
     `, MIN_FIGHTS);
 
-    // Top 10 WCL Percentile — best single-fight percentile per player, role-aware
-    // DPS players → dps_percentile, Healers → hps_percentile
-    // Only current-season bosses
-    const topPercentile = await req.db.all(`
-      WITH current_boss_ids AS (
-        SELECT wb.id FROM wcl_bosses wb JOIN wcl_zones wz ON wb.zone_id = wz.id WHERE wz.is_current = 1
-      ),
-      role_pct AS (
-        SELECT pfp.user_id, pfp.boss_id,
-               CASE WHEN u.raid_role = 'Healer' THEN pfp.hps_percentile ELSE pfp.dps_percentile END as pct,
-               u.raid_role,
-               pfp.fight_date, pfp.report_code, pfp.fight_id
-        FROM player_fight_performance pfp
-        JOIN users u ON pfp.user_id = u.id
-        WHERE pfp.boss_id IN (SELECT id FROM current_boss_ids)
-          AND CASE WHEN u.raid_role = 'Healer' THEN pfp.hps_percentile ELSE pfp.dps_percentile END IS NOT NULL
-      ),
-      best AS (
-        SELECT user_id, MAX(pct) as best_pct
-        FROM role_pct
-        GROUP BY user_id
-      ),
-      ranked AS (
-        SELECT rp.user_id, rp.boss_id, rp.pct, rp.raid_role,
-               rp.fight_date, rp.report_code, rp.fight_id,
-               ROW_NUMBER() OVER (PARTITION BY rp.user_id ORDER BY rp.fight_date DESC) as rn
-        FROM role_pct rp
-        JOIN best b ON rp.user_id = b.user_id AND rp.pct = b.best_pct
-      )
-      SELECT u.character_name, u.character_class,
-             ROUND(r.pct, 1) as value,
-             COALESCE(wb.name, '') as boss_name,
-             r.fight_date, r.report_code, r.fight_id,
-             r.raid_role
-      FROM ranked r
-      JOIN users u ON r.user_id = u.id
-      LEFT JOIN wcl_bosses wb ON r.boss_id = wb.id
-      WHERE r.rn = 1
-      ORDER BY value DESC LIMIT 10
-    `);
-
-    return success(res, { topDps, topHps, topDeaths, topDamageTaken, topPotions, topInterrupts, topDispels, topCombatPotions, topHealthstones, topManaPotions, topAttendance, topPercentile });
+    return success(res, { topDps, topHps, topDeaths, topDamageTaken, topPotions, topInterrupts, topDispels, topCombatPotions, topHealthstones, topManaPotions, topAttendance });
   } catch (err) {
     log.error('Guild leaderboards error', err);
     return error(res, 'Failed to get guild leaderboards', 500, ErrorCodes.INTERNAL_ERROR);
@@ -664,59 +621,81 @@ router.get('/guild-leaderboards', authenticateToken, async (req, res) => {
 });
 
 // Percentile matrix — WCL-style grid: players × bosses
-// Returns best percentile per player per boss, role-aware, with boss metadata
+// Returns best percentile per player per boss, role-aware, with WCL links
 router.get('/percentile-matrix', authenticateToken, async (req, res) => {
   try {
-    const difficulty = req.query.difficulty ? String(req.query.difficulty) : null;
+    // Available difficulties (with kills) for filter
+    const difficulties = await req.db.all(`
+      SELECT DISTINCT bs.difficulty
+      FROM boss_statistics bs
+      JOIN wcl_bosses wb ON bs.boss_id = wb.id
+      JOIN wcl_zones wz ON wb.zone_id = wz.id
+      WHERE wz.is_current = 1 AND bs.total_kills > 0
+      ORDER BY CASE bs.difficulty WHEN 'Mythic' THEN 3 WHEN 'Heroic' THEN 2 WHEN 'Normal' THEN 1 ELSE 0 END DESC
+    `);
+    const availableDiffs = difficulties.map(d => d.difficulty);
 
-    // Get current-season bosses with stats
-    const bossesQuery = difficulty
-      ? `SELECT wb.id, wb.name, wb.boss_order, wb.zone_id, wz.name as zone_name,
-                bs.total_kills, bs.total_wipes, bs.best_wipe_percent, bs.difficulty
-         FROM wcl_bosses wb
-         JOIN wcl_zones wz ON wb.zone_id = wz.id
-         LEFT JOIN boss_statistics bs ON bs.boss_id = wb.id AND bs.difficulty = ?
-         WHERE wz.is_current = 1
-         ORDER BY wz.id, wb.boss_order`
-      : `SELECT wb.id, wb.name, wb.boss_order, wb.zone_id, wz.name as zone_name,
-                bs.total_kills, bs.total_wipes, bs.best_wipe_percent, bs.difficulty
-         FROM wcl_bosses wb
-         JOIN wcl_zones wz ON wb.zone_id = wz.id
-         LEFT JOIN boss_statistics bs ON bs.boss_id = wb.id
-         WHERE wz.is_current = 1
-         ORDER BY wz.id, wb.boss_order`;
+    // Default to highest difficulty with a kill, or use requested
+    const difficulty = req.query.difficulty && availableDiffs.includes(req.query.difficulty)
+      ? String(req.query.difficulty)
+      : (availableDiffs[0] || 'Heroic');
 
-    const bosses = await req.db.all(bossesQuery, ...(difficulty ? [difficulty] : []));
+    // Get current-season bosses with stats for selected difficulty
+    const bosses = await req.db.all(`
+      SELECT wb.id, wb.name, wb.boss_order, wb.zone_id, wz.name as zone_name,
+             COALESCE(bs.total_kills, 0) as total_kills, COALESCE(bs.total_wipes, 0) as total_wipes,
+             bs.best_wipe_percent
+      FROM wcl_bosses wb
+      JOIN wcl_zones wz ON wb.zone_id = wz.id
+      LEFT JOIN boss_statistics bs ON bs.boss_id = wb.id AND bs.difficulty = ?
+      WHERE wz.is_current = 1
+      ORDER BY wz.id, wb.boss_order
+    `, difficulty);
 
-    // Deduplicate bosses (may have multiple difficulties or null stats)
-    // Pick the requested difficulty or highest available
-    const bossMap = new Map();
-    for (const b of bosses) {
-      const existing = bossMap.get(b.id);
-      if (!existing || (b.total_kills && !existing.total_kills)) {
-        bossMap.set(b.id, b);
-      }
-    }
-    const uniqueBosses = [...bossMap.values()];
-
-    // Get per-player best percentile per boss (role-aware)
-    const diffFilter = difficulty ? 'AND pfp.difficulty = ?' : '';
-    const diffParams = difficulty ? [difficulty] : [];
-
+    // Get per-player best percentile per boss (role-aware) + the report/fight for WCL link
     const playerStats = await req.db.all(`
-      SELECT pfp.user_id, pfp.boss_id, u.character_name, u.character_class, u.raid_role,
-             MAX(CASE WHEN u.raid_role = 'Healer' THEN pfp.hps_percentile ELSE pfp.dps_percentile END) as best_pct,
+      WITH role_pct AS (
+        SELECT pfp.user_id, pfp.boss_id,
+               CASE WHEN u.raid_role = 'Healer' THEN pfp.hps_percentile ELSE pfp.dps_percentile END as pct,
+               pfp.report_code, pfp.fight_id,
+               u.character_name, u.character_class, u.raid_role,
+               ROW_NUMBER() OVER (
+                 PARTITION BY pfp.user_id, pfp.boss_id
+                 ORDER BY CASE WHEN u.raid_role = 'Healer' THEN pfp.hps_percentile ELSE pfp.dps_percentile END DESC
+               ) as rn
+        FROM player_fight_performance pfp
+        JOIN users u ON pfp.user_id = u.id
+        WHERE pfp.boss_id IN (SELECT wb.id FROM wcl_bosses wb JOIN wcl_zones wz ON wb.zone_id = wz.id WHERE wz.is_current = 1)
+          AND pfp.difficulty = ?
+          AND pfp.is_kill = 1
+          AND CASE WHEN u.raid_role = 'Healer' THEN pfp.hps_percentile ELSE pfp.dps_percentile END IS NOT NULL
+      )
+      SELECT user_id, boss_id, character_name, character_class, raid_role,
+             pct as best_pct, report_code, fight_id
+      FROM role_pct WHERE rn = 1
+    `, difficulty);
+
+    // Also get avg percentile per player per boss (all kills)
+    const avgStats = await req.db.all(`
+      SELECT pfp.user_id, pfp.boss_id,
              ROUND(AVG(CASE WHEN u.raid_role = 'Healer' THEN pfp.hps_percentile ELSE pfp.dps_percentile END), 1) as avg_pct,
              COUNT(*) as fights
       FROM player_fight_performance pfp
       JOIN users u ON pfp.user_id = u.id
       WHERE pfp.boss_id IN (SELECT wb.id FROM wcl_bosses wb JOIN wcl_zones wz ON wb.zone_id = wz.id WHERE wz.is_current = 1)
+        AND pfp.difficulty = ?
+        AND pfp.is_kill = 1
         AND CASE WHEN u.raid_role = 'Healer' THEN pfp.hps_percentile ELSE pfp.dps_percentile END IS NOT NULL
-        ${diffFilter}
       GROUP BY pfp.user_id, pfp.boss_id
-    `, ...diffParams);
+    `, difficulty);
 
-    // Build player list with overall avg across bosses
+    // Build avg lookup
+    const avgLookup = {};
+    for (const row of avgStats) {
+      avgLookup[`${row.user_id}:${row.boss_id}`] = { avgPct: row.avg_pct, fights: row.fights };
+    }
+
+    // Build player map
     const playerMap = new Map();
     for (const row of playerStats) {
       if (!playerMap.has(row.user_id)) {
@@ -730,15 +709,18 @@ router.get('/percentile-matrix', authenticateToken, async (req, res) => {
         });
       }
       const player = playerMap.get(row.user_id);
+      const avg = avgLookup[`${row.user_id}:${row.boss_id}`];
       player.bosses[row.boss_id] = {
         bestPct: Math.round(row.best_pct * 10) / 10,
-        avgPct: Math.round(row.avg_pct * 10) / 10,
-        fights: row.fights,
+        avgPct: avg?.avgPct || Math.round(row.best_pct * 10) / 10,
+        fights: avg?.fights || 1,
+        reportCode: row.report_code,
+        fightId: row.fight_id,
       };
       player.allPcts.push(row.best_pct);
     }
 
-    // Calculate overall avg and sort by it
+    // Calculate overall avg and sort
     const players = [...playerMap.values()]
       .map(p => {
         const avg = p.allPcts.length > 0
@@ -749,29 +731,18 @@ router.get('/percentile-matrix', authenticateToken, async (req, res) => {
       })
       .sort((a, b) => b.avgPercentile - a.avgPercentile);
 
-    // Available difficulties for filter
-    const difficulties = await req.db.all(`
-      SELECT DISTINCT pfp.difficulty
-      FROM player_fight_performance pfp
-      JOIN wcl_bosses wb ON pfp.boss_id = wb.id
-      JOIN wcl_zones wz ON wb.zone_id = wz.id
-      WHERE wz.is_current = 1 AND pfp.difficulty IS NOT NULL
-      ORDER BY pfp.difficulty
-    `);
-
     return success(res, {
-      bosses: uniqueBosses.map(b => ({
+      bosses: bosses.map(b => ({
         id: b.id,
         name: b.name,
         order: b.boss_order,
         zoneName: b.zone_name,
-        kills: b.total_kills || 0,
-        wipes: b.total_wipes || 0,
+        kills: b.total_kills,
+        wipes: b.total_wipes,
         bestWipePct: b.best_wipe_percent,
-        difficulty: b.difficulty || difficulty,
       })),
       players,
-      difficulties: difficulties.map(d => d.difficulty),
+      difficulties: availableDiffs,
       selectedDifficulty: difficulty,
     });
   } catch (err) {
