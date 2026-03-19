@@ -707,10 +707,11 @@ const COMBAT_POTION_IDS = [
   431419,  // Elemental Potion of Ultimate Power
 ];
 const MANA_POTION_IDS = [
-  431418,  // Potion of Devoured Dreams (old ID)
-  1244385, // Potion of Devoured Dreams (TWW ID)
-  431421,  // Lightfused Mana Potion (old ID)
-  1236624, // Lightfused Mana Potion (TWW ID)
+  1248831, // Potion of Devoured Dreams (Wowhead spell ID)
+  431418,  // Potion of Devoured Dreams (alt ID)
+  1244385, // Potion of Devoured Dreams (alt ID)
+  431421,  // Lightfused Mana Potion (alt ID)
+  1236648, // Lightfused Mana Potion (confirmed from WCL logs)
 ];
 
 /**
