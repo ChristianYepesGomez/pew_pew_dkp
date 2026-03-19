@@ -377,6 +377,32 @@ router.post('/confirm', adminLimiter, authenticateToken, authorizeRole(['admin',
             if (performanceRecorded > 0) {
               log.info(`Recorded performance for ${performanceRecorded} fights from ${reportCode}`);
             }
+
+            // Process extended fight data (DPS/HPS, consumables, interrupts, etc.)
+            // for kill fights — fills player_fight_performance used by leaderboards
+            const killBosses = processedBosses.filter(b => b.kill);
+            if (killBosses.length > 0) {
+              const reportDate = new Date(req.body.startTime || Date.now()).toISOString().split('T')[0];
+              let extendedRecorded = 0;
+              for (const bossInfo of killBosses) {
+                try {
+                  const [extStats, basicStats, rankingsData] = await Promise.all([
+                    getExtendedFightStats(reportCode, [bossInfo.fightId]),
+                    getFightStats(reportCode, [bossInfo.fightId]),
+                    getFightRankings(reportCode, [bossInfo.fightId]),
+                  ]);
+                  const count = await processExtendedFightData(
+                    req.db, reportCode, bossInfo, basicStats, extStats, participantUserMap, reportDate, rankingsData
+                  );
+                  extendedRecorded += count;
+                } catch (extErr) {
+                  log.warn(`Extended stats failed for fight ${bossInfo.fightId}: ${extErr.message}`);
+                }
+              }
+              if (extendedRecorded > 0) {
+                log.info(`Extended performance: ${extendedRecorded} player-fight records from ${reportCode}`);
+              }
+            }
           }
 
           if (statsProcessed > 0) {

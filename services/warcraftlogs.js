@@ -625,24 +625,41 @@ export async function getFightStatsWithDeathEvents(reportCode, fightInfo) {
     return result;
   }
 
-  // For wipes, get individual death events to filter those within 15 seconds of wipe end
-  const WIPE_DEATH_THRESHOLD_MS = 15000; // 15 seconds
+  // For wipes, get individual death events and detect the "wipe cascade" —
+  // the point where many players start dying together (not individual mistakes).
+  //
+  // Algorithm: slide a window over death events sorted by time.
+  // When 5+ deaths happen within a 10-second window, that's the cascade start.
+  // All deaths from cascade start onward are filtered out.
+  // Fallback: if no cascade detected, use last 15 seconds of fight.
+  const CASCADE_WINDOW_MS = 10000;  // 10-second sliding window
+  const CASCADE_THRESHOLD = 5;      // 5+ deaths in window = cascade
+  const FALLBACK_THRESHOLD_MS = 15000; // 15-second fallback from fight end
 
   const deathEvents = await getDeathEventsWithTimestamps(reportCode, fightId, startTime, endTime);
 
-  // Group deaths by player, filtering out wipe deaths (within 15 seconds of fight end)
-  const deathCountsByPlayer = {};
-  const wipeThresholdTime = endTime - WIPE_DEATH_THRESHOLD_MS;
+  // Sort deaths by timestamp
+  const sortedDeaths = [...deathEvents].sort((a, b) => a.timestamp - b.timestamp);
 
-  for (const event of deathEvents) {
-    // Check if this death occurred within 15 seconds of the wipe
-    if (event.timestamp >= wipeThresholdTime) {
-      // This is a "wipe death" - everyone dies when the boss wipes the raid
-      // Don't count it as a real death
+  // Detect cascade start: first moment where CASCADE_THRESHOLD deaths occur within CASCADE_WINDOW_MS
+  let cascadeStartTime = endTime - FALLBACK_THRESHOLD_MS; // fallback
+  for (let i = 0; i <= sortedDeaths.length - CASCADE_THRESHOLD; i++) {
+    const windowEnd = sortedDeaths[i + CASCADE_THRESHOLD - 1].timestamp;
+    const windowStart = sortedDeaths[i].timestamp;
+    if (windowEnd - windowStart <= CASCADE_WINDOW_MS) {
+      cascadeStartTime = windowStart;
+      break;
+    }
+  }
+
+  // Count only deaths before the cascade
+  const deathCountsByPlayer = {};
+  for (const event of sortedDeaths) {
+    if (event.timestamp >= cascadeStartTime) {
+      // Wipe cascade death — don't count
       continue;
     }
 
-    // This is a real death during the fight, count it
     if (!deathCountsByPlayer[event.targetID]) {
       deathCountsByPlayer[event.targetID] = 0;
     }
