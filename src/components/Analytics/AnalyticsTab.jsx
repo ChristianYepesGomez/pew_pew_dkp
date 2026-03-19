@@ -4,7 +4,7 @@ import { analyticsAPI } from '../../services/api'
 import CLASS_COLORS from '../../utils/classColors'
 import {
   Crosshair, Heart, Skull, Shield, Lightning, Drop, DropHalf,
-  CircleNotch, UsersThree, Trophy, Sparkle, Flask, Calendar, FirstAidKit,
+  CircleNotch, UsersThree, Sparkle, Flask, Calendar, FirstAidKit,
 } from '@phosphor-icons/react'
 import LeaderboardModal from './LeaderboardModal'
 import ExternalBuffBadge from './ExternalBuffBadge'
@@ -230,29 +230,6 @@ const AnalyticsTab = () => {
       color: '#34d399',
       format: (v) => String(v),
       badge: t('analytics_raid_attendance'),
-    },
-    {
-      key: 'topPercentile',
-      title: t('analytics_top_percentile'),
-      Icon: Trophy,
-      color: '#e268a8',
-      format: (v) => `${Math.round(v)}%`,
-      valueColorFn: wclColor,
-      // extraFn builds "⚔️ BossName · 15 Feb" or "💚 BossName · 15 Feb"
-      extraFn: (entry) => {
-        if (!entry.boss_name && !entry.fight_date && !entry.raid_role) return null
-        const parts = []
-        // Role indicator: sword for DPS, green heart for Healer
-        if (entry.raid_role === 'Healer') parts.push('💚')
-        else parts.push('⚔️')
-        if (entry.boss_name) parts.push(entry.boss_name)
-        if (entry.fight_date) {
-          const d = new Date(entry.fight_date + 'T00:00:00')
-          parts.push(d.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' }))
-        }
-        return parts.join(' · ')
-      },
-      badge: t('analytics_best_log'),
     },
   ]
 

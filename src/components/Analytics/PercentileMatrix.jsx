@@ -59,15 +59,27 @@ const PercentileMatrix = () => {
 
   if (!data || !data.players?.length) return null
 
-  const { bosses, players, difficulties } = data
+  const { bosses, players, difficulties, selectedDifficulty: activeDifficulty } = data
 
-  // Shorten boss names for column headers
+  // Shorten boss names — use the most recognizable word(s)
   const shortName = (name) => {
-    // Take first word or abbreviation for very long names
-    if (name.length <= 12) return name
+    if (name.length <= 10) return name
+    // Known abbreviations for clarity
+    const BOSS_SHORT = {
+      'Imperator Averzian': 'Averzian',
+      'Fallen-King Salhadaar': 'Salhadaar',
+      'Vaelgor & Ezzorak': 'V & E',
+      'Lightblinded Vanguard': 'Vanguard',
+      'Crown of the Cosmos': 'Crown',
+      'Chimaerus the Undreamt God': 'Chimaerus',
+      "Belo'ren, Child of Al'ar": "Belo'ren",
+      'Midnight Falls': 'M. Falls',
+    }
+    if (BOSS_SHORT[name]) return BOSS_SHORT[name]
+    // Fallback: last word if multi-word, or truncate
     const words = name.split(/[\s-]+/)
-    if (words.length === 1) return name.slice(0, 10) + '…'
-    return words.map(w => w[0]).join('')
+    if (words.length >= 2) return words[words.length - 1]
+    return name.slice(0, 9) + '…'
   }
 
   return (
@@ -78,29 +90,19 @@ const PercentileMatrix = () => {
           {t('analytics_percentile_matrix')}
         </h3>
 
-        {/* Difficulty filter */}
+        {/* Difficulty filter — no "All", must pick one */}
         {difficulties?.length > 0 && (
           <div className="flex gap-1.5">
-            <button
-              onClick={() => setSelectedDifficulty(null)}
-              className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all ${
-                !selectedDifficulty
-                  ? 'bg-lavender-20/30 text-white'
-                  : 'text-lavender/50 hover:text-lavender/80'
-              }`}
-            >
-              {t('analytics_all_difficulties')}
-            </button>
             {difficulties.map((d) => (
               <button
                 key={d}
                 onClick={() => setSelectedDifficulty(d)}
                 className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all ${
-                  selectedDifficulty === d
+                  activeDifficulty === d
                     ? 'bg-lavender-20/30'
                     : 'text-lavender/50 hover:text-lavender/80'
                 }`}
-                style={selectedDifficulty === d ? { color: DIFFICULTY_COLORS[d] } : undefined}
+                style={activeDifficulty === d ? { color: DIFFICULTY_COLORS[d] } : undefined}
               >
                 {d}
               </button>
@@ -166,15 +168,31 @@ const PercentileMatrix = () => {
                       </td>
                     )
                   }
+                  const wclUrl = stat.reportCode && stat.fightId
+                    ? `https://www.warcraftlogs.com/reports/${stat.reportCode}#fight=${stat.fightId}`
+                    : null
                   return (
                     <td key={boss.id} className="text-center py-1.5 px-1 tabular-nums">
-                      <span
-                        className="font-bold text-xs"
-                        style={{ color: wclColor(stat.bestPct) }}
-                        title={`Best: ${stat.bestPct}% | Avg: ${stat.avgPct}% | ${stat.fights} fights`}
-                      >
-                        {Math.round(stat.bestPct)}
-                      </span>
+                      {wclUrl ? (
+                        <a
+                          href={wclUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-bold text-xs hover:underline underline-offset-2 hover:opacity-80 transition-opacity"
+                          style={{ color: wclColor(stat.bestPct) }}
+                          title={`Best: ${stat.bestPct}% | Avg: ${stat.avgPct}% | ${stat.fights} kills — Click to view log`}
+                        >
+                          {Math.round(stat.bestPct)}
+                        </a>
+                      ) : (
+                        <span
+                          className="font-bold text-xs"
+                          style={{ color: wclColor(stat.bestPct) }}
+                          title={`Best: ${stat.bestPct}% | Avg: ${stat.avgPct}% | ${stat.fights} kills`}
+                        >
+                          {Math.round(stat.bestPct)}
+                        </span>
+                      )}
                     </td>
                   )
                 })}
