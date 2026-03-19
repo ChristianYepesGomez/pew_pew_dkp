@@ -68,6 +68,23 @@ async function getRaidDates(db, weeks = 2) {
     }
   }
 
+  // Exclude dates that already have processed (non-reverted) WCL logs
+  // Once logs are imported for a raid day, it moves to history
+  if (dates.length > 0) {
+    const dateStrings = dates.map(d => d.date);
+    const placeholders = dateStrings.map(() => '?').join(',');
+    const processedDates = await db.all(`
+      SELECT DISTINCT raid_date
+      FROM warcraft_logs_processed
+      WHERE raid_date IN (${placeholders}) AND is_reverted = 0
+    `, ...dateStrings);
+    const processedSet = new Set(processedDates.map(r => r.raid_date));
+
+    if (processedSet.size > 0) {
+      return dates.filter(d => !processedSet.has(d.date));
+    }
+  }
+
   return dates;
 }
 
@@ -424,9 +441,10 @@ router.get('/history', authenticateToken, async (req, res) => {
 
     const raidDays = await req.db.all('SELECT day_of_week, day_name, raid_time FROM raid_days WHERE is_active = 1 ORDER BY day_of_week');
 
-    // Collect past raid dates
+    // Collect past raid dates (start from i=0 to include today — today shows
+    // in history only if it has processed WCL logs, filtered below)
     const pastDates = [];
-    for (let i = 1; i <= weeks * 7; i++) {
+    for (let i = 0; i <= weeks * 7; i++) {
       const d = new Date(today);
       d.setDate(today.getDate() - i);
       const jsDay = d.getDay();
@@ -436,7 +454,7 @@ router.get('/history', authenticateToken, async (req, res) => {
         const year = d.getFullYear();
         const month = String(d.getMonth() + 1).padStart(2, '0');
         const day = String(d.getDate()).padStart(2, '0');
-        pastDates.push({ date: `${year}-${month}-${day}`, dayName: raidDay.day_name, raidTime: raidDay.raid_time || '21:00' });
+        pastDates.push({ date: `${year}-${month}-${day}`, dayName: raidDay.day_name, raidTime: raidDay.raid_time || '21:00', isToday: i === 0 });
       }
     }
 
@@ -465,24 +483,33 @@ router.get('/history', authenticateToken, async (req, res) => {
       GROUP BY raid_date
     `, ...dateStrings);
 
-    const enriched = pastDates.map(d => {
-      const report = linkedReports.find(r => r.raid_date === d.date && !r.is_reverted);
-      const attendance = attendanceCounts.find(a => a.raid_date === d.date);
-      return {
-        ...d,
-        wclReport: report ? {
-          code: report.report_code,
-          title: report.report_title,
-          dkpAssigned: report.dkp_assigned,
-          participantsCount: report.participants_count,
-        } : null,
-        attendance: attendance ? {
-          confirmed: attendance.confirmed,
-          tentative: attendance.tentative,
-          declined: attendance.declined,
-        } : null,
-      };
-    });
+    const enriched = pastDates
+      .filter(d => {
+        // Today only appears in history if it has processed WCL logs
+        if (d.isToday) {
+          return linkedReports.some(r => r.raid_date === d.date && !r.is_reverted);
+        }
+        return true;
+      })
+      .map(d => {
+        const report = linkedReports.find(r => r.raid_date === d.date && !r.is_reverted);
+        const attendance = attendanceCounts.find(a => a.raid_date === d.date);
+        const { isToday, ...rest } = d; // Don't leak internal flag
+        return {
+          ...rest,
+          wclReport: report ? {
+            code: report.report_code,
+            title: report.report_title,
+            dkpAssigned: report.dkp_assigned,
+            participantsCount: report.participants_count,
+          } : null,
+          attendance: attendance ? {
+            confirmed: attendance.confirmed,
+            tentative: attendance.tentative,
+            declined: attendance.declined,
+          } : null,
+        };
+      });
 
     return success(res, enriched);
   } catch (err) {
