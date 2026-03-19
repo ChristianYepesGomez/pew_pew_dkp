@@ -695,6 +695,86 @@ export async function getExtendedFightStats(reportCode, fightIds) {
   }
 }
 
+// ── Consumable spell IDs ──
+// WCL's table(dataType: Casts) only returns top 5 abilities per player,
+// so potions (1-2 casts) never appear. Use events API with spell ID filters instead.
+const COMBAT_POTION_IDS = [
+  1236994, // Potion of Recklessness
+  1236616, // Light's Potential
+  431932,  // Tempered Potion
+  431914,  // Potion of Unwavering Focus
+  431416,  // Frontline Potion
+  431419,  // Elemental Potion of Ultimate Power
+];
+const MANA_POTION_IDS = [
+  431418,  // Potion of Devoured Dreams (old ID)
+  1244385, // Potion of Devoured Dreams (TWW ID)
+  431421,  // Lightfused Mana Potion (old ID)
+  1236624, // Lightfused Mana Potion (TWW ID)
+];
+
+/**
+ * Fetch combat/mana potion usage per player using WCL events API.
+ * Returns { combatPotions: { playerName: count }, manaPotions: { playerName: count } }
+ */
+export async function getConsumableCasts(reportCode, fightIds) {
+  const cacheKey = `consumCasts:${reportCode}:${[...fightIds].sort().join(',')}`;
+  const cached = wclCache.get(cacheKey);
+  if (cached) return cached;
+
+  const allIds = [...COMBAT_POTION_IDS, ...MANA_POTION_IDS];
+  const filterExpr = allIds.map(id => `ability.id = ${id}`).join(' OR ');
+
+  const query = `
+    query GetConsumableCasts($reportCode: String!, $fightIDs: [Int!]) {
+      reportData {
+        report(code: $reportCode) {
+          masterData { actors(type: "Player") { id name } }
+          events(dataType: Casts, fightIDs: $fightIDs, hostilityType: Friendlies,
+                 limit: 500, filterExpression: "${filterExpr}") {
+            data
+          }
+        }
+      }
+    }
+  `;
+
+  try {
+    const data = await executeGraphQL(query, { reportCode, fightIDs: fightIds });
+    const report = data.reportData?.report;
+    if (!report) return { combatPotions: {}, manaPotions: {} };
+
+    // Build actor map
+    const actorMap = {};
+    for (const a of report.masterData?.actors || []) {
+      actorMap[a.id] = a.name;
+    }
+
+    const combatPotions = {};
+    const manaPotions = {};
+    const combatSet = new Set(COMBAT_POTION_IDS);
+
+    for (const event of report.events?.data || []) {
+      const playerName = actorMap[event.sourceID];
+      if (!playerName) continue;
+
+      const spellId = event.abilityGameID;
+      if (combatSet.has(spellId)) {
+        combatPotions[playerName] = (combatPotions[playerName] || 0) + 1;
+      } else {
+        manaPotions[playerName] = (manaPotions[playerName] || 0) + 1;
+      }
+    }
+
+    const result = { combatPotions, manaPotions };
+    wclCache.set(cacheKey, result);
+    return result;
+  } catch (error) {
+    log.error('Error fetching consumable casts', error);
+    return { combatPotions: {}, manaPotions: {} };
+  }
+}
+
 /**
  * Get WCL global percentile rankings for each player in a fight.
  * Uses the `rankings` field (not `table`) which includes rankPercent per spec/boss globally.

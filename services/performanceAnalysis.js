@@ -40,7 +40,7 @@ const EXTERNAL_BUFF_PATTERNS = {
  * Process extended fight data from WCL and store per-fight snapshots
  * Called during the import loop for each fight
  */
-export async function processExtendedFightData(db, reportCode, bossInfo, basicStats, extendedStats, participantUserMap, reportDate, rankingsData = { dps: {}, hps: {} }) {
+export async function processExtendedFightData(db, reportCode, bossInfo, basicStats, extendedStats, participantUserMap, reportDate, rankingsData = { dps: {}, hps: {} }, consumableCasts = null) {
   const { bossId, fightId, difficulty: rawDifficulty, startTime, endTime } = bossInfo;
   const difficulty = normalizeDifficulty(rawDifficulty);
   const fightDurationMs = endTime - startTime;
@@ -102,19 +102,16 @@ export async function processExtendedFightData(db, reportCode, bossInfo, basicSt
     }
   }
 
-  // Casts — combat potions and mana potions
-  for (const entry of extendedStats.casts || []) {
-    if (!entry.name) continue;
-    ensurePlayer(entry.name);
-    const abilities = entry.abilities || entry.entries || [];
-    for (const ability of abilities) {
-      const abilityName = ability.name || '';
-      if (CONSUMABLE_PATTERNS.combatPotion.test(abilityName)) {
-        playerData[entry.name].combatPotions += (ability.total || 1);
-      }
-      if (CONSUMABLE_PATTERNS.manaPotion.test(abilityName)) {
-        playerData[entry.name].manaPotions += (ability.total || 1);
-      }
+  // Combat/Mana potions — from events API (spell ID based, not from Casts table)
+  // The Casts table only returns top 5 abilities per player, so potions (1-2 casts) never appear.
+  if (consumableCasts) {
+    for (const [playerName, count] of Object.entries(consumableCasts.combatPotions || {})) {
+      ensurePlayer(playerName);
+      playerData[playerName].combatPotions += count;
+    }
+    for (const [playerName, count] of Object.entries(consumableCasts.manaPotions || {})) {
+      ensurePlayer(playerName);
+      playerData[playerName].manaPotions += count;
     }
   }
 

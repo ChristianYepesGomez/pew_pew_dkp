@@ -3,7 +3,7 @@ import { authenticateToken, authorizeRole } from '../middleware/auth.js';
 import { adminLimiter } from '../lib/rateLimiters.js';
 import { invalidateConfigCache } from '../lib/helpers.js';
 import { getLootSystem, getLootSystemType } from '../lib/lootSystems/index.js';
-import { processWarcraftLog, isConfigured as isWCLConfigured, getGuildReports, getFightStats, getFightStatsWithDeathEvents, getExtendedFightStats, getFightRankings } from '../services/warcraftlogs.js';
+import { processWarcraftLog, isConfigured as isWCLConfigured, getGuildReports, getFightStats, getFightStatsWithDeathEvents, getExtendedFightStats, getFightRankings, getConsumableCasts } from '../services/warcraftlogs.js';
 import { processExtendedFightData } from '../services/performanceAnalysis.js';
 import { seedRaidData, processFightStats, recordPlayerDeaths, recordPlayerPerformance } from '../services/raids.js';
 import { processReportPopularity } from '../services/itemPopularity.js';
@@ -402,15 +402,16 @@ router.post('/confirm', adminLimiter, authenticateToken, authorizeRole(['admin',
                   const fetches = [
                     getExtendedFightStats(reportCode, [bossInfo.fightId]),
                     getFightStats(reportCode, [bossInfo.fightId]),
+                    getConsumableCasts(reportCode, [bossInfo.fightId]),
                   ];
                   // Rankings only exist for kills
                   if (bossInfo.kill) {
                     fetches.push(getFightRankings(reportCode, [bossInfo.fightId]));
                   }
-                  const [extStats, basicStats, rankingsData] = await Promise.all(fetches);
+                  const [extStats, basicStats, consumableCasts, rankingsData] = await Promise.all(fetches);
                   const count = await processExtendedFightData(
                     req.db, reportCode, bossInfo, basicStats, extStats, participantUserMap, reportDate,
-                    rankingsData || { dps: {}, hps: {} }
+                    rankingsData || { dps: {}, hps: {} }, consumableCasts
                   );
                   extendedRecorded += count;
                 } catch (extErr) {
@@ -758,15 +759,16 @@ router.post('/import-boss-stats', adminLimiter, authenticateToken, authorizeRole
                 const fetches = [
                   getExtendedFightStats(reportData.code, [bossInfo.fightId]),
                   getFightStats(reportData.code, [bossInfo.fightId]),
+                  getConsumableCasts(reportData.code, [bossInfo.fightId]),
                 ];
                 // Rankings (percentiles) only exist for kills
                 if (bossInfo.kill) {
                   fetches.push(getFightRankings(reportData.code, [bossInfo.fightId]));
                 }
-                const [extStats, fightStats, rankingsData] = await Promise.all(fetches);
+                const [extStats, fightStats, consumableCasts, rankingsData] = await Promise.all(fetches);
                 const count = await processExtendedFightData(
                   req.db, reportData.code, bossInfo, fightStats, extStats, participantUserMap, reportDate,
-                  rankingsData || { dps: {}, hps: {} }
+                  rankingsData || { dps: {}, hps: {} }, consumableCasts
                 );
                 return count;
               } catch (extErr) {
