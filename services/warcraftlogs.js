@@ -625,107 +625,18 @@ export async function getFightStatsWithDeathEvents(reportCode, fightInfo) {
     return result;
   }
 
-  // For wipes, get individual death events and detect the "wipe cascade" —
-  // the rapid burst of deaths at the end when the fight is lost.
-  //
-  // Algorithm: reverse-scan from fight end.
-  // Walk backwards through deaths — consecutive deaths within CLUSTER_GAP_MS of each other
-  // form the "cascade cluster". Once we find a gap larger than CLUSTER_GAP_MS, the cascade
-  // ends there. The cascade must have MIN_CASCADE_DEATHS deaths AND start in the last
-  // MAX_CASCADE_PORTION of the fight to be valid.
-  const CLUSTER_GAP_MS = 3000;       // Deaths within 3s of each other = same cluster
-  const MIN_CASCADE_DEATHS = 3;      // Need at least 3 deaths to call it a cascade
-  const MAX_CASCADE_PORTION = 0.40;  // Cascade must start in the last 40% of fight
-
-  const deathEvents = await getDeathEventsWithTimestamps(reportCode, fightId, startTime, endTime);
-
-  // Sort deaths by timestamp
-  const sortedDeaths = [...deathEvents].sort((a, b) => a.timestamp - b.timestamp);
-
-  // Reverse-scan: find the cascade cluster at the end of fight
-  let cascadeStartTime = endTime + 1; // default: no cascade (nothing filtered)
-
-  if (sortedDeaths.length >= MIN_CASCADE_DEATHS) {
-    // Walk backwards from the last death
-    let clusterStart = sortedDeaths[sortedDeaths.length - 1].timestamp;
-    for (let i = sortedDeaths.length - 2; i >= 0; i--) {
-      const gap = sortedDeaths[i + 1].timestamp - sortedDeaths[i].timestamp;
-      if (gap <= CLUSTER_GAP_MS) {
-        clusterStart = sortedDeaths[i].timestamp;
-      } else {
-        break; // Gap too large — cascade doesn't extend further back
-      }
-    }
-
-    // Validate: cluster must have enough deaths and be near end of fight
-    const clusterDeaths = sortedDeaths.filter(d => d.timestamp >= clusterStart).length;
-    const fightCutoff = startTime + fightDuration * (1 - MAX_CASCADE_PORTION);
-
-    if (clusterDeaths >= MIN_CASCADE_DEATHS && clusterStart >= fightCutoff) {
-      cascadeStartTime = clusterStart;
-    }
-    // If validation fails, no deaths are filtered — all count as real
-  }
-
-  // Count only deaths before the cascade
-  const deathCountsByPlayer = {};
-  for (const event of sortedDeaths) {
-    if (event.timestamp >= cascadeStartTime) {
-      // Wipe cascade death — don't count
-      continue;
-    }
-
-    if (!deathCountsByPlayer[event.targetID]) {
-      deathCountsByPlayer[event.targetID] = 0;
-    }
-    deathCountsByPlayer[event.targetID]++;
-  }
-
-  // Map targetIDs back to player names — use cached actors if available
-  let playerIdToName = actorsCache.get(`actors:${reportCode}`);
-  if (!playerIdToName) {
-    playerIdToName = {};
-    try {
-      const actorsQuery = `
-        query GetActors($reportCode: String!) {
-          reportData {
-            report(code: $reportCode) {
-              masterData {
-                actors(type: "Player") {
-                  id
-                  name
-                }
-              }
-            }
-          }
-        }
-      `;
-      const actorsData = await executeGraphQL(actorsQuery, { reportCode });
-      const actors = actorsData.reportData?.report?.masterData?.actors || [];
-      for (const actor of actors) {
-        playerIdToName[actor.id] = actor.name;
-      }
-      actorsCache.set(`actors:${reportCode}`, playerIdToName);
-    } catch (error) {
-      log.error('Error fetching actors', error);
-    }
-  }
-
-  // Convert filtered death counts to the expected format
-  const filteredDeaths = [];
-  for (const [targetId, count] of Object.entries(deathCountsByPlayer)) {
-    const playerName = playerIdToName[targetId];
-    if (playerName && count > 0) {
-      filteredDeaths.push({ name: playerName, total: count });
-    }
-  }
-
+  // For wipes: don't count any deaths. Only kill deaths are meaningful.
+  // TODO: Future improvement — detect "mistake deaths" in wipes using cascade detection.
+  // Algorithm ready but needs tuning:
+  //   - Hard cap: only first 50% of fight
+  //   - Wipe trigger: forward-scan for cluster of 5+ deaths within 10s gap
+  //   - Count deaths before/including the trigger cluster, filter everything after
   const result = {
     ...basicStats,
-    deaths: filteredDeaths, // Override with filtered deaths
+    deaths: [], // No deaths counted for wipes
     fightDuration,
     isKill: false,
-    wipeDeathsFiltered: deathEvents.length - filteredDeaths.reduce((sum, d) => sum + d.total, 0),
+    wipeDeathsFiltered: 0,
   };
 
   wclCache.set(cacheKey, result);
