@@ -316,9 +316,16 @@ router.post('/confirm', adminLimiter, authenticateToken, authorizeRole(['admin',
             const result = await processFightStats(req.db, reportCode, fight, fight.difficulty);
             if (!result.skipped) {
               statsProcessed++;
-              // Include fight timing info for death filtering (15-second wipe threshold)
+            }
+            // Build processedBosses for ALL fights (even already-processed ones)
+            // so deaths/performance/extended data are always recorded.
+            // Those downstream functions have their own dedup (INSERT OR IGNORE / ON CONFLICT).
+            const boss = result.bossId
+              ? { id: result.bossId }
+              : await req.db.get('SELECT id FROM wcl_bosses WHERE wcl_encounter_id = ?', fight.encounterID);
+            if (boss) {
               processedBosses.push({
-                bossId: result.bossId,
+                bossId: boss.id || result.bossId,
                 fightId: fight.id,
                 difficulty: fight.difficulty,
                 kill: fight.kill,
@@ -335,8 +342,14 @@ router.post('/confirm', adminLimiter, authenticateToken, authorizeRole(['admin',
             let performanceRecorded = 0;
 
             for (const bossInfo of processedBosses) {
+              // Skip if this fight already has extended data (dedup for deaths/performance)
+              const alreadyHasData = await req.db.get(
+                'SELECT 1 FROM player_fight_performance WHERE report_code = ? AND fight_id = ? LIMIT 1',
+                reportCode, bossInfo.fightId
+              );
+              if (alreadyHasData) continue;
+
               // Get comprehensive fight stats with death filtering for wipes
-              // Uses 15-second threshold: deaths within 15s of wipe end are not counted
               const fightStats = await getFightStatsWithDeathEvents(reportCode, {
                 id: bossInfo.fightId,
                 startTime: bossInfo.startTime,
@@ -655,12 +668,18 @@ router.post('/import-boss-stats', adminLimiter, authenticateToken, authorizeRole
         statsSkipped++;
       } else {
         statsProcessed++;
+      }
+      // Build processedBosses for ALL fights (even already-processed ones)
+      // so deaths/performance/extended data are always recorded.
+      const bossId = result.bossId
+        || (await req.db.get('SELECT id FROM wcl_bosses WHERE wcl_encounter_id = ?', fight.encounterID))?.id;
+      if (bossId) {
         processedBosses.push({
-          bossId: result.bossId,
+          bossId,
           fightId: fight.id,
           name: fight.name,
           difficulty: fight.difficulty,
-          kill: result.kill,
+          kill: result.skipped ? fight.kill : result.kill,
           duration: fight.duration,
           startTime: fight.startTime,
           endTime: fight.endTime,
@@ -680,6 +699,13 @@ router.post('/import-boss-stats', adminLimiter, authenticateToken, authorizeRole
           // Parallelize performance recording across boss fights
           const perfResults = await Promise.all(
             processedBosses.map(bossInfo => limit(async () => {
+              // Skip if this fight already has extended data (dedup)
+              const alreadyHasData = await req.db.get(
+                'SELECT 1 FROM player_fight_performance WHERE report_code = ? AND fight_id = ? LIMIT 1',
+                reportData.code, bossInfo.fightId
+              );
+              if (alreadyHasData) return { bossDeaths: 0, bossPerf: 0 };
+
               const fightStats = await getFightStatsWithDeathEvents(reportData.code, {
                 id: bossInfo.fightId,
                 startTime: bossInfo.startTime,
