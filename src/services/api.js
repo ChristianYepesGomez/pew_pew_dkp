@@ -168,6 +168,14 @@ export const analyticsAPI = {
     if (difficulty) params.append('difficulty', difficulty);
     return api.get(`/analytics/my-performance-detail?${params}`);
   },
+  getPercentileMatrix: (difficulty) => {
+    const params = difficulty ? `?difficulty=${difficulty}` : '';
+    return api.get(`/analytics/percentile-matrix${params}`);
+  },
+  getBossPercentiles: (bossId, difficulty) => {
+    const params = difficulty ? `?difficulty=${difficulty}` : '';
+    return api.get(`/analytics/boss/${bossId}/percentiles${params}`);
+  },
 }
 
 export const itemPopularityAPI = {

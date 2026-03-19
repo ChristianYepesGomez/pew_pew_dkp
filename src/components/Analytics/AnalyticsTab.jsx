@@ -8,6 +8,7 @@ import {
 } from '@phosphor-icons/react'
 import LeaderboardModal from './LeaderboardModal'
 import ExternalBuffBadge from './ExternalBuffBadge'
+import PercentileMatrix from './PercentileMatrix'
 
 const DIFFICULTY_COLORS = {
   Mythic: '#ff8000',
@@ -289,65 +290,8 @@ const AnalyticsTab = () => {
         </div>
       </div>
 
-      {/* My Performance — boss table (no title) */}
-      {myBosses.length > 0 && (
-        <div className="rounded-xl border border-lavender-20/20 bg-indigo/30 p-5">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-xs text-lavender/60 uppercase tracking-wider border-b border-lavender-20/20">
-                  <th className="text-left pb-3 font-semibold pr-4">Boss</th>
-                  <th className="text-center pb-3 font-semibold w-16">{t('analytics_fights')}</th>
-                  <th className="text-center pb-3 font-semibold w-24">
-                    {t('analytics_kills')} / {t('analytics_wipes')}
-                  </th>
-                  <th className="text-center pb-3 font-semibold w-20">{t('analytics_deaths')}</th>
-                  <th className="text-right pb-3 font-semibold w-28">Best</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-lavender-20/10">
-                {myBosses.map((boss, i) => (
-                  <tr key={i} className="hover:bg-lavender-12/5 transition-colors">
-                    <td className="py-2.5 pr-4">
-                      <span className="font-semibold text-white">{boss.bossName}</span>
-                      <span
-                        className="ml-2 text-xs"
-                        style={{ color: DIFFICULTY_COLORS[boss.difficulty], opacity: 0.8 }}
-                      >
-                        ({boss.difficulty?.[0]})
-                      </span>
-                    </td>
-                    <td className="text-center text-lavender py-2.5 tabular-nums">{boss.fights}</td>
-                    <td className="text-center py-2.5 tabular-nums">
-                      {boss.guildKills != null ? (
-                        <>
-                          <span className="text-green-400 font-bold">{boss.guildKills}</span>
-                          <span className="text-lavender/40 mx-1">/</span>
-                          <span className="text-red-400">{boss.guildWipes}</span>
-                        </>
-                      ) : (
-                        <span className="text-lavender/30">—</span>
-                      )}
-                    </td>
-                    <td className="text-center py-2.5 tabular-nums">
-                      <span className={`font-bold ${boss.deaths > 0 ? 'text-red-400' : 'text-green-400'}`}>
-                        {boss.deaths}
-                      </span>
-                    </td>
-                    <td className="text-right py-2.5 tabular-nums">
-                      {boss.bestWipePercent != null ? (
-                        <span className="text-yellow-400 font-bold text-xs">{fmtWipePct(boss.bestWipePercent)}</span>
-                      ) : (
-                        <span className="text-lavender/30">—</span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
+      {/* WCL-style Percentile Matrix — players × bosses */}
+      <PercentileMatrix />
 
       {/* Top-10 modal */}
       {openModal && activeLeaderboard && (

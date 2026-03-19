@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '../../hooks/useAuth'
 import { useSocket } from '../../hooks/useSocket'
 import { useLanguage } from '../../hooks/useLanguage'
-import { bossesAPI } from '../../services/api'
+import { bossesAPI, analyticsAPI } from '../../services/api'
 import CLASS_COLORS from '../../utils/classColors'
 import { CircleNotch, WarningCircle, Skull, BookOpen, CaretDown, CaretRight, CheckCircle, XCircle, Lightning, ArrowSquareOut, X, ChartBar, Trophy, Heart, ShieldStar, Fire, Flag, ClockCounterClockwise, Sword, Clipboard, Check, Pencil } from '@phosphor-icons/react'
 import SectionHeader from '../ui/SectionHeader'
@@ -391,9 +391,27 @@ const BossCard = ({ boss, onClick, t, onMouseEnter, mrtNote, isCopied, isNoNote,
 }
 
 // Boss Detail Modal Component
+const wclColor = (pct) => {
+  if (pct >= 100) return '#e5cc80'
+  if (pct >= 99) return '#e268a8'
+  if (pct >= 95) return '#ff8000'
+  if (pct >= 75) return '#a335ee'
+  if (pct >= 50) return '#0070ff'
+  if (pct >= 25) return '#1eff00'
+  return '#666666'
+}
+
 const BossDetailModal = ({ boss, details, loading, onClose, onChangeDifficulty, t }) => {
   const availableDiffs = details?.availableDifficulties || []
   const currentDiff = details?.statistics?.difficulty
+  const [bossPercentiles, setBossPercentiles] = useState(null)
+
+  useEffect(() => {
+    if (!boss?.id || !currentDiff) return
+    analyticsAPI.getBossPercentiles(boss.id, currentDiff)
+      .then(res => setBossPercentiles(res.data?.players || []))
+      .catch(() => setBossPercentiles(null))
+  }, [boss?.id, currentDiff])
 
   return (
     <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
@@ -565,6 +583,54 @@ const BossDetailModal = ({ boss, details, loading, onClose, onChangeDifficulty, 
                         record={details.records.mostDeaths}
                       />
                     )}
+                  </div>
+                </div>
+              )}
+
+              {/* Player Percentiles */}
+              {bossPercentiles && bossPercentiles.length > 0 && (
+                <div className="rounded-xl border border-lavender-20/30 bg-indigo/60 p-4">
+                  <h3 className="font-semibold mb-3 flex items-center gap-2">
+                    <ChartBar size={18} className="text-coral" />
+                    {t('analytics_top_percentile')}
+                  </h3>
+                  <div className="space-y-1.5">
+                    {bossPercentiles.map((player, idx) => (
+                      <div
+                        key={player.userId}
+                        className="flex items-center justify-between rounded-lg bg-indigo/40 px-3 py-1.5"
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className={`w-5 text-center text-xs font-bold ${idx < 3 ? 'text-yellow-400' : 'text-lavender/50'}`}>
+                            #{idx + 1}
+                          </span>
+                          {player.raidRole === 'Healer' ? (
+                            <Heart size={12} weight="fill" className="text-green-400" />
+                          ) : player.raidRole === 'Tank' ? (
+                            <Sword size={12} weight="fill" className="text-blue-400" />
+                          ) : (
+                            <Sword size={12} weight="fill" className="text-red-400" />
+                          )}
+                          <span
+                            className="text-sm font-semibold"
+                            style={{ color: CLASS_COLORS[player.characterClass] || '#fff' }}
+                          >
+                            {player.characterName}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-3 text-sm tabular-nums">
+                          <span
+                            className="font-bold"
+                            style={{ color: wclColor(player.bestPct) }}
+                          >
+                            {Math.round(player.bestPct)}
+                          </span>
+                          <span className="text-lavender/40 text-xs">
+                            avg {Math.round(player.avgPct)}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
               )}
