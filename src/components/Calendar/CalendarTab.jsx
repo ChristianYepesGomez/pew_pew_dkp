@@ -586,7 +586,16 @@ const CalendarTab = () => {
                           {/* Right: Inline attendance */}
                           <div className="lg:w-80 xl:w-96 bg-lavender-12/10 rounded-xl p-4 border border-lavender-20/20">
                             {attendance ? (
-                              <InlineAttendance attendance={attendance} t={t} />
+                              <>
+                                <InlineAttendance attendance={attendance} t={t} />
+                                <button
+                                  onClick={() => openSummary(signup.date)}
+                                  className="w-full mt-3 py-2 px-3 bg-lavender-12/20 text-lavender text-sm rounded-lg hover:bg-lavender-12/40 hover:text-white transition-all flex items-center justify-center gap-2"
+                                >
+                                  <Users size={16} />
+                                  {t('view_details')}
+                                </button>
+                              </>
                             ) : (
                               <div className="flex items-center justify-center py-6">
                                 <CircleNotch size={18} className="animate-spin text-coral" />
