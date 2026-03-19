@@ -663,4 +663,166 @@ router.get('/guild-leaderboards', authenticateToken, async (req, res) => {
   }
 });
 
+// Percentile matrix — WCL-style grid: players × bosses
+// Returns best percentile per player per boss, role-aware, with boss metadata
+router.get('/percentile-matrix', authenticateToken, async (req, res) => {
+  try {
+    const difficulty = req.query.difficulty ? String(req.query.difficulty) : null;
+
+    // Get current-season bosses with stats
+    const bossesQuery = difficulty
+      ? `SELECT wb.id, wb.name, wb.boss_order, wb.zone_id, wz.name as zone_name,
+                bs.total_kills, bs.total_wipes, bs.best_wipe_percent, bs.difficulty
+         FROM wcl_bosses wb
+         JOIN wcl_zones wz ON wb.zone_id = wz.id
+         LEFT JOIN boss_statistics bs ON bs.boss_id = wb.id AND bs.difficulty = ?
+         WHERE wz.is_current = 1
+         ORDER BY wz.id, wb.boss_order`
+      : `SELECT wb.id, wb.name, wb.boss_order, wb.zone_id, wz.name as zone_name,
+                bs.total_kills, bs.total_wipes, bs.best_wipe_percent, bs.difficulty
+         FROM wcl_bosses wb
+         JOIN wcl_zones wz ON wb.zone_id = wz.id
+         LEFT JOIN boss_statistics bs ON bs.boss_id = wb.id
+         WHERE wz.is_current = 1
+         ORDER BY wz.id, wb.boss_order`;
+
+    const bosses = await req.db.all(bossesQuery, ...(difficulty ? [difficulty] : []));
+
+    // Deduplicate bosses (may have multiple difficulties or null stats)
+    // Pick the requested difficulty or highest available
+    const bossMap = new Map();
+    for (const b of bosses) {
+      const existing = bossMap.get(b.id);
+      if (!existing || (b.total_kills && !existing.total_kills)) {
+        bossMap.set(b.id, b);
+      }
+    }
+    const uniqueBosses = [...bossMap.values()];
+
+    // Get per-player best percentile per boss (role-aware)
+    const diffFilter = difficulty ? 'AND pfp.difficulty = ?' : '';
+    const diffParams = difficulty ? [difficulty] : [];
+
+    const playerStats = await req.db.all(`
+      SELECT pfp.user_id, pfp.boss_id, u.character_name, u.character_class, u.raid_role,
+             MAX(CASE WHEN u.raid_role = 'Healer' THEN pfp.hps_percentile ELSE pfp.dps_percentile END) as best_pct,
+             ROUND(AVG(CASE WHEN u.raid_role = 'Healer' THEN pfp.hps_percentile ELSE pfp.dps_percentile END), 1) as avg_pct,
+             COUNT(*) as fights
+      FROM player_fight_performance pfp
+      JOIN users u ON pfp.user_id = u.id
+      WHERE pfp.boss_id IN (SELECT wb.id FROM wcl_bosses wb JOIN wcl_zones wz ON wb.zone_id = wz.id WHERE wz.is_current = 1)
+        AND CASE WHEN u.raid_role = 'Healer' THEN pfp.hps_percentile ELSE pfp.dps_percentile END IS NOT NULL
+        ${diffFilter}
+      GROUP BY pfp.user_id, pfp.boss_id
+    `, ...diffParams);
+
+    // Build player list with overall avg across bosses
+    const playerMap = new Map();
+    for (const row of playerStats) {
+      if (!playerMap.has(row.user_id)) {
+        playerMap.set(row.user_id, {
+          userId: row.user_id,
+          characterName: row.character_name,
+          characterClass: row.character_class,
+          raidRole: row.raid_role,
+          bosses: {},
+          allPcts: [],
+        });
+      }
+      const player = playerMap.get(row.user_id);
+      player.bosses[row.boss_id] = {
+        bestPct: Math.round(row.best_pct * 10) / 10,
+        avgPct: Math.round(row.avg_pct * 10) / 10,
+        fights: row.fights,
+      };
+      player.allPcts.push(row.best_pct);
+    }
+
+    // Calculate overall avg and sort by it
+    const players = [...playerMap.values()]
+      .map(p => {
+        const avg = p.allPcts.length > 0
+          ? Math.round(p.allPcts.reduce((a, b) => a + b, 0) / p.allPcts.length * 10) / 10
+          : 0;
+        delete p.allPcts;
+        return { ...p, avgPercentile: avg };
+      })
+      .sort((a, b) => b.avgPercentile - a.avgPercentile);
+
+    // Available difficulties for filter
+    const difficulties = await req.db.all(`
+      SELECT DISTINCT pfp.difficulty
+      FROM player_fight_performance pfp
+      JOIN wcl_bosses wb ON pfp.boss_id = wb.id
+      JOIN wcl_zones wz ON wb.zone_id = wz.id
+      WHERE wz.is_current = 1 AND pfp.difficulty IS NOT NULL
+      ORDER BY pfp.difficulty
+    `);
+
+    return success(res, {
+      bosses: uniqueBosses.map(b => ({
+        id: b.id,
+        name: b.name,
+        order: b.boss_order,
+        zoneName: b.zone_name,
+        kills: b.total_kills || 0,
+        wipes: b.total_wipes || 0,
+        bestWipePct: b.best_wipe_percent,
+        difficulty: b.difficulty || difficulty,
+      })),
+      players,
+      difficulties: difficulties.map(d => d.difficulty),
+      selectedDifficulty: difficulty,
+    });
+  } catch (err) {
+    log.error('Percentile matrix error', err);
+    return error(res, 'Failed to get percentile matrix', 500, ErrorCodes.INTERNAL_ERROR);
+  }
+});
+
+// Boss percentile breakdown — all players' percentiles for a specific boss
+router.get('/boss/:bossId/percentiles', authenticateToken, async (req, res) => {
+  try {
+    const bossId = parseInt(req.params.bossId, 10);
+    if (isNaN(bossId)) return error(res, 'Invalid boss ID', 400, ErrorCodes.VALIDATION_ERROR);
+    const difficulty = req.query.difficulty ? String(req.query.difficulty) : null;
+
+    const diffFilter = difficulty ? 'AND pfp.difficulty = ?' : '';
+    const diffParams = difficulty ? [bossId, difficulty] : [bossId];
+
+    const players = await req.db.all(`
+      SELECT pfp.user_id, u.character_name, u.character_class, u.raid_role,
+             MAX(CASE WHEN u.raid_role = 'Healer' THEN pfp.hps_percentile ELSE pfp.dps_percentile END) as best_pct,
+             ROUND(AVG(CASE WHEN u.raid_role = 'Healer' THEN pfp.hps_percentile ELSE pfp.dps_percentile END), 1) as avg_pct,
+             MAX(pfp.dps) as best_dps,
+             MAX(pfp.hps) as best_hps,
+             COUNT(*) as fights
+      FROM player_fight_performance pfp
+      JOIN users u ON pfp.user_id = u.id
+      WHERE pfp.boss_id = ?
+        AND CASE WHEN u.raid_role = 'Healer' THEN pfp.hps_percentile ELSE pfp.dps_percentile END IS NOT NULL
+        ${diffFilter}
+      GROUP BY pfp.user_id
+      ORDER BY best_pct DESC
+    `, ...diffParams);
+
+    return success(res, {
+      players: players.map(p => ({
+        userId: p.user_id,
+        characterName: p.character_name,
+        characterClass: p.character_class,
+        raidRole: p.raid_role,
+        bestPct: Math.round(p.best_pct * 10) / 10,
+        avgPct: Math.round(p.avg_pct * 10) / 10,
+        bestDps: Math.round(p.best_dps),
+        bestHps: Math.round(p.best_hps),
+        fights: p.fights,
+      })),
+    });
+  } catch (err) {
+    log.error('Boss percentiles error', err);
+    return error(res, 'Failed to get boss percentiles', 500, ErrorCodes.INTERNAL_ERROR);
+  }
+});
+
 export default router;
