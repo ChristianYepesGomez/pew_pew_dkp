@@ -615,35 +615,40 @@ router.get('/guild-leaderboards', authenticateToken, async (req, res) => {
       ORDER BY value DESC LIMIT 10
     `, MIN_FIGHTS);
 
-    // Top 10 WCL Percentile — best single-fight global percentile per player (DPS or HPS)
-    // Uses window function to select the boss/date of the best parse per player
+    // Top 10 WCL Percentile — best single-fight percentile per player, role-aware
+    // DPS players → dps_percentile, Healers → hps_percentile
     // Only current-season bosses
     const topPercentile = await req.db.all(`
       WITH current_boss_ids AS (
         SELECT wb.id FROM wcl_bosses wb JOIN wcl_zones wz ON wb.zone_id = wz.id WHERE wz.is_current = 1
       ),
+      role_pct AS (
+        SELECT pfp.user_id, pfp.boss_id,
+               CASE WHEN u.raid_role = 'Healer' THEN pfp.hps_percentile ELSE pfp.dps_percentile END as pct,
+               u.raid_role,
+               pfp.fight_date, pfp.report_code, pfp.fight_id
+        FROM player_fight_performance pfp
+        JOIN users u ON pfp.user_id = u.id
+        WHERE pfp.boss_id IN (SELECT id FROM current_boss_ids)
+          AND CASE WHEN u.raid_role = 'Healer' THEN pfp.hps_percentile ELSE pfp.dps_percentile END IS NOT NULL
+      ),
       best AS (
-        SELECT user_id,
-               MAX(COALESCE(dps_percentile, hps_percentile)) as best_pct
-        FROM player_fight_performance
-        WHERE (dps_percentile IS NOT NULL OR hps_percentile IS NOT NULL)
-          AND boss_id IN (SELECT id FROM current_boss_ids)
+        SELECT user_id, MAX(pct) as best_pct
+        FROM role_pct
         GROUP BY user_id
       ),
       ranked AS (
-        SELECT pfp.user_id, pfp.boss_id,
-               COALESCE(pfp.dps_percentile, pfp.hps_percentile) as pct,
-               pfp.fight_date, pfp.report_code, pfp.fight_id,
-               ROW_NUMBER() OVER (PARTITION BY pfp.user_id ORDER BY pfp.fight_date DESC) as rn
-        FROM player_fight_performance pfp
-        JOIN best b ON pfp.user_id = b.user_id
-          AND COALESCE(pfp.dps_percentile, pfp.hps_percentile) = b.best_pct
-        WHERE pfp.boss_id IN (SELECT id FROM current_boss_ids)
+        SELECT rp.user_id, rp.boss_id, rp.pct, rp.raid_role,
+               rp.fight_date, rp.report_code, rp.fight_id,
+               ROW_NUMBER() OVER (PARTITION BY rp.user_id ORDER BY rp.fight_date DESC) as rn
+        FROM role_pct rp
+        JOIN best b ON rp.user_id = b.user_id AND rp.pct = b.best_pct
       )
       SELECT u.character_name, u.character_class,
              ROUND(r.pct, 1) as value,
              COALESCE(wb.name, '') as boss_name,
-             r.fight_date, r.report_code, r.fight_id
+             r.fight_date, r.report_code, r.fight_id,
+             r.raid_role
       FROM ranked r
       JOIN users u ON r.user_id = u.id
       LEFT JOIN wcl_bosses wb ON r.boss_id = wb.id

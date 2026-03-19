@@ -14,10 +14,10 @@ export function median(arr) {
 
 // ── Consumable detection patterns ──
 const CONSUMABLE_PATTERNS = {
-  healthPotion: /healing potion|potion of .*(heal|life)|algari healing|silvermoon health potion/i,
+  healthPotion: /healing potion|potion of .*(heal|life)|algari healing|silvermoon health potion|potent healing potion/i,
   healthstone: /healthstone/i,
   combatPotion: /tempered potion|potion of unwavering focus|frontline potion|elemental potion|potion of the .*(war|twilight)|light'?s potential/i,
-  manaPotion: /mana potion|lightfused mana potion/i,
+  manaPotion: /mana potion|lightfused mana potion|potion of devoured dreams/i,
 };
 
 const BUFF_PATTERNS = {

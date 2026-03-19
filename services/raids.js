@@ -458,7 +458,7 @@ export async function getBossDetails(db, bossId, requestedDifficulty = null) {
       date: k.kill_date,
       killTime: formatDuration(k.kill_time_ms),
       reportCode: k.report_code,
-      wclUrl: `https://www.warcraftlogs.com/reports/${k.report_code}`,
+      wclUrl: `https://www.warcraftlogs.com/reports/${k.report_code}#fight=${k.fight_id}`,
     })),
   };
 }
