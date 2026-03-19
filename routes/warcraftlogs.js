@@ -378,21 +378,26 @@ router.post('/confirm', adminLimiter, authenticateToken, authorizeRole(['admin',
               log.info(`Recorded performance for ${performanceRecorded} fights from ${reportCode}`);
             }
 
-            // Process extended fight data (DPS/HPS, consumables, interrupts, etc.)
-            // for kill fights — fills player_fight_performance used by leaderboards
-            const killBosses = processedBosses.filter(b => b.kill);
-            if (killBosses.length > 0) {
+            // Process extended fight data (consumables, interrupts, dispels, DPS/HPS, etc.)
+            // for ALL fights (kills AND wipes) — fills player_fight_performance used by leaderboards
+            // Rankings (percentiles) only available for kills
+            if (processedBosses.length > 0) {
               const reportDate = new Date(req.body.startTime || Date.now()).toISOString().split('T')[0];
               let extendedRecorded = 0;
-              for (const bossInfo of killBosses) {
+              for (const bossInfo of processedBosses) {
                 try {
-                  const [extStats, basicStats, rankingsData] = await Promise.all([
+                  const fetches = [
                     getExtendedFightStats(reportCode, [bossInfo.fightId]),
                     getFightStats(reportCode, [bossInfo.fightId]),
-                    getFightRankings(reportCode, [bossInfo.fightId]),
-                  ]);
+                  ];
+                  // Rankings only exist for kills
+                  if (bossInfo.kill) {
+                    fetches.push(getFightRankings(reportCode, [bossInfo.fightId]));
+                  }
+                  const [extStats, basicStats, rankingsData] = await Promise.all(fetches);
                   const count = await processExtendedFightData(
-                    req.db, reportCode, bossInfo, basicStats, extStats, participantUserMap, reportDate, rankingsData
+                    req.db, reportCode, bossInfo, basicStats, extStats, participantUserMap, reportDate,
+                    rankingsData || { dps: {}, hps: {} }
                   );
                   extendedRecorded += count;
                 } catch (extErr) {
@@ -724,13 +729,18 @@ router.post('/import-boss-stats', adminLimiter, authenticateToken, authorizeRole
           const extResults = await Promise.all(
             processedBosses.map(bossInfo => limit(async () => {
               try {
-                const [extStats, fightStats, rankingsData] = await Promise.all([
+                const fetches = [
                   getExtendedFightStats(reportData.code, [bossInfo.fightId]),
                   getFightStats(reportData.code, [bossInfo.fightId]),
-                  getFightRankings(reportData.code, [bossInfo.fightId]),
-                ]);
+                ];
+                // Rankings (percentiles) only exist for kills
+                if (bossInfo.kill) {
+                  fetches.push(getFightRankings(reportData.code, [bossInfo.fightId]));
+                }
+                const [extStats, fightStats, rankingsData] = await Promise.all(fetches);
                 const count = await processExtendedFightData(
-                  req.db, reportData.code, bossInfo, fightStats, extStats, participantUserMap, reportDate, rankingsData
+                  req.db, reportData.code, bossInfo, fightStats, extStats, participantUserMap, reportDate,
+                  rankingsData || { dps: {}, hps: {} }
                 );
                 return count;
               } catch (extErr) {

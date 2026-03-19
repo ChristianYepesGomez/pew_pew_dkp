@@ -626,30 +626,45 @@ export async function getFightStatsWithDeathEvents(reportCode, fightInfo) {
   }
 
   // For wipes, get individual death events and detect the "wipe cascade" —
-  // the point where many players start dying together (not individual mistakes).
+  // the rapid burst of deaths at the end when the fight is lost.
   //
-  // Algorithm: slide a window over death events sorted by time.
-  // When 5+ deaths happen within a 10-second window, that's the cascade start.
-  // All deaths from cascade start onward are filtered out.
-  // Fallback: if no cascade detected, use last 15 seconds of fight.
-  const CASCADE_WINDOW_MS = 10000;  // 10-second sliding window
-  const CASCADE_THRESHOLD = 5;      // 5+ deaths in window = cascade
-  const FALLBACK_THRESHOLD_MS = 15000; // 15-second fallback from fight end
+  // Algorithm: reverse-scan from fight end.
+  // Walk backwards through deaths — consecutive deaths within CLUSTER_GAP_MS of each other
+  // form the "cascade cluster". Once we find a gap larger than CLUSTER_GAP_MS, the cascade
+  // ends there. The cascade must have MIN_CASCADE_DEATHS deaths AND start in the last
+  // MAX_CASCADE_PORTION of the fight to be valid.
+  const CLUSTER_GAP_MS = 3000;       // Deaths within 3s of each other = same cluster
+  const MIN_CASCADE_DEATHS = 3;      // Need at least 3 deaths to call it a cascade
+  const MAX_CASCADE_PORTION = 0.40;  // Cascade must start in the last 40% of fight
 
   const deathEvents = await getDeathEventsWithTimestamps(reportCode, fightId, startTime, endTime);
 
   // Sort deaths by timestamp
   const sortedDeaths = [...deathEvents].sort((a, b) => a.timestamp - b.timestamp);
 
-  // Detect cascade start: first moment where CASCADE_THRESHOLD deaths occur within CASCADE_WINDOW_MS
-  let cascadeStartTime = endTime - FALLBACK_THRESHOLD_MS; // fallback
-  for (let i = 0; i <= sortedDeaths.length - CASCADE_THRESHOLD; i++) {
-    const windowEnd = sortedDeaths[i + CASCADE_THRESHOLD - 1].timestamp;
-    const windowStart = sortedDeaths[i].timestamp;
-    if (windowEnd - windowStart <= CASCADE_WINDOW_MS) {
-      cascadeStartTime = windowStart;
-      break;
+  // Reverse-scan: find the cascade cluster at the end of fight
+  let cascadeStartTime = endTime + 1; // default: no cascade (nothing filtered)
+
+  if (sortedDeaths.length >= MIN_CASCADE_DEATHS) {
+    // Walk backwards from the last death
+    let clusterStart = sortedDeaths[sortedDeaths.length - 1].timestamp;
+    for (let i = sortedDeaths.length - 2; i >= 0; i--) {
+      const gap = sortedDeaths[i + 1].timestamp - sortedDeaths[i].timestamp;
+      if (gap <= CLUSTER_GAP_MS) {
+        clusterStart = sortedDeaths[i].timestamp;
+      } else {
+        break; // Gap too large — cascade doesn't extend further back
+      }
     }
+
+    // Validate: cluster must have enough deaths and be near end of fight
+    const clusterDeaths = sortedDeaths.filter(d => d.timestamp >= clusterStart).length;
+    const fightCutoff = startTime + fightDuration * (1 - MAX_CASCADE_PORTION);
+
+    if (clusterDeaths >= MIN_CASCADE_DEATHS && clusterStart >= fightCutoff) {
+      cascadeStartTime = clusterStart;
+    }
+    // If validation fails, no deaths are filtered — all count as real
   }
 
   // Count only deaths before the cascade
