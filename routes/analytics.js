@@ -512,8 +512,7 @@ router.get('/guild-leaderboards', authenticateToken, async (req, res) => {
       ORDER BY value DESC LIMIT 10
     `, MIN_FIGHTS);
 
-    // Top 10 Damage Taken — total damage taken across all tracked fights, excludes tanks and healers
-    // Heuristic: healing_done < damage_done (not healer) AND damage_taken < damage_done * 3 (not tank)
+    // Top 10 Damage Taken — excludes tanks (by raid_role) and healers (by healing > damage)
     // Only current-season bosses
     const topDamageTaken = await req.db.all(`
       SELECT u.character_name, u.character_class,
@@ -522,11 +521,11 @@ router.get('/guild-leaderboards', authenticateToken, async (req, res) => {
       FROM player_fight_performance pfp
       JOIN users u ON pfp.user_id = u.id
       WHERE pfp.damage_taken > 0
+        AND u.raid_role != 'Tank'
         AND pfp.boss_id IN (SELECT wb.id FROM wcl_bosses wb JOIN wcl_zones wz ON wb.zone_id = wz.id WHERE wz.is_current = 1)
       GROUP BY pfp.user_id
       HAVING COUNT(*) >= ?
         AND SUM(pfp.healing_done) < SUM(pfp.damage_done)
-        AND SUM(pfp.damage_taken) < SUM(pfp.damage_done) * 3
       ORDER BY value DESC LIMIT 10
     `, MIN_FIGHTS);
 
@@ -580,15 +579,15 @@ router.get('/guild-leaderboards', authenticateToken, async (req, res) => {
       ORDER BY value DESC LIMIT 10
     `, MIN_FIGHTS);
 
-    // Top 10 Attendance — most raid fights attended, only current-season bosses
+    // Top 10 Attendance — unique raid days attended, only current-season bosses
     const topAttendance = await req.db.all(`
       SELECT u.character_name, u.character_class,
-             COUNT(*) as value
+             COUNT(DISTINCT pfp.fight_date) as value
       FROM player_fight_performance pfp
       JOIN users u ON pfp.user_id = u.id
       WHERE pfp.boss_id IN (SELECT wb.id FROM wcl_bosses wb JOIN wcl_zones wz ON wb.zone_id = wz.id WHERE wz.is_current = 1)
       GROUP BY pfp.user_id
-      HAVING COUNT(*) >= ?
+      HAVING COUNT(DISTINCT pfp.fight_date) >= ?
       ORDER BY value DESC LIMIT 10
     `, MIN_FIGHTS);
 

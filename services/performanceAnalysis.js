@@ -132,18 +132,26 @@ export async function processExtendedFightData(db, reportCode, bossInfo, basicSt
     }
   }
 
-  // Interrupts
-  for (const entry of extendedStats.interrupts || []) {
-    if (!entry.name) continue;
-    ensurePlayer(entry.name);
-    playerData[entry.name].interrupts = entry.total || 0;
+  // Interrupts — WCL structure: [{ entries: [{ name: "SpellName", details: [{ name: "PlayerName", total: N }] }] }]
+  for (const group of extendedStats.interrupts || []) {
+    for (const spell of group.entries || []) {
+      for (const player of spell.details || []) {
+        if (!player.name) continue;
+        ensurePlayer(player.name);
+        playerData[player.name].interrupts += (player.total || 0);
+      }
+    }
   }
 
-  // Dispels
-  for (const entry of extendedStats.dispels || []) {
-    if (!entry.name) continue;
-    ensurePlayer(entry.name);
-    playerData[entry.name].dispels = entry.total || 0;
+  // Dispels — same structure as interrupts
+  for (const group of extendedStats.dispels || []) {
+    for (const spell of group.entries || []) {
+      for (const player of spell.details || []) {
+        if (!player.name) continue;
+        ensurePlayer(player.name);
+        playerData[player.name].dispels += (player.total || 0);
+      }
+    }
   }
 
   // Calculate raid medians for DPS and DTPS

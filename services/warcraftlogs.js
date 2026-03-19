@@ -793,16 +793,20 @@ export async function getFightRankings(reportCode, fightIds) {
     const report = data.reportData?.report;
     if (!report) return { dps: {}, hps: {} };
 
-    // WCL rankings JSON structure: { data: { roles: { dps: { characters: [{ name, rankPercent }] } } } }
+    // WCL rankings structure: { data: [{ roles: { dps: { characters: [{ name, rankPercent }] } } }] }
+    // data is an ARRAY (one entry per fight), roles contain tanks/healers/dps
     const parseRankings = (rankJson) => {
       const map = {};
       try {
         const parsed = typeof rankJson === 'string' ? JSON.parse(rankJson) : rankJson;
-        const roles = parsed?.data?.roles || {};
-        for (const role of Object.values(roles)) {
-          for (const char of role?.characters || []) {
-            if (char.name && char.rankPercent != null) {
-              map[char.name.toLowerCase()] = char.rankPercent;
+        const fights = parsed?.data || [];
+        for (const fight of Array.isArray(fights) ? fights : [fights]) {
+          const roles = fight?.roles || {};
+          for (const role of Object.values(roles)) {
+            for (const char of role?.characters || []) {
+              if (char.name && char.rankPercent != null) {
+                map[char.name.toLowerCase()] = char.rankPercent;
+              }
             }
           }
         }
