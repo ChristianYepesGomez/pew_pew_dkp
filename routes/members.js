@@ -7,6 +7,8 @@ import { getCachedConfig, getCurrentRaidWeek, addDkpWithCap } from '../lib/helpe
 import { createLogger } from '../lib/logger.js';
 import { success, error, paginated } from '../lib/response.js';
 import { ErrorCodes } from '../lib/errorCodes.js';
+import { fetchVaultData, isWoWAuditConfigured } from '../services/wowaudit.js';
+import { evaluateVault, isInGracePeriod } from '../lib/vaultRules.js';
 import { parsePagination } from '../lib/pagination.js';
 
 const log = createLogger('Route:Members');
@@ -356,6 +358,301 @@ vaultRouter.get('/admin/vault/status', adminLimiter, authenticateToken, authoriz
   } catch (err) {
     log.error('Get vault status error', err);
     return error(res, 'Failed to get vault status', 500, ErrorCodes.INTERNAL_ERROR);
+  }
+});
+
+// ============================================
+// VAULT AUTOMATION (WoWAudit integration)
+// ============================================
+
+// Helper: load vault config from DB using getCachedConfig
+// Raid slots are excluded — only dungeon/world count. Single minSlots for both periods.
+async function loadVaultConfig(db) {
+  const getter = (key, defaultVal) => getCachedConfig(db, key, defaultVal);
+  return {
+    seasonStart: await getter('vault_season_start', '2026-03-18'),
+    graceWeeks: parseInt(await getter('vault_grace_weeks', '2'), 10),
+    minSlots: parseInt(await getter('vault_min_slots', '3'), 10),
+    graceMinIlvl: parseInt(await getter('vault_grace_min_ilvl', '259'), 10),
+    normalMinIlvl: parseInt(await getter('vault_normal_min_ilvl', '272'), 10),
+  };
+}
+
+// Cron endpoint: daily vault sync from WoWAudit — marks AND unmarks based on current sheet data.
+// Schedule: Daily (e.g. every day at 08:00 Madrid time). Members can track their vault status in real-time.
+// The Wednesday process-vault cron then awards DKP to whoever is marked at that point.
+vaultRouter.post('/cron/evaluate-vault', adminLimiter, async (req, res) => {
+  try {
+    const cronSecret = process.env.CRON_SECRET;
+    const providedSecret = req.headers['x-cron-secret'];
+
+    const isValid = cronSecret && providedSecret &&
+      providedSecret.length === cronSecret.length &&
+      crypto.timingSafeEqual(Buffer.from(providedSecret), Buffer.from(cronSecret));
+
+    if (!isValid) {
+      log.warn('Cron evaluate-vault: Invalid or missing secret');
+      return error(res, 'Unauthorized', 401, ErrorCodes.UNAUTHORIZED);
+    }
+
+    if (!isWoWAuditConfigured()) {
+      return error(res, 'WoWAudit integration not configured', 503, ErrorCodes.INTERNAL_ERROR);
+    }
+
+    log.info('Cron: Daily vault sync from WoWAudit...');
+
+    const vaultTabName = await getCachedConfig(req.db, 'wowaudit_vault_tab', '') || undefined;
+    const vaultConfig = await loadVaultConfig(req.db);
+    const currentWeek = getCurrentRaidWeek();
+
+    const vaultData = await fetchVaultData(vaultTabName);
+    if (vaultData.size === 0) {
+      log.warn('Cron: No vault data found in sheet');
+      return success(res, { message: 'No vault data found', evaluated: 0, qualified: 0 });
+    }
+
+    // Get all active members with current vault status
+    const members = await req.db.all(`
+      SELECT u.id, u.character_name,
+             md.weekly_vault_completed, md.vault_week
+      FROM users u
+      JOIN member_dkp md ON u.id = md.user_id
+      WHERE u.is_active = 1 AND u.character_name IS NOT NULL AND u.character_name != ''
+    `);
+
+    let evaluated = 0;
+    let marked = 0;
+    let unmarked = 0;
+    let notFound = 0;
+    const results = [];
+    const io = req.app.get('io');
+
+    for (const member of members) {
+      const charVault = vaultData.get(member.character_name.toLowerCase());
+      const wasMarked = member.vault_week === currentWeek && member.weekly_vault_completed === 1;
+
+      if (!charVault) {
+        notFound++;
+        results.push({
+          characterName: member.character_name,
+          status: 'not_found',
+          reason: 'Character not found in WoWAudit sheet',
+        });
+        continue;
+      }
+
+      evaluated++;
+      const evaluation = evaluateVault(charVault, vaultConfig);
+
+      if (evaluation.qualifies && !wasMarked) {
+        // Mark as vault completed
+        marked++;
+        await req.db.run(`
+          UPDATE member_dkp
+          SET weekly_vault_completed = 1,
+              vault_completed_at = CURRENT_TIMESTAMP,
+              vault_week = ?
+          WHERE user_id = ?
+        `, currentWeek, member.id);
+        io.emit('member_updated', { memberId: member.id });
+      } else if (!evaluation.qualifies && wasMarked) {
+        // Unmark — vault data changed and no longer qualifies
+        unmarked++;
+        await req.db.run(`
+          UPDATE member_dkp
+          SET weekly_vault_completed = 0
+          WHERE user_id = ?
+        `, member.id);
+        io.emit('member_updated', { memberId: member.id });
+      }
+
+      results.push({
+        characterName: member.character_name,
+        status: evaluation.qualifies ? 'qualified' : 'not_qualified',
+        reason: evaluation.reason,
+        filledSlots: charVault.filledCount,
+      });
+    }
+
+    const qualified = results.filter(r => r.status === 'qualified').length;
+    log.info(`Cron: Evaluated ${evaluated} vaults — ${qualified} qualified, ${marked} newly marked, ${unmarked} unmarked, ${notFound} not found`);
+
+    return success(res, {
+      message: `Evaluated ${evaluated} vaults`,
+      evaluated,
+      qualified,
+      marked,
+      unmarked,
+      notFound,
+      currentWeek,
+      mode: isInGracePeriod(vaultConfig.seasonStart, vaultConfig.graceWeeks) ? 'grace' : 'normal',
+      results,
+    });
+  } catch (err) {
+    log.error('Cron evaluate-vault error', err);
+    return error(res, `Failed to evaluate vault: ${err.message}`, 500, ErrorCodes.INTERNAL_ERROR);
+  }
+});
+
+// Admin endpoint: manually trigger vault sync (same mark/unmark logic as daily cron)
+vaultRouter.post('/admin/vault/evaluate', adminLimiter, authenticateToken, authorizeRole(['admin']), async (req, res) => {
+  try {
+    if (!isWoWAuditConfigured()) {
+      return error(res, 'WoWAudit integration not configured. Set WOWAUDIT_SHEET_ID, GOOGLE_SERVICE_ACCOUNT_EMAIL, and GOOGLE_PRIVATE_KEY.', 503, ErrorCodes.INTERNAL_ERROR);
+    }
+
+    const vaultTabName = await getCachedConfig(req.db, 'wowaudit_vault_tab', '') || undefined;
+    const vaultConfig = await loadVaultConfig(req.db);
+    const currentWeek = getCurrentRaidWeek();
+
+    const vaultData = await fetchVaultData(vaultTabName);
+    if (vaultData.size === 0) {
+      return success(res, { message: 'No vault data found in sheet', evaluated: 0, qualified: 0 });
+    }
+
+    const members = await req.db.all(`
+      SELECT u.id, u.character_name,
+             md.weekly_vault_completed, md.vault_week
+      FROM users u
+      JOIN member_dkp md ON u.id = md.user_id
+      WHERE u.is_active = 1 AND u.character_name IS NOT NULL AND u.character_name != ''
+    `);
+
+    let evaluated = 0;
+    let marked = 0;
+    let unmarked = 0;
+    const results = [];
+    const io = req.app.get('io');
+
+    for (const member of members) {
+      const charVault = vaultData.get(member.character_name.toLowerCase());
+      if (!charVault) {
+        results.push({
+          characterName: member.character_name,
+          status: 'not_found',
+          reason: 'Character not found in WoWAudit sheet',
+        });
+        continue;
+      }
+
+      evaluated++;
+      const wasMarked = member.vault_week === currentWeek && member.weekly_vault_completed === 1;
+      const evaluation = evaluateVault(charVault, vaultConfig);
+
+      if (evaluation.qualifies && !wasMarked) {
+        marked++;
+        await req.db.run(`
+          UPDATE member_dkp
+          SET weekly_vault_completed = 1,
+              vault_completed_at = CURRENT_TIMESTAMP,
+              vault_week = ?
+          WHERE user_id = ?
+        `, currentWeek, member.id);
+        io.emit('member_updated', { memberId: member.id });
+      } else if (!evaluation.qualifies && wasMarked) {
+        unmarked++;
+        await req.db.run(`
+          UPDATE member_dkp
+          SET weekly_vault_completed = 0
+          WHERE user_id = ?
+        `, member.id);
+        io.emit('member_updated', { memberId: member.id });
+      }
+
+      results.push({
+        characterName: member.character_name,
+        status: evaluation.qualifies ? 'qualified' : 'not_qualified',
+        reason: evaluation.reason,
+        filledSlots: charVault.filledCount,
+      });
+    }
+
+    const qualified = results.filter(r => r.status === 'qualified').length;
+    log.info(`Admin: Evaluated ${evaluated} vaults — ${qualified} qualified, ${marked} marked, ${unmarked} unmarked`);
+
+    return success(res, {
+      evaluated,
+      qualified,
+      marked,
+      unmarked,
+      currentWeek,
+      mode: isInGracePeriod(vaultConfig.seasonStart, vaultConfig.graceWeeks) ? 'grace' : 'normal',
+      results,
+    });
+  } catch (err) {
+    log.error('Admin evaluate vault error', err);
+    return error(res, `Failed to evaluate vault: ${err.message}`, 500, ErrorCodes.INTERNAL_ERROR);
+  }
+});
+
+// Vault audit dashboard — shows per-member vault analysis without modifying anything
+vaultRouter.get('/admin/vault/audit', adminLimiter, authenticateToken, authorizeRole(['admin', 'officer']), async (req, res) => {
+  try {
+    if (!isWoWAuditConfigured()) {
+      return error(res, 'WoWAudit integration not configured', 503, ErrorCodes.INTERNAL_ERROR);
+    }
+
+    const vaultTabName = await getCachedConfig(req.db, 'wowaudit_vault_tab', '') || undefined;
+    const vaultConfig = await loadVaultConfig(req.db);
+    const currentWeek = getCurrentRaidWeek();
+
+    const vaultData = await fetchVaultData(vaultTabName);
+
+    const members = await req.db.all(`
+      SELECT u.id, u.character_name, u.character_class,
+             md.weekly_vault_completed, md.vault_week
+      FROM users u
+      JOIN member_dkp md ON u.id = md.user_id
+      WHERE u.is_active = 1 AND u.character_name IS NOT NULL AND u.character_name != ''
+      ORDER BY u.character_name ASC
+    `);
+
+    const inGrace = isInGracePeriod(vaultConfig.seasonStart, vaultConfig.graceWeeks);
+    const audit = [];
+
+    for (const member of members) {
+      const charVault = vaultData.get(member.character_name.toLowerCase());
+      const alreadyMarked = member.vault_week === currentWeek && member.weekly_vault_completed === 1;
+
+      if (!charVault) {
+        audit.push({
+          characterName: member.character_name,
+          characterClass: member.character_class,
+          inSheet: false,
+          alreadyMarked,
+          qualifies: false,
+          reason: 'Character not found in WoWAudit sheet',
+          slots: null,
+        });
+        continue;
+      }
+
+      const evaluation = evaluateVault(charVault, vaultConfig);
+      audit.push({
+        characterName: member.character_name,
+        characterClass: member.character_class,
+        inSheet: true,
+        alreadyMarked,
+        qualifies: evaluation.qualifies,
+        reason: evaluation.reason,
+        slots: evaluation.details,
+        filledCount: charVault.filledCount,
+      });
+    }
+
+    return success(res, {
+      currentWeek,
+      mode: inGrace ? 'grace' : 'normal',
+      config: vaultConfig,
+      totalMembers: members.length,
+      inSheet: audit.filter(a => a.inSheet).length,
+      qualifying: audit.filter(a => a.qualifies).length,
+      alreadyMarked: audit.filter(a => a.alreadyMarked).length,
+      audit,
+    });
+  } catch (err) {
+    log.error('Vault audit error', err);
+    return error(res, `Failed to audit vault: ${err.message}`, 500, ErrorCodes.INTERNAL_ERROR);
   }
 });
 
