@@ -33,8 +33,9 @@ export const AuthProvider = ({ children }) => {
   const login = async (username, password) => {
     try {
       const response = await authAPI.login(username, password)
-      const { token: newToken, user: userData } = response.data
+      const { token: newToken, refreshToken, user: userData } = response.data
       localStorage.setItem('token', newToken)
+      if (refreshToken) localStorage.setItem('refreshToken', refreshToken)
       setToken(newToken)
       setUser(userData)
       return { success: true }
@@ -46,8 +47,9 @@ export const AuthProvider = ({ children }) => {
   const register = async (userData) => {
     try {
       const response = await authAPI.register(userData)
-      const { token: newToken, user: newUser } = response.data
+      const { token: newToken, refreshToken, user: newUser } = response.data
       localStorage.setItem('token', newToken)
+      if (refreshToken) localStorage.setItem('refreshToken', refreshToken)
       setToken(newToken)
       setUser(newUser)
       return { success: true }
@@ -57,7 +59,14 @@ export const AuthProvider = ({ children }) => {
   }
 
   const logout = () => {
+    // Best-effort server-side revocation (don't block on it)
+    const rt = localStorage.getItem('refreshToken')
+    const at = localStorage.getItem('token')
+    if (rt && at) {
+      authAPI.logout(rt).catch(() => {})
+    }
     localStorage.removeItem('token')
+    localStorage.removeItem('refreshToken')
     localStorage.removeItem('dev_simulated_role')
     setToken(null)
     setUser(null)

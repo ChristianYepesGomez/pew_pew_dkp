@@ -13,6 +13,9 @@ api.interceptors.request.use((config) => {
   return config
 })
 
+// Track whether a refresh is already in flight to avoid parallel refresh calls
+let refreshPromise = null
+
 api.interceptors.response.use(
   (response) => {
     // Unwrap standardized API response envelope
@@ -28,11 +31,48 @@ api.interceptors.response.use(
     }
     return response
   },
-  (error) => {
-    // Only redirect to login on 401 if there was an active session (token existed).
-    // This prevents swallowing the error message when login credentials are wrong.
+  async (error) => {
+    const originalRequest = error.config
+
+    // Attempt silent refresh on 401 if we have a refresh token and haven't retried yet
+    if (
+      error.response?.status === 401 &&
+      localStorage.getItem('refreshToken') &&
+      !originalRequest._retry &&
+      !originalRequest.url?.includes('/auth/refresh')
+    ) {
+      originalRequest._retry = true
+
+      try {
+        // Coalesce concurrent refresh attempts into a single request
+        if (!refreshPromise) {
+          refreshPromise = axios.post(`${API_URL}/auth/refresh`, {
+            refreshToken: localStorage.getItem('refreshToken'),
+          }).finally(() => { refreshPromise = null })
+        }
+
+        const { data } = await refreshPromise
+        // The response may be wrapped in the standard envelope
+        const payload = data?.data || data
+        localStorage.setItem('token', payload.token)
+        localStorage.setItem('refreshToken', payload.refreshToken)
+
+        // Retry the original request with the new token
+        originalRequest.headers.Authorization = `Bearer ${payload.token}`
+        return api(originalRequest)
+      } catch {
+        // Refresh failed — force logout
+        localStorage.removeItem('token')
+        localStorage.removeItem('refreshToken')
+        window.location.href = '/login'
+        return Promise.reject(error)
+      }
+    }
+
+    // Non-refreshable 401 (no refresh token, or refresh itself failed)
     if (error.response?.status === 401 && localStorage.getItem('token')) {
       localStorage.removeItem('token')
+      localStorage.removeItem('refreshToken')
       window.location.href = '/login'
     }
     return Promise.reject(error)
@@ -47,6 +87,7 @@ export const authAPI = {
   forgotPassword: (usernameOrEmail) => api.post('/auth/forgot-password', { usernameOrEmail }),
   resetPassword: (token, password) => api.post('/auth/reset-password', { token, password }),
   setOnboardingStep: (step) => api.put('/auth/onboarding-step', { step }),
+  logout: (refreshToken) => api.post('/auth/logout', { refreshToken }),
 }
 
 export const dkpAPI = {
