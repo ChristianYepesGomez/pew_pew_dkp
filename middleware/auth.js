@@ -59,7 +59,7 @@ export function authorizeRole(allowedRoles) {
 export function generateAccessToken(user, guildId = null) {
   const payload = { userId: user.id, username: user.username, role: user.role };
   if (guildId) payload.guildId = guildId;
-  return jwt.sign(payload, JWT_SECRET, { expiresIn: '15m' });
+  return jwt.sign(payload, JWT_SECRET, { expiresIn: '2h' });
 }
 
 /**
