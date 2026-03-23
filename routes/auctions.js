@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { authenticateToken, authorizeRole } from '../middleware/auth.js';
 import { adminLimiter, userLimiter } from '../lib/rateLimiters.js';
-import { scheduleAuctionClose, SNIPE_THRESHOLD_MS, SNIPE_EXTENSION_MS, MAX_SNIPE_EXTENSION_MS } from '../lib/auctionScheduler.js';
+import { scheduleAuctionClose, cancelAuctionClose, auctionTimeouts, SNIPE_THRESHOLD_MS, SNIPE_EXTENSION_MS, MAX_SNIPE_EXTENSION_MS } from '../lib/auctionScheduler.js';
 import { createLogger } from '../lib/logger.js';
 import { success, error, paginated } from '../lib/response.js';
 import { ErrorCodes } from '../lib/errorCodes.js';
@@ -78,7 +78,7 @@ router.get('/active', authenticateToken, async (req, res) => {
 
       let endsAt = auction.ends_at;
       if (!endsAt && auction.created_at) {
-        const duration = auction.duration_minutes || 5;
+        const duration = auction.duration_minutes || 3;
         const createdTime = new Date(auction.created_at).getTime();
         endsAt = new Date(createdTime + duration * 60 * 1000).toISOString();
       }
@@ -99,7 +99,7 @@ router.get('/active', authenticateToken, async (req, res) => {
         createdAt: auction.created_at,
         endedAt: auction.ended_at,
         endsAt: endsAt,
-        durationMinutes: auction.duration_minutes || 5,
+        durationMinutes: auction.duration_minutes || 3,
         bidsCount: bids.length,
         hasTie: hasTie,
         tiedBidders: hasTie ? tiedBidders.map(b => ({
@@ -146,7 +146,7 @@ router.post('/', adminLimiter, authenticateToken, authorizeRole(['admin', 'offic
       return error(res, 'Item name is required', 400, ErrorCodes.VALIDATION_ERROR);
     }
 
-    const duration = durationMinutes || 5;
+    const duration = durationMinutes || 3;
     const endsAt = new Date(Date.now() + duration * 60 * 1000).toISOString();
 
     const result = await req.db.run(`
@@ -180,14 +180,15 @@ router.post('/:auctionId/bid', userLimiter, authenticateToken, validateParams({ 
     const userId = req.user.userId;
 
     const auction = await req.db.get(
-      'SELECT id, ends_at, created_at, duration_minutes FROM auctions WHERE id = ? AND status = ?', auctionId, 'active'
+      'SELECT id, ends_at, created_at, duration_minutes, min_bid FROM auctions WHERE id = ? AND status = ?', auctionId, 'active'
     );
     if (!auction) {
       return error(res, 'Active auction not found', 404, ErrorCodes.AUCTION_CLOSED);
     }
 
-    if (!amount || amount < 1) {
-      return error(res, 'Bid must be at least 1 DKP', 400, ErrorCodes.VALIDATION_ERROR);
+    const minBid = Math.max(1, auction.min_bid || 0);
+    if (!amount || amount < minBid) {
+      return error(res, `Bid must be at least ${minBid} DKP`, 400, ErrorCodes.VALIDATION_ERROR);
     }
 
     const userDkp = await req.db.get('SELECT current_dkp FROM member_dkp WHERE user_id = ?', userId);
@@ -258,7 +259,7 @@ router.post('/:auctionId/bid', userLimiter, authenticateToken, validateParams({ 
       // Check if max extension cap has been reached
       // SQLite CURRENT_TIMESTAMP is UTC but lacks 'Z' suffix — ensure UTC parsing
       const createdAtUtc = auction.created_at.endsWith('Z') ? auction.created_at : auction.created_at + 'Z';
-      const originalEndTime = new Date(createdAtUtc).getTime() + (auction.duration_minutes || 5) * 60 * 1000;
+      const originalEndTime = new Date(createdAtUtc).getTime() + (auction.duration_minutes || 3) * 60 * 1000;
       const totalExtended = (endsAt + SNIPE_EXTENSION_MS) - originalEndTime;
 
       if (totalExtended <= MAX_SNIPE_EXTENSION_MS) {
@@ -337,26 +338,46 @@ router.post('/:auctionId/end', adminLimiter, authenticateToken, authorizeRole(['
         // Single highest bidder - no tie
         winner = topBidders[0];
       } else {
-        // TIE! Generate rolls for each tied bidder
+        // TIE! Generate rolls for each tied bidder, re-roll on equal rolls
         wasTie = true;
         log.info(`Tie detected for auction ${auctionId}: ${topBidders.length} bidders at ${highestAmount} DKP`);
 
-        for (const bidder of topBidders) {
-          const roll = Math.floor(Math.random() * 100) + 1; // 1-100
-          rolls.push({
-            userId: bidder.user_id,
-            characterName: bidder.character_name,
-            characterClass: bidder.character_class,
-            bidAmount: bidder.amount,
-            roll
-          });
+        let candidates = topBidders;
+        let roundNum = 0;
+        const MAX_ROUNDS = 10;
+
+        while (candidates.length > 1 && roundNum < MAX_ROUNDS) {
+          roundNum++;
+          const roundRolls = [];
+          for (const bidder of candidates) {
+            const roll = Math.floor(Math.random() * 100) + 1; // 1-100
+            roundRolls.push({
+              userId: bidder.user_id,
+              characterName: bidder.character_name,
+              characterClass: bidder.character_class,
+              bidAmount: bidder.amount,
+              roll
+            });
+          }
+          roundRolls.sort((a, b) => b.roll - a.roll);
+          rolls.push(...roundRolls);
+
+          // Check if top roll is unique
+          const topRoll = roundRolls[0].roll;
+          const tiedAtTop = roundRolls.filter(r => r.roll === topRoll);
+          if (tiedAtTop.length === 1) {
+            // Winner found
+            candidates = [topBidders.find(b => b.user_id === tiedAtTop[0].userId)];
+          } else {
+            // Re-roll only the tied-at-top candidates
+            log.info(`Auction ${auctionId} round ${roundNum}: ${tiedAtTop.length} tied at roll ${topRoll}, re-rolling`);
+            candidates = tiedAtTop.map(r => topBidders.find(b => b.user_id === r.userId));
+          }
         }
 
-        // Sort by roll DESC, highest wins
-        rolls.sort((a, b) => b.roll - a.roll);
-        const winnerRollData = rolls[0];
-        winner = topBidders.find(b => b.user_id === winnerRollData.userId);
-        winningRoll = winnerRollData.roll;
+        winner = candidates[0];
+        winningRoll = rolls.find(r => r.userId === winner.user_id && rolls.indexOf(r) >= rolls.length - candidates.length)?.roll
+          || rolls.filter(r => r.userId === winner.user_id).pop()?.roll;
 
         // Record all rolls in auction_rolls table
         for (const rollData of rolls) {
@@ -370,23 +391,42 @@ router.post('/:auctionId/end', adminLimiter, authenticateToken, authorizeRole(['
         log.info(`Tie resolved: ${winner.character_name} wins with roll ${winningRoll}`);
       }
 
-      // Deduct DKP from winner
-      await tx.run(`
-        UPDATE member_dkp
-        SET current_dkp = current_dkp - ?,
-            lifetime_spent = lifetime_spent + ?
-        WHERE user_id = ?
-      `, winner.amount, winner.amount, winner.user_id);
+      // Safety: verify winner has enough DKP inside the transaction (race condition guard)
+      const winnerDkp = await tx.get('SELECT current_dkp FROM member_dkp WHERE user_id = ?', winner.user_id);
+      if (!winnerDkp || winnerDkp.current_dkp < winner.amount) {
+        log.warn(`Auction ${auctionId}: winner ${winner.character_name} has insufficient DKP (${winnerDkp?.current_dkp || 0} < ${winner.amount})`);
+        // Deduct what they have, not more — prevents negative DKP
+        const actualDeduction = Math.min(winner.amount, winnerDkp?.current_dkp || 0);
+        await tx.run(`
+          UPDATE member_dkp
+          SET current_dkp = current_dkp - ?,
+              lifetime_spent = lifetime_spent + ?
+          WHERE user_id = ?
+        `, actualDeduction, actualDeduction, winner.user_id);
 
-      // Record transaction
-      const reason = wasTie
-        ? `Won auction (roll ${winningRoll}): ${auction.item_name}`
-        : `Won auction: ${auction.item_name}`;
+        const reason = `Won auction: ${auction.item_name} (partial DKP: ${actualDeduction}/${winner.amount})`;
+        await tx.run(`
+          INSERT INTO dkp_transactions (user_id, amount, reason, performed_by, auction_id)
+          VALUES (?, ?, ?, ?, ?)
+        `, winner.user_id, -actualDeduction, reason, req.user.userId, auctionId);
+      } else {
+        // Normal deduction
+        await tx.run(`
+          UPDATE member_dkp
+          SET current_dkp = current_dkp - ?,
+              lifetime_spent = lifetime_spent + ?
+          WHERE user_id = ?
+        `, winner.amount, winner.amount, winner.user_id);
 
-      await tx.run(`
-        INSERT INTO dkp_transactions (user_id, amount, reason, performed_by, auction_id)
-        VALUES (?, ?, ?, ?, ?)
-      `, winner.user_id, -winner.amount, reason, req.user.userId, auctionId);
+        const reason = wasTie
+          ? `Won auction (roll ${winningRoll}): ${auction.item_name}`
+          : `Won auction: ${auction.item_name}`;
+
+        await tx.run(`
+          INSERT INTO dkp_transactions (user_id, amount, reason, performed_by, auction_id)
+          VALUES (?, ?, ?, ?, ?)
+        `, winner.user_id, -winner.amount, reason, req.user.userId, auctionId);
+      }
 
       // Update auction
       await tx.run(`
@@ -433,10 +473,15 @@ router.post('/:auctionId/cancel', adminLimiter, authenticateToken, authorizeRole
   try {
     const auctionId = parseInt(req.params.auctionId, 10);
 
-    await req.db.run(`
+    const result = await req.db.run(`
       UPDATE auctions SET status = 'cancelled', ended_at = CURRENT_TIMESTAMP WHERE id = ? AND status = 'active'
     `, auctionId);
 
+    if (result.changes === 0) {
+      return error(res, 'Active auction not found', 404, ErrorCodes.AUCTION_CLOSED);
+    }
+
+    cancelAuctionClose(auctionId);
     req.app.get('io').emit('auction_cancelled', { auctionId });
     return success(res, null, 'Auction cancelled');
   } catch (err) {
@@ -448,9 +493,16 @@ router.post('/:auctionId/cancel', adminLimiter, authenticateToken, authorizeRole
 // Cancel ALL active auctions (admin only) - for cleanup
 router.post('/cancel-all', adminLimiter, authenticateToken, authorizeRole(['admin']), async (req, res) => {
   try {
+    // Get active auction IDs before cancelling to clear their timeouts
+    const activeAuctions = await req.db.all("SELECT id FROM auctions WHERE status = 'active'");
+
     const result = await req.db.run(`
       UPDATE auctions SET status = 'cancelled', ended_at = CURRENT_TIMESTAMP WHERE status = 'active'
     `);
+
+    for (const a of activeAuctions) {
+      cancelAuctionClose(a.id);
+    }
 
     req.app.get('io').emit('auctions_cleared', { count: result.changes });
     return success(res, null, `Cancelled ${result.changes} active auctions`);

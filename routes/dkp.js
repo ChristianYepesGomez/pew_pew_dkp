@@ -52,9 +52,9 @@ router.post('/adjust', adminLimiter, authenticateToken, authorizeRole(['admin', 
     await req.db.run(`
       INSERT INTO dkp_transactions (user_id, amount, reason, performed_by)
       VALUES (?, ?, ?, ?)
-    `, userId, amount, reason || 'Manual adjustment', req.user.userId);
+    `, userId, actualAmount, reason || 'Manual adjustment', req.user.userId);
 
-    req.app.get('io').emit('dkp_updated', { userId, newDkp, amount });
+    req.app.get('io').emit('dkp_updated', { userId, newDkp, amount: actualAmount });
     return success(res, { newDkp }, 'DKP adjusted');
   } catch (err) {
     log.error('Adjust DKP error', err);
@@ -77,9 +77,12 @@ router.post('/bulk-adjust', adminLimiter, authenticateToken, authorizeRole(['adm
 
     await req.db.transaction(async (tx) => {
       for (const userId of userIds) {
+        let logAmount = amount;
+
         if (amount > 0) {
           // Use cap-aware function for positive amounts
-          await addDkpWithCap(tx, userId, amount, dkpCap);
+          const result = await addDkpWithCap(tx, userId, amount, dkpCap);
+          logAmount = result.actualGain;
         } else {
           // No cap for negative amounts
           await tx.run(`
@@ -92,7 +95,7 @@ router.post('/bulk-adjust', adminLimiter, authenticateToken, authorizeRole(['adm
         await tx.run(`
           INSERT INTO dkp_transactions (user_id, amount, reason, performed_by)
           VALUES (?, ?, ?, ?)
-        `, userId, amount, reason || 'Bulk adjustment', req.user.userId);
+        `, userId, logAmount, reason || 'Bulk adjustment', req.user.userId);
       }
     });
 
@@ -203,6 +206,112 @@ router.get('/history/:userId', authenticateToken, async (req, res) => {
   } catch (err) {
     log.error('DKP history error', err);
     return error(res, 'Failed to get DKP history', 500, ErrorCodes.INTERNAL_ERROR);
+  }
+});
+
+// Revert a single DKP transaction (admin only)
+router.post('/revert/:transactionId', adminLimiter, authenticateToken, authorizeRole(['admin']), async (req, res) => {
+  try {
+    const txId = parseInt(req.params.transactionId, 10);
+    if (isNaN(txId)) return error(res, 'Invalid transaction ID', 400, ErrorCodes.VALIDATION_ERROR);
+
+    const tx = await req.db.get(`
+      SELECT id, user_id, amount, reason, reverted FROM dkp_transactions WHERE id = ?
+    `, txId);
+
+    if (!tx) return error(res, 'Transaction not found', 404, ErrorCodes.NOT_FOUND);
+    if (tx.reverted) return error(res, 'Transaction already reverted', 400, ErrorCodes.VALIDATION_ERROR);
+
+    // Get DKP cap for capping if reverting a negative (spend) transaction
+    const capConfig = await req.db.get("SELECT config_value FROM dkp_config WHERE config_key = 'dkp_cap'");
+    const dkpCap = parseInt(capConfig?.config_value || '250', 10);
+
+    await req.db.transaction(async (dbTx) => {
+      const reverseAmount = -tx.amount;
+
+      if (reverseAmount > 0) {
+        // Reverting a spend → add DKP back (cap-aware)
+        await addDkpWithCap(dbTx, tx.user_id, reverseAmount, dkpCap);
+        // Also reduce lifetime_spent
+        await dbTx.run('UPDATE member_dkp SET lifetime_spent = MAX(0, lifetime_spent - ?) WHERE user_id = ?', Math.abs(tx.amount), tx.user_id);
+      } else {
+        // Reverting a gain → subtract DKP
+        await dbTx.run('UPDATE member_dkp SET current_dkp = MAX(0, current_dkp + ?), lifetime_gained = MAX(0, lifetime_gained + ?) WHERE user_id = ?',
+          reverseAmount, reverseAmount, tx.user_id);
+      }
+
+      // Create the reverse transaction
+      const result = await dbTx.run(`
+        INSERT INTO dkp_transactions (user_id, amount, reason, performed_by)
+        VALUES (?, ?, ?, ?)
+      `, tx.user_id, reverseAmount, `Revert: ${tx.reason}`, req.user.userId);
+
+      // Mark original as reverted
+      await dbTx.run('UPDATE dkp_transactions SET reverted = 1, reverted_by_tx = ? WHERE id = ?', result.lastInsertRowid, tx.id);
+    });
+
+    return success(res, null, 'Transaction reverted');
+  } catch (err) {
+    log.error('Revert transaction error', err);
+    return error(res, 'Failed to revert transaction', 500, ErrorCodes.INTERNAL_ERROR);
+  }
+});
+
+// Revert multiple DKP transactions (admin only) — for undoing bulk operations
+router.post('/revert-bulk', adminLimiter, authenticateToken, authorizeRole(['admin']), async (req, res) => {
+  try {
+    const { transactionIds } = req.body;
+
+    if (!transactionIds || !Array.isArray(transactionIds) || transactionIds.length === 0) {
+      return error(res, 'Transaction IDs array required', 400, ErrorCodes.VALIDATION_ERROR);
+    }
+
+    if (transactionIds.length > 100) {
+      return error(res, 'Maximum 100 transactions per revert', 400, ErrorCodes.VALIDATION_ERROR);
+    }
+
+    const capConfig = await req.db.get("SELECT config_value FROM dkp_config WHERE config_key = 'dkp_cap'");
+    const dkpCap = parseInt(capConfig?.config_value || '250', 10);
+
+    const placeholders = transactionIds.map(() => '?').join(',');
+    const transactions = await req.db.all(`
+      SELECT id, user_id, amount, reason, reverted FROM dkp_transactions WHERE id IN (${placeholders})
+    `, ...transactionIds);
+
+    const alreadyReverted = transactions.filter(t => t.reverted);
+    if (alreadyReverted.length > 0) {
+      return error(res, `${alreadyReverted.length} transactions already reverted`, 400, ErrorCodes.VALIDATION_ERROR);
+    }
+
+    let revertedCount = 0;
+
+    await req.db.transaction(async (dbTx) => {
+      for (const tx of transactions) {
+        const reverseAmount = -tx.amount;
+
+        if (reverseAmount > 0) {
+          await addDkpWithCap(dbTx, tx.user_id, reverseAmount, dkpCap);
+          await dbTx.run('UPDATE member_dkp SET lifetime_spent = MAX(0, lifetime_spent - ?) WHERE user_id = ?', Math.abs(tx.amount), tx.user_id);
+        } else {
+          await dbTx.run('UPDATE member_dkp SET current_dkp = MAX(0, current_dkp + ?), lifetime_gained = MAX(0, lifetime_gained + ?) WHERE user_id = ?',
+            reverseAmount, reverseAmount, tx.user_id);
+        }
+
+        const result = await dbTx.run(`
+          INSERT INTO dkp_transactions (user_id, amount, reason, performed_by)
+          VALUES (?, ?, ?, ?)
+        `, tx.user_id, reverseAmount, `Revert: ${tx.reason}`, req.user.userId);
+
+        await dbTx.run('UPDATE dkp_transactions SET reverted = 1, reverted_by_tx = ? WHERE id = ?', result.lastInsertRowid, tx.id);
+        revertedCount++;
+      }
+    });
+
+    req.app.get('io').emit('dkp_bulk_updated', { reason: 'bulk_revert', count: revertedCount });
+    return success(res, { revertedCount }, `${revertedCount} transactions reverted`);
+  } catch (err) {
+    log.error('Bulk revert error', err);
+    return error(res, 'Failed to revert transactions', 500, ErrorCodes.INTERNAL_ERROR);
   }
 });
 

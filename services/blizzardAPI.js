@@ -189,8 +189,18 @@ async function getItemMedia(itemId) {
   }
 }
 
+// Raid token patterns — tier tokens that convert into class-specific set pieces
+const RAID_TOKEN_PATTERNS = [
+  /Nullcore$/i,
+];
+
 // Check if item should be excluded
 function shouldExcludeItem(item) {
+  // Raid tier tokens are always kept (they're Miscellaneous/Junk but valuable loot)
+  if (RAID_TOKEN_PATTERNS.some(pattern => pattern.test(item.name || ''))) {
+    return false;
+  }
+
   // Armor (4) and Weapon (2) classes are always gear - keep them
   const itemClassId = item.item_class?.id;
   if (itemClassId === 2 || itemClassId === 4) {
@@ -260,6 +270,7 @@ function mapSlot(inventoryType) {
     RANGED: 'Ranged',
     SHIELD: 'Shield',
     HOLDABLE: 'Off Hand',
+    NON_EQUIP: 'Token',
   };
   return slotMap[inventoryType?.type] || inventoryType?.name || 'Unknown';
 }
