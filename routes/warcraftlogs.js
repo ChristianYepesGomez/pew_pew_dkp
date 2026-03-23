@@ -155,8 +155,28 @@ router.post('/preview', adminLimiter, authenticateToken, authorizeRole(['admin',
       }
     }
 
-    const matchedCount = matchResults.filter(r => r.matched).length;
-    const totalDKP = matchResults.reduce((sum, r) => sum + r.dkp_to_assign, 0);
+    // Deduplicate by user_id: if a player appears with main + alt, consolidate into one entry
+    // so DKP is only assigned once per person
+    const seenUserIds = new Map();
+    const deduplicatedResults = [];
+    for (const result of matchResults) {
+      if (!result.matched || !result.user_id) {
+        deduplicatedResults.push(result);
+        continue;
+      }
+      const existing = seenUserIds.get(result.user_id);
+      if (existing) {
+        // Same user already matched — add this character as an alt reference
+        if (!existing.also_matched_as) existing.also_matched_as = [];
+        existing.also_matched_as.push(result.wcl_name);
+      } else {
+        seenUserIds.set(result.user_id, result);
+        deduplicatedResults.push(result);
+      }
+    }
+
+    const matchedCount = deduplicatedResults.filter(r => r.matched).length;
+    const totalDKP = deduplicatedResults.reduce((sum, r) => sum + r.dkp_to_assign, 0);
 
     return success(res, {
       report: {
@@ -179,11 +199,11 @@ router.post('/preview', adminLimiter, authenticateToken, authorizeRole(['admin',
         dkp_per_player: raidDKP,
         total_dkp_to_assign: totalDKP
       },
-      participants: matchResults,
+      participants: deduplicatedResults,
       summary: {
         total_participants: reportData.participantCount,
         matched: matchedCount,
-        not_matched: reportData.participantCount - matchedCount,
+        not_matched: deduplicatedResults.filter(r => !r.matched).length,
         anomalies_count: anomalies.length
       },
       anomalies,
@@ -205,7 +225,16 @@ router.post('/confirm', adminLimiter, authenticateToken, authorizeRole(['admin',
       return error(res, 'reportCode and participants array required', 400, ErrorCodes.VALIDATION_ERROR);
     }
 
-    const matchedParticipants = participants.filter(p => p.matched && p.user_id);
+    const matchedRaw = participants.filter(p => p.matched && p.user_id);
+
+    // Deduplicate by user_id: prevent double DKP if same user appears via main + alt
+    const seenUsers = new Set();
+    const matchedParticipants = [];
+    for (const p of matchedRaw) {
+      if (seenUsers.has(p.user_id)) continue;
+      seenUsers.add(p.user_id);
+      matchedParticipants.push(p);
+    }
 
     if (matchedParticipants.length === 0) {
       return error(res, 'No matched participants to assign DKP', 400, ErrorCodes.VALIDATION_ERROR);
