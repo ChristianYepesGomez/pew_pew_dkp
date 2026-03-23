@@ -82,8 +82,8 @@ const Dashboard = () => {
         {activeTab === 'members' && <MembersTab />}
         {activeTab === 'bosses' && <BossesTab />}
         {activeTab === 'calendar' && <CalendarTab />}
-        {activeTab === 'auction' && <AuctionTab />}
-        {activeTab === 'history' && <HistoryTab />}
+        {activeTab === 'auction' && <AuctionTab onNavigate={setActiveTab} />}
+        {activeTab === 'history' && <HistoryTab onNavigate={setActiveTab} />}
         {activeTab === 'stats' && <AnalyticsTab />}
         {activeTab === 'bis' && <BISTab />}
         {activeTab === 'admin' && isAdmin && <AdminTab />}

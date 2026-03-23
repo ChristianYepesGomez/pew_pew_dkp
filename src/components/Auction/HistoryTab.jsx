@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
-import { CircleNotch, ClockCounterClockwise, Diamond, Trophy, DoorOpen, CaretRight, CaretUp, CaretDown, X, DiceFive } from '@phosphor-icons/react'
+import { CircleNotch, ClockCounterClockwise, Diamond, Trophy, DoorOpen, CaretRight, CaretUp, CaretDown, X, DiceFive, Gavel } from '@phosphor-icons/react'
 import { useSocket } from '../../hooks/useSocket'
 import { useLanguage } from '../../hooks/useLanguage'
 import { auctionsAPI } from '../../services/api'
@@ -10,7 +10,7 @@ import RARITY_COLORS from '../../utils/rarityColors'
 import SectionHeader from '../ui/SectionHeader'
 import SurfaceCard from '../ui/SurfaceCard'
 
-const HistoryTab = () => {
+const HistoryTab = ({ onNavigate }) => {
   const { t, language } = useLanguage()
   const [auctions, setAuctions] = useState([])
   const [loading, setLoading] = useState(true)
@@ -63,7 +63,15 @@ const HistoryTab = () => {
 
   return (
     <div className="space-y-6">
-      <SectionHeader icon={ClockCounterClockwise} title={t('auction_history_title')} />
+      <SectionHeader icon={ClockCounterClockwise} title={t('auction_history_title')}>
+        <button
+          onClick={() => onNavigate('auction')}
+          className="flex h-10 items-center gap-2 rounded-full border border-lavender-20 bg-indigo px-4 text-sm text-lavender transition-colors hover:bg-lavender-12 hover:text-cream"
+        >
+          <Gavel size={16} weight="bold" />
+          <span className="hidden sm:inline">{t('active_auction')}</span>
+        </button>
+      </SectionHeader>
 
       <SurfaceCard className="space-y-3 p-5 sm:p-6">
         {auctions.length === 0 ? (
@@ -156,38 +164,16 @@ const HistoryTab = () => {
                 {/* Winner & DKP */}
                 {hasWinner ? (
                   <div className="flex items-center gap-4">
-                    {/* Roll info if it was a tie */}
-                    {a.was_tie && a.rolls && (
-                      <div className="text-center px-3 py-1 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
-                        <p className="text-xs text-yellow-400 m-0 mb-1">
-                          <DiceFive className="inline mr-1" />{t('tie_resolved')}
-                        </p>
-                        <div className="flex flex-col gap-0.5">
-                          {a.rolls.map((roll, idx) => (
-                            <p
-                              key={idx}
-                              className={`m-0 text-xs ${roll.isWinner ? 'font-bold text-yellow-400' : 'text-lavender/60'}`}
-                            >
-                              <span style={{ color: roll.isWinner ? CLASS_COLORS[roll.characterClass] : undefined }}>
-                                {roll.characterName}
-                              </span>
-                              : {roll.roll}
-                              {roll.isWinner && <Trophy className="inline ml-1 text-yellow-400" weight="fill" />}
-                            </p>
-                          ))}
-                        </div>
-                      </div>
-                    )}
                     <div className="text-right">
                       <p className="text-xs text-lavender m-0 mb-1">{t('winner')}</p>
                       <p
-                        className="font-bold m-0 flex items-center justify-end gap-2"
+                        className="font-bold m-0 flex items-center justify-end gap-1.5"
                         style={{ color: CLASS_COLORS[a.winner.characterClass] || '#FFF' }}
                       >
                         {a.winner.characterName}
                         {a.was_tie && (
-                          <span className="text-xs text-yellow-400" title={`Roll: ${a.winning_roll}`}>
-                            <DiceFive className="inline" /> {a.winning_roll}
+                          <span className="inline-flex items-center gap-0.5 rounded-full bg-yellow-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-yellow-400" title={`Roll: ${a.winning_roll}`}>
+                            <DiceFive size={12} weight="bold" /> {a.winning_roll}
                           </span>
                         )}
                       </p>
@@ -239,6 +225,30 @@ const HistoryTab = () => {
                       </div>
                     ))}
                   </div>
+                  {/* Tie roll results */}
+                  {a.was_tie && a.rolls && a.rolls.length > 0 && (
+                    <div className="border-t border-yellow-500/10 px-4 py-2">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-[11px] font-semibold text-yellow-400/70 uppercase tracking-wide flex items-center gap-1">
+                          <DiceFive size={13} weight="bold" /> {t('tie_resolved')}
+                        </span>
+                        <div className="flex items-center gap-1.5">
+                          {a.rolls.map((roll, idx) => (
+                            <span
+                              key={idx}
+                              className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] ${roll.isWinner ? 'bg-yellow-500/15 font-bold text-yellow-400' : 'bg-lavender-12/30 text-lavender/50'}`}
+                            >
+                              <span style={{ color: roll.isWinner ? CLASS_COLORS[roll.characterClass] : undefined }}>
+                                {roll.characterName}
+                              </span>
+                              <span className="opacity-70">({roll.roll})</span>
+                              {roll.isWinner && <Trophy size={11} weight="fill" />}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

@@ -39,6 +39,7 @@ import {
   Star,
   Trophy,
   Crown,
+  ClockCounterClockwise,
 } from '@phosphor-icons/react'
 
 // Map FA icon class names to Phosphor components for dynamic sound icon rendering
@@ -293,7 +294,7 @@ const SoundSettingsModal = ({
   )
 }
 
-const AuctionTab = () => {
+const AuctionTab = ({ onNavigate }) => {
   const { user } = useAuth()
   const { t } = useLanguage()
   const {
@@ -526,6 +527,16 @@ const AuctionTab = () => {
     loadAuctions()
   }
 
+  const handleCancelAuction = async (auctionId) => {
+    if (!window.confirm(t('confirm_cancel_auction'))) return
+    try {
+      await auctionsAPI.cancel(auctionId)
+      loadAuctions()
+    } catch (err) {
+      console.error('Cancel auction error:', err)
+    }
+  }
+
   const formatTime = (time) => {
     if (!time) return '--:--'
     if (time.expired) return t('expired')
@@ -545,6 +556,14 @@ const AuctionTab = () => {
     <div className="space-y-6">
       <SectionHeader icon={Gavel} title={t('active_auction_title')}>
         <div className="flex items-center gap-3">
+          <button
+            onClick={() => onNavigate('history')}
+            className="flex h-10 items-center gap-2 rounded-full border border-lavender-20 bg-indigo px-4 text-sm text-lavender transition-colors hover:bg-lavender-12 hover:text-cream"
+          >
+            <ClockCounterClockwise size={16} weight="bold" />
+            <span className="hidden sm:inline">{t('auction_history')}</span>
+          </button>
+
           {/* Notification Controls */}
           {isSupported && (
             <div className="flex items-center gap-1">
@@ -822,18 +841,32 @@ const AuctionTab = () => {
                       </p>
                     </div>
 
-                    {/* Bid Button */}
-                    <Button
-                      onClick={() => setBidModal({ open: true, auction })}
-                      disabled={isExpired}
-                      variant="success"
-                      size="md"
-                      radius="pill"
-                      icon={HandCoins}
-                      className="w-full shrink-0 font-bold lg:w-auto"
-                    >
-                      {t('place_bid')}
-                    </Button>
+                    {/* Action Buttons */}
+                    <div className="flex w-full shrink-0 gap-2 lg:w-auto">
+                      <Button
+                        onClick={() => setBidModal({ open: true, auction })}
+                        disabled={isExpired}
+                        variant="success"
+                        size="md"
+                        radius="pill"
+                        icon={HandCoins}
+                        className="flex-1 font-bold lg:flex-initial"
+                      >
+                        {t('place_bid')}
+                      </Button>
+                      {isAdmin && (
+                        <Button
+                          onClick={() => handleCancelAuction(auction.id)}
+                          variant="danger"
+                          size="md"
+                          radius="pill"
+                          icon={X}
+                          className="flex-1 font-bold lg:flex-initial"
+                        >
+                          {t('cancel_auction')}
+                        </Button>
+                      )}
+                    </div>
                   </div>
                 </div>
               )
