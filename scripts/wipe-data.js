@@ -54,9 +54,6 @@ const TABLES_TO_WIPE = [
   'calendar_dkp_rewards',
   'member_availability',
 
-  // BIS
-  'bis_items',
-
   // Personajes alts
   'characters',
 

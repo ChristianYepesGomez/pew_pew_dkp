@@ -210,53 +210,51 @@ router.get('/progression', authenticateToken, async (req, res) => {
 // Guild superlatives (top performers from boss data)
 router.get('/superlatives', authenticateToken, async (req, res) => {
   try {
-    const topDps = await req.db.get(`
-      SELECT br.value, br.character_name, br.character_class, wb.name as boss_name, br.difficulty
-      FROM boss_records br
-      JOIN wcl_bosses wb ON br.boss_id = wb.id
-      JOIN wcl_zones wz ON wb.zone_id = wz.id
-      WHERE br.record_type = 'top_dps' AND wz.is_current = 1
-      ORDER BY br.value DESC LIMIT 1
-    `);
-
-    const topHps = await req.db.get(`
-      SELECT br.value, br.character_name, br.character_class, wb.name as boss_name, br.difficulty
-      FROM boss_records br
-      JOIN wcl_bosses wb ON br.boss_id = wb.id
-      JOIN wcl_zones wz ON wb.zone_id = wz.id
-      WHERE br.record_type = 'top_hps' AND wz.is_current = 1
-      ORDER BY br.value DESC LIMIT 1
-    `);
-
-    const mostDeaths = await req.db.get(`
-      SELECT u.character_name, u.character_class, SUM(pbd.total_deaths) as total
-      FROM player_boss_deaths pbd
-      JOIN users u ON pbd.user_id = u.id
-      JOIN wcl_bosses wb ON pbd.boss_id = wb.id
-      JOIN wcl_zones wz ON wb.zone_id = wz.id
-      WHERE wz.is_current = 1
-      GROUP BY pbd.user_id ORDER BY total DESC LIMIT 1
-    `);
-
-    const mostFights = await req.db.get(`
-      SELECT u.character_name, u.character_class, SUM(pbp.fights_participated) as total
-      FROM player_boss_performance pbp
-      JOIN users u ON pbp.user_id = u.id
-      JOIN wcl_bosses wb ON pbp.boss_id = wb.id
-      JOIN wcl_zones wz ON wb.zone_id = wz.id
-      WHERE wz.is_current = 1
-      GROUP BY pbp.user_id ORDER BY total DESC LIMIT 1
-    `);
-
-    const mostDamageTaken = await req.db.get(`
-      SELECT u.character_name, u.character_class, SUM(pbp.total_damage_taken) as total
-      FROM player_boss_performance pbp
-      JOIN users u ON pbp.user_id = u.id
-      JOIN wcl_bosses wb ON pbp.boss_id = wb.id
-      JOIN wcl_zones wz ON wb.zone_id = wz.id
-      WHERE wz.is_current = 1
-      GROUP BY pbp.user_id ORDER BY total DESC LIMIT 1
-    `);
+    const [topDps, topHps, mostDeaths, mostFights, mostDamageTaken] = await Promise.all([
+      req.db.get(`
+        SELECT br.value, br.character_name, br.character_class, wb.name as boss_name, br.difficulty
+        FROM boss_records br
+        JOIN wcl_bosses wb ON br.boss_id = wb.id
+        JOIN wcl_zones wz ON wb.zone_id = wz.id
+        WHERE br.record_type = 'top_dps' AND wz.is_current = 1
+        ORDER BY br.value DESC LIMIT 1
+      `),
+      req.db.get(`
+        SELECT br.value, br.character_name, br.character_class, wb.name as boss_name, br.difficulty
+        FROM boss_records br
+        JOIN wcl_bosses wb ON br.boss_id = wb.id
+        JOIN wcl_zones wz ON wb.zone_id = wz.id
+        WHERE br.record_type = 'top_hps' AND wz.is_current = 1
+        ORDER BY br.value DESC LIMIT 1
+      `),
+      req.db.get(`
+        SELECT u.character_name, u.character_class, SUM(pbd.total_deaths) as total
+        FROM player_boss_deaths pbd
+        JOIN users u ON pbd.user_id = u.id
+        JOIN wcl_bosses wb ON pbd.boss_id = wb.id
+        JOIN wcl_zones wz ON wb.zone_id = wz.id
+        WHERE wz.is_current = 1
+        GROUP BY pbd.user_id ORDER BY total DESC LIMIT 1
+      `),
+      req.db.get(`
+        SELECT u.character_name, u.character_class, SUM(pbp.fights_participated) as total
+        FROM player_boss_performance pbp
+        JOIN users u ON pbp.user_id = u.id
+        JOIN wcl_bosses wb ON pbp.boss_id = wb.id
+        JOIN wcl_zones wz ON wb.zone_id = wz.id
+        WHERE wz.is_current = 1
+        GROUP BY pbp.user_id ORDER BY total DESC LIMIT 1
+      `),
+      req.db.get(`
+        SELECT u.character_name, u.character_class, SUM(pbp.total_damage_taken) as total
+        FROM player_boss_performance pbp
+        JOIN users u ON pbp.user_id = u.id
+        JOIN wcl_bosses wb ON pbp.boss_id = wb.id
+        JOIN wcl_zones wz ON wb.zone_id = wz.id
+        WHERE wz.is_current = 1
+        GROUP BY pbp.user_id ORDER BY total DESC LIMIT 1
+      `),
+    ]);
 
     return success(res, { topDps, topHps, mostDeaths, mostFights, mostDamageTaken });
   } catch (err) {
@@ -349,68 +347,61 @@ router.get('/my-performance-detail', authenticateToken, async (req, res) => {
 // Guild Insights — raid health, death leaders, progression blockers
 router.get('/guild-insights', authenticateToken, async (req, res) => {
   try {
-    // Raid health from boss_statistics — only current-season bosses
-    const raidHealth = await req.db.get(`
-      SELECT SUM(bs.total_kills) as totalKills, SUM(bs.total_wipes) as totalWipes,
-             ROUND(AVG(bs.fastest_kill_ms)) as avgFightTime
-      FROM boss_statistics bs
-      JOIN wcl_bosses wb ON bs.boss_id = wb.id
-      JOIN wcl_zones wz ON wb.zone_id = wz.id
-      WHERE wz.is_current = 1
-    `);
+    const [raidHealth, topPerformers, deathLeaders, blockers, recentReports] = await Promise.all([
+      req.db.get(`
+        SELECT SUM(bs.total_kills) as totalKills, SUM(bs.total_wipes) as totalWipes,
+               ROUND(AVG(bs.fastest_kill_ms)) as avgFightTime
+        FROM boss_statistics bs
+        JOIN wcl_bosses wb ON bs.boss_id = wb.id
+        JOIN wcl_zones wz ON wb.zone_id = wz.id
+        WHERE wz.is_current = 1
+      `),
+      req.db.all(`
+        SELECT u.character_name as name, u.character_class as class,
+               ROUND(SUM(pbp.total_damage) / NULLIF(SUM(pbp.fights_participated), 0)) as avgDps,
+               SUM(pbp.fights_participated) as fights
+        FROM player_boss_performance pbp
+        JOIN users u ON pbp.user_id = u.id
+        JOIN wcl_bosses wb ON pbp.boss_id = wb.id
+        JOIN wcl_zones wz ON wb.zone_id = wz.id
+        WHERE pbp.fights_participated > 0 AND wz.is_current = 1
+        GROUP BY pbp.user_id
+        HAVING fights >= 3
+        ORDER BY avgDps DESC LIMIT 10
+      `),
+      req.db.all(`
+        SELECT u.character_name as name, u.character_class as class,
+               SUM(pbd.total_deaths) as totalDeaths,
+               SUM(pbd.total_fights) as totalFights,
+               ROUND(CAST(SUM(pbd.total_deaths) AS REAL) / NULLIF(SUM(pbd.total_fights), 0), 2) as deathsPerFight
+        FROM player_boss_deaths pbd
+        JOIN users u ON pbd.user_id = u.id
+        JOIN wcl_bosses wb ON pbd.boss_id = wb.id
+        JOIN wcl_zones wz ON wb.zone_id = wz.id
+        WHERE wz.is_current = 1
+        GROUP BY pbd.user_id
+        HAVING totalFights >= 3
+        ORDER BY totalDeaths DESC LIMIT 10
+      `),
+      req.db.all(`
+        SELECT wb.name as bossName, bs.difficulty, bs.total_wipes as wipes, bs.total_kills as kills,
+               bs.fastest_kill_ms as bestTime
+        FROM boss_statistics bs
+        JOIN wcl_bosses wb ON bs.boss_id = wb.id
+        JOIN wcl_zones wz ON wb.zone_id = wz.id
+        WHERE bs.total_wipes > 0 AND wz.is_current = 1
+        ORDER BY bs.total_wipes DESC LIMIT 5
+      `),
+      req.db.all(`
+        SELECT report_code as code, report_title as title, raid_date as date
+        FROM warcraft_logs_processed
+        WHERE is_reverted = 0
+        ORDER BY processed_at DESC LIMIT 10
+      `),
+    ]);
 
     const totalKills = raidHealth?.totalKills || 0;
     const totalWipes = raidHealth?.totalWipes || 0;
-
-    // Top performers by avg DPS — only current-season bosses
-    const topPerformers = await req.db.all(`
-      SELECT u.character_name as name, u.character_class as class,
-             ROUND(SUM(pbp.total_damage) / NULLIF(SUM(pbp.fights_participated), 0)) as avgDps,
-             SUM(pbp.fights_participated) as fights
-      FROM player_boss_performance pbp
-      JOIN users u ON pbp.user_id = u.id
-      JOIN wcl_bosses wb ON pbp.boss_id = wb.id
-      JOIN wcl_zones wz ON wb.zone_id = wz.id
-      WHERE pbp.fights_participated > 0 AND wz.is_current = 1
-      GROUP BY pbp.user_id
-      HAVING fights >= 3
-      ORDER BY avgDps DESC LIMIT 10
-    `);
-
-    // Death leaders — only current-season bosses
-    const deathLeaders = await req.db.all(`
-      SELECT u.character_name as name, u.character_class as class,
-             SUM(pbd.total_deaths) as totalDeaths,
-             SUM(pbd.total_fights) as totalFights,
-             ROUND(CAST(SUM(pbd.total_deaths) AS REAL) / NULLIF(SUM(pbd.total_fights), 0), 2) as deathsPerFight
-      FROM player_boss_deaths pbd
-      JOIN users u ON pbd.user_id = u.id
-      JOIN wcl_bosses wb ON pbd.boss_id = wb.id
-      JOIN wcl_zones wz ON wb.zone_id = wz.id
-      WHERE wz.is_current = 1
-      GROUP BY pbd.user_id
-      HAVING totalFights >= 3
-      ORDER BY totalDeaths DESC LIMIT 10
-    `);
-
-    // Progression blockers — only current-season bosses
-    const blockers = await req.db.all(`
-      SELECT wb.name as bossName, bs.difficulty, bs.total_wipes as wipes, bs.total_kills as kills,
-             bs.fastest_kill_ms as bestTime
-      FROM boss_statistics bs
-      JOIN wcl_bosses wb ON bs.boss_id = wb.id
-      JOIN wcl_zones wz ON wb.zone_id = wz.id
-      WHERE bs.total_wipes > 0 AND wz.is_current = 1
-      ORDER BY bs.total_wipes DESC LIMIT 5
-    `);
-
-    // Recent reports
-    const recentReports = await req.db.all(`
-      SELECT report_code as code, report_title as title, raid_date as date
-      FROM warcraft_logs_processed
-      WHERE is_reverted = 0
-      ORDER BY processed_at DESC LIMIT 10
-    `);
 
     return success(res, {
       raidHealth: {
@@ -436,182 +427,183 @@ router.get('/guild-insights', authenticateToken, async (req, res) => {
 router.get('/guild-leaderboards', authenticateToken, async (req, res) => {
   try {
     const MIN_FIGHTS = 1;
+    const CURRENT_BOSS_CTE = `WITH current_boss_ids AS (
+      SELECT wb.id FROM wcl_bosses wb JOIN wcl_zones wz ON wb.zone_id = wz.id WHERE wz.is_current = 1
+    )`;
 
-    // Top 10 DPS — best single fight DPS (kills only) + external buffs, DPS players only
-    const topDps = await req.db.all(`
-      WITH current_boss_ids AS (
-        SELECT wb.id FROM wcl_bosses wb JOIN wcl_zones wz ON wb.zone_id = wz.id WHERE wz.is_current = 1
-      ),
-      player_totals AS (
-        SELECT user_id, COUNT(*) as fights,
-               SUM(healing_done) as total_healing, SUM(damage_done) as total_damage
-        FROM player_fight_performance
-        WHERE dps > 0 AND is_kill = 1 AND boss_id IN (SELECT id FROM current_boss_ids)
-        GROUP BY user_id
-        HAVING COUNT(*) >= ? AND SUM(healing_done) < SUM(damage_done)
-      ),
-      best AS (
-        SELECT pfp.user_id, pfp.dps, pfp.external_buffs_json,
-               ROW_NUMBER() OVER (PARTITION BY pfp.user_id ORDER BY pfp.dps DESC) as rn
+    const [topDps, topHps, topDeaths, topDamageTaken, topPotions, topInterrupts, topDispels, topCombatPotions, topHealthstones, topManaPotions, topAttendance] = await Promise.all([
+      // Top 10 DPS — best single fight DPS (kills only) + external buffs, DPS players only
+      req.db.all(`
+        ${CURRENT_BOSS_CTE},
+        player_totals AS (
+          SELECT user_id, COUNT(*) as fights,
+                 SUM(healing_done) as total_healing, SUM(damage_done) as total_damage
+          FROM player_fight_performance
+          WHERE dps > 0 AND is_kill = 1 AND boss_id IN (SELECT id FROM current_boss_ids)
+          GROUP BY user_id
+          HAVING COUNT(*) >= ? AND SUM(healing_done) < SUM(damage_done)
+        ),
+        best AS (
+          SELECT pfp.user_id, pfp.dps, pfp.external_buffs_json,
+                 ROW_NUMBER() OVER (PARTITION BY pfp.user_id ORDER BY pfp.dps DESC) as rn
+          FROM player_fight_performance pfp
+          JOIN player_totals pt ON pfp.user_id = pt.user_id
+          WHERE pfp.dps > 0 AND pfp.is_kill = 1 AND pfp.boss_id IN (SELECT id FROM current_boss_ids)
+        )
+        SELECT u.character_name, u.character_class,
+               ROUND(b.dps) as value, b.external_buffs_json, pt.fights
+        FROM best b
+        JOIN users u ON b.user_id = u.id
+        JOIN player_totals pt ON b.user_id = pt.user_id
+        WHERE b.rn = 1
+        ORDER BY value DESC LIMIT 10
+      `, MIN_FIGHTS),
+
+      // Top 10 HPS — best single fight HPS (kills only) + external buffs, healers only
+      req.db.all(`
+        ${CURRENT_BOSS_CTE},
+        player_totals AS (
+          SELECT user_id, COUNT(*) as fights,
+                 SUM(healing_done) as total_healing, SUM(damage_done) as total_damage
+          FROM player_fight_performance
+          WHERE hps > 0 AND is_kill = 1 AND boss_id IN (SELECT id FROM current_boss_ids)
+          GROUP BY user_id
+          HAVING COUNT(*) >= ? AND SUM(healing_done) > SUM(damage_done)
+        ),
+        best AS (
+          SELECT pfp.user_id, pfp.hps, pfp.external_buffs_json,
+                 ROW_NUMBER() OVER (PARTITION BY pfp.user_id ORDER BY pfp.hps DESC) as rn
+          FROM player_fight_performance pfp
+          JOIN player_totals pt ON pfp.user_id = pt.user_id
+          WHERE pfp.hps > 0 AND pfp.is_kill = 1 AND pfp.boss_id IN (SELECT id FROM current_boss_ids)
+        )
+        SELECT u.character_name, u.character_class,
+               ROUND(b.hps) as value, b.external_buffs_json, pt.fights
+        FROM best b
+        JOIN users u ON b.user_id = u.id
+        JOIN player_totals pt ON b.user_id = pt.user_id
+        WHERE b.rn = 1
+        ORDER BY value DESC LIMIT 10
+      `, MIN_FIGHTS),
+
+      // Top 10 Deaths
+      req.db.all(`
+        SELECT u.character_name, u.character_class,
+               SUM(pbd.total_deaths) as value,
+               SUM(pbd.total_fights) as fights
+        FROM player_boss_deaths pbd
+        JOIN users u ON pbd.user_id = u.id
+        JOIN wcl_bosses wb ON pbd.boss_id = wb.id
+        JOIN wcl_zones wz ON wb.zone_id = wz.id
+        WHERE wz.is_current = 1
+        GROUP BY pbd.user_id
+        HAVING SUM(pbd.total_fights) >= ?
+        ORDER BY value DESC LIMIT 10
+      `, MIN_FIGHTS),
+
+      // Top 10 Damage Taken
+      req.db.all(`
+        SELECT u.character_name, u.character_class,
+               SUM(pfp.damage_taken) as value,
+               COUNT(*) as fights
         FROM player_fight_performance pfp
-        JOIN player_totals pt ON pfp.user_id = pt.user_id
-        WHERE pfp.dps > 0 AND pfp.is_kill = 1 AND pfp.boss_id IN (SELECT id FROM current_boss_ids)
-      )
-      SELECT u.character_name, u.character_class,
-             ROUND(b.dps) as value, b.external_buffs_json, pt.fights
-      FROM best b
-      JOIN users u ON b.user_id = u.id
-      JOIN player_totals pt ON b.user_id = pt.user_id
-      WHERE b.rn = 1
-      ORDER BY value DESC LIMIT 10
-    `, MIN_FIGHTS);
+        JOIN users u ON pfp.user_id = u.id
+        WHERE pfp.damage_taken > 0
+          AND pfp.is_kill = 1
+          AND u.raid_role != 'Tank'
+          AND pfp.boss_id IN (SELECT wb.id FROM wcl_bosses wb JOIN wcl_zones wz ON wb.zone_id = wz.id WHERE wz.is_current = 1)
+        GROUP BY pfp.user_id
+        HAVING COUNT(*) >= ?
+          AND SUM(pfp.healing_done) < SUM(pfp.damage_done)
+        ORDER BY value DESC LIMIT 10
+      `, MIN_FIGHTS),
 
-    // Top 10 HPS — best single fight HPS (kills only) + external buffs, healers only
-    const topHps = await req.db.all(`
-      WITH current_boss_ids AS (
-        SELECT wb.id FROM wcl_bosses wb JOIN wcl_zones wz ON wb.zone_id = wz.id WHERE wz.is_current = 1
-      ),
-      player_totals AS (
-        SELECT user_id, COUNT(*) as fights,
-               SUM(healing_done) as total_healing, SUM(damage_done) as total_damage
-        FROM player_fight_performance
-        WHERE hps > 0 AND is_kill = 1 AND boss_id IN (SELECT id FROM current_boss_ids)
-        GROUP BY user_id
-        HAVING COUNT(*) >= ? AND SUM(healing_done) > SUM(damage_done)
-      ),
-      best AS (
-        SELECT pfp.user_id, pfp.hps, pfp.external_buffs_json,
-               ROW_NUMBER() OVER (PARTITION BY pfp.user_id ORDER BY pfp.hps DESC) as rn
+      // Top 10 Health Potions
+      req.db.all(`
+        SELECT u.character_name, u.character_class,
+               SUM(pfp.health_potions) as value,
+               COUNT(*) as fights
         FROM player_fight_performance pfp
-        JOIN player_totals pt ON pfp.user_id = pt.user_id
-        WHERE pfp.hps > 0 AND pfp.is_kill = 1 AND pfp.boss_id IN (SELECT id FROM current_boss_ids)
-      )
-      SELECT u.character_name, u.character_class,
-             ROUND(b.hps) as value, b.external_buffs_json, pt.fights
-      FROM best b
-      JOIN users u ON b.user_id = u.id
-      JOIN player_totals pt ON b.user_id = pt.user_id
-      WHERE b.rn = 1
-      ORDER BY value DESC LIMIT 10
-    `, MIN_FIGHTS);
+        JOIN users u ON pfp.user_id = u.id
+        WHERE pfp.boss_id IN (SELECT wb.id FROM wcl_bosses wb JOIN wcl_zones wz ON wb.zone_id = wz.id WHERE wz.is_current = 1)
+        GROUP BY pfp.user_id
+        HAVING COUNT(*) >= ? AND SUM(pfp.health_potions) > 0
+        ORDER BY value DESC LIMIT 10
+      `, MIN_FIGHTS),
 
-    // Top 10 Deaths — hall of shame — only current-season bosses
-    const topDeaths = await req.db.all(`
-      SELECT u.character_name, u.character_class,
-             SUM(pbd.total_deaths) as value,
-             SUM(pbd.total_fights) as fights
-      FROM player_boss_deaths pbd
-      JOIN users u ON pbd.user_id = u.id
-      JOIN wcl_bosses wb ON pbd.boss_id = wb.id
-      JOIN wcl_zones wz ON wb.zone_id = wz.id
-      WHERE wz.is_current = 1
-      GROUP BY pbd.user_id
-      HAVING SUM(pbd.total_fights) >= ?
-      ORDER BY value DESC LIMIT 10
-    `, MIN_FIGHTS);
+      // Top 10 Interrupts
+      req.db.all(`
+        SELECT u.character_name, u.character_class,
+               SUM(pfp.interrupts) as value,
+               COUNT(*) as fights
+        FROM player_fight_performance pfp
+        JOIN users u ON pfp.user_id = u.id
+        WHERE pfp.boss_id IN (SELECT wb.id FROM wcl_bosses wb JOIN wcl_zones wz ON wb.zone_id = wz.id WHERE wz.is_current = 1)
+        GROUP BY pfp.user_id
+        HAVING COUNT(*) >= ? AND SUM(pfp.interrupts) > 0
+        ORDER BY value DESC LIMIT 10
+      `, MIN_FIGHTS),
 
-    // Top 10 Damage Taken — kills only, excludes tanks and healers
-    const topDamageTaken = await req.db.all(`
-      SELECT u.character_name, u.character_class,
-             SUM(pfp.damage_taken) as value,
-             COUNT(*) as fights
-      FROM player_fight_performance pfp
-      JOIN users u ON pfp.user_id = u.id
-      WHERE pfp.damage_taken > 0
-        AND pfp.is_kill = 1
-        AND u.raid_role != 'Tank'
-        AND pfp.boss_id IN (SELECT wb.id FROM wcl_bosses wb JOIN wcl_zones wz ON wb.zone_id = wz.id WHERE wz.is_current = 1)
-      GROUP BY pfp.user_id
-      HAVING COUNT(*) >= ?
-        AND SUM(pfp.healing_done) < SUM(pfp.damage_done)
-      ORDER BY value DESC LIMIT 10
-    `, MIN_FIGHTS);
+      // Top 10 Dispels
+      req.db.all(`
+        SELECT u.character_name, u.character_class,
+               SUM(pfp.dispels) as value
+        FROM player_fight_performance pfp
+        JOIN users u ON pfp.user_id = u.id
+        WHERE pfp.boss_id IN (SELECT wb.id FROM wcl_bosses wb JOIN wcl_zones wz ON wb.zone_id = wz.id WHERE wz.is_current = 1)
+        GROUP BY pfp.user_id
+        HAVING COUNT(*) >= ? AND SUM(pfp.dispels) > 0
+        ORDER BY value DESC LIMIT 10
+      `, MIN_FIGHTS),
 
-    // Top 10 Health Potions — only current-season bosses
-    const topPotions = await req.db.all(`
-      SELECT u.character_name, u.character_class,
-             SUM(pfp.health_potions) as value,
-             COUNT(*) as fights
-      FROM player_fight_performance pfp
-      JOIN users u ON pfp.user_id = u.id
-      WHERE pfp.boss_id IN (SELECT wb.id FROM wcl_bosses wb JOIN wcl_zones wz ON wb.zone_id = wz.id WHERE wz.is_current = 1)
-      GROUP BY pfp.user_id
-      HAVING COUNT(*) >= ? AND SUM(pfp.health_potions) > 0
-      ORDER BY value DESC LIMIT 10
-    `, MIN_FIGHTS);
+      // Top 10 Combat Potions
+      req.db.all(`
+        SELECT u.character_name, u.character_class,
+               SUM(pfp.combat_potions) as value
+        FROM player_fight_performance pfp
+        JOIN users u ON pfp.user_id = u.id
+        WHERE pfp.boss_id IN (SELECT wb.id FROM wcl_bosses wb JOIN wcl_zones wz ON wb.zone_id = wz.id WHERE wz.is_current = 1)
+        GROUP BY pfp.user_id
+        HAVING COUNT(*) >= ? AND SUM(pfp.combat_potions) > 0
+        ORDER BY value DESC LIMIT 10
+      `, MIN_FIGHTS),
 
-    // Top 10 Interrupts — only current-season bosses
-    const topInterrupts = await req.db.all(`
-      SELECT u.character_name, u.character_class,
-             SUM(pfp.interrupts) as value,
-             COUNT(*) as fights
-      FROM player_fight_performance pfp
-      JOIN users u ON pfp.user_id = u.id
-      WHERE pfp.boss_id IN (SELECT wb.id FROM wcl_bosses wb JOIN wcl_zones wz ON wb.zone_id = wz.id WHERE wz.is_current = 1)
-      GROUP BY pfp.user_id
-      HAVING COUNT(*) >= ? AND SUM(pfp.interrupts) > 0
-      ORDER BY value DESC LIMIT 10
-    `, MIN_FIGHTS);
+      // Top 10 Healthstones
+      req.db.all(`
+        SELECT u.character_name, u.character_class,
+               SUM(pfp.healthstones) as value
+        FROM player_fight_performance pfp
+        JOIN users u ON pfp.user_id = u.id
+        WHERE pfp.boss_id IN (SELECT wb.id FROM wcl_bosses wb JOIN wcl_zones wz ON wb.zone_id = wz.id WHERE wz.is_current = 1)
+        GROUP BY pfp.user_id
+        HAVING COUNT(*) >= ? AND SUM(pfp.healthstones) > 0
+        ORDER BY value DESC LIMIT 10
+      `, MIN_FIGHTS),
 
-    // Top 10 Dispels — only current-season bosses
-    const topDispels = await req.db.all(`
-      SELECT u.character_name, u.character_class,
-             SUM(pfp.dispels) as value
-      FROM player_fight_performance pfp
-      JOIN users u ON pfp.user_id = u.id
-      WHERE pfp.boss_id IN (SELECT wb.id FROM wcl_bosses wb JOIN wcl_zones wz ON wb.zone_id = wz.id WHERE wz.is_current = 1)
-      GROUP BY pfp.user_id
-      HAVING COUNT(*) >= ? AND SUM(pfp.dispels) > 0
-      ORDER BY value DESC LIMIT 10
-    `, MIN_FIGHTS);
+      // Top 10 Mana Potions
+      req.db.all(`
+        SELECT u.character_name, u.character_class,
+               SUM(pfp.mana_potions) as value
+        FROM player_fight_performance pfp
+        JOIN users u ON pfp.user_id = u.id
+        WHERE pfp.boss_id IN (SELECT wb.id FROM wcl_bosses wb JOIN wcl_zones wz ON wb.zone_id = wz.id WHERE wz.is_current = 1)
+        GROUP BY pfp.user_id
+        HAVING COUNT(*) >= ? AND SUM(pfp.mana_potions) > 0
+        ORDER BY value DESC LIMIT 10
+      `, MIN_FIGHTS),
 
-    // Top 10 Combat Potions — only current-season bosses
-    const topCombatPotions = await req.db.all(`
-      SELECT u.character_name, u.character_class,
-             SUM(pfp.combat_potions) as value
-      FROM player_fight_performance pfp
-      JOIN users u ON pfp.user_id = u.id
-      WHERE pfp.boss_id IN (SELECT wb.id FROM wcl_bosses wb JOIN wcl_zones wz ON wb.zone_id = wz.id WHERE wz.is_current = 1)
-      GROUP BY pfp.user_id
-      HAVING COUNT(*) >= ? AND SUM(pfp.combat_potions) > 0
-      ORDER BY value DESC LIMIT 10
-    `, MIN_FIGHTS);
-
-    // Top 10 Healthstones — only current-season bosses
-    const topHealthstones = await req.db.all(`
-      SELECT u.character_name, u.character_class,
-             SUM(pfp.healthstones) as value
-      FROM player_fight_performance pfp
-      JOIN users u ON pfp.user_id = u.id
-      WHERE pfp.boss_id IN (SELECT wb.id FROM wcl_bosses wb JOIN wcl_zones wz ON wb.zone_id = wz.id WHERE wz.is_current = 1)
-      GROUP BY pfp.user_id
-      HAVING COUNT(*) >= ? AND SUM(pfp.healthstones) > 0
-      ORDER BY value DESC LIMIT 10
-    `, MIN_FIGHTS);
-
-    // Top 10 Mana Potions — only current-season bosses
-    const topManaPotions = await req.db.all(`
-      SELECT u.character_name, u.character_class,
-             SUM(pfp.mana_potions) as value
-      FROM player_fight_performance pfp
-      JOIN users u ON pfp.user_id = u.id
-      WHERE pfp.boss_id IN (SELECT wb.id FROM wcl_bosses wb JOIN wcl_zones wz ON wb.zone_id = wz.id WHERE wz.is_current = 1)
-      GROUP BY pfp.user_id
-      HAVING COUNT(*) >= ? AND SUM(pfp.mana_potions) > 0
-      ORDER BY value DESC LIMIT 10
-    `, MIN_FIGHTS);
-
-    // Top 10 Attendance — unique raid days attended, only current-season bosses
-    const topAttendance = await req.db.all(`
-      SELECT u.character_name, u.character_class,
-             COUNT(DISTINCT pfp.fight_date) as value
-      FROM player_fight_performance pfp
-      JOIN users u ON pfp.user_id = u.id
-      WHERE pfp.boss_id IN (SELECT wb.id FROM wcl_bosses wb JOIN wcl_zones wz ON wb.zone_id = wz.id WHERE wz.is_current = 1)
-      GROUP BY pfp.user_id
-      HAVING COUNT(DISTINCT pfp.fight_date) >= ?
-      ORDER BY value DESC LIMIT 10
-    `, MIN_FIGHTS);
+      // Top 10 Attendance
+      req.db.all(`
+        SELECT u.character_name, u.character_class,
+               COUNT(DISTINCT pfp.fight_date) as value
+        FROM player_fight_performance pfp
+        JOIN users u ON pfp.user_id = u.id
+        WHERE pfp.boss_id IN (SELECT wb.id FROM wcl_bosses wb JOIN wcl_zones wz ON wb.zone_id = wz.id WHERE wz.is_current = 1)
+        GROUP BY pfp.user_id
+        HAVING COUNT(DISTINCT pfp.fight_date) >= ?
+        ORDER BY value DESC LIMIT 10
+      `, MIN_FIGHTS),
+    ]);
 
     return success(res, { topDps, topHps, topDeaths, topDamageTaken, topPotions, topInterrupts, topDispels, topCombatPotions, topHealthstones, topManaPotions, topAttendance });
   } catch (err) {

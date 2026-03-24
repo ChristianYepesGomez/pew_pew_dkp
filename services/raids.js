@@ -238,80 +238,87 @@ export async function seedRaidData(db) {
  * Get all zones with bosses, separated by current/legacy
  */
 export async function getAllZonesWithBosses(db) {
-  const zones = await db.all(`
-    SELECT z.*,
-           (SELECT COUNT(*) FROM wcl_bosses WHERE zone_id = z.id) as boss_count
+  // Single query: fetch all current zones + bosses + highest-difficulty stats in one shot
+  const rows = await db.all(`
+    WITH ranked_stats AS (
+      SELECT bs.*,
+             ROW_NUMBER() OVER (
+               PARTITION BY bs.boss_id
+               ORDER BY CASE bs.difficulty
+                 WHEN 'Mythic' THEN 3
+                 WHEN 'Heroic' THEN 2
+                 WHEN 'Normal' THEN 1
+                 ELSE 0
+               END DESC
+             ) AS rn
+      FROM boss_statistics bs
+    )
+    SELECT z.id as zone_id, z.wcl_zone_id, z.name as zone_name, z.slug as zone_slug,
+           z.expansion, z.tier,
+           b.id as boss_id, b.wcl_encounter_id, b.name as boss_name, b.slug as boss_slug,
+           b.boss_order, b.mythic_trap_url, b.image_url,
+           rs.difficulty as highest_difficulty,
+           rs.total_kills as kills,
+           rs.total_wipes as wipes,
+           rs.fastest_kill_ms,
+           rs.last_kill_date
     FROM wcl_zones z
+    JOIN wcl_bosses b ON b.zone_id = z.id
+    LEFT JOIN ranked_stats rs ON rs.boss_id = b.id AND rs.rn = 1
     WHERE z.is_current = 1
-    ORDER BY z.tier DESC, z.name
+    ORDER BY z.tier DESC, z.name, b.boss_order
   `);
 
+  // Group rows by zone
+  const DIFF_PRIORITY = { 'Mythic': 3, 'Heroic': 2, 'Normal': 1, 'LFR': 0 };
+  const zoneMap = new Map();
+
+  for (const r of rows) {
+    if (!zoneMap.has(r.zone_id)) {
+      zoneMap.set(r.zone_id, {
+        id: r.zone_id,
+        wclZoneId: r.wcl_zone_id,
+        name: r.zone_name,
+        slug: r.zone_slug,
+        expansion: r.expansion,
+        tier: r.tier,
+        bosses: [],
+      });
+    }
+    zoneMap.get(r.zone_id).bosses.push({
+      id: r.boss_id,
+      encounterID: r.wcl_encounter_id,
+      name: r.boss_name,
+      slug: r.boss_slug,
+      order: r.boss_order,
+      mythicTrapUrl: r.mythic_trap_url,
+      imageUrl: r.image_url,
+      highestDifficulty: r.highest_difficulty,
+      kills: r.kills || 0,
+      wipes: r.wipes || 0,
+      fastestKill: r.fastest_kill_ms ? formatDuration(r.fastest_kill_ms) : null,
+      lastKill: r.last_kill_date,
+    });
+  }
+
   const result = [];
-
-  for (const zone of zones) {
-    const bosses = await db.all(`
-      SELECT b.*,
-             bs.difficulty as highest_difficulty,
-             bs.total_kills as kills,
-             bs.total_wipes as wipes,
-             bs.fastest_kill_ms,
-             bs.last_kill_date
-      FROM wcl_bosses b
-      LEFT JOIN boss_statistics bs ON b.id = bs.boss_id
-        AND bs.difficulty = (
-          SELECT difficulty FROM boss_statistics
-          WHERE boss_id = b.id
-          ORDER BY CASE difficulty
-            WHEN 'Mythic' THEN 3
-            WHEN 'Heroic' THEN 2
-            WHEN 'Normal' THEN 1
-            ELSE 0
-          END DESC
-          LIMIT 1
-        )
-      WHERE b.zone_id = ?
-      ORDER BY b.boss_order
-    `, zone.id);
-
-    // Calculate progress - find ACTUAL highest difficulty across all bosses with kills
-    const DIFF_PRIORITY = { 'Mythic': 3, 'Heroic': 2, 'Normal': 1, 'LFR': 0 };
-    const bossesWithKills = bosses.filter(b => b.kills > 0);
+  for (const zone of zoneMap.values()) {
+    const bossCount = zone.bosses.length;
+    const bossesWithKills = zone.bosses.filter(b => b.kills > 0);
     const highestDiff = bossesWithKills.length > 0
       ? bossesWithKills.reduce((best, b) =>
-          (DIFF_PRIORITY[b.highest_difficulty] || 0) > (DIFF_PRIORITY[best] || 0) ? b.highest_difficulty : best
-        , bossesWithKills[0].highest_difficulty)
+          (DIFF_PRIORITY[b.highestDifficulty] || 0) > (DIFF_PRIORITY[best] || 0) ? b.highestDifficulty : best
+        , bossesWithKills[0].highestDifficulty)
       : null;
-    const bossesKilled = bossesWithKills.filter(b => b.highest_difficulty === highestDiff).length;
+    const bossesKilled = bossesWithKills.filter(b => b.highestDifficulty === highestDiff).length;
     const diffShort = highestDiff ? highestDiff.charAt(0) : '';
-    const progress = highestDiff ? `${bossesKilled}/${zone.boss_count} ${diffShort}` : null;
 
-    const zoneData = {
-      id: zone.id,
-      wclZoneId: zone.wcl_zone_id,
-      name: zone.name,
-      slug: zone.slug,
-      expansion: zone.expansion,
-      tier: zone.tier,
-      bossCount: zone.boss_count,
-      progress,
+    result.push({
+      ...zone,
+      bossCount,
+      progress: highestDiff ? `${bossesKilled}/${bossCount} ${diffShort}` : null,
       highestDifficulty: highestDiff,
-      bosses: bosses.map(b => ({
-        id: b.id,
-        encounterID: b.wcl_encounter_id,
-        name: b.name,
-        slug: b.slug,
-        order: b.boss_order,
-        mythicTrapUrl: b.mythic_trap_url,
-        imageUrl: b.image_url,
-        highestDifficulty: b.highest_difficulty,
-        kills: b.kills || 0,
-        wipes: b.wipes || 0,
-        fastestKill: b.fastest_kill_ms ? formatDuration(b.fastest_kill_ms) : null,
-        lastKill: b.last_kill_date,
-      }))
-    };
-
-    result.push(zoneData);
+    });
   }
 
   return result;
@@ -351,40 +358,39 @@ export async function getBossDetails(db, bossId, requestedDifficulty = null) {
     selectedDifficulty = availableDifficulties.length > 0 ? availableDifficulties[0].difficulty : 'Heroic';
   }
 
-  // Get statistics for selected difficulty
-  const stats = await db.get(`
-    SELECT id, boss_id, difficulty, total_kills, total_wipes, fastest_kill_ms,
-           avg_kill_time_ms, total_kill_time_ms, last_kill_date,
-           wipes_to_first_kill, first_kill_date, updated_at
-    FROM boss_statistics WHERE boss_id = ? AND difficulty = ?
-  `, bossId, selectedDifficulty);
+  // Run all difficulty-specific queries in parallel
+  const [stats, deathLeaderboard, recentKills, records] = await Promise.all([
+    db.get(`
+      SELECT id, boss_id, difficulty, total_kills, total_wipes, fastest_kill_ms,
+             avg_kill_time_ms, total_kill_time_ms, last_kill_date,
+             wipes_to_first_kill, first_kill_date, updated_at
+      FROM boss_statistics WHERE boss_id = ? AND difficulty = ?
+    `, bossId, selectedDifficulty),
 
-  // Get death leaderboard
-  const deathLeaderboard = await db.all(`
-    SELECT pbd.user_id, pbd.total_deaths, pbd.total_fights,
-           u.character_name, u.character_class
-    FROM player_boss_deaths pbd
-    JOIN users u ON pbd.user_id = u.id
-    WHERE pbd.boss_id = ? AND pbd.difficulty = ?
-    ORDER BY pbd.total_deaths DESC
-    LIMIT 20
-  `, bossId, selectedDifficulty);
+    db.all(`
+      SELECT pbd.user_id, pbd.total_deaths, pbd.total_fights,
+             u.character_name, u.character_class
+      FROM player_boss_deaths pbd
+      JOIN users u ON pbd.user_id = u.id
+      WHERE pbd.boss_id = ? AND pbd.difficulty = ?
+      ORDER BY pbd.total_deaths DESC
+      LIMIT 20
+    `, bossId, selectedDifficulty),
 
-  // Get recent kills
-  const recentKills = await db.all(`
-    SELECT id, boss_id, difficulty, report_code, fight_id, kill_time_ms, kill_date, created_at
-    FROM boss_kill_log
-    WHERE boss_id = ? AND difficulty = ?
-    ORDER BY kill_date DESC, created_at DESC
-    LIMIT 10
-  `, bossId, selectedDifficulty);
+    db.all(`
+      SELECT id, boss_id, difficulty, report_code, fight_id, kill_time_ms, kill_date, created_at
+      FROM boss_kill_log
+      WHERE boss_id = ? AND difficulty = ?
+      ORDER BY kill_date DESC, created_at DESC
+      LIMIT 10
+    `, bossId, selectedDifficulty),
 
-  // Get boss records (top performers)
-  const records = await db.all(`
-    SELECT id, boss_id, difficulty, record_type, user_id, value,
-           character_name, character_class, report_code, fight_id, recorded_at
-    FROM boss_records WHERE boss_id = ? AND difficulty = ?
-  `, bossId, selectedDifficulty);
+    db.all(`
+      SELECT id, boss_id, difficulty, record_type, user_id, value,
+             character_name, character_class, report_code, fight_id, recorded_at
+      FROM boss_records WHERE boss_id = ? AND difficulty = ?
+    `, bossId, selectedDifficulty),
+  ]);
 
   // Format records by type
   const recordsMap = {};
