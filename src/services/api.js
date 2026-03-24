@@ -112,6 +112,7 @@ export const auctionsAPI = {
   bid: (auctionId, amount) => api.post(`/auctions/${auctionId}/bid`, { amount }),
   end: (auctionId) => api.post(`/auctions/${auctionId}/end`),
   cancel: (auctionId) => api.post(`/auctions/${auctionId}/cancel`),
+  reset: (auctionId) => api.post(`/auctions/${auctionId}/reset`),
 }
 
 export const warcraftLogsAPI = {

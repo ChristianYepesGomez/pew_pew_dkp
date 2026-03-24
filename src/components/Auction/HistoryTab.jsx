@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
-import { CircleNotch, ClockCounterClockwise, Diamond, Trophy, DoorOpen, CaretRight, CaretUp, CaretDown, X, DiceFive, Gavel } from '@phosphor-icons/react'
+import { CircleNotch, ClockCounterClockwise, Diamond, Trophy, DoorOpen, CaretRight, CaretUp, CaretDown, X, DiceFive, Gavel, Prohibit } from '@phosphor-icons/react'
 import { useSocket } from '../../hooks/useSocket'
 import { useLanguage } from '../../hooks/useLanguage'
 import { auctionsAPI } from '../../services/api'
@@ -46,7 +46,7 @@ const HistoryTab = ({ onNavigate }) => {
   }
 
   useEffect(() => { loadHistory() }, [])
-  useSocket({ auction_ended: loadHistory })
+  useSocket({ auction_ended: loadHistory, auction_cancelled: loadHistory })
 
   const formatDate = (dateStr) => {
     const date = new Date(dateStr)
@@ -115,13 +115,14 @@ const HistoryTab = ({ onNavigate }) => {
             }
 
             // Normal auction entry
+            const isCancelled = a.status === 'cancelled'
             const hasWinner = a.status === 'completed' && a.winner
             const bidsData = expandedBids[a.id]
             const isExpanded = bidsData && bidsData !== 'loading'
             const isLoading = bidsData === 'loading'
 
             return (
-              <div key={a.id} className="overflow-hidden rounded-xl bg-indigo outline outline-2 outline-lavender-20">
+              <div key={a.id} className={`overflow-hidden rounded-xl bg-indigo outline outline-2 ${isCancelled ? 'outline-red-500/30 opacity-60' : 'outline-lavender-20'}`}>
                 <div className="p-4 flex items-center gap-4">
                 {/* Item Icon */}
                 <WowheadTooltip itemId={a.item_id}>
@@ -182,6 +183,11 @@ const HistoryTab = ({ onNavigate }) => {
                       <p className="text-xs text-lavender m-0 mb-1">{t('dkp_spent')}</p>
                       <p className="font-bold text-red-400 m-0">-{a.winning_bid} DKP</p>
                     </div>
+                  </div>
+                ) : isCancelled ? (
+                  <div className="flex items-center gap-2 rounded-full bg-red-500/10 px-3 py-1.5">
+                    <Prohibit size={16} className="text-red-400" weight="bold" />
+                    <span className="text-sm font-semibold text-red-400">{t('auction_cancelled')}</span>
                   </div>
                 ) : (
                   <div className="text-right">

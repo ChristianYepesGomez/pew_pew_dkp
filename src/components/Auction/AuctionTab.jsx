@@ -40,6 +40,8 @@ import {
   Trophy,
   Crown,
   ClockCounterClockwise,
+  ArrowCounterClockwise,
+  Lock,
 } from '@phosphor-icons/react'
 
 // Map FA icon class names to Phosphor components for dynamic sound icon rendering
@@ -534,7 +536,8 @@ const AuctionTab = ({ onNavigate }) => {
     auction_started: handleAuctionStarted,
     auction_ended: handleAuctionEnded,
     bid_placed: handleBidPlaced,
-    auction_cancelled: loadAuctions
+    auction_cancelled: loadAuctions,
+    auction_reset: loadAuctions
   })
 
   const handleCreateSuccess = () => {
@@ -554,6 +557,16 @@ const AuctionTab = ({ onNavigate }) => {
       loadAuctions()
     } catch (err) {
       console.error('Cancel auction error:', err)
+    }
+  }
+
+  const handleResetAuction = async (auctionId) => {
+    if (!window.confirm(t('confirm_reset_auction'))) return
+    try {
+      await auctionsAPI.reset(auctionId)
+      loadAuctions()
+    } catch (err) {
+      console.error('Reset auction error:', err)
     }
   }
 
@@ -863,28 +876,46 @@ const AuctionTab = ({ onNavigate }) => {
 
                     {/* Action Buttons */}
                     <div className="flex w-full shrink-0 gap-2 lg:w-auto">
-                      <Button
-                        onClick={() => setBidModal({ open: true, auction })}
-                        disabled={isExpired}
-                        variant="success"
-                        size="md"
-                        radius="pill"
-                        icon={HandCoins}
-                        className="flex-1 font-bold lg:flex-initial"
-                      >
-                        {t('place_bid')}
-                      </Button>
+                      {(() => {
+                        const classRestricted = auction.eligibleClasses && !auction.eligibleClasses.includes(user?.characterClass)
+                        return (
+                          <Button
+                            onClick={() => setBidModal({ open: true, auction })}
+                            disabled={isExpired || classRestricted}
+                            variant="success"
+                            size="md"
+                            radius="pill"
+                            icon={classRestricted ? Lock : HandCoins}
+                            className="flex-1 font-bold lg:flex-initial"
+                            title={classRestricted ? `${t('class_restricted')}: ${auction.eligibleClasses.join(', ')}` : ''}
+                          >
+                            {classRestricted ? t('class_restricted') : t('place_bid')}
+                          </Button>
+                        )
+                      })()}
                       {isAdmin && (
-                        <Button
-                          onClick={() => handleCancelAuction(auction.id)}
-                          variant="danger"
-                          size="md"
-                          radius="pill"
-                          icon={X}
-                          className="flex-1 font-bold lg:flex-initial"
-                        >
-                          {t('cancel_auction')}
-                        </Button>
+                        <>
+                          <Button
+                            onClick={() => handleResetAuction(auction.id)}
+                            variant="warning"
+                            size="md"
+                            radius="pill"
+                            icon={ArrowCounterClockwise}
+                            className="flex-1 font-bold lg:flex-initial"
+                          >
+                            {t('reset_auction')}
+                          </Button>
+                          <Button
+                            onClick={() => handleCancelAuction(auction.id)}
+                            variant="danger"
+                            size="md"
+                            radius="pill"
+                            icon={X}
+                            className="flex-1 font-bold lg:flex-initial"
+                          >
+                            {t('cancel_auction')}
+                          </Button>
+                        </>
                       )}
                     </div>
                   </div>
@@ -908,6 +939,7 @@ const AuctionTab = ({ onNavigate }) => {
         <BidModal
           auction={bidModal.auction}
           userDkp={availableDkp}
+          userClass={user?.characterClass}
           onClose={() => setBidModal({ open: false, auction: null })}
           onSuccess={handleBidSuccess}
         />

@@ -4,9 +4,10 @@ import { useLanguage } from '../../hooks/useLanguage'
 import { auctionsAPI } from '../../services/api'
 import WowheadTooltip from '../Common/WowheadTooltip'
 import RARITY_COLORS from '../../utils/rarityColors'
-import { Diamond, X, WarningCircle, CircleNotch, HandCoins } from '@phosphor-icons/react'
+import { Diamond, X, WarningCircle, CircleNotch, HandCoins, Lock } from '@phosphor-icons/react'
 
-const BidModal = ({ auction, userDkp, onClose, onSuccess }) => {
+const BidModal = ({ auction, userDkp, userClass, onClose, onSuccess }) => {
+  const classRestricted = auction.eligibleClasses && !auction.eligibleClasses.includes(userClass)
   const { t } = useLanguage()
   const minBid = auction.currentBid || 1
   const [amount, setAmount] = useState(String(minBid))
@@ -107,6 +108,13 @@ const BidModal = ({ auction, userDkp, onClose, onSuccess }) => {
           </div>
         </div>
 
+        {/* Class restriction warning */}
+        {classRestricted && (
+          <div className="mx-6 mt-4 bg-yellow-500/20 border border-yellow-500 text-yellow-400 px-4 py-3 rounded-lg">
+            <Lock size={16} className="inline mr-2" />{t('class_restricted')}: {auction.eligibleClasses.join(', ')}
+          </div>
+        )}
+
         {/* Error */}
         {error && (
           <div className="mx-6 mt-4 bg-red-500/20 border border-red-500 text-red-400 px-4 py-3 rounded-lg">
@@ -153,7 +161,7 @@ const BidModal = ({ auction, userDkp, onClose, onSuccess }) => {
             </button>
             <button
               type="submit"
-              disabled={loading || numAmount < minBid || numAmount > userDkp}
+              disabled={loading || classRestricted || numAmount < minBid || numAmount > userDkp}
               className="flex-1 px-4 py-3 rounded-lg bg-gradient-to-r from-green-600 to-green-700 text-white font-bold hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? (
