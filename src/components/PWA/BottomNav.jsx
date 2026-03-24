@@ -18,7 +18,6 @@ const BottomNav = ({ activeTab, setActiveTab, calendarBadge, auctionCount }) => 
   const moreTabs = [
     { id: 'history', icon: 'fa-history', label: t('auction_history') },
     { id: 'bosses', icon: 'fa-dragon', label: t('bosses') },
-    { id: 'bis', icon: 'fa-scroll', label: t('bis') },
     ...(isAdmin ? [{ id: 'admin', icon: 'fa-crown', label: t('admin') }] : []),
   ]
 

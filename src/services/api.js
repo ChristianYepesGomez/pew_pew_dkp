@@ -184,16 +184,6 @@ export const buffsAPI = {
   },
 }
 
-export const bisAPI = {
-  getMy: () => api.get('/bis/my'),
-  getUser: (userId) => api.get(`/bis/user/${userId}`),
-  getItemUsers: (itemId) => api.get(`/bis/item/${itemId}`),
-  add: (data) => api.post('/bis', data),
-  update: (id, data) => api.put(`/bis/${id}`, data),
-  remove: (id) => api.delete(`/bis/${id}`),
-  reorder: (items) => api.put('/bis/reorder', { items }),
-}
-
 export const analyticsAPI = {
   getAttendance: (weeks = 8) => api.get(`/analytics/attendance?weeks=${weeks}`),
   getDkpTrends: (weeks = 12) => api.get(`/analytics/dkp-trends?weeks=${weeks}`),

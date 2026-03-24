@@ -1,6 +1,6 @@
 import { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react'
 import { createPortal } from 'react-dom'
-import { SignOut, CaretDown, IconContext, Crown, Translate, User, Users, Coins, Question, ClockCounterClockwise, Scroll, Wrench } from '@phosphor-icons/react'
+import { SignOut, CaretDown, IconContext, Crown, Translate, User, Users, Coins, Question, ClockCounterClockwise, Wrench } from '@phosphor-icons/react'
 import { useAuth } from '../../hooks/useAuth'
 import { useLanguage } from '../../hooks/useLanguage'
 import { useSocket } from '../../hooks/useSocket'
@@ -222,11 +222,6 @@ const Header = ({ tabs = [], activeTab, onTabChange }) => {
     closeUserMenu()
   }
 
-  const handleBisClick = () => {
-    onTabChange?.('bis')
-    closeUserMenu()
-  }
-
   const handleAdminClick = () => {
     onTabChange?.('admin')
     closeUserMenu()
@@ -362,13 +357,6 @@ const Header = ({ tabs = [], activeTab, onTabChange }) => {
             onClick={handleHistoryClick}
           >
             {t('auction_history')}
-          </PopoverMenuItem>
-
-          <PopoverMenuItem
-            leading={<Scroll size={18} />}
-            onClick={handleBisClick}
-          >
-            {t('bis')}
           </PopoverMenuItem>
 
           <PopoverMenuItem

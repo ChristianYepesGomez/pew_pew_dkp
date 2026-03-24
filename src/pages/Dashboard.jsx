@@ -12,7 +12,6 @@ import CalendarTab from '../components/Calendar/CalendarTab'
 import AdminTab from '../components/Admin/AdminTab'
 import BossesTab from '../components/Bosses/BossesTab'
 import AnalyticsTab from '../components/Analytics/AnalyticsTab'
-import BISTab from '../components/BIS/BISTab'
 
 const Dashboard = () => {
   const [activeTab, setActiveTab] = useState('members')
@@ -64,7 +63,7 @@ const Dashboard = () => {
       } catch { /* silent */ }
     }
     checkUnconfirmed()
-  }, [activeTab])
+  }, [])
 
   const tabs = [
     { id: 'members', icon: Users, label: t('members') },
@@ -85,7 +84,6 @@ const Dashboard = () => {
         {activeTab === 'auction' && <AuctionTab onNavigate={setActiveTab} />}
         {activeTab === 'history' && <HistoryTab onNavigate={setActiveTab} />}
         {activeTab === 'stats' && <AnalyticsTab />}
-        {activeTab === 'bis' && <BISTab />}
         {activeTab === 'admin' && isAdmin && <AdminTab />}
       </div>
 

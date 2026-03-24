@@ -2,9 +2,11 @@ import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '../../hooks/useAuth'
 import { useSocket } from '../../hooks/useSocket'
 import { useLanguage } from '../../hooks/useLanguage'
+import { useBosses } from '../../hooks/useQueries'
 import { bossesAPI, analyticsAPI } from '../../services/api'
 import CLASS_COLORS from '../../utils/classColors'
 import { CircleNotch, WarningCircle, Skull, BookOpen, CaretDown, CaretRight, CheckCircle, XCircle, Lightning, ArrowSquareOut, X, ChartBar, Trophy, Heart, ShieldStar, Fire, Flag, ClockCounterClockwise, Sword, Clipboard, Check, Pencil } from '@phosphor-icons/react'
+import { BossesSkeleton } from '../ui/Skeleton'
 import SectionHeader from '../ui/SectionHeader'
 
 // Difficulty colors
@@ -27,9 +29,7 @@ const BossesTab = () => {
   const { user } = useAuth()
   const canEdit = user?.role === 'admin' || user?.role === 'officer'
 
-  const [data, setData] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
+  const { data = [], isLoading: loading, error: queryError } = useBosses()
   const [expandedZones, setExpandedZones] = useState({})
   const [selectedBoss, setSelectedBoss] = useState(null)
   const [bossDetails, setBossDetails] = useState(null)
@@ -41,25 +41,12 @@ const BossesTab = () => {
   const [noNoteBossId, setNoNoteBossId] = useState(null)
   const [editState, setEditState] = useState(null) // { bossId, text, saving }
 
+  // Auto-expand first zone on initial data load
   useEffect(() => {
-    loadBosses()
-  }, [])
-
-  const loadBosses = async () => {
-    try {
-      setLoading(true)
-      const response = await bossesAPI.getAll()
-      setData(response.data)
-      // Auto-expand first zone
-      if (response.data.length > 0) {
-        setExpandedZones({ [response.data[0].id]: true })
-      }
-    } catch (err) {
-      setError(err.response?.data?.error || 'Failed to load bosses')
-    } finally {
-      setLoading(false)
+    if (data.length > 0 && Object.keys(expandedZones).length === 0) {
+      setExpandedZones({ [data[0].id]: true })
     }
-  }
+  }, [data])
 
   const toggleZone = (zoneId) => {
     setExpandedZones(prev => ({ ...prev, [zoneId]: !prev[zoneId] }))
@@ -147,17 +134,13 @@ const BossesTab = () => {
   })
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <CircleNotch size={32} className="animate-spin text-coral" />
-      </div>
-    )
+    return <BossesSkeleton />
   }
 
-  if (error) {
+  if (queryError) {
     return (
       <div className="rounded-2xl border border-red-500/50 bg-red-500/15 px-5 py-4 text-center text-red-300">
-        <WarningCircle size={18} className="mr-2 inline" />{error}
+        <WarningCircle size={18} className="mr-2 inline" />{queryError?.message || 'Failed to load bosses'}
       </div>
     )
   }

@@ -118,17 +118,3 @@ export function HistorySkeleton() {
   )
 }
 
-export function BISSkeleton() {
-  return (
-    <div className="space-y-6">
-      <div className="flex gap-2">
-        <Skeleton className="h-10 w-32 rounded-lg" />
-        <Skeleton className="h-10 w-32 rounded-lg" />
-      </div>
-      <div className="flex flex-col lg:flex-row gap-6">
-        <Skeleton className="lg:w-[280px] h-[400px] rounded-xl" />
-        <Skeleton className="flex-1 h-[400px] rounded-xl" />
-      </div>
-    </div>
-  )
-}

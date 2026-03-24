@@ -1,28 +1,26 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { createPortal } from 'react-dom'
 import { CircleNotch, ClockCounterClockwise, Diamond, Trophy, DoorOpen, CaretRight, CaretUp, CaretDown, X, DiceFive, Gavel, Prohibit } from '@phosphor-icons/react'
-import { useSocket } from '../../hooks/useSocket'
 import { useLanguage } from '../../hooks/useLanguage'
+import { useAuctionHistory } from '../../hooks/useQueries'
 import { auctionsAPI } from '../../services/api'
 import WowheadTooltip from '../Common/WowheadTooltip'
 import CLASS_COLORS from '../../utils/classColors'
 import RARITY_COLORS from '../../utils/rarityColors'
+import { HistorySkeleton } from '../ui/Skeleton'
 import SectionHeader from '../ui/SectionHeader'
 import SurfaceCard from '../ui/SurfaceCard'
 
 const HistoryTab = ({ onNavigate }) => {
   const { t, language } = useLanguage()
-  const [auctions, setAuctions] = useState([])
-  const [loading, setLoading] = useState(true)
+  const { data: auctions = [], isLoading: loading } = useAuctionHistory()
   const [farewellModal, setFarewellModal] = useState(null)
-  const [expandedBids, setExpandedBids] = useState({}) // { auctionId: bidsArray | 'loading' | null }
+  const [expandedBids, setExpandedBids] = useState({})
 
   const toggleBids = async (auctionId, bidCount) => {
     if (expandedBids[auctionId]) {
-      // Collapse
       setExpandedBids(prev => ({ ...prev, [auctionId]: null }))
     } else if (bidCount > 0) {
-      // Expand - fetch bids
       setExpandedBids(prev => ({ ...prev, [auctionId]: 'loading' }))
       try {
         const res = await auctionsAPI.getBids(auctionId)
@@ -33,20 +31,6 @@ const HistoryTab = ({ onNavigate }) => {
       }
     }
   }
-
-  const loadHistory = async () => {
-    try {
-      const response = await auctionsAPI.getHistory()
-      setAuctions(response.data)
-    } catch (error) {
-      console.error('Error loading history:', error)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  useEffect(() => { loadHistory() }, [])
-  useSocket({ auction_ended: loadHistory, auction_cancelled: loadHistory })
 
   const formatDate = (dateStr) => {
     const date = new Date(dateStr)
@@ -59,7 +43,7 @@ const HistoryTab = ({ onNavigate }) => {
     })
   }
 
-  if (loading) return <div className="flex items-center justify-center py-12"><CircleNotch size={32} className="animate-spin text-coral" /></div>
+  if (loading) return <HistorySkeleton />
 
   return (
     <div className="space-y-6">

@@ -1,14 +1,16 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { createPortal } from 'react-dom'
-import { Users, X, CircleNotch, Skull, Crown, CaretDown } from '@phosphor-icons/react'
+import { Users, X, Skull, Crown, CaretDown } from '@phosphor-icons/react'
+import { useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '../../hooks/useAuth'
-import { useSocket } from '../../hooks/useSocket'
 import { useLanguage } from '../../hooks/useLanguage'
+import { useMembers } from '../../hooks/useQueries'
 import { membersAPI, dkpAPI, buffsAPI } from '../../services/api'
 import DKPAdjustModal from './DKPAdjustModal'
 import ArmoryModal from './ArmoryModal'
 import VaultIcon from '../Common/VaultIcon'
 import CLASS_COLORS from '../../utils/classColors'
+import { MembersSkeleton } from '../ui/Skeleton'
 import SectionHeader from '../ui/SectionHeader'
 import PillInput from '../ui/PillInput'
 import PopoverMenu, { PopoverMenuItem } from '../ui/PopoverMenu'
@@ -82,8 +84,8 @@ const getSortValue = (member, field) => {
 const MembersTab = () => {
   const { user } = useAuth()
   const { t } = useLanguage()
-  const [members, setMembers] = useState([])
-  const [loading, setLoading] = useState(true)
+  const queryClient = useQueryClient()
+  const { data: members = [], isLoading: loading } = useMembers()
   const [adjustModal, setAdjustModal] = useState({ open: false, member: null })
   const [deleteModal, setDeleteModal] = useState({ open: false, member: null })
   const [deleteLoading, setDeleteLoading] = useState(false)
@@ -107,33 +109,14 @@ const MembersTab = () => {
   const [activeBuffs, setActiveBuffs] = useState({})
   const sseRef = useRef(null)
 
-  const loadMembers = async () => {
-    try {
-      const response = await membersAPI.getAll()
-      setMembers(response.data)
-    } catch (error) {
-      console.error('Error loading members:', error)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const refreshTimeoutRef = useRef(null)
-  const debouncedRefresh = useCallback(() => {
-    if (refreshTimeoutRef.current) clearTimeout(refreshTimeoutRef.current)
-    refreshTimeoutRef.current = setTimeout(() => {
-      loadMembers()
-    }, 100)
-  }, [])
-
-  useEffect(() => { loadMembers() }, [])
-  useSocket({ dkp_updated: debouncedRefresh, dkp_bulk_updated: debouncedRefresh, member_updated: debouncedRefresh })
+  const invalidateMembers = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: ['members'] })
+  }, [queryClient])
 
   useEffect(() => {
-    const refresh = () => loadMembers()
-    window.addEventListener('roster-refresh', refresh)
-    return () => window.removeEventListener('roster-refresh', refresh)
-  }, [])
+    window.addEventListener('roster-refresh', invalidateMembers)
+    return () => window.removeEventListener('roster-refresh', invalidateMembers)
+  }, [invalidateMembers])
 
   useEffect(() => {
     const token = localStorage.getItem('token')
@@ -264,7 +247,7 @@ const MembersTab = () => {
   const handleAdjustSubmit = async (amount, reason) => {
     try {
       await dkpAPI.adjust(adjustModal.member.id, amount, reason)
-      loadMembers()
+      invalidateMembers()
       setAdjustModal({ open: false, member: null })
     } catch (error) {
       alert(t('error_adjusting_dkp'))
@@ -276,7 +259,7 @@ const MembersTab = () => {
     setDeleteLoading(true)
     try {
       await membersAPI.remove(deleteModal.member.id)
-      loadMembers()
+      invalidateMembers()
       setDeleteModal({ open: false, member: null })
     } catch (error) {
       console.error('Error removing member:', error)
@@ -293,18 +276,18 @@ const MembersTab = () => {
 
     const previousState = member.weeklyVaultCompleted
 
-    setMembers(prev => prev.map(m =>
-      m.id === memberId ? { ...m, weeklyVaultCompleted: !previousState } : m
-    ))
+    queryClient.setQueryData(['members'], prev =>
+      (prev || []).map(m => m.id === memberId ? { ...m, weeklyVaultCompleted: !previousState } : m)
+    )
     setVaultLoading(memberId)
 
     try {
       await membersAPI.toggleVault(memberId)
     } catch (error) {
       console.error('Error toggling vault:', error)
-      setMembers(prev => prev.map(m =>
-        m.id === memberId ? { ...m, weeklyVaultCompleted: previousState } : m
-      ))
+      queryClient.setQueryData(['members'], prev =>
+        (prev || []).map(m => m.id === memberId ? { ...m, weeklyVaultCompleted: previousState } : m)
+      )
     } finally {
       setVaultLoading(null)
     }
@@ -312,8 +295,8 @@ const MembersTab = () => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-20">
-        <CircleNotch size={48} className="text-coral animate-spin" />
+      <div className="py-4">
+        <MembersSkeleton />
       </div>
     )
   }

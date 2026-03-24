@@ -1,11 +1,13 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { useLanguage } from '../../hooks/useLanguage'
 import { analyticsAPI } from '../../services/api'
 import CLASS_COLORS from '../../utils/classColors'
 import {
   Crosshair, Heart, Skull, Shield, Lightning, Drop, DropHalf,
-  CircleNotch, UsersThree, Sparkle, Flask, Calendar, FirstAidKit,
+  UsersThree, Sparkle, Flask, Calendar, FirstAidKit,
 } from '@phosphor-icons/react'
+import { AnalyticsSkeleton } from '../ui/Skeleton'
 import LeaderboardModal from './LeaderboardModal'
 import ExternalBuffBadge from './ExternalBuffBadge'
 import PercentileMatrix from './PercentileMatrix'
@@ -106,37 +108,24 @@ const LeaderboardCard = ({ cardKey, title, Icon, color, entries, format, valueCo
 
 const AnalyticsTab = () => {
   const { t } = useLanguage()
-  const [loading, setLoading] = useState(true)
-  const [myPerformance, setMyPerformance] = useState(null)
-  const [leaderboards, setLeaderboards] = useState(null)
-  const [openModal, setOpenModal] = useState(null) // key of the open leaderboard modal
+  const [openModal, setOpenModal] = useState(null)
 
-  useEffect(() => {
-    const loadAll = async () => {
-      setLoading(true)
-      try {
-        const [perfRes, lbRes] = await Promise.all([
-          analyticsAPI.getMyPerformance().catch(() => ({ data: null })),
-          analyticsAPI.getGuildLeaderboards().catch(() => ({ data: null })),
-        ])
-        setMyPerformance(perfRes.data)
-        setLeaderboards(lbRes.data)
-      } catch (err) {
-        console.error('Failed to load analytics:', err)
-      } finally {
-        setLoading(false)
-      }
-    }
-    loadAll()
-  }, [])
+  const { data, isLoading } = useQuery({
+    queryKey: ['analytics', 'tab'],
+    queryFn: async () => {
+      const [perfRes, lbRes] = await Promise.all([
+        analyticsAPI.getMyPerformance().catch(() => ({ data: null })),
+        analyticsAPI.getGuildLeaderboards().catch(() => ({ data: null })),
+      ])
+      return { myPerformance: perfRes.data, leaderboards: lbRes.data }
+    },
+  })
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center py-20">
-        <CircleNotch size={36} className="animate-spin text-coral" />
-      </div>
-    )
+  if (isLoading) {
+    return <AnalyticsSkeleton />
   }
+
+  const { myPerformance, leaderboards } = data || {}
 
   const myBosses = myPerformance?.bossBreakdown || []
 

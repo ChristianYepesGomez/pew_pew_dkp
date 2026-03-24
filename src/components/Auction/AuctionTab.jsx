@@ -4,12 +4,13 @@ import { useAuth } from '../../hooks/useAuth'
 import { useSocket } from '../../hooks/useSocket'
 import { useLanguage } from '../../hooks/useLanguage'
 import { useNotifications, NOTIFICATION_SOUNDS } from '../../hooks/useNotifications'
-import { auctionsAPI, bisAPI } from '../../services/api'
+import { auctionsAPI } from '../../services/api'
 import CreateAuctionModal from './CreateAuctionModal'
 import BidModal from './BidModal'
 import WowheadTooltip from '../Common/WowheadTooltip'
 import CLASS_COLORS from '../../utils/classColors'
 import RARITY_COLORS from '../../utils/rarityColors'
+import { AuctionsSkeleton } from '../ui/Skeleton'
 import SectionHeader from '../ui/SectionHeader'
 import SurfaceCard from '../ui/SurfaceCard'
 import Button from '../ui/Button'
@@ -32,11 +33,9 @@ import {
   GearSix,
   PlusCircle,
   Diamond,
-  Crosshair,
   DiceFive,
   HandCoins,
   ShieldStar,
-  Star,
   Trophy,
   Crown,
   ClockCounterClockwise,
@@ -325,7 +324,6 @@ const AuctionTab = ({ onNavigate }) => {
   const [bidModal, setBidModal] = useState({ open: false, auction: null })
   const [showSoundModal, setShowSoundModal] = useState(false)
   const [timeRemaining, setTimeRemaining] = useState({})
-  const [bisData, setBisData] = useState({}) // { auctionId: [{ user_id, character_name, priority }] }
   const [wonAuctions, setWonAuctions] = useState([]) // Auctions in "celebration" state for 15s
   const timerRef = useRef(null)
   const wonTimeoutsRef = useRef(new Map()) // Cleanup timeouts for won auctions
@@ -396,23 +394,6 @@ const AuctionTab = ({ onNavigate }) => {
   }
 
   useEffect(() => { loadAuctions() }, [])
-
-  // Load BIS data for active auctions
-  useEffect(() => {
-    const loadBIS = async () => {
-      const data = {}
-      for (const auction of auctions) {
-        if (auction.itemId) {
-          try {
-            const res = await bisAPI.getItemUsers(auction.itemId)
-            if (res.data?.length > 0) data[auction.id] = res.data
-          } catch { /* silent */ }
-        }
-      }
-      setBisData(data)
-    }
-    if (auctions.length > 0) loadBIS()
-  }, [auctions])
 
   useEffect(() => {
     if (auctions.length > 0) {
@@ -583,7 +564,7 @@ const AuctionTab = ({ onNavigate }) => {
     return 'text-green-400'
   }
 
-  if (loading) return <div className="text-center py-20"><CircleNotch size={48} className="text-coral animate-spin mx-auto" /></div>
+  if (loading) return <AuctionsSkeleton />
 
   return (
     <div className="space-y-6">
@@ -756,17 +737,10 @@ const AuctionTab = ({ onNavigate }) => {
             {auctions.map((auction) => {
               const time = timeRemaining[auction.id]
               const isExpired = time?.expired
-              const isMyBis = bisData[auction.id]?.some(b => b.user_id === user?.id)
-
               return (
                 <div
                   key={auction.id}
-                  className={`rounded-xl border p-4 transition-all ${isExpired ? 'opacity-60' : ''} ${
-                    isMyBis
-                      ? 'border-yellow-400/70 bg-yellow-950/20'
-                      : 'border-lavender-20/50 bg-indigo'
-                  }`}
-                  style={isMyBis ? { boxShadow: '0 0 18px 3px rgba(234,179,8,0.22)' } : undefined}
+                  className={`rounded-xl border p-4 transition-all ${isExpired ? 'opacity-60' : ''} border-lavender-20/50 bg-indigo`}
                 >
                   <div className="flex flex-col gap-4 lg:flex-row lg:items-center">
                     {/* Item Icon */}
@@ -795,7 +769,6 @@ const AuctionTab = ({ onNavigate }) => {
                       </div>
                     </WowheadTooltip>
 
-                    {/* Item Name + BIS badges */}
                     <div className="min-w-0 flex-1">
                       <h4
                         className="mb-0 truncate text-lg"
@@ -803,22 +776,6 @@ const AuctionTab = ({ onNavigate }) => {
                       >
                         {auction.itemName}
                       </h4>
-                      <div className="mt-1 flex items-center gap-3">
-                        {isMyBis && (
-                          <div className="flex items-center gap-1">
-                            <Star size={12} weight="fill" className="text-yellow-400" />
-                            <span className="text-xs font-bold text-yellow-400">{t('your_bis')}</span>
-                          </div>
-                        )}
-                        {isAdmin && bisData[auction.id]?.length > 0 && (
-                          <div className="flex items-center gap-1" title={bisData[auction.id].map(b => `${b.character_name}${b.priority ? ` #${b.priority}` : ''}`).join(', ')}>
-                            <Crosshair size={12} className="text-yellow-400/70" />
-                            <span className="text-xs text-yellow-400/70">
-                              {bisData[auction.id].length} {t('bis_raiders_want')}
-                            </span>
-                          </div>
-                        )}
-                      </div>
                     </div>
 
                     {/* Highest Bidder / Tie Info */}
