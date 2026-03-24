@@ -3,6 +3,7 @@
 
 import blizzardAPI from './blizzardAPI.js';
 import { createLogger } from '../lib/logger.js';
+import { deriveArmorType, getEligibleClasses } from '../lib/classRestrictions.js';
 
 const log = createLogger('Service:RaidItems');
 
@@ -118,6 +119,8 @@ function rowToItem(row) {
     boss: row.boss_name,
     bossEn: row.boss_name_en,
     itemLevel: row.item_level,
+    armorType: row.armor_type || null,
+    eligibleClasses: row.eligible_classes ? JSON.parse(row.eligible_classes) : null,
   };
 }
 
@@ -173,13 +176,16 @@ export async function refreshFromAPI(targetDb) {
     }
 
     for (const item of apiItems) {
+      const nameEn = item.name?.en || item.name;
+      const armorType = deriveArmorType(item.icon);
+      const eligibleClasses = getEligibleClasses(nameEn, item.slot, armorType);
       await targetDb.run(
-        `INSERT OR REPLACE INTO raid_items (id, name_en, name_es, rarity, icon, slot, raid_name, raid_name_en, boss_name, boss_name_en, item_level, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`,
-        item.id, item.name?.en || item.name, item.name?.es || item.name,
+        `INSERT OR REPLACE INTO raid_items (id, name_en, name_es, rarity, icon, slot, raid_name, raid_name_en, boss_name, boss_name_en, item_level, armor_type, eligible_classes, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`,
+        item.id, nameEn, item.name?.es || item.name,
         item.rarity, item.icon, item.slot,
         item.raid, item.raidEn || item.raid, item.boss, item.bossEn || item.boss,
-        item.itemLevel
+        item.itemLevel, armorType, eligibleClasses
       );
     }
 

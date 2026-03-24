@@ -2,6 +2,7 @@ import { createClient } from '@libsql/client';
 import { mkdirSync, existsSync } from 'fs';
 import { dirname } from 'path';
 import { createLogger } from './lib/logger.js';
+import { deriveArmorType, getEligibleClasses } from './lib/classRestrictions.js';
 
 const log = createLogger('Database');
 
@@ -527,6 +528,10 @@ export async function runMigrations(targetDb, connectionUrl = dbUrl) {
     'ALTER TABLE users ADD COLUMN banner TEXT',
     'ALTER TABLE users ADD COLUMN baldomero_killer INTEGER DEFAULT 0',
     'ALTER TABLE player_fight_performance ADD COLUMN is_kill INTEGER DEFAULT 0',
+    'ALTER TABLE raid_items ADD COLUMN armor_type TEXT',
+    'ALTER TABLE raid_items ADD COLUMN eligible_classes TEXT',
+    'ALTER TABLE auctions ADD COLUMN armor_type TEXT',
+    'ALTER TABLE auctions ADD COLUMN eligible_classes TEXT',
   ];
   for (const sql of columnMigrations) {
     try { await targetDb.exec(sql); } catch (_e) { /* column already exists */ }
@@ -796,6 +801,21 @@ export async function runMigrations(targetDb, connectionUrl = dbUrl) {
   const lootSysConfig = await targetDb.get("SELECT config_value FROM dkp_config WHERE config_key = 'loot_system'");
   if (lootSysConfig && lootSysConfig.config_value !== lootSysConfig.config_value.toLowerCase()) {
     await targetDb.run("UPDATE dkp_config SET config_value = ? WHERE config_key = 'loot_system'", lootSysConfig.config_value.toLowerCase());
+  }
+
+  // Backfill armor_type + eligible_classes for raid_items that don't have them yet
+  const itemsToBackfill = await targetDb.all('SELECT id, name_en, icon, slot FROM raid_items WHERE armor_type IS NULL');
+  if (itemsToBackfill.length > 0) {
+    log.info(`Backfilling armor_type/eligible_classes for ${itemsToBackfill.length} raid items`);
+    for (const item of itemsToBackfill) {
+      const armorType = deriveArmorType(item.icon);
+      const eligibleClasses = getEligibleClasses(item.name_en, item.slot, armorType);
+      await targetDb.run(
+        'UPDATE raid_items SET armor_type = ?, eligible_classes = ? WHERE id = ?',
+        armorType, eligibleClasses, item.id
+      );
+    }
+    log.info('Raid items armor_type backfill complete');
   }
 
   log.info('Database initialized successfully');

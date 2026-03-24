@@ -329,6 +329,8 @@ const AuctionTab = ({ onNavigate }) => {
   const wonTimeoutsRef = useRef(new Map()) // Cleanup timeouts for won auctions
   const serverOffsetRef = useRef(0) // Server time minus local time (ms) — corrects client clock drift
   const auctionsRef = useRef([]) // Keep track of auctions for notifications
+  const expiredAtRef = useRef({}) // Track when each auction first expired locally (ms)
+  const lastExpiredRefreshRef = useRef(0) // Throttle expired-auction refreshes
   const isAdmin = user?.role === 'admin' || user?.role === 'officer'
 
   // Keep auctionsRef in sync
@@ -356,22 +358,39 @@ const AuctionTab = ({ onNavigate }) => {
   // Calculate time remaining for all auctions (using server-synced time)
   const updateTimeRemaining = () => {
     const newTimes = {}
+    const now = Date.now()
+    const serverNow = now + serverOffsetRef.current
+    let shouldRefresh = false
+
     auctions.forEach(auction => {
       if (auction.endsAt) {
         const endTime = new Date(auction.endsAt).getTime()
-        const now = Date.now() + serverOffsetRef.current // Adjust for clock drift
-        const diff = endTime - now
+        const diff = endTime - serverNow
 
         if (diff > 0) {
           const minutes = Math.floor(diff / 60000)
           const seconds = Math.floor((diff % 60000) / 1000)
           newTimes[auction.id] = { minutes, seconds, expired: false }
+          // Clear expiry tracking if auction got extended (anti-snipe)
+          delete expiredAtRef.current[auction.id]
         } else {
           newTimes[auction.id] = { minutes: 0, seconds: 0, expired: true }
+          // Track when we first saw this auction as expired
+          if (!expiredAtRef.current[auction.id]) {
+            expiredAtRef.current[auction.id] = now
+          }
+          // If expired for >5s and socket event hasn't arrived, force refresh (throttled to once per 10s)
+          if (now - expiredAtRef.current[auction.id] > 5000 && now - lastExpiredRefreshRef.current > 10000) {
+            shouldRefresh = true
+          }
         }
       }
     })
     setTimeRemaining(newTimes)
+    if (shouldRefresh) {
+      lastExpiredRefreshRef.current = now
+      loadAuctions()
+    }
   }
 
   useEffect(() => { loadAuctions() }, [])
@@ -483,6 +502,7 @@ const AuctionTab = ({ onNavigate }) => {
     setWonAuctions(prev => [...prev, wonAuction])
 
     // Remove from active auctions and refresh availableDkp immediately
+    delete expiredAtRef.current[data.auctionId]
     setAuctions(prev => prev.filter(a => a.id !== data.auctionId))
     loadAuctions()
 

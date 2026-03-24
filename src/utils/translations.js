@@ -69,6 +69,7 @@ export const translations = {
     completed: 'Finalizada',
     cancelled: 'Cancelada',
     place_bid: 'Hacer puja',
+    class_restricted: 'No usable',
     // Notification keys
     new_auction_notification: 'Nueva subasta',
     outbid_notification: '¡Te han superado!',
@@ -686,6 +687,7 @@ export const translations = {
     completed: 'Completed',
     cancelled: 'Cancelled',
     place_bid: 'Place Bid',
+    class_restricted: 'Not usable',
     // Notification keys
     new_auction_notification: 'New Auction',
     outbid_notification: 'You have been outbid!',

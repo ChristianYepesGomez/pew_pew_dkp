@@ -5,6 +5,7 @@ import { scheduleAuctionClose, cancelAuctionClose, auctionTimeouts, SNIPE_THRESH
 import { createLogger } from '../lib/logger.js';
 import { success, error, paginated } from '../lib/response.js';
 import { ErrorCodes } from '../lib/errorCodes.js';
+import { canBid, deriveArmorType, getEligibleClasses } from '../lib/classRestrictions.js';
 import { validateParams } from '../middleware/validate.js';
 import { parsePagination } from '../lib/pagination.js';
 
@@ -36,6 +37,7 @@ router.get('/active', authenticateToken, async (req, res) => {
       SELECT a.id, a.item_name, a.item_image, a.item_rarity, a.item_id, a.min_bid,
              a.status, a.winner_id, a.winning_bid, a.created_by, a.created_at,
              a.ended_at, a.ends_at, a.duration_minutes,
+             a.armor_type, a.eligible_classes,
              u.character_name as created_by_name
       FROM auctions a
       LEFT JOIN users u ON a.created_by = u.id
@@ -90,6 +92,8 @@ router.get('/active', authenticateToken, async (req, res) => {
         itemRarity: auction.item_rarity,
         itemId: auction.item_id,
         minimumBid: auction.min_bid,
+        armorType: auction.armor_type || null,
+        eligibleClasses: auction.eligible_classes ? JSON.parse(auction.eligible_classes) : null,
         currentBid: highestBid,
         status: auction.status,
         winnerId: auction.winner_id,
@@ -146,13 +150,24 @@ router.post('/', adminLimiter, authenticateToken, authorizeRole(['admin', 'offic
       return error(res, 'Item name is required', 400, ErrorCodes.VALIDATION_ERROR);
     }
 
+    // Resolve class restrictions from raid_items if itemId provided, otherwise leave unrestricted
+    let armorType = null;
+    let eligibleClasses = null;
+    if (itemId) {
+      const raidItem = await req.db.get('SELECT armor_type, eligible_classes FROM raid_items WHERE id = ?', itemId);
+      if (raidItem) {
+        armorType = raidItem.armor_type;
+        eligibleClasses = raidItem.eligible_classes;
+      }
+    }
+
     const duration = durationMinutes || 3;
     const endsAt = new Date(Date.now() + duration * 60 * 1000).toISOString();
 
     const result = await req.db.run(`
-      INSERT INTO auctions (item_name, item_name_en, item_image, item_rarity, min_bid, created_by, status, duration_minutes, ends_at, item_id)
-      VALUES (?, ?, ?, ?, ?, ?, 'active', ?, ?, ?)
-    `, itemName, itemNameEN || itemName, itemImage || '\uD83C\uDF81', itemRarity || 'epic', minBid || 0, req.user.userId, duration, endsAt, itemId || null);
+      INSERT INTO auctions (item_name, item_name_en, item_image, item_rarity, min_bid, created_by, status, duration_minutes, ends_at, item_id, armor_type, eligible_classes)
+      VALUES (?, ?, ?, ?, ?, ?, 'active', ?, ?, ?, ?, ?)
+    `, itemName, itemNameEN || itemName, itemImage || '\uD83C\uDF81', itemRarity || 'epic', minBid || 0, req.user.userId, duration, endsAt, itemId || null, armorType, eligibleClasses);
 
     const auction = await req.db.get(`
       SELECT id, item_name, item_name_en, item_image, item_rarity, item_id, min_bid,
@@ -180,10 +195,19 @@ router.post('/:auctionId/bid', userLimiter, authenticateToken, validateParams({ 
     const userId = req.user.userId;
 
     const auction = await req.db.get(
-      'SELECT id, ends_at, created_at, duration_minutes, min_bid FROM auctions WHERE id = ? AND status = ?', auctionId, 'active'
+      'SELECT id, ends_at, created_at, duration_minutes, min_bid, eligible_classes FROM auctions WHERE id = ? AND status = ?', auctionId, 'active'
     );
     if (!auction) {
       return error(res, 'Active auction not found', 404, ErrorCodes.AUCTION_CLOSED);
+    }
+
+    // Class restriction check — before any DKP validation
+    if (auction.eligible_classes) {
+      const bidder = await req.db.get('SELECT character_class FROM users WHERE id = ?', userId);
+      const check = canBid(bidder?.character_class, auction.eligible_classes);
+      if (!check.allowed) {
+        return error(res, check.reason, 403, ErrorCodes.CLASS_RESTRICTED);
+      }
     }
 
     const minBid = Math.max(1, auction.min_bid || 0);
@@ -487,6 +511,95 @@ router.post('/:auctionId/cancel', adminLimiter, authenticateToken, authorizeRole
   } catch (err) {
     log.error('Cancel auction error', err);
     return error(res, 'Failed to cancel auction', 500, ErrorCodes.INTERNAL_ERROR);
+  }
+});
+
+// Reset auction (officer+) — wipe bids, refund DKP if completed, restart timer
+router.post('/:auctionId/reset', adminLimiter, authenticateToken, authorizeRole(['admin', 'officer']), validateParams({ auctionId: 'integer' }), async (req, res) => {
+  try {
+    const auctionId = parseInt(req.params.auctionId, 10);
+
+    const auction = await req.db.get(
+      'SELECT id, item_name, item_name_en, item_image, item_rarity, item_id, min_bid, status, duration_minutes, winner_id, winning_bid, armor_type, eligible_classes FROM auctions WHERE id = ?', auctionId
+    );
+    if (!auction) {
+      return error(res, 'Auction not found', 404, ErrorCodes.NOT_FOUND);
+    }
+    if (auction.status !== 'active' && auction.status !== 'completed' && auction.status !== 'cancelled') {
+      return error(res, 'Auction cannot be reset', 400, ErrorCodes.VALIDATION_ERROR);
+    }
+
+    await req.db.transaction(async (tx) => {
+      // 1. If auction was completed, refund DKP to the winner
+      if (auction.status === 'completed' && auction.winner_id) {
+        // Find the DKP transaction for this auction to get exact deducted amount
+        const dkpTx = await tx.get(
+          'SELECT amount FROM dkp_transactions WHERE auction_id = ? AND user_id = ? AND amount < 0 ORDER BY id DESC LIMIT 1',
+          auctionId, auction.winner_id
+        );
+        const refundAmount = dkpTx ? Math.abs(dkpTx.amount) : auction.winning_bid;
+
+        // Refund DKP
+        await tx.run(`
+          UPDATE member_dkp
+          SET current_dkp = current_dkp + ?,
+              lifetime_spent = lifetime_spent - ?
+          WHERE user_id = ?
+        `, refundAmount, refundAmount, auction.winner_id);
+
+        // Record refund transaction
+        await tx.run(`
+          INSERT INTO dkp_transactions (user_id, amount, reason, performed_by, auction_id)
+          VALUES (?, ?, ?, ?, ?)
+        `, auction.winner_id, refundAmount, `Auction reset (refund): ${auction.item_name}`, req.user.userId, auctionId);
+
+        log.info(`Auction ${auctionId} reset: refunded ${refundAmount} DKP to user ${auction.winner_id}`);
+      }
+
+      // 2. Delete all bids and rolls
+      await tx.run('DELETE FROM auction_bids WHERE auction_id = ?', auctionId);
+      await tx.run('DELETE FROM auction_rolls WHERE auction_id = ?', auctionId);
+
+      // 3. Reset auction to fresh active state with new timer
+      const duration = auction.duration_minutes || 3;
+      const endsAt = new Date(Date.now() + duration * 60 * 1000).toISOString();
+
+      await tx.run(`
+        UPDATE auctions
+        SET status = 'active',
+            winner_id = NULL,
+            winning_bid = NULL,
+            ended_at = NULL,
+            ends_at = ?,
+            was_tie = NULL,
+            winning_roll = NULL,
+            farewell_data = NULL
+        WHERE id = ?
+      `, endsAt, auctionId);
+    });
+
+    // 4. Cancel any existing auto-close and schedule a new one
+    cancelAuctionClose(auctionId);
+    const duration = auction.duration_minutes || 3;
+    const endsAt = new Date(Date.now() + duration * 60 * 1000).toISOString();
+    scheduleAuctionClose(req.db, auctionId, new Date(endsAt).getTime());
+
+    // 5. Notify all clients
+    req.app.get('io').emit('auction_reset', {
+      auctionId,
+      itemName: auction.item_name,
+      itemImage: auction.item_image,
+      itemRarity: auction.item_rarity,
+      itemId: auction.item_id,
+      endsAt,
+      durationMinutes: auction.duration_minutes || 3,
+    });
+
+    log.info(`Auction ${auctionId} (${auction.item_name}) reset by user ${req.user.userId}`);
+    return success(res, { auctionId, endsAt }, 'Auction reset successfully');
+  } catch (err) {
+    log.error('Reset auction error', err);
+    return error(res, 'Failed to reset auction', 500, ErrorCodes.INTERNAL_ERROR);
   }
 });
 
