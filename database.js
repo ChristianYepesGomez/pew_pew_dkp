@@ -858,6 +858,29 @@ export async function runMigrations(targetDb, connectionUrl = dbUrl) {
     log.info('Fight performance character_name backfill complete');
   }
 
+  // Backfill wcl_class from characters table for records that have character_name but no wcl_class
+  const wclClassToBackfill = await targetDb.get('SELECT COUNT(*) as count FROM player_fight_performance WHERE character_name IS NOT NULL AND wcl_class IS NULL');
+  if (wclClassToBackfill.count > 0) {
+    log.info(`Backfilling wcl_class for ${wclClassToBackfill.count} fight performance records`);
+    await targetDb.run(`
+      UPDATE player_fight_performance SET wcl_class = (
+        SELECT c.character_class FROM characters c
+        WHERE c.user_id = player_fight_performance.user_id
+        AND LOWER(c.character_name) = LOWER(player_fight_performance.character_name)
+        LIMIT 1
+      ) WHERE wcl_class IS NULL AND character_name IS NOT NULL
+      AND EXISTS (
+        SELECT 1 FROM characters c
+        WHERE c.user_id = player_fight_performance.user_id
+        AND LOWER(c.character_name) = LOWER(player_fight_performance.character_name)
+      )
+    `);
+    // Normalize to WCL format: 'Death Knight' -> 'DeathKnight', 'Demon Hunter' -> 'DemonHunter'
+    await targetDb.run("UPDATE player_fight_performance SET wcl_class = 'DeathKnight' WHERE wcl_class = 'Death Knight'");
+    await targetDb.run("UPDATE player_fight_performance SET wcl_class = 'DemonHunter' WHERE wcl_class = 'Demon Hunter'");
+    log.info('Fight performance wcl_class backfill complete');
+  }
+
   log.info('Database initialized successfully');
 }
 
