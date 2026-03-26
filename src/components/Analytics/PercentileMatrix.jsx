@@ -34,20 +34,21 @@ const PercentileMatrix = () => {
   const [selectedDifficulty, setSelectedDifficulty] = useState(null)
 
   useEffect(() => {
-    loadData(selectedDifficulty)
-  }, [selectedDifficulty])
-
-  const loadData = async (difficulty) => {
-    setLoading(true)
-    try {
-      const res = await analyticsAPI.getPercentileMatrix(difficulty)
-      setData(res.data)
-    } catch (err) {
-      console.error('Failed to load percentile matrix:', err)
-    } finally {
-      setLoading(false)
+    let cancelled = false
+    const loadData = async () => {
+      setLoading(true)
+      try {
+        const res = await analyticsAPI.getPercentileMatrix(selectedDifficulty)
+        if (!cancelled) setData(res.data)
+      } catch (err) {
+        if (!cancelled) console.error('Failed to load percentile matrix:', err)
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
     }
-  }
+    loadData()
+    return () => { cancelled = true }
+  }, [selectedDifficulty])
 
   if (loading && !data) {
     return (
@@ -139,7 +140,7 @@ const PercentileMatrix = () => {
           </thead>
           <tbody className="divide-y divide-lavender-20/10">
             {players.map((player) => (
-              <tr key={player.userId} className="hover:bg-lavender-12/5 transition-colors">
+              <tr key={player.characterName} className="hover:bg-lavender-12/5 transition-colors">
                 <td className="py-1.5 pr-3 sticky left-0 bg-indigo/30 z-10">
                   <div className="flex items-center gap-1.5">
                     <RoleIcon role={player.raidRole} />
