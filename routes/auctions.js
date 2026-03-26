@@ -261,6 +261,12 @@ router.post('/:auctionId/bid', userLimiter, authenticateToken, validateParams({ 
         VALUES (?, ?, ?)
       `, auctionId, userId, amount);
 
+      // Log every bid for full history (including raises)
+      await tx.run(`
+        INSERT INTO auction_bid_log (auction_id, user_id, amount)
+        VALUES (?, ?, ?)
+      `, auctionId, userId, amount);
+
       return { previousTopBid };
     });
 
@@ -315,7 +321,8 @@ router.post('/:auctionId/bid', userLimiter, authenticateToken, validateParams({ 
 
     return success(res, { timeExtended, newEndsAt }, 'Bid placed successfully');
   } catch (err) {
-    if (err.message === 'Bid must be higher than current highest bid') {
+    if (err.message === 'Bid must be at least equal to the current highest bid' ||
+        err.message === 'New bid must be higher than your previous bid') {
       return error(res, err.message, 400, ErrorCodes.BID_TOO_LOW);
     }
     log.error('Place bid error', err);
@@ -655,13 +662,26 @@ router.get('/history', authenticateToken, async (req, res) => {
     }
 
     // Batch-load bid counts for all auctions (eliminates N+1)
+    // Prefer bid_log (all raises) over auction_bids (final per user)
     const auctionIds = auctions.map(a => a.id);
     const ph = auctionIds.map(() => '?').join(',');
-    const bidCounts = await req.db.all(
-      `SELECT auction_id, COUNT(*) as count FROM auction_bids WHERE auction_id IN (${ph}) GROUP BY auction_id`,
+    const logCounts = await req.db.all(
+      `SELECT auction_id, COUNT(*) as count FROM auction_bid_log WHERE auction_id IN (${ph}) GROUP BY auction_id`,
       ...auctionIds
     );
-    const bidCountMap = new Map(bidCounts.map(r => [r.auction_id, r.count]));
+    const logCountMap = new Map(logCounts.map(r => [r.auction_id, r.count]));
+
+    // Fallback counts from auction_bids for auctions before bid_log existed
+    const missingIds = auctionIds.filter(id => !logCountMap.has(id));
+    const bidCountMap = new Map(logCountMap);
+    if (missingIds.length > 0) {
+      const mPh = missingIds.map(() => '?').join(',');
+      const fallbackCounts = await req.db.all(
+        `SELECT auction_id, COUNT(*) as count FROM auction_bids WHERE auction_id IN (${mPh}) GROUP BY auction_id`,
+        ...missingIds
+      );
+      for (const r of fallbackCounts) bidCountMap.set(r.auction_id, r.count);
+    }
 
     // Batch-load rolls for all tie auctions (eliminates N+1)
     const tieAuctionIds = auctions.filter(a => a.was_tie === 1).map(a => a.id);
@@ -754,10 +774,31 @@ router.get('/:auctionId/rolls', authenticateToken, validateParams({ auctionId: '
 });
 
 // Get all bids for a specific auction (for history expansion)
+// Returns full bid log (all raises) if available, falls back to final bids
 router.get('/:auctionId/bids', authenticateToken, validateParams({ auctionId: 'integer' }), async (req, res) => {
   try {
     const auctionId = parseInt(req.params.auctionId, 10);
 
+    // Try full bid log first (includes all raises per user)
+    const logBids = await req.db.all(`
+      SELECT abl.amount, abl.created_at, u.id as user_id, u.character_name, u.character_class
+      FROM auction_bid_log abl
+      JOIN users u ON abl.user_id = u.id
+      WHERE abl.auction_id = ?
+      ORDER BY abl.created_at DESC
+    `, auctionId);
+
+    if (logBids.length > 0) {
+      return success(res, logBids.map(b => ({
+        amount: b.amount,
+        characterName: b.character_name,
+        characterClass: b.character_class,
+        userId: b.user_id,
+        createdAt: b.created_at
+      })));
+    }
+
+    // Fallback: auctions before bid_log existed only have final bids
     const bids = await req.db.all(`
       SELECT ab.amount, ab.created_at, u.id as user_id, u.character_name, u.character_class
       FROM auction_bids ab

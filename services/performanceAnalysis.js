@@ -188,8 +188,14 @@ export async function processExtendedFightData(db, reportCode, bossInfo, basicSt
     const hps = fightDurationSec > 0 ? data.healingDone / fightDurationSec : 0;
     const dtps = fightDurationSec > 0 ? data.damageTaken / fightDurationSec : 0;
     const nameLower = playerName.toLowerCase();
-    const dpsPercentile = rankingsData.dps[nameLower] ?? null;
-    const hpsPercentile = rankingsData.hps[nameLower] ?? null;
+    const dpsRank = rankingsData.dps[nameLower] || {};
+    const hpsRank = rankingsData.hps[nameLower] || {};
+    const dpsPercentile = dpsRank.rankPercent ?? null;
+    const hpsPercentile = hpsRank.rankPercent ?? null;
+    const bracketPercentile = dpsRank.bracketPercent ?? hpsRank.bracketPercent ?? null;
+    const bracket = dpsRank.bracket ?? hpsRank.bracket ?? null;
+    const wclClass = dpsRank.class ?? hpsRank.class ?? null;
+    const wclSpec = dpsRank.spec ?? hpsRank.spec ?? null;
 
     try {
       const externalBuffsJson = Object.keys(data.externalBuffs).length > 0
@@ -197,12 +203,27 @@ export async function processExtendedFightData(db, reportCode, bossInfo, basicSt
         : null;
 
       await db.run(
-        `INSERT OR IGNORE INTO player_fight_performance
+        `INSERT INTO player_fight_performance
          (user_id, report_code, fight_id, boss_id, difficulty, damage_done, healing_done, damage_taken, deaths,
           fight_duration_ms, dps, hps, dtps, health_potions, healthstones, combat_potions, mana_potions,
           flask_uptime_pct, food_buff_active, augment_rune_active, interrupts, dispels,
-          raid_median_dps, raid_median_dtps, fight_date, dps_percentile, hps_percentile, external_buffs_json, is_kill)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          raid_median_dps, raid_median_dtps, fight_date, dps_percentile, hps_percentile, external_buffs_json, is_kill,
+          bracket_percentile, bracket, wcl_class, wcl_spec, character_name)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT(user_id, report_code, fight_id) DO UPDATE SET
+          damage_done=excluded.damage_done, healing_done=excluded.healing_done,
+          damage_taken=excluded.damage_taken, deaths=excluded.deaths,
+          fight_duration_ms=excluded.fight_duration_ms, dps=excluded.dps, hps=excluded.hps, dtps=excluded.dtps,
+          health_potions=excluded.health_potions, healthstones=excluded.healthstones,
+          combat_potions=excluded.combat_potions, mana_potions=excluded.mana_potions,
+          flask_uptime_pct=excluded.flask_uptime_pct, food_buff_active=excluded.food_buff_active,
+          augment_rune_active=excluded.augment_rune_active, interrupts=excluded.interrupts, dispels=excluded.dispels,
+          raid_median_dps=excluded.raid_median_dps, raid_median_dtps=excluded.raid_median_dtps,
+          dps_percentile=excluded.dps_percentile, hps_percentile=excluded.hps_percentile,
+          external_buffs_json=excluded.external_buffs_json, is_kill=excluded.is_kill,
+          bracket_percentile=excluded.bracket_percentile, bracket=excluded.bracket,
+          wcl_class=excluded.wcl_class, wcl_spec=excluded.wcl_spec,
+          character_name=excluded.character_name`,
         userId, reportCode, fightId, bossId, difficulty,
         data.damageDone, data.healingDone, data.damageTaken, data.deaths,
         fightDurationMs, dps, hps, dtps,
@@ -211,14 +232,12 @@ export async function processExtendedFightData(db, reportCode, bossInfo, basicSt
         data.interrupts, data.dispels,
         medianDps, medianDtps,
         reportDate || new Date().toISOString().split('T')[0],
-        dpsPercentile, hpsPercentile, externalBuffsJson, bossInfo.kill ? 1 : 0
+        dpsPercentile, hpsPercentile, externalBuffsJson, bossInfo.kill ? 1 : 0,
+        bracketPercentile, bracket, wclClass, wclSpec, playerName
       );
       inserted++;
     } catch (err) {
-      // UNIQUE constraint = already processed, skip
-      if (!err.message?.includes('UNIQUE')) {
-        log.warn(`Failed to insert fight perf for ${playerName}: ${err.message}`);
-      }
+      log.warn(`Failed to upsert fight perf for ${playerName}: ${err.message}`);
     }
   }
 

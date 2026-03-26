@@ -775,7 +775,7 @@ export async function getConsumableCasts(reportCode, fightIds) {
 /**
  * Get WCL global percentile rankings for each player in a fight.
  * Uses the `rankings` field (not `table`) which includes rankPercent per spec/boss globally.
- * Returns { dps: { playerNameLower: rankPercent }, hps: { playerNameLower: rankPercent } }
+ * Returns { dps: { playerNameLower: { rankPercent, bracketPercent, bracket, class, spec } }, hps: { ... } }
  */
 export async function getFightRankings(reportCode, fightIds) {
   const cacheKey = `rankings:${reportCode}:${[...fightIds].sort().join(',')}`;
@@ -798,7 +798,7 @@ export async function getFightRankings(reportCode, fightIds) {
     const report = data.reportData?.report;
     if (!report) return { dps: {}, hps: {} };
 
-    // WCL rankings structure: { data: [{ roles: { dps: { characters: [{ name, rankPercent }] } } }] }
+    // WCL rankings structure: { data: [{ roles: { dps: { characters: [{ name, rankPercent, bracketPercent, bracket, class, spec }] } } }] }
     // data is an ARRAY (one entry per fight), roles contain tanks/healers/dps
     const parseRankings = (rankJson) => {
       const map = {};
@@ -810,7 +810,13 @@ export async function getFightRankings(reportCode, fightIds) {
           for (const role of Object.values(roles)) {
             for (const char of role?.characters || []) {
               if (char.name && char.rankPercent != null) {
-                map[char.name.toLowerCase()] = char.rankPercent;
+                map[char.name.toLowerCase()] = {
+                  rankPercent: char.rankPercent,
+                  bracketPercent: char.bracketPercent ?? null,
+                  bracket: char.bracket ?? null,
+                  class: char.class || null,
+                  spec: char.spec || null,
+                };
               }
             }
           }

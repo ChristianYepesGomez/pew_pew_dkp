@@ -197,6 +197,18 @@ export async function runMigrations(targetDb, connectionUrl = dbUrl) {
   `);
 
   await targetDb.exec(`
+    CREATE TABLE IF NOT EXISTS auction_bid_log (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      auction_id INTEGER NOT NULL,
+      user_id INTEGER NOT NULL,
+      amount INTEGER NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (auction_id) REFERENCES auctions(id) ON DELETE CASCADE,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    )
+  `);
+
+  await targetDb.exec(`
     CREATE TABLE IF NOT EXISTS raids (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT NOT NULL,
@@ -532,6 +544,11 @@ export async function runMigrations(targetDb, connectionUrl = dbUrl) {
     'ALTER TABLE raid_items ADD COLUMN eligible_classes TEXT',
     'ALTER TABLE auctions ADD COLUMN armor_type TEXT',
     'ALTER TABLE auctions ADD COLUMN eligible_classes TEXT',
+    'ALTER TABLE player_fight_performance ADD COLUMN bracket_percentile REAL DEFAULT NULL',
+    'ALTER TABLE player_fight_performance ADD COLUMN bracket INTEGER DEFAULT NULL',
+    'ALTER TABLE player_fight_performance ADD COLUMN wcl_class TEXT DEFAULT NULL',
+    'ALTER TABLE player_fight_performance ADD COLUMN wcl_spec TEXT DEFAULT NULL',
+    'ALTER TABLE player_fight_performance ADD COLUMN character_name TEXT DEFAULT NULL',
   ];
   for (const sql of columnMigrations) {
     try { await targetDb.exec(sql); } catch (_e) { /* column already exists */ }
@@ -816,6 +833,29 @@ export async function runMigrations(targetDb, connectionUrl = dbUrl) {
       );
     }
     log.info('Raid items armor_type backfill complete');
+  }
+
+  // Backfill character_name for player_fight_performance records that don't have it
+  const pfpToBackfill = await targetDb.get('SELECT COUNT(*) as count FROM player_fight_performance WHERE character_name IS NULL');
+  if (pfpToBackfill.count > 0) {
+    log.info(`Backfilling character_name for ${pfpToBackfill.count} fight performance records`);
+    // Step 1: match by wcl_class -> characters table (most accurate for rerolled users)
+    await targetDb.run(`
+      UPDATE player_fight_performance SET character_name = (
+        SELECT c.character_name FROM characters c
+        WHERE c.user_id = player_fight_performance.user_id
+        AND c.character_class = player_fight_performance.wcl_class
+        LIMIT 1
+      ) WHERE character_name IS NULL AND wcl_class IS NOT NULL
+    `);
+    // Step 2: fallback to current main character name
+    await targetDb.run(`
+      UPDATE player_fight_performance SET character_name = (
+        SELECT u.character_name FROM users u
+        WHERE u.id = player_fight_performance.user_id
+      ) WHERE character_name IS NULL
+    `);
+    log.info('Fight performance character_name backfill complete');
   }
 
   log.info('Database initialized successfully');

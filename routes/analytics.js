@@ -436,26 +436,29 @@ router.get('/guild-leaderboards', authenticateToken, async (req, res) => {
       req.db.all(`
         ${CURRENT_BOSS_CTE},
         player_totals AS (
-          SELECT user_id, COUNT(*) as fights,
+          SELECT user_id, character_name, COUNT(*) as fights,
                  SUM(healing_done) as total_healing, SUM(damage_done) as total_damage
           FROM player_fight_performance
           WHERE dps > 0 AND is_kill = 1 AND boss_id IN (SELECT id FROM current_boss_ids)
-          GROUP BY user_id
+          GROUP BY user_id, character_name
           HAVING COUNT(*) >= ? AND SUM(healing_done) < SUM(damage_done)
         ),
         best AS (
-          SELECT pfp.user_id, pfp.dps, pfp.external_buffs_json,
-                 ROW_NUMBER() OVER (PARTITION BY pfp.user_id ORDER BY pfp.dps DESC) as rn
+          SELECT pfp.user_id, pfp.character_name, pfp.dps, pfp.external_buffs_json,
+                 ROW_NUMBER() OVER (PARTITION BY pfp.user_id, pfp.character_name ORDER BY pfp.dps DESC) as rn
           FROM player_fight_performance pfp
-          JOIN player_totals pt ON pfp.user_id = pt.user_id
+          JOIN player_totals pt ON pfp.user_id = pt.user_id AND pfp.character_name = pt.character_name
           WHERE pfp.dps > 0 AND pfp.is_kill = 1 AND pfp.boss_id IN (SELECT id FROM current_boss_ids)
         )
-        SELECT u.character_name, u.character_class,
+        SELECT COALESCE(b.character_name, u.character_name) as character_name,
+               COALESCE(pfp_class.wcl_class, u.character_class) as character_class,
                ROUND(b.dps) as value, b.external_buffs_json, pt.fights
         FROM best b
         JOIN users u ON b.user_id = u.id
-        JOIN player_totals pt ON b.user_id = pt.user_id
+        JOIN player_totals pt ON b.user_id = pt.user_id AND b.character_name = pt.character_name
+        LEFT JOIN player_fight_performance pfp_class ON pfp_class.user_id = b.user_id AND pfp_class.character_name = b.character_name AND pfp_class.wcl_class IS NOT NULL
         WHERE b.rn = 1
+        GROUP BY b.user_id, b.character_name
         ORDER BY value DESC LIMIT 10
       `, MIN_FIGHTS),
 
@@ -463,26 +466,29 @@ router.get('/guild-leaderboards', authenticateToken, async (req, res) => {
       req.db.all(`
         ${CURRENT_BOSS_CTE},
         player_totals AS (
-          SELECT user_id, COUNT(*) as fights,
+          SELECT user_id, character_name, COUNT(*) as fights,
                  SUM(healing_done) as total_healing, SUM(damage_done) as total_damage
           FROM player_fight_performance
           WHERE hps > 0 AND is_kill = 1 AND boss_id IN (SELECT id FROM current_boss_ids)
-          GROUP BY user_id
+          GROUP BY user_id, character_name
           HAVING COUNT(*) >= ? AND SUM(healing_done) > SUM(damage_done)
         ),
         best AS (
-          SELECT pfp.user_id, pfp.hps, pfp.external_buffs_json,
-                 ROW_NUMBER() OVER (PARTITION BY pfp.user_id ORDER BY pfp.hps DESC) as rn
+          SELECT pfp.user_id, pfp.character_name, pfp.hps, pfp.external_buffs_json,
+                 ROW_NUMBER() OVER (PARTITION BY pfp.user_id, pfp.character_name ORDER BY pfp.hps DESC) as rn
           FROM player_fight_performance pfp
-          JOIN player_totals pt ON pfp.user_id = pt.user_id
+          JOIN player_totals pt ON pfp.user_id = pt.user_id AND pfp.character_name = pt.character_name
           WHERE pfp.hps > 0 AND pfp.is_kill = 1 AND pfp.boss_id IN (SELECT id FROM current_boss_ids)
         )
-        SELECT u.character_name, u.character_class,
+        SELECT COALESCE(b.character_name, u.character_name) as character_name,
+               COALESCE(pfp_class.wcl_class, u.character_class) as character_class,
                ROUND(b.hps) as value, b.external_buffs_json, pt.fights
         FROM best b
         JOIN users u ON b.user_id = u.id
-        JOIN player_totals pt ON b.user_id = pt.user_id
+        JOIN player_totals pt ON b.user_id = pt.user_id AND b.character_name = pt.character_name
+        LEFT JOIN player_fight_performance pfp_class ON pfp_class.user_id = b.user_id AND pfp_class.character_name = b.character_name AND pfp_class.wcl_class IS NOT NULL
         WHERE b.rn = 1
+        GROUP BY b.user_id, b.character_name
         ORDER BY value DESC LIMIT 10
       `, MIN_FIGHTS),
 
@@ -503,7 +509,8 @@ router.get('/guild-leaderboards', authenticateToken, async (req, res) => {
 
       // Top 10 Damage Taken
       req.db.all(`
-        SELECT u.character_name, u.character_class,
+        SELECT COALESCE(pfp.character_name, u.character_name) as character_name,
+               COALESCE(pfp.wcl_class, u.character_class) as character_class,
                SUM(pfp.damage_taken) as value,
                COUNT(*) as fights
         FROM player_fight_performance pfp
@@ -512,7 +519,7 @@ router.get('/guild-leaderboards', authenticateToken, async (req, res) => {
           AND pfp.is_kill = 1
           AND u.raid_role != 'Tank'
           AND pfp.boss_id IN (SELECT wb.id FROM wcl_bosses wb JOIN wcl_zones wz ON wb.zone_id = wz.id WHERE wz.is_current = 1)
-        GROUP BY pfp.user_id
+        GROUP BY pfp.user_id, pfp.character_name
         HAVING COUNT(*) >= ?
           AND SUM(pfp.healing_done) < SUM(pfp.damage_done)
         ORDER BY value DESC LIMIT 10
@@ -520,86 +527,93 @@ router.get('/guild-leaderboards', authenticateToken, async (req, res) => {
 
       // Top 10 Health Potions
       req.db.all(`
-        SELECT u.character_name, u.character_class,
+        SELECT COALESCE(pfp.character_name, u.character_name) as character_name,
+               COALESCE(pfp.wcl_class, u.character_class) as character_class,
                SUM(pfp.health_potions) as value,
                COUNT(*) as fights
         FROM player_fight_performance pfp
         JOIN users u ON pfp.user_id = u.id
         WHERE pfp.boss_id IN (SELECT wb.id FROM wcl_bosses wb JOIN wcl_zones wz ON wb.zone_id = wz.id WHERE wz.is_current = 1)
-        GROUP BY pfp.user_id
+        GROUP BY pfp.user_id, pfp.character_name
         HAVING COUNT(*) >= ? AND SUM(pfp.health_potions) > 0
         ORDER BY value DESC LIMIT 10
       `, MIN_FIGHTS),
 
       // Top 10 Interrupts
       req.db.all(`
-        SELECT u.character_name, u.character_class,
+        SELECT COALESCE(pfp.character_name, u.character_name) as character_name,
+               COALESCE(pfp.wcl_class, u.character_class) as character_class,
                SUM(pfp.interrupts) as value,
                COUNT(*) as fights
         FROM player_fight_performance pfp
         JOIN users u ON pfp.user_id = u.id
         WHERE pfp.boss_id IN (SELECT wb.id FROM wcl_bosses wb JOIN wcl_zones wz ON wb.zone_id = wz.id WHERE wz.is_current = 1)
-        GROUP BY pfp.user_id
+        GROUP BY pfp.user_id, pfp.character_name
         HAVING COUNT(*) >= ? AND SUM(pfp.interrupts) > 0
         ORDER BY value DESC LIMIT 10
       `, MIN_FIGHTS),
 
       // Top 10 Dispels
       req.db.all(`
-        SELECT u.character_name, u.character_class,
+        SELECT COALESCE(pfp.character_name, u.character_name) as character_name,
+               COALESCE(pfp.wcl_class, u.character_class) as character_class,
                SUM(pfp.dispels) as value
         FROM player_fight_performance pfp
         JOIN users u ON pfp.user_id = u.id
         WHERE pfp.boss_id IN (SELECT wb.id FROM wcl_bosses wb JOIN wcl_zones wz ON wb.zone_id = wz.id WHERE wz.is_current = 1)
-        GROUP BY pfp.user_id
+        GROUP BY pfp.user_id, pfp.character_name
         HAVING COUNT(*) >= ? AND SUM(pfp.dispels) > 0
         ORDER BY value DESC LIMIT 10
       `, MIN_FIGHTS),
 
       // Top 10 Combat Potions
       req.db.all(`
-        SELECT u.character_name, u.character_class,
+        SELECT COALESCE(pfp.character_name, u.character_name) as character_name,
+               COALESCE(pfp.wcl_class, u.character_class) as character_class,
                SUM(pfp.combat_potions) as value
         FROM player_fight_performance pfp
         JOIN users u ON pfp.user_id = u.id
         WHERE pfp.boss_id IN (SELECT wb.id FROM wcl_bosses wb JOIN wcl_zones wz ON wb.zone_id = wz.id WHERE wz.is_current = 1)
-        GROUP BY pfp.user_id
+        GROUP BY pfp.user_id, pfp.character_name
         HAVING COUNT(*) >= ? AND SUM(pfp.combat_potions) > 0
         ORDER BY value DESC LIMIT 10
       `, MIN_FIGHTS),
 
       // Top 10 Healthstones
       req.db.all(`
-        SELECT u.character_name, u.character_class,
+        SELECT COALESCE(pfp.character_name, u.character_name) as character_name,
+               COALESCE(pfp.wcl_class, u.character_class) as character_class,
                SUM(pfp.healthstones) as value
         FROM player_fight_performance pfp
         JOIN users u ON pfp.user_id = u.id
         WHERE pfp.boss_id IN (SELECT wb.id FROM wcl_bosses wb JOIN wcl_zones wz ON wb.zone_id = wz.id WHERE wz.is_current = 1)
-        GROUP BY pfp.user_id
+        GROUP BY pfp.user_id, pfp.character_name
         HAVING COUNT(*) >= ? AND SUM(pfp.healthstones) > 0
         ORDER BY value DESC LIMIT 10
       `, MIN_FIGHTS),
 
       // Top 10 Mana Potions
       req.db.all(`
-        SELECT u.character_name, u.character_class,
+        SELECT COALESCE(pfp.character_name, u.character_name) as character_name,
+               COALESCE(pfp.wcl_class, u.character_class) as character_class,
                SUM(pfp.mana_potions) as value
         FROM player_fight_performance pfp
         JOIN users u ON pfp.user_id = u.id
         WHERE pfp.boss_id IN (SELECT wb.id FROM wcl_bosses wb JOIN wcl_zones wz ON wb.zone_id = wz.id WHERE wz.is_current = 1)
-        GROUP BY pfp.user_id
+        GROUP BY pfp.user_id, pfp.character_name
         HAVING COUNT(*) >= ? AND SUM(pfp.mana_potions) > 0
         ORDER BY value DESC LIMIT 10
       `, MIN_FIGHTS),
 
       // Top 10 Attendance
       req.db.all(`
-        SELECT u.character_name, u.character_class,
+        SELECT COALESCE(pfp.character_name, u.character_name) as character_name,
+               COALESCE(pfp.wcl_class, u.character_class) as character_class,
                COUNT(DISTINCT pfp.fight_date) as value
         FROM player_fight_performance pfp
         JOIN users u ON pfp.user_id = u.id
         WHERE pfp.boss_id IN (SELECT wb.id FROM wcl_bosses wb JOIN wcl_zones wz ON wb.zone_id = wz.id WHERE wz.is_current = 1)
-        GROUP BY pfp.user_id
+        GROUP BY pfp.user_id, pfp.character_name
         HAVING COUNT(DISTINCT pfp.fight_date) >= ?
         ORDER BY value DESC LIMIT 10
       `, MIN_FIGHTS),
@@ -645,22 +659,27 @@ router.get('/percentile-matrix', authenticateToken, async (req, res) => {
     `, difficulty);
 
     // Get per-player best percentile per boss (role-aware) + the report/fight for WCL link
+    // Uses pfp.character_name to separate stats by character (handles rerolls)
+    // Determines healer vs DPS from wcl_spec instead of user's current raid_role
+    const HEALER_SPECS = "('Holy','Discipline','Restoration','Mistweaver','Preservation')";
     const playerStats = await req.db.all(`
       WITH role_pct AS (
         SELECT pfp.user_id, pfp.boss_id,
-               CASE WHEN u.raid_role = 'Healer' THEN pfp.hps_percentile ELSE pfp.dps_percentile END as pct,
+               CASE WHEN pfp.wcl_spec IN ${HEALER_SPECS} THEN pfp.hps_percentile ELSE pfp.dps_percentile END as pct,
                pfp.report_code, pfp.fight_id,
-               u.character_name, u.character_class, u.raid_role,
+               COALESCE(pfp.character_name, u.character_name) as character_name,
+               COALESCE(pfp.wcl_class, u.character_class) as character_class,
+               CASE WHEN pfp.wcl_spec IN ${HEALER_SPECS} THEN 'Healer' ELSE u.raid_role END as raid_role,
                ROW_NUMBER() OVER (
-                 PARTITION BY pfp.user_id, pfp.boss_id
-                 ORDER BY CASE WHEN u.raid_role = 'Healer' THEN pfp.hps_percentile ELSE pfp.dps_percentile END DESC
+                 PARTITION BY pfp.user_id, pfp.character_name, pfp.boss_id
+                 ORDER BY CASE WHEN pfp.wcl_spec IN ${HEALER_SPECS} THEN pfp.hps_percentile ELSE pfp.dps_percentile END DESC
                ) as rn
         FROM player_fight_performance pfp
         JOIN users u ON pfp.user_id = u.id
         WHERE pfp.boss_id IN (SELECT wb.id FROM wcl_bosses wb JOIN wcl_zones wz ON wb.zone_id = wz.id WHERE wz.is_current = 1)
           AND pfp.difficulty = ?
           AND pfp.is_kill = 1
-          AND CASE WHEN u.raid_role = 'Healer' THEN pfp.hps_percentile ELSE pfp.dps_percentile END IS NOT NULL
+          AND CASE WHEN pfp.wcl_spec IN ${HEALER_SPECS} THEN pfp.hps_percentile ELSE pfp.dps_percentile END IS NOT NULL
       )
       SELECT user_id, boss_id, character_name, character_class, raid_role,
              pct as best_pct, report_code, fight_id
@@ -669,29 +688,30 @@ router.get('/percentile-matrix', authenticateToken, async (req, res) => {
 
     // Also get avg percentile per player per boss (all kills)
     const avgStats = await req.db.all(`
-      SELECT pfp.user_id, pfp.boss_id,
-             ROUND(AVG(CASE WHEN u.raid_role = 'Healer' THEN pfp.hps_percentile ELSE pfp.dps_percentile END), 1) as avg_pct,
+      SELECT pfp.user_id, pfp.character_name, pfp.boss_id,
+             ROUND(AVG(CASE WHEN pfp.wcl_spec IN ${HEALER_SPECS} THEN pfp.hps_percentile ELSE pfp.dps_percentile END), 1) as avg_pct,
              COUNT(*) as fights
       FROM player_fight_performance pfp
       JOIN users u ON pfp.user_id = u.id
       WHERE pfp.boss_id IN (SELECT wb.id FROM wcl_bosses wb JOIN wcl_zones wz ON wb.zone_id = wz.id WHERE wz.is_current = 1)
         AND pfp.difficulty = ?
         AND pfp.is_kill = 1
-        AND CASE WHEN u.raid_role = 'Healer' THEN pfp.hps_percentile ELSE pfp.dps_percentile END IS NOT NULL
-      GROUP BY pfp.user_id, pfp.boss_id
+        AND CASE WHEN pfp.wcl_spec IN ${HEALER_SPECS} THEN pfp.hps_percentile ELSE pfp.dps_percentile END IS NOT NULL
+      GROUP BY pfp.user_id, pfp.character_name, pfp.boss_id
     `, difficulty);
 
-    // Build avg lookup
+    // Build avg lookup (keyed by character_name instead of user_id)
     const avgLookup = {};
     for (const row of avgStats) {
-      avgLookup[`${row.user_id}:${row.boss_id}`] = { avgPct: row.avg_pct, fights: row.fights };
+      avgLookup[`${row.character_name}:${row.boss_id}`] = { avgPct: row.avg_pct, fights: row.fights };
     }
 
-    // Build player map
+    // Build player map (keyed by character_name to separate rerolled characters)
     const playerMap = new Map();
     for (const row of playerStats) {
-      if (!playerMap.has(row.user_id)) {
-        playerMap.set(row.user_id, {
+      const key = row.character_name;
+      if (!playerMap.has(key)) {
+        playerMap.set(key, {
           userId: row.user_id,
           characterName: row.character_name,
           characterClass: row.character_class,
@@ -700,8 +720,8 @@ router.get('/percentile-matrix', authenticateToken, async (req, res) => {
           allPcts: [],
         });
       }
-      const player = playerMap.get(row.user_id);
-      const avg = avgLookup[`${row.user_id}:${row.boss_id}`];
+      const player = playerMap.get(key);
+      const avg = avgLookup[`${row.character_name}:${row.boss_id}`];
       player.bosses[row.boss_id] = {
         bestPct: Math.round(row.best_pct * 10) / 10,
         avgPct: avg?.avgPct || Math.round(row.best_pct * 10) / 10,
@@ -753,19 +773,23 @@ router.get('/boss/:bossId/percentiles', authenticateToken, async (req, res) => {
     const diffFilter = difficulty ? 'AND pfp.difficulty = ?' : '';
     const diffParams = difficulty ? [bossId, difficulty] : [bossId];
 
+    const HEALER_SPECS_BP = "('Holy','Discipline','Restoration','Mistweaver','Preservation')";
     const players = await req.db.all(`
-      SELECT pfp.user_id, u.character_name, u.character_class, u.raid_role,
-             MAX(CASE WHEN u.raid_role = 'Healer' THEN pfp.hps_percentile ELSE pfp.dps_percentile END) as best_pct,
-             ROUND(AVG(CASE WHEN u.raid_role = 'Healer' THEN pfp.hps_percentile ELSE pfp.dps_percentile END), 1) as avg_pct,
+      SELECT pfp.user_id,
+             COALESCE(pfp.character_name, u.character_name) as character_name,
+             COALESCE(pfp.wcl_class, u.character_class) as character_class,
+             CASE WHEN pfp.wcl_spec IN ${HEALER_SPECS_BP} THEN 'Healer' ELSE u.raid_role END as raid_role,
+             MAX(CASE WHEN pfp.wcl_spec IN ${HEALER_SPECS_BP} THEN pfp.hps_percentile ELSE pfp.dps_percentile END) as best_pct,
+             ROUND(AVG(CASE WHEN pfp.wcl_spec IN ${HEALER_SPECS_BP} THEN pfp.hps_percentile ELSE pfp.dps_percentile END), 1) as avg_pct,
              MAX(pfp.dps) as best_dps,
              MAX(pfp.hps) as best_hps,
              COUNT(*) as fights
       FROM player_fight_performance pfp
       JOIN users u ON pfp.user_id = u.id
       WHERE pfp.boss_id = ?
-        AND CASE WHEN u.raid_role = 'Healer' THEN pfp.hps_percentile ELSE pfp.dps_percentile END IS NOT NULL
+        AND CASE WHEN pfp.wcl_spec IN ${HEALER_SPECS_BP} THEN pfp.hps_percentile ELSE pfp.dps_percentile END IS NOT NULL
         ${diffFilter}
-      GROUP BY pfp.user_id
+      GROUP BY pfp.user_id, pfp.character_name
       ORDER BY best_pct DESC
     `, ...diffParams);
 
