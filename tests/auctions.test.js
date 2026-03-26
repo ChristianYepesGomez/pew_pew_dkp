@@ -197,7 +197,7 @@ describe('Auctions — /api/auctions', () => {
         .send({ amount: 0 });
 
       const msg = expectError(res, 400);
-      expect(msg).toMatch(/at least \d+ dkp/i);
+      expect(msg).toMatch(/at least 5 dkp/i);
     });
 
     it('returns 404 for non-existent auction', async () => {
