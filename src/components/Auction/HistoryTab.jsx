@@ -196,24 +196,31 @@ const HistoryTab = ({ onNavigate }) => {
                 </button>
               )}
 
-              {/* Expanded bids list */}
+              {/* Expanded bids list (full timeline, newest first) */}
               {isExpanded && Array.isArray(bidsData) && bidsData.length > 0 && (
                 <div className="border-t border-lavender-20/10 bg-indigo/50">
                   <div className="px-4 py-2 space-y-1">
-                    {bidsData.map((bid, idx) => (
-                      <div
-                        key={idx}
-                        className={`flex items-center justify-between text-sm py-1 ${idx === 0 ? 'text-yellow-400' : 'text-lavender'}`}
-                      >
-                        <span style={{ color: idx === 0 ? CLASS_COLORS[bid.characterClass] : undefined }}>
-                          {idx === 0 && <Trophy className="inline mr-2 text-yellow-400" weight="fill" />}
-                          {bid.characterName}
-                        </span>
-                        <span className={idx === 0 ? 'text-red-400 font-bold' : ''}>
-                          {bid.amount} DKP
-                        </span>
-                      </div>
-                    ))}
+                    {bidsData.map((bid, idx) => {
+                      const isWinningBid = idx === 0 && hasWinner
+                      const bidTime = bid.createdAt ? new Date(bid.createdAt).toLocaleTimeString(language === 'es' ? 'es-ES' : 'en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : null
+                      return (
+                        <div
+                          key={idx}
+                          className={`flex items-center justify-between text-sm py-1 ${isWinningBid ? 'text-yellow-400' : 'text-lavender'}`}
+                        >
+                          <span className="flex items-center gap-1.5 min-w-0">
+                            {isWinningBid && <Trophy className="flex-shrink-0 text-yellow-400" size={14} weight="fill" />}
+                            <span className="truncate" style={{ color: isWinningBid ? CLASS_COLORS[bid.characterClass] : CLASS_COLORS[bid.characterClass] ? `${CLASS_COLORS[bid.characterClass]}99` : undefined }}>
+                              {bid.characterName}
+                            </span>
+                            {bidTime && <span className="flex-shrink-0 text-[11px] text-lavender/40">{bidTime}</span>}
+                          </span>
+                          <span className={`flex-shrink-0 ml-3 ${isWinningBid ? 'text-red-400 font-bold' : ''}`}>
+                            {bid.amount} DKP
+                          </span>
+                        </div>
+                      )
+                    })}
                   </div>
                   {/* Tie roll results */}
                   {a.was_tie && a.rolls && a.rolls.length > 0 && (

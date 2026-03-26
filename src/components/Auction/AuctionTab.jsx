@@ -897,6 +897,7 @@ const AuctionTab = ({ onNavigate }) => {
           auction={bidModal.auction}
           userDkp={availableDkp}
           userClass={user?.characterClass}
+          ownBid={bidModal.auction?.bids?.find(b => b.userId === user?.id)?.amount || 0}
           onClose={() => setBidModal({ open: false, auction: null })}
           onSuccess={handleBidSuccess}
         />

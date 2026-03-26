@@ -6,8 +6,10 @@ import WowheadTooltip from '../Common/WowheadTooltip'
 import RARITY_COLORS from '../../utils/rarityColors'
 import { Diamond, X, WarningCircle, CircleNotch, HandCoins, Lock } from '@phosphor-icons/react'
 
-const BidModal = ({ auction, userDkp, userClass, onClose, onSuccess }) => {
+const BidModal = ({ auction, userDkp, userClass, ownBid = 0, onClose, onSuccess }) => {
   const classRestricted = auction.eligibleClasses && !auction.eligibleClasses.includes(userClass)
+  // effectiveDkp accounts for own bid on this auction (backend excludes it from committed)
+  const effectiveDkp = userDkp + ownBid
   const { t } = useLanguage()
   const minBid = auction.currentBid || 1
   const [amount, setAmount] = useState(String(minBid))
@@ -43,7 +45,7 @@ const BidModal = ({ auction, userDkp, userClass, onClose, onSuccess }) => {
       return
     }
 
-    if (numAmount > userDkp) {
+    if (numAmount > effectiveDkp) {
       setError(t('insufficient_dkp'))
       return
     }
@@ -96,7 +98,7 @@ const BidModal = ({ auction, userDkp, userClass, onClose, onSuccess }) => {
         <div className="p-6 bg-lavender-12/20 flex justify-around">
           <div className="text-center">
             <p className="text-sm text-lavender m-0">{t('your_dkp')}</p>
-            <p className="text-2xl font-bold text-coral m-0">{userDkp}</p>
+            <p className="text-2xl font-bold text-coral m-0">{effectiveDkp}</p>
           </div>
           <div className="text-center">
             <p className="text-sm text-lavender m-0">{t('current_bid')}</p>
@@ -135,7 +137,7 @@ const BidModal = ({ auction, userDkp, userClass, onClose, onSuccess }) => {
                 onChange={(e) => setAmount(e.target.value)}
                 onFocus={(e) => e.target.select()}
                 min={minBid}
-                max={userDkp}
+                max={effectiveDkp}
                 className="flex-1 px-4 py-3 rounded-lg bg-lavender-12/30 border border-lavender-20 text-white text-center text-xl font-bold focus:outline-none focus:border-coral"
               />
               <span className="text-coral font-bold text-xl">DKP</span>
@@ -145,8 +147,8 @@ const BidModal = ({ auction, userDkp, userClass, onClose, onSuccess }) => {
           {/* After bid preview */}
           <div className="bg-lavender-12/20 rounded-lg p-3 text-center">
             <p className="text-sm text-lavender m-0">{t('dkp_after_bid')}</p>
-            <p className={`text-xl font-bold m-0 ${userDkp - numAmount >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-              {userDkp - numAmount} DKP
+            <p className={`text-xl font-bold m-0 ${effectiveDkp - numAmount >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+              {effectiveDkp - numAmount} DKP
             </p>
           </div>
 
@@ -161,7 +163,7 @@ const BidModal = ({ auction, userDkp, userClass, onClose, onSuccess }) => {
             </button>
             <button
               type="submit"
-              disabled={loading || classRestricted || numAmount < minBid || numAmount > userDkp}
+              disabled={loading || classRestricted || numAmount < minBid || numAmount > effectiveDkp}
               className="flex-1 px-4 py-3 rounded-lg bg-gradient-to-r from-green-600 to-green-700 text-white font-bold hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? (
