@@ -246,13 +246,14 @@ router.get('/superlatives', authenticateToken, async (req, res) => {
         GROUP BY pbp.user_id ORDER BY total DESC LIMIT 1
       `),
       req.db.get(`
-        SELECT u.character_name, u.character_class, SUM(pbp.total_damage_taken) as total
+        SELECT u.character_name, u.character_class, MAX(pbp.total_damage_taken) as total
         FROM player_boss_performance pbp
         JOIN users u ON pbp.user_id = u.id
         JOIN wcl_bosses wb ON pbp.boss_id = wb.id
         JOIN wcl_zones wz ON wb.zone_id = wz.id
         WHERE wz.is_current = 1
-        GROUP BY pbp.user_id ORDER BY total DESC LIMIT 1
+          AND u.raid_role != 'Tank'
+        ORDER BY total DESC LIMIT 1
       `),
     ]);
 
@@ -507,11 +508,11 @@ router.get('/guild-leaderboards', authenticateToken, async (req, res) => {
         ORDER BY value DESC LIMIT 10
       `, MIN_FIGHTS),
 
-      // Top 10 Damage Taken
+      // Top 10 Damage Taken (single encounter max)
       req.db.all(`
         SELECT COALESCE(pfp.character_name, u.character_name) as character_name,
                COALESCE(pfp.wcl_class, u.character_class) as character_class,
-               SUM(pfp.damage_taken) as value,
+               MAX(pfp.damage_taken) as value,
                COUNT(*) as fights
         FROM player_fight_performance pfp
         JOIN users u ON pfp.user_id = u.id
