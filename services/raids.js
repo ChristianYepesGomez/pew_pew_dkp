@@ -386,9 +386,12 @@ export async function getBossDetails(db, bossId, requestedDifficulty = null) {
     `, bossId, selectedDifficulty),
 
     db.all(`
-      SELECT id, boss_id, difficulty, record_type, user_id, value,
-             character_name, character_class, report_code, fight_id, recorded_at
-      FROM boss_records WHERE boss_id = ? AND difficulty = ?
+      SELECT br.id, br.boss_id, br.difficulty, br.record_type, br.user_id, br.value,
+             br.character_name, br.character_class, br.report_code, br.fight_id, br.recorded_at
+      FROM boss_records br
+      LEFT JOIN users u ON br.user_id = u.id
+      WHERE br.boss_id = ? AND br.difficulty = ?
+        AND NOT (br.record_type = 'most_damage_taken' AND u.raid_role = 'Tank')
     `, bossId, selectedDifficulty),
   ]);
 
@@ -645,8 +648,11 @@ export async function recordPlayerPerformance(db, bossId, difficulty, fightStats
       damageTaken: entry.total,
     });
 
-    // Check for record (most damage taken - could be "shame" or "tank badge")
-    await checkAndUpdateRecord(db, bossId, normalizedDifficulty, 'most_damage_taken', userId, entry.total, entry.name, reportCode, fightId, participantUserMap);
+    // Check for record — exclude tanks (damage taken record is for DPS/healers only)
+    const user = await db.get('SELECT raid_role FROM users WHERE id = ?', userId);
+    if (user?.raid_role !== 'Tank') {
+      await checkAndUpdateRecord(db, bossId, normalizedDifficulty, 'most_damage_taken', userId, entry.total, entry.name, reportCode, fightId, participantUserMap);
+    }
   }
 }
 
