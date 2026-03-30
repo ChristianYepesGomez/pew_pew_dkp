@@ -246,13 +246,16 @@ router.get('/superlatives', authenticateToken, async (req, res) => {
         GROUP BY pbp.user_id ORDER BY total DESC LIMIT 1
       `),
       req.db.get(`
-        SELECT u.character_name, u.character_class, MAX(pbp.total_damage_taken) as total
-        FROM player_boss_performance pbp
-        JOIN users u ON pbp.user_id = u.id
-        JOIN wcl_bosses wb ON pbp.boss_id = wb.id
-        JOIN wcl_zones wz ON wb.zone_id = wz.id
-        WHERE wz.is_current = 1
-          AND u.raid_role != 'Tank'
+        SELECT COALESCE(pfp.character_name, u.character_name) as character_name,
+               COALESCE(pfp.wcl_class, u.character_class) as character_class,
+               MAX(pfp.damage_taken) as total
+        FROM player_fight_performance pfp
+        JOIN users u ON pfp.user_id = u.id
+        LEFT JOIN characters c ON c.user_id = pfp.user_id AND LOWER(c.character_name) = LOWER(pfp.character_name)
+        WHERE pfp.is_kill = 1
+          AND pfp.damage_taken > 0
+          AND COALESCE(c.raid_role, u.raid_role) != 'Tank'
+          AND pfp.boss_id IN (SELECT wb.id FROM wcl_bosses wb JOIN wcl_zones wz ON wb.zone_id = wz.id WHERE wz.is_current = 1)
         ORDER BY total DESC LIMIT 1
       `),
     ]);
@@ -508,7 +511,7 @@ router.get('/guild-leaderboards', authenticateToken, async (req, res) => {
         ORDER BY value DESC LIMIT 10
       `, MIN_FIGHTS),
 
-      // Top 10 Damage Taken (single encounter max)
+      // Top 10 Damage Taken (single encounter max, per character role)
       req.db.all(`
         SELECT COALESCE(pfp.character_name, u.character_name) as character_name,
                COALESCE(pfp.wcl_class, u.character_class) as character_class,
@@ -516,9 +519,10 @@ router.get('/guild-leaderboards', authenticateToken, async (req, res) => {
                COUNT(*) as fights
         FROM player_fight_performance pfp
         JOIN users u ON pfp.user_id = u.id
+        LEFT JOIN characters c ON c.user_id = pfp.user_id AND LOWER(c.character_name) = LOWER(pfp.character_name)
         WHERE pfp.damage_taken > 0
           AND pfp.is_kill = 1
-          AND u.raid_role != 'Tank'
+          AND COALESCE(c.raid_role, u.raid_role) != 'Tank'
           AND pfp.boss_id IN (SELECT wb.id FROM wcl_bosses wb JOIN wcl_zones wz ON wb.zone_id = wz.id WHERE wz.is_current = 1)
         GROUP BY pfp.user_id, pfp.character_name
         HAVING COUNT(*) >= ?
