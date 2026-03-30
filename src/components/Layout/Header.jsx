@@ -4,6 +4,7 @@ import { SignOut, CaretDown, IconContext, Crown, Translate, User, Users, Coins, 
 import { useAuth } from '../../hooks/useAuth'
 import { useLanguage } from '../../hooks/useLanguage'
 import { useSocket } from '../../hooks/useSocket'
+import { useToast } from '../../context/ToastContext'
 import { authAPI, membersAPI } from '../../services/api'
 import MyCharacterModal from '../Character/MyCharacterModal'
 import { CHARACTER_MODAL_VIEW, CHARACTER_MODAL_VIEW_ORDER } from '../Character/characterModalViews'
@@ -32,6 +33,7 @@ const VIEW_LABEL_KEY_MAP = {
 const Header = ({ tabs = [], activeTab, onTabChange }) => {
   const { user, logout, refreshUser } = useAuth()
   const { t, language, changeLanguage } = useLanguage()
+  const { addToast } = useToast()
   const [showUserMenu, setShowUserMenu] = useState(false)
   const [showCharacterModal, setShowCharacterModal] = useState(false)
   const [characterModalTab, setCharacterModalTab] = useState(CHARACTER_MODAL_VIEW.ACCOUNT)
@@ -207,6 +209,15 @@ const Header = ({ tabs = [], activeTab, onTabChange }) => {
       if (data.userId === user?.id) refreshUser()
     },
     dkp_bulk_updated: () => refreshUser(),
+    stats_processing_complete: (data) => {
+      if (data.status === 'success') {
+        addToast(`Stats procesadas: ${data.extendedRecords} registros para ${data.reportCode}`, 'success', 6000)
+      } else if (data.status === 'partial_failure') {
+        addToast(`Stats incompletas para ${data.reportCode}: ${data.message}`, 'warning', 10000)
+      } else if (data.status === 'error') {
+        addToast(`Error procesando stats de ${data.reportCode}: ${data.message}`, 'error', 10000)
+      }
+    },
   })
 
   const closeUserMenu = () => setShowUserMenu(false)
