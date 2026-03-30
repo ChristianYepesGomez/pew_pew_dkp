@@ -371,45 +371,49 @@ router.post('/confirm', adminLimiter, authenticateToken, authorizeRole(['admin',
             let performanceRecorded = 0;
 
             for (const bossInfo of processedBosses) {
-              // Skip if this fight already has extended data (dedup for deaths/performance)
-              const alreadyHasData = await req.db.get(
-                'SELECT 1 FROM player_fight_performance WHERE report_code = ? AND fight_id = ? LIMIT 1',
-                reportCode, bossInfo.fightId
-              );
-              if (alreadyHasData) continue;
-
-              // Get comprehensive fight stats with death filtering for wipes
-              const fightStats = await getFightStatsWithDeathEvents(reportCode, {
-                id: bossInfo.fightId,
-                startTime: bossInfo.startTime,
-                endTime: bossInfo.endTime,
-                kill: bossInfo.kill,
-              });
-
-              // Track filtered wipe deaths
-              if (fightStats.wipeDeathsFiltered) {
-                wipeDeathsFiltered += fightStats.wipeDeathsFiltered;
-              }
-
-              // Record deaths (already filtered if it was a wipe)
-              if (fightStats.deaths.length > 0) {
-                const deathsFormatted = fightStats.deaths.map(d => ({ name: d.name, deaths: d.total }));
-                await recordPlayerDeaths(req.db, bossInfo.bossId, bossInfo.difficulty, deathsFormatted, participantUserMap);
-                totalDeathsRecorded += fightStats.deaths.reduce((sum, d) => sum + d.total, 0);
-              }
-
-              // Record performance (damage, healing, damage taken) and update records
-              if (fightStats.damage.length > 0 || fightStats.healing.length > 0) {
-                await recordPlayerPerformance(
-                  req.db,
-                  bossInfo.bossId,
-                  bossInfo.difficulty,
-                  fightStats,
-                  participantUserMap,
-                  reportCode,
-                  bossInfo.fightId
+              try {
+                // Skip if this fight already has extended data (dedup for deaths/performance)
+                const alreadyHasData = await req.db.get(
+                  'SELECT 1 FROM player_fight_performance WHERE report_code = ? AND fight_id = ? LIMIT 1',
+                  reportCode, bossInfo.fightId
                 );
-                performanceRecorded++;
+                if (alreadyHasData) continue;
+
+                // Get comprehensive fight stats with death filtering for wipes
+                const fightStats = await getFightStatsWithDeathEvents(reportCode, {
+                  id: bossInfo.fightId,
+                  startTime: bossInfo.startTime,
+                  endTime: bossInfo.endTime,
+                  kill: bossInfo.kill,
+                });
+
+                // Track filtered wipe deaths
+                if (fightStats.wipeDeathsFiltered) {
+                  wipeDeathsFiltered += fightStats.wipeDeathsFiltered;
+                }
+
+                // Record deaths (already filtered if it was a wipe)
+                if (fightStats.deaths.length > 0) {
+                  const deathsFormatted = fightStats.deaths.map(d => ({ name: d.name, deaths: d.total }));
+                  await recordPlayerDeaths(req.db, bossInfo.bossId, bossInfo.difficulty, deathsFormatted, participantUserMap);
+                  totalDeathsRecorded += fightStats.deaths.reduce((sum, d) => sum + d.total, 0);
+                }
+
+                // Record performance (damage, healing, damage taken) and update records
+                if (fightStats.damage.length > 0 || fightStats.healing.length > 0) {
+                  await recordPlayerPerformance(
+                    req.db,
+                    bossInfo.bossId,
+                    bossInfo.difficulty,
+                    fightStats,
+                    participantUserMap,
+                    reportCode,
+                    bossInfo.fightId
+                  );
+                  performanceRecorded++;
+                }
+              } catch (perfErr) {
+                log.warn(`Deaths/performance failed for fight ${bossInfo.fightId}: ${perfErr.message}`);
               }
             }
 
@@ -469,8 +473,29 @@ router.post('/confirm', adminLimiter, authenticateToken, authorizeRole(['admin',
           if (statsProcessed > 0) {
             log.info(`Boss stats updated: ${statsProcessed} fights from ${reportCode}`);
           }
+
+          // Verify extended stats were actually recorded
+          const pfpCount = await req.db.get(
+            'SELECT COUNT(*) as count FROM player_fight_performance WHERE report_code = ?',
+            reportCode
+          );
+          const result = {
+            reportCode,
+            bossStatsProcessed: statsProcessed,
+            extendedRecords: pfpCount?.count || 0,
+            totalFights: processedBosses.length,
+          };
+
+          if (pfpCount?.count > 0) {
+            log.info(`Stats processing complete for ${reportCode}: ${pfpCount.count} player-fight records`);
+            io.emit('stats_processing_complete', { ...result, status: 'success' });
+          } else {
+            log.error(`Stats processing INCOMPLETE for ${reportCode}: boss stats OK but 0 player-fight records — extended data failed silently`);
+            io.emit('stats_processing_complete', { ...result, status: 'partial_failure', message: 'Las estadísticas detalladas por fight no se pudieron procesar. Contacta a un admin para reprocesar.' });
+          }
         } catch (err) {
           log.error('Error processing fight stats', err);
+          io.emit('stats_processing_complete', { reportCode, status: 'error', message: err.message });
         }
       })();
     }
@@ -742,45 +767,50 @@ router.post('/import-boss-stats', adminLimiter, authenticateToken, authorizeRole
           // Parallelize performance recording across boss fights
           const perfResults = await Promise.all(
             processedBosses.map(bossInfo => limit(async () => {
-              // Skip if this fight already has extended data (dedup)
-              const alreadyHasData = await req.db.get(
-                'SELECT 1 FROM player_fight_performance WHERE report_code = ? AND fight_id = ? LIMIT 1',
-                reportData.code, bossInfo.fightId
-              );
-              if (alreadyHasData) return { bossDeaths: 0, bossPerf: 0 };
-
-              const fightStats = await getFightStatsWithDeathEvents(reportData.code, {
-                id: bossInfo.fightId,
-                startTime: bossInfo.startTime,
-                endTime: bossInfo.endTime,
-                kill: bossInfo.kill,
-              });
-
-              let bossDeaths = 0;
-              let bossPerf = 0;
-
-              // Record deaths
-              if (fightStats.deaths && fightStats.deaths.length > 0) {
-                const deathsFormatted = fightStats.deaths.map(d => ({ name: d.name, deaths: d.total }));
-                await recordPlayerDeaths(req.db, bossInfo.bossId, bossInfo.difficulty, deathsFormatted, participantUserMap);
-                bossDeaths = fightStats.deaths.reduce((sum, d) => sum + d.total, 0);
-              }
-
-              // Record performance (damage, healing, damage taken)
-              if (fightStats.damage.length > 0 || fightStats.healing.length > 0) {
-                await recordPlayerPerformance(
-                  req.db,
-                  bossInfo.bossId,
-                  bossInfo.difficulty,
-                  fightStats,
-                  participantUserMap,
-                  reportData.code,
-                  bossInfo.fightId
+              try {
+                // Skip if this fight already has extended data (dedup)
+                const alreadyHasData = await req.db.get(
+                  'SELECT 1 FROM player_fight_performance WHERE report_code = ? AND fight_id = ? LIMIT 1',
+                  reportData.code, bossInfo.fightId
                 );
-                bossPerf = 1;
-              }
+                if (alreadyHasData) return { bossDeaths: 0, bossPerf: 0 };
 
-              return { bossDeaths, bossPerf };
+                const fightStats = await getFightStatsWithDeathEvents(reportData.code, {
+                  id: bossInfo.fightId,
+                  startTime: bossInfo.startTime,
+                  endTime: bossInfo.endTime,
+                  kill: bossInfo.kill,
+                });
+
+                let bossDeaths = 0;
+                let bossPerf = 0;
+
+                // Record deaths
+                if (fightStats.deaths && fightStats.deaths.length > 0) {
+                  const deathsFormatted = fightStats.deaths.map(d => ({ name: d.name, deaths: d.total }));
+                  await recordPlayerDeaths(req.db, bossInfo.bossId, bossInfo.difficulty, deathsFormatted, participantUserMap);
+                  bossDeaths = fightStats.deaths.reduce((sum, d) => sum + d.total, 0);
+                }
+
+                // Record performance (damage, healing, damage taken)
+                if (fightStats.damage.length > 0 || fightStats.healing.length > 0) {
+                  await recordPlayerPerformance(
+                    req.db,
+                    bossInfo.bossId,
+                    bossInfo.difficulty,
+                    fightStats,
+                    participantUserMap,
+                    reportData.code,
+                    bossInfo.fightId
+                  );
+                  bossPerf = 1;
+                }
+
+                return { bossDeaths, bossPerf };
+              } catch (perfErr) {
+                log.warn(`Deaths/performance failed for fight ${bossInfo.fightId}: ${perfErr.message}`);
+                return { bossDeaths: 0, bossPerf: 0 };
+              }
             }))
           );
 
@@ -833,8 +863,31 @@ router.post('/import-boss-stats', adminLimiter, authenticateToken, authorizeRole
               log.warn('Item popularity processing failed: ' + popErr.message);
             }
           }
+
+          // Verify extended stats were actually recorded
+          const pfpCount = await req.db.get(
+            'SELECT COUNT(*) as count FROM player_fight_performance WHERE report_code = ?',
+            reportData.code
+          );
+          const importIo = req.app.get('io');
+          const result = {
+            reportCode: reportData.code,
+            bossStatsProcessed: statsProcessed,
+            extendedRecords: pfpCount?.count || 0,
+            totalFights: processedBosses.length,
+          };
+
+          if (pfpCount?.count > 0) {
+            log.info(`Stats processing complete for ${reportData.code}: ${pfpCount.count} player-fight records`);
+            importIo?.emit('stats_processing_complete', { ...result, status: 'success' });
+          } else {
+            log.error(`Stats processing INCOMPLETE for ${reportData.code}: boss stats OK but 0 player-fight records — extended data failed silently`);
+            importIo?.emit('stats_processing_complete', { ...result, status: 'partial_failure', message: 'Las estadísticas detalladas por fight no se pudieron procesar. Contacta a un admin para reprocesar.' });
+          }
         } catch (err) {
           log.error('Error recording import performance', err);
+          const importIo = req.app.get('io');
+          importIo?.emit('stats_processing_complete', { reportCode: reportData.code, status: 'error', message: err.message });
         }
       })();
     }
