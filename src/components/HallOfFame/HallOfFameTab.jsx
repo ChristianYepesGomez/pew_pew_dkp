@@ -1,8 +1,7 @@
 import { useState } from 'react'
-import { Trophy, Sword, Skull, CurrencyCircleDollar, CalendarBlank, Scroll } from '@phosphor-icons/react'
+import { Skull, CurrencyCircleDollar, CalendarBlank, Scroll } from '@phosphor-icons/react'
 import { useLanguage } from '../../hooks/useLanguage'
 import { useHallOfFame } from '../../hooks/useQueries'
-import { hallOfFameAPI } from '../../services/api'
 import SectionHeader from '../ui/SectionHeader'
 import SurfaceCard from '../ui/SurfaceCard'
 import { Skeleton } from '../ui/Skeleton'
@@ -30,11 +29,7 @@ const HallOfFameTab = () => {
   return (
     <div className="space-y-8">
       <div className="text-center space-y-2">
-        <div className="flex items-center justify-center gap-3">
-          <Trophy size={34} className="text-amber-400" weight="fill" />
-          <h2 className="text-2xl font-bold text-coral">{t('hall_of_fame_title')}</h2>
-          <Trophy size={34} className="text-amber-400" weight="fill" />
-        </div>
+        <h2 className="text-2xl font-bold text-coral">{t('hall_of_fame_title')}</h2>
         <p className="text-lavender text-sm">{t('hall_of_fame_subtitle')}</p>
       </div>
 
@@ -71,12 +66,15 @@ const LegendCard = ({ legend, t, onClick }) => {
   const classColor = CLASS_COLORS[legend.characterClass] || '#ffffff'
 
   const formatDate = (dateStr) => {
-    if (!dateStr) return '—'
+    if (!dateStr) return null
     return new Date(dateStr).toLocaleDateString(undefined, {
       month: 'short',
       year: 'numeric',
     })
   }
+
+  const fromDate = formatDate(legend.joinDate)
+  const untilDate = formatDate(legend.leaveDate)
 
   return (
     <SurfaceCard
@@ -84,7 +82,7 @@ const LegendCard = ({ legend, t, onClick }) => {
       onClick={onClick}
     >
       <div className="flex items-start gap-4">
-        {/* Avatar or class icon */}
+        {/* Avatar or class initial */}
         <div
           className="w-14 h-14 rounded-xl flex items-center justify-center shrink-0 border-2"
           style={{ borderColor: classColor, backgroundColor: `${classColor}15` }}
@@ -112,32 +110,19 @@ const LegendCard = ({ legend, t, onClick }) => {
             {legend.raidRole && ` · ${legend.raidRole}`}
           </p>
 
-          {/* Dates */}
-          <div className="flex items-center gap-3 mt-1 text-xs text-lavender/70">
-            {legend.joinDate && (
-              <span className="flex items-center gap-1">
-                <CalendarBlank size={12} />
-                {formatDate(legend.joinDate)}
-              </span>
-            )}
-            {legend.leaveDate && (
-              <>
-                <span>→</span>
-                <span>{formatDate(legend.leaveDate)}</span>
-              </>
-            )}
-          </div>
+          {/* Date range */}
+          {(fromDate || untilDate) && (
+            <div className="flex items-center gap-1 mt-1 text-xs text-lavender/70">
+              <CalendarBlank size={12} />
+              {fromDate && <span>{t('hof_from')} {fromDate}</span>}
+              {untilDate && <span> {t('hof_until')} {untilDate}</span>}
+            </div>
+          )}
         </div>
       </div>
 
       {/* Stats row */}
-      <div className="grid grid-cols-4 gap-2 mt-4">
-        <StatBadge
-          icon={Sword}
-          value={legend.totalRaids}
-          label={t('hof_raids')}
-          color="text-coral"
-        />
+      <div className="grid grid-cols-3 gap-2 mt-4">
         <StatBadge
           icon={Skull}
           value={legend.totalBossKills}
@@ -161,7 +146,7 @@ const LegendCard = ({ legend, t, onClick }) => {
       {/* Tribute preview */}
       {legend.tribute && (
         <p className="mt-3 text-sm text-cream/70 italic line-clamp-2 border-t border-lavender/10 pt-3">
-          "{legend.tribute}"
+          &ldquo;{legend.tribute}&rdquo;
         </p>
       )}
     </SurfaceCard>

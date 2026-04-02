@@ -249,6 +249,7 @@ export const addonsAPI = {
 export const hallOfFameAPI = {
   getAll: () => api.get('/hall-of-fame'),
   getById: (id) => api.get(`/hall-of-fame/${id}`),
+  getParses: (id) => api.get(`/hall-of-fame/${id}/parses`),
   create: (data) => api.post('/hall-of-fame', data),
   update: (id, data) => api.put(`/hall-of-fame/${id}`, data),
   remove: (id) => api.delete(`/hall-of-fame/${id}`),
