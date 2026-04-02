@@ -491,6 +491,7 @@ router.post('/:auctionId/end', adminLimiter, authenticateToken, authorizeRole(['
       ...result
     };
 
+    cancelAuctionClose(auctionId); // Prevent duplicate emit from scheduled auto-close
     req.app.get('io').emit('auction_ended', eventData);
     return success(res, eventData);
   } catch (err) {
