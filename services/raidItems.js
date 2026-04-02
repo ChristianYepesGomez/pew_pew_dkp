@@ -35,6 +35,7 @@ const SEED_ITEMS = [
   {id:249914,name_en:"Oblivion Guise",name_es:"Disfraz de olvido",rarity:"epic",icon:"https://render.worldofwarcraft.com/eu/icons/56/inv_helm_mail_raidshamanmidnight_d_01.jpg",slot:"Head",raid_name:"Marcha a Quel'Danas",raid_name_en:"March on Quel'Danas",boss_name:"L'ura",boss_name_en:"Midnight Falls",item_level:197},
   {id:249912,name_en:"Robes of Endless Oblivion",name_es:"Togas de olvido sin fin",rarity:"epic",icon:"https://render.worldofwarcraft.com/eu/icons/56/inv_chest_cloth_raidwarlockmidnight_d_01.jpg",slot:"Chest",raid_name:"Marcha a Quel'Danas",raid_name_en:"March on Quel'Danas",boss_name:"L'ura",boss_name_en:"Midnight Falls",item_level:197},
   {id:249810,name_en:"Shadow of the Empyrean Requiem",name_es:"Sombra del réquiem empíreo",rarity:"epic",icon:"https://render.worldofwarcraft.com/eu/icons/56/inv_12_trinket_raid_darkwell_intdps2.jpg",slot:"Trinket",raid_name:"Marcha a Quel'Danas",raid_name_en:"March on Quel'Danas",boss_name:"L'ura",boss_name_en:"Midnight Falls",item_level:197},
+  {id:249367,name_en:"Chiming Void Curio",name_es:"Curiosidad de Vacío tintineante",rarity:"epic",icon:"https://render.worldofwarcraft.com/eu/icons/56/trade_archaeology_naarucrystal.jpg",slot:"Token",raid_name:"Marcha a Quel'Danas",raid_name_en:"March on Quel'Danas",boss_name:"L'ura",boss_name_en:"Midnight Falls",item_level:197},
   {id:249278,name_en:"Alnscorned Spire",name_es:"Aguja de los despreciados por Aln",rarity:"epic",icon:"https://render.worldofwarcraft.com/eu/icons/56/inv_staff_2h_raidmidnight_d_01.jpg",slot:"Two-Hand",raid_name:"La Falla Onírica",raid_name_en:"The Dreamrift",boss_name:"Chimaerus, El Dios Inconcebible",boss_name_en:"Chimaerus the Undreamt God",item_level:197},
   {id:249373,name_en:"Dream-Scorched Striders",name_es:"Zancos agostados por el Sueño",rarity:"epic",icon:"https://render.worldofwarcraft.com/eu/icons/56/inv_boot_cloth_raidmagemidnight_d_01.jpg",slot:"Feet",raid_name:"La Falla Onírica",raid_name_en:"The Dreamrift",boss_name:"Chimaerus, El Dios Inconcebible",boss_name_en:"Chimaerus the Undreamt God",item_level:197},
   {id:249343,name_en:"Gaze of the Alnseer",name_es:"Mirada del Alnvidente",rarity:"epic",icon:"https://render.worldofwarcraft.com/eu/icons/56/inv_12_trinket_raid_dreamrift_gazeofthealnseer.jpg",slot:"Trinket",raid_name:"La Falla Onírica",raid_name_en:"The Dreamrift",boss_name:"Chimaerus, El Dios Inconcebible",boss_name_en:"Chimaerus the Undreamt God",item_level:197},
@@ -124,24 +125,22 @@ function rowToItem(row) {
   };
 }
 
-// Seed raid_items table if empty (first run)
+// Seed raid_items table — inserts any missing seed items (INSERT OR IGNORE)
 export async function seedRaidItems(targetDb) {
   const count = await targetDb.get('SELECT COUNT(*) as count FROM raid_items');
-  if (count.count > 0) {
-    log.info(`Raid items: ${count.count} items in DB`);
-    return;
-  }
+  log.info(`Raid items: ${count.count} items in DB, ${SEED_ITEMS.length} in seed`);
 
-  log.info(`Seeding ${SEED_ITEMS.length} raid items into database...`);
+  let inserted = 0;
   for (const item of SEED_ITEMS) {
-    await targetDb.run(
+    const result = await targetDb.run(
       `INSERT OR IGNORE INTO raid_items (id, name_en, name_es, rarity, icon, slot, raid_name, raid_name_en, boss_name, boss_name_en, item_level)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       item.id, item.name_en, item.name_es, item.rarity, item.icon, item.slot,
       item.raid_name, item.raid_name_en, item.boss_name, item.boss_name_en, item.item_level
     );
+    if (result.changes > 0) inserted++;
   }
-  log.info(`Seeded ${SEED_ITEMS.length} raid items`);
+  if (inserted > 0) log.info(`Seeded ${inserted} new raid items`);
 }
 
 // Get all raid items from DB — instant, no API calls
