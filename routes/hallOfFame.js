@@ -223,6 +223,61 @@ router.put('/:id', adminLimiter, authenticateToken, authorizeRole(['admin', 'off
   }
 });
 
+// Get best parses for a Hall of Fame member, grouped by raid zone
+router.get('/:id/parses', authenticateToken, async (req, res) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    if (isNaN(id)) return error(res, 'Invalid entry ID', 400, ErrorCodes.VALIDATION_ERROR);
+
+    const entry = await req.db.get('SELECT user_id FROM hall_of_fame WHERE id = ?', id);
+    if (!entry) return error(res, 'Entry not found', 404, ErrorCodes.NOT_FOUND);
+    if (!entry.user_id) return success(res, []);
+
+    // Get best DPS per boss+difficulty (kill fights only), grouped by zone
+    const parses = await req.db.all(`
+      SELECT wz.name AS zoneName, wb.name AS bossName,
+             pfp.difficulty, pfp.wcl_spec AS spec,
+             MAX(pfp.dps) AS bestDps, MAX(pfp.hps) AS bestHps,
+             MAX(pfp.bracket_percentile) AS bestPercentile,
+             COUNT(*) AS totalFights,
+             SUM(CASE WHEN pfp.is_kill = 1 THEN 1 ELSE 0 END) AS kills,
+             pfp.fight_date AS lastSeen
+      FROM player_fight_performance pfp
+      JOIN wcl_bosses wb ON pfp.boss_id = wb.id
+      JOIN wcl_zones wz ON wb.zone_id = wz.id
+      WHERE pfp.user_id = ?
+      GROUP BY wz.name, wb.name, pfp.difficulty
+      ORDER BY wz.name, wb.name, pfp.difficulty
+    `, entry.user_id);
+
+    // Group by zone
+    const zones = {};
+    for (const row of parses) {
+      if (!zones[row.zoneName]) zones[row.zoneName] = [];
+      zones[row.zoneName].push({
+        bossName: row.bossName,
+        difficulty: row.difficulty,
+        spec: row.spec,
+        bestDps: Math.round(row.bestDps || 0),
+        bestHps: Math.round(row.bestHps || 0),
+        bestPercentile: row.bestPercentile,
+        totalFights: row.totalFights,
+        kills: row.kills,
+      });
+    }
+
+    const result = Object.entries(zones).map(([zoneName, bosses]) => ({
+      zoneName,
+      bosses,
+    }));
+
+    return success(res, result);
+  } catch (err) {
+    log.error('Get hall of fame parses error', err);
+    return error(res, 'Failed to get parses', 500, ErrorCodes.INTERNAL_ERROR);
+  }
+});
+
 // Delete Hall of Fame entry (admin only)
 router.delete('/:id', adminLimiter, authenticateToken, authorizeRole(['admin']), async (req, res) => {
   try {
