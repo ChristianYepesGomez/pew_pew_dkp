@@ -27,7 +27,7 @@ const RoleIcon = ({ role, size = 14 }) => {
   return <Sword size={size} weight="fill" className="text-red-400" />
 }
 
-const PercentileMatrix = () => {
+const PercentileMatrix = ({ includeInactive = false }) => {
   const { t } = useLanguage()
   const [loading, setLoading] = useState(true)
   const [data, setData] = useState(null)
@@ -38,7 +38,7 @@ const PercentileMatrix = () => {
     const loadData = async () => {
       setLoading(true)
       try {
-        const res = await analyticsAPI.getPercentileMatrix(selectedDifficulty)
+        const res = await analyticsAPI.getPercentileMatrix(selectedDifficulty, includeInactive)
         if (!cancelled) setData(res.data)
       } catch (err) {
         if (!cancelled) console.error('Failed to load percentile matrix:', err)
@@ -48,7 +48,7 @@ const PercentileMatrix = () => {
     }
     loadData()
     return () => { cancelled = true }
-  }, [selectedDifficulty])
+  }, [selectedDifficulty, includeInactive])
 
   if (loading && !data) {
     return (

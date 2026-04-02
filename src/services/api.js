@@ -188,28 +188,36 @@ export const buffsAPI = {
 }
 
 export const analyticsAPI = {
-  getAttendance: (weeks = 8) => api.get(`/analytics/attendance?weeks=${weeks}`),
+  getAttendance: (weeks = 8, includeInactive) => api.get(`/analytics/attendance?weeks=${weeks}${includeInactive ? '&includeInactive=true' : ''}`),
   getDkpTrends: (weeks = 12) => api.get(`/analytics/dkp-trends?weeks=${weeks}`),
   getEconomy: () => api.get('/analytics/economy'),
   getAuctions: (weeks = 8) => api.get(`/analytics/auctions?weeks=${weeks}`),
   getProgression: () => api.get('/analytics/progression'),
-  getSuperlatives: () => api.get('/analytics/superlatives'),
+  getSuperlatives: (includeInactive) => api.get(`/analytics/superlatives${includeInactive ? '?includeInactive=true' : ''}`),
   getMyPerformance: () => api.get('/analytics/my-performance'),
-  getGuildInsights: () => api.get('/analytics/guild-insights'),
-  getGuildLeaderboards: () => api.get('/analytics/guild-leaderboards'),
+  getGuildInsights: (includeInactive) => api.get(`/analytics/guild-insights${includeInactive ? '?includeInactive=true' : ''}`),
+  getGuildLeaderboards: (includeInactive) => api.get(`/analytics/guild-leaderboards${includeInactive ? '?includeInactive=true' : ''}`),
   getMyPerformanceDetail: (weeks = 8, bossId, difficulty) => {
     const params = new URLSearchParams({ weeks });
     if (bossId) params.append('bossId', bossId);
     if (difficulty) params.append('difficulty', difficulty);
     return api.get(`/analytics/my-performance-detail?${params}`);
   },
-  getPercentileMatrix: (difficulty) => {
-    const params = difficulty ? `?difficulty=${difficulty}` : '';
-    return api.get(`/analytics/percentile-matrix${params}`);
+  getPercentileMatrix: (difficulty, includeInactive, metric, roleFilter) => {
+    const params = new URLSearchParams();
+    if (difficulty) params.append('difficulty', difficulty);
+    if (includeInactive) params.append('includeInactive', 'true');
+    if (metric) params.append('metric', metric);
+    if (roleFilter && roleFilter !== 'all') params.append('roleFilter', roleFilter);
+    const qs = params.toString();
+    return api.get(`/analytics/percentile-matrix${qs ? '?' + qs : ''}`);
   },
-  getBossPercentiles: (bossId, difficulty) => {
-    const params = difficulty ? `?difficulty=${difficulty}` : '';
-    return api.get(`/analytics/boss/${bossId}/percentiles${params}`);
+  getBossPercentiles: (bossId, difficulty, includeInactive) => {
+    const params = new URLSearchParams();
+    if (difficulty) params.append('difficulty', difficulty);
+    if (includeInactive) params.append('includeInactive', 'true');
+    const qs = params.toString();
+    return api.get(`/analytics/boss/${bossId}/percentiles${qs ? '?' + qs : ''}`);
   },
 }
 
