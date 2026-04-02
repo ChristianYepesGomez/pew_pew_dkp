@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
-import { X, Skull, CurrencyCircleDollar, CalendarBlank, CaretDown, CaretUp, Sword, Lightning } from '@phosphor-icons/react'
+import { X, CalendarBlank, CaretDown, CaretUp, Sword, Heart, Shield } from '@phosphor-icons/react'
 import { useLanguage } from '../../hooks/useLanguage'
 import { hallOfFameAPI } from '../../services/api'
 import CLASS_COLORS from '../../utils/classColors'
@@ -12,6 +12,7 @@ const HallOfFameDetail = ({ entryId, onClose }) => {
   const [parses, setParses] = useState([])
   const [loading, setLoading] = useState(true)
   const [expandedZone, setExpandedZone] = useState(null)
+  const [showAllItems, setShowAllItems] = useState(false)
 
   useEffect(() => {
     const load = async () => {
@@ -22,7 +23,6 @@ const HallOfFameDetail = ({ entryId, onClose }) => {
         ])
         setEntry(entryRes.data)
         setParses(parsesRes.data || [])
-        // Auto-expand first zone
         if (parsesRes.data?.length > 0) {
           setExpandedZone(parsesRes.data[0].zoneName)
         }
@@ -49,6 +49,8 @@ const HallOfFameDetail = ({ entryId, onClose }) => {
   const toggleZone = (zoneName) => {
     setExpandedZone(prev => prev === zoneName ? null : zoneName)
   }
+
+  const ITEMS_COLLAPSED = 6
 
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" onClick={onClose}>
@@ -97,7 +99,6 @@ const HallOfFameDetail = ({ entryId, onClose }) => {
                 </p>
               </div>
 
-              {/* Dates */}
               {(entry.joinDate || entry.leaveDate) && (
                 <div className="flex items-center justify-center gap-1 text-sm text-lavender/70">
                   <CalendarBlank size={14} />
@@ -107,39 +108,62 @@ const HallOfFameDetail = ({ entryId, onClose }) => {
               )}
             </div>
 
-            {/* Stats */}
-            <div className="grid grid-cols-3 gap-3">
-              <StatCard icon={Skull} value={entry.totalBossKills} label={t('hof_boss_kills')} color="text-teal" />
-              <StatCard icon={CurrencyCircleDollar} value={entry.lifetimeDkpGained} label={t('hof_dkp_earned')} color="text-amber-400" />
-              <StatCard icon={CurrencyCircleDollar} value={entry.lifetimeDkpSpent} label={t('hof_dkp_spent')} color="text-lavender" />
+            {/* Stats — no icons */}
+            <div className="grid grid-cols-3 gap-3 text-center">
+              <div className="rounded-xl bg-lavender-8 p-3">
+                <p className="text-cream font-bold text-lg">{entry.totalBossKills ?? 0}</p>
+                <p className="text-lavender/60 text-xs">{t('hof_boss_kills')}</p>
+              </div>
+              <div className="rounded-xl bg-lavender-8 p-3">
+                <p className="text-cream font-bold text-lg">{entry.lifetimeDkpGained ?? 0}</p>
+                <p className="text-lavender/60 text-xs">{t('hof_dkp_earned')}</p>
+              </div>
+              <div className="rounded-xl bg-lavender-8 p-3">
+                <p className="text-cream font-bold text-lg">{entry.lifetimeDkpSpent ?? 0}</p>
+                <p className="text-lavender/60 text-xs">{t('hof_dkp_spent')}</p>
+              </div>
             </div>
 
-            {/* Items won */}
+            {/* Items won — compact grid, collapsible */}
             {entry.itemsWon?.length > 0 && (
               <div className="border-t border-lavender/10 pt-4">
                 <h3 className="text-sm font-semibold text-coral mb-3">{t('hof_items_won')}</h3>
-                <div className="space-y-2 max-h-36 overflow-y-auto">
-                  {entry.itemsWon.map((item, i) => (
-                    <div key={i} className="flex items-center gap-3 text-sm">
-                      {item.itemImage && (
+                <div className="grid grid-cols-6 sm:grid-cols-8 gap-2">
+                  {(showAllItems ? entry.itemsWon : entry.itemsWon.slice(0, ITEMS_COLLAPSED)).map((item, i) => (
+                    <div
+                      key={i}
+                      className="relative group"
+                      title={`${item.itemName}${item.winningBid ? ` — ${item.winningBid} DKP` : ''}`}
+                    >
+                      {item.itemImage ? (
                         <img
                           src={item.itemImage}
                           alt={item.itemName}
-                          className="w-7 h-7 rounded border border-lavender/20"
+                          className="w-full aspect-square rounded border-2 object-cover"
+                          style={{ borderColor: RARITY_COLORS[item.itemRarity] || '#666' }}
                         />
-                      )}
-                      <span
-                        className="flex-1 truncate"
-                        style={{ color: RARITY_COLORS[item.itemRarity] || '#ffffff' }}
-                      >
-                        {item.itemName}
-                      </span>
-                      {item.winningBid > 0 && (
-                        <span className="text-amber-400 text-xs shrink-0">{item.winningBid} DKP</span>
+                      ) : (
+                        <div
+                          className="w-full aspect-square rounded border-2 flex items-center justify-center text-[10px] text-cream/50"
+                          style={{ borderColor: RARITY_COLORS[item.itemRarity] || '#666' }}
+                        >
+                          ?
+                        </div>
                       )}
                     </div>
                   ))}
                 </div>
+                {entry.itemsWon.length > ITEMS_COLLAPSED && (
+                  <button
+                    onClick={() => setShowAllItems(!showAllItems)}
+                    className="mt-2 text-xs text-lavender/50 hover:text-lavender transition-colors"
+                  >
+                    {showAllItems
+                      ? t('hof_show_less')
+                      : `${t('hof_show_all')} (${entry.itemsWon.length})`
+                    }
+                  </button>
+                )}
               </div>
             )}
 
@@ -162,12 +186,13 @@ const HallOfFameDetail = ({ entryId, onClose }) => {
                       </button>
 
                       {expandedZone === zone.zoneName && (
-                        <div className="px-4 pb-3 space-y-2">
+                        <div className="px-4 pb-3 space-y-1">
                           {zone.bosses.map((boss, i) => (
                             <div
                               key={`${boss.bossName}-${boss.difficulty}-${i}`}
                               className="flex items-center gap-3 text-xs py-1.5 border-t border-lavender/5 first:border-t-0"
                             >
+                              <RoleIcon role={boss.spec} />
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-2">
                                   <span className="text-cream font-medium truncate">{boss.bossName}</span>
@@ -178,27 +203,16 @@ const HallOfFameDetail = ({ entryId, onClose }) => {
                                     {boss.difficulty}
                                   </span>
                                 </div>
-                                <div className="flex items-center gap-3 mt-0.5 text-lavender/60">
-                                  <span>{boss.totalFights} {t('hof_fights')} · {boss.kills} kills</span>
-                                </div>
+                                <span className="text-lavender/50">{boss.totalFights} {t('hof_fights')} · {boss.kills} kills</span>
                               </div>
-                              <div className="text-right shrink-0 space-y-0.5">
-                                <div className="flex items-center gap-1 justify-end">
-                                  <Sword size={10} className="text-coral" />
-                                  <span className="text-cream font-bold">{(boss.bestDps / 1000).toFixed(1)}k</span>
-                                </div>
-                                {boss.bestHps > 0 && (
-                                  <div className="flex items-center gap-1 justify-end">
-                                    <Lightning size={10} className="text-teal" />
-                                    <span className="text-cream">{(boss.bestHps / 1000).toFixed(1)}k</span>
-                                  </div>
-                                )}
-                                {boss.bestPercentile != null && (
-                                  <div className="text-[10px]" style={{ color: getPercentileColor(boss.bestPercentile) }}>
-                                    {boss.bestPercentile}%
-                                  </div>
-                                )}
-                              </div>
+                              {boss.bestPercentile != null && (
+                                <span
+                                  className="text-sm font-bold shrink-0 tabular-nums"
+                                  style={{ color: getPercentileColor(boss.bestPercentile) }}
+                                >
+                                  {boss.bestPercentile}%
+                                </span>
+                              )}
                             </div>
                           ))}
                         </div>
@@ -209,7 +223,6 @@ const HallOfFameDetail = ({ entryId, onClose }) => {
               </div>
             )}
 
-            {/* Added by */}
             {entry.addedByName && (
               <p className="text-lavender/40 text-xs text-center">
                 {t('hof_added_by')}: {entry.addedByName}
@@ -223,20 +236,21 @@ const HallOfFameDetail = ({ entryId, onClose }) => {
   )
 }
 
-const StatCard = ({ icon: Icon, value, label, color }) => (
-  <div className="rounded-xl bg-lavender-8 p-3 text-center">
-    <Icon size={20} className={`mx-auto mb-1 ${color}`} />
-    <p className="text-cream font-bold text-lg">{value ?? 0}</p>
-    <p className="text-lavender/60 text-xs">{label}</p>
-  </div>
-)
+const RoleIcon = ({ role }) => {
+  const HEALER_SPECS = ['Holy', 'Discipline', 'Restoration', 'Restoration Druid', 'Restoration Shaman', 'Mistweaver', 'Preservation', 'Holy Paladin', 'Holy Priest']
+  const TANK_SPECS = ['Protection', 'Protection Warrior', 'Protection Paladin', 'Guardian', 'Blood', 'Brewmaster', 'Vengeance']
+
+  if (HEALER_SPECS.includes(role)) return <Heart size={12} weight="fill" className="text-green-400 shrink-0" />
+  if (TANK_SPECS.includes(role)) return <Shield size={12} weight="fill" className="text-blue-400 shrink-0" />
+  return <Sword size={12} weight="fill" className="text-red-400 shrink-0" />
+}
 
 const getPercentileColor = (pct) => {
-  if (pct >= 95) return '#e268a8' // pink (legendary parse)
-  if (pct >= 75) return '#ff8000' // orange
-  if (pct >= 50) return '#a335ee' // purple
-  if (pct >= 25) return '#0070dd' // blue
-  return '#1eff00' // green
+  if (pct >= 95) return '#e268a8'
+  if (pct >= 75) return '#ff8000'
+  if (pct >= 50) return '#a335ee'
+  if (pct >= 25) return '#0070dd'
+  return '#1eff00'
 }
 
 export default HallOfFameDetail

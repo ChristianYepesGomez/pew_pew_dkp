@@ -1,8 +1,7 @@
 import { useState } from 'react'
-import { Skull, CurrencyCircleDollar, CalendarBlank, Scroll } from '@phosphor-icons/react'
+import { CalendarBlank, Scroll } from '@phosphor-icons/react'
 import { useLanguage } from '../../hooks/useLanguage'
 import { useHallOfFame } from '../../hooks/useQueries'
-import SectionHeader from '../ui/SectionHeader'
 import SurfaceCard from '../ui/SurfaceCard'
 import { Skeleton } from '../ui/Skeleton'
 import CLASS_COLORS from '../../utils/classColors'
@@ -82,7 +81,6 @@ const LegendCard = ({ legend, t, onClick }) => {
       onClick={onClick}
     >
       <div className="flex items-start gap-4">
-        {/* Avatar or class initial */}
         <div
           className="w-14 h-14 rounded-xl flex items-center justify-center shrink-0 border-2"
           style={{ borderColor: classColor, backgroundColor: `${classColor}15` }}
@@ -110,7 +108,6 @@ const LegendCard = ({ legend, t, onClick }) => {
             {legend.raidRole && ` · ${legend.raidRole}`}
           </p>
 
-          {/* Date range */}
           {(fromDate || untilDate) && (
             <div className="flex items-center gap-1 mt-1 text-xs text-lavender/70">
               <CalendarBlank size={12} />
@@ -121,29 +118,22 @@ const LegendCard = ({ legend, t, onClick }) => {
         </div>
       </div>
 
-      {/* Stats row */}
-      <div className="grid grid-cols-3 gap-2 mt-4">
-        <StatBadge
-          icon={Skull}
-          value={legend.totalBossKills}
-          label={t('hof_boss_kills')}
-          color="text-teal"
-        />
-        <StatBadge
-          icon={CurrencyCircleDollar}
-          value={legend.lifetimeDkpGained}
-          label={t('hof_dkp_earned')}
-          color="text-amber-400"
-        />
-        <StatBadge
-          icon={CurrencyCircleDollar}
-          value={legend.lifetimeDkpSpent}
-          label={t('hof_dkp_spent')}
-          color="text-lavender"
-        />
+      {/* Stats row — data only, no icons */}
+      <div className="grid grid-cols-3 gap-2 mt-4 text-center">
+        <div>
+          <p className="text-cream font-bold text-sm">{legend.totalBossKills ?? 0}</p>
+          <p className="text-lavender/60 text-[10px] leading-tight">{t('hof_boss_kills')}</p>
+        </div>
+        <div>
+          <p className="text-cream font-bold text-sm">{legend.lifetimeDkpGained ?? 0}</p>
+          <p className="text-lavender/60 text-[10px] leading-tight">{t('hof_dkp_earned')}</p>
+        </div>
+        <div>
+          <p className="text-cream font-bold text-sm">{legend.lifetimeDkpSpent ?? 0}</p>
+          <p className="text-lavender/60 text-[10px] leading-tight">{t('hof_dkp_spent')}</p>
+        </div>
       </div>
 
-      {/* Tribute preview */}
       {legend.tribute && (
         <p className="mt-3 text-sm text-cream/70 italic line-clamp-2 border-t border-lavender/10 pt-3">
           &ldquo;{legend.tribute}&rdquo;
@@ -152,13 +142,5 @@ const LegendCard = ({ legend, t, onClick }) => {
     </SurfaceCard>
   )
 }
-
-const StatBadge = ({ icon: Icon, value, label, color }) => (
-  <div className="text-center">
-    <Icon size={16} className={`mx-auto mb-0.5 ${color}`} />
-    <p className="text-cream font-bold text-sm">{value ?? 0}</p>
-    <p className="text-lavender/60 text-[10px] leading-tight">{label}</p>
-  </div>
-)
 
 export default HallOfFameTab
