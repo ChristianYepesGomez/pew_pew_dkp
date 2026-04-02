@@ -482,6 +482,9 @@ const AuctionTab = ({ onNavigate }) => {
 
   // Handle auction ended - show winner for 15s then move to history
   const handleAuctionEnded = useCallback((data) => {
+    // Deduplicate: ignore if already in won list (e.g. race between manual end and auto-close)
+    if (wonTimeoutsRef.current.has(data.auctionId)) return
+
     // Find the auction in current state to grab display data
     const existing = auctionsRef.current.find(a => a.id === data.auctionId)
 
