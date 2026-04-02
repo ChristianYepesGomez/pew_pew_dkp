@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Users, CalendarDots, Gavel, ChartLine, Skull } from '@phosphor-icons/react'
+import { Users, CalendarDots, Gavel, ChartLine, Skull, Trophy } from '@phosphor-icons/react'
 import { useAuth } from '../hooks/useAuth'
 import { useLanguage } from '../hooks/useLanguage'
 import { calendarAPI } from '../services/api'
@@ -12,6 +12,7 @@ import CalendarTab from '../components/Calendar/CalendarTab'
 import AdminTab from '../components/Admin/AdminTab'
 import BossesTab from '../components/Bosses/BossesTab'
 import AnalyticsTab from '../components/Analytics/AnalyticsTab'
+import HallOfFameTab from '../components/HallOfFame/HallOfFameTab'
 
 const Dashboard = () => {
   const [activeTab, setActiveTab] = useState('members')
@@ -71,6 +72,7 @@ const Dashboard = () => {
     { id: 'auction', icon: Gavel, label: t('active_auction') },
     { id: 'stats', icon: ChartLine, label: t('stats') },
     { id: 'bosses', icon: Skull, label: t('bosses') },
+    { id: 'hall-of-fame', icon: Trophy, label: t('hall_of_fame') },
   ]
 
   return (
@@ -84,6 +86,7 @@ const Dashboard = () => {
         {activeTab === 'auction' && <AuctionTab onNavigate={setActiveTab} />}
         {activeTab === 'history' && <HistoryTab onNavigate={setActiveTab} />}
         {activeTab === 'stats' && <AnalyticsTab />}
+        {activeTab === 'hall-of-fame' && <HallOfFameTab />}
         {activeTab === 'admin' && isAdmin && <AdminTab />}
       </div>
 

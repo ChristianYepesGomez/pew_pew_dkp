@@ -113,6 +113,9 @@ export const auctionsAPI = {
   end: (auctionId) => api.post(`/auctions/${auctionId}/end`),
   cancel: (auctionId) => api.post(`/auctions/${auctionId}/cancel`),
   reset: (auctionId) => api.post(`/auctions/${auctionId}/reset`),
+  reassign: (auctionId, newWinnerUserId) => api.post(`/auctions/${auctionId}/reassign`, { newWinnerUserId }),
+  getDistributionQueue: () => api.get('/auctions/distribution-queue'),
+  distribute: (auctionId) => api.post(`/auctions/${auctionId}/distribute`),
 }
 
 export const warcraftLogsAPI = {
@@ -241,6 +244,14 @@ export const addonsAPI = {
   create: (data) => api.post('/addons', data),
   update: (id, data) => api.put(`/addons/${id}`, data),
   remove: (id) => api.delete(`/addons/${id}`),
+}
+
+export const hallOfFameAPI = {
+  getAll: () => api.get('/hall-of-fame'),
+  getById: (id) => api.get(`/hall-of-fame/${id}`),
+  create: (data) => api.post('/hall-of-fame', data),
+  update: (id, data) => api.put(`/hall-of-fame/${id}`, data),
+  remove: (id) => api.delete(`/hall-of-fame/${id}`),
 }
 
 export default api

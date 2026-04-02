@@ -33,13 +33,8 @@ export const SocketProvider = ({ children }) => {
       newSocket.on('dkp_updated', () => queryClient.invalidateQueries({ queryKey: ['members'] }))
       newSocket.on('dkp_bulk_updated', () => queryClient.invalidateQueries({ queryKey: ['members'] }))
       newSocket.on('member_updated', () => queryClient.invalidateQueries({ queryKey: ['members'] }))
-      newSocket.on('auction_started', () => queryClient.invalidateQueries({ queryKey: ['auctions'] }))
-      newSocket.on('bid_placed', () => queryClient.invalidateQueries({ queryKey: ['auctions'] }))
-      newSocket.on('auction_ended', () => {
-        queryClient.invalidateQueries({ queryKey: ['auctions'] })
-        queryClient.invalidateQueries({ queryKey: ['members'] }) // DKP changes on auction end
-      })
-      newSocket.on('auction_cancelled', () => queryClient.invalidateQueries({ queryKey: ['auctions'] }))
+      // Auction events: only invalidate members (DKP changes) — AuctionTab handles auction state directly
+      newSocket.on('auction_ended', () => queryClient.invalidateQueries({ queryKey: ['members'] }))
 
       setSocket(newSocket)
 

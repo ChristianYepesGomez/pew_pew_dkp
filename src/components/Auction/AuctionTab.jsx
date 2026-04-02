@@ -7,6 +7,7 @@ import { useNotifications, NOTIFICATION_SOUNDS } from '../../hooks/useNotificati
 import { auctionsAPI } from '../../services/api'
 import CreateAuctionModal from './CreateAuctionModal'
 import BidModal from './BidModal'
+import DistributionQueue from './DistributionQueue'
 import WowheadTooltip from '../Common/WowheadTooltip'
 import CLASS_COLORS from '../../utils/classColors'
 import RARITY_COLORS from '../../utils/rarityColors'
@@ -41,6 +42,7 @@ import {
   ClockCounterClockwise,
   ArrowCounterClockwise,
   Lock,
+  Package,
 } from '@phosphor-icons/react'
 
 // Map FA icon class names to Phosphor components for dynamic sound icon rendering
@@ -321,6 +323,7 @@ const AuctionTab = ({ onNavigate }) => {
   const [availableDkp, setAvailableDkp] = useState(0)
   const [loading, setLoading] = useState(true)
   const [showCreateModal, setShowCreateModal] = useState(false)
+  const [showDistribution, setShowDistribution] = useState(false)
   const [bidModal, setBidModal] = useState({ open: false, auction: null })
   const [showSoundModal, setShowSoundModal] = useState(false)
   const [timeRemaining, setTimeRemaining] = useState({})
@@ -332,13 +335,21 @@ const AuctionTab = ({ onNavigate }) => {
   const expiredAtRef = useRef({}) // Track when each auction first expired locally (ms)
   const lastExpiredRefreshRef = useRef(0) // Throttle expired-auction refreshes
   const isAdmin = user?.role === 'admin' || user?.role === 'officer'
+  const loadingRef = useRef(false) // Dedup concurrent loadAuctions calls
+  const pendingRefreshRef = useRef(false) // Queue a refresh if one is in-flight
 
   // Keep auctionsRef in sync
   useEffect(() => {
     auctionsRef.current = auctions
   }, [auctions])
 
-  const loadAuctions = async () => {
+  const loadAuctions = useCallback(async () => {
+    // Dedup: if a fetch is already in-flight, queue one more refresh after it finishes
+    if (loadingRef.current) {
+      pendingRefreshRef.current = true
+      return
+    }
+    loadingRef.current = true
     try {
       const response = await auctionsAPI.getActive()
       setAuctions(response.data?.auctions || [])
@@ -352,8 +363,14 @@ const AuctionTab = ({ onNavigate }) => {
       setAuctions([])
     } finally {
       setLoading(false)
+      loadingRef.current = false
+      // If another refresh was requested while we were fetching, do one more
+      if (pendingRefreshRef.current) {
+        pendingRefreshRef.current = false
+        loadAuctions()
+      }
     }
-  }
+  }, [user?.currentDkp])
 
   // Calculate time remaining for all auctions (using server-synced time)
   const updateTimeRemaining = () => {
@@ -379,8 +396,8 @@ const AuctionTab = ({ onNavigate }) => {
           if (!expiredAtRef.current[auction.id]) {
             expiredAtRef.current[auction.id] = now
           }
-          // If expired for >5s and socket event hasn't arrived, force refresh (throttled to once per 10s)
-          if (now - expiredAtRef.current[auction.id] > 5000 && now - lastExpiredRefreshRef.current > 10000) {
+          // If expired for >3s and socket event hasn't arrived, force refresh (throttled to once per 5s)
+          if (now - expiredAtRef.current[auction.id] > 3000 && now - lastExpiredRefreshRef.current > 5000) {
             shouldRefresh = true
           }
         }
@@ -416,7 +433,7 @@ const AuctionTab = ({ onNavigate }) => {
         icon: auction.item_image || '/favicon.ico',
       })
     }
-  }, [isEnabled, showNotification, t])
+  }, [isEnabled, showNotification, t, loadAuctions])
 
   const handleBidPlaced = useCallback((data) => {
     // If time was extended due to anti-snipe, update the endsAt immediately for responsive UI
@@ -461,7 +478,7 @@ const AuctionTab = ({ onNavigate }) => {
         requireInteraction: true,
       })
     }
-  }, [isEnabled, showNotification, user, t])
+  }, [isEnabled, showNotification, user, t, loadAuctions])
 
   // Handle auction ended - show winner for 15s then move to history
   const handleAuctionEnded = useCallback((data) => {
@@ -511,25 +528,26 @@ const AuctionTab = ({ onNavigate }) => {
         })
       }
     }
-  }, [isEnabled, showNotification, playVictorySound, user, t])
+  }, [isEnabled, showNotification, playVictorySound, user, t, loadAuctions])
 
   useSocket({
     auction_started: handleAuctionStarted,
     auction_ended: handleAuctionEnded,
     bid_placed: handleBidPlaced,
     auction_cancelled: loadAuctions,
-    auction_reset: loadAuctions
+    auction_reset: loadAuctions,
+    auctions_cleared: loadAuctions,
   })
 
-  const handleCreateSuccess = () => {
+  const handleCreateSuccess = useCallback(() => {
     setShowCreateModal(false)
     loadAuctions()
-  }
+  }, [loadAuctions])
 
-  const handleBidSuccess = () => {
+  const handleBidSuccess = useCallback(() => {
     setBidModal({ open: false, auction: null })
     loadAuctions()
-  }
+  }, [loadAuctions])
 
   const handleCancelAuction = async (auctionId) => {
     if (!window.confirm(t('confirm_cancel_auction'))) return
@@ -632,16 +650,28 @@ const AuctionTab = ({ onNavigate }) => {
           )}
 
           {isAdmin && (
-            <Button
-              onClick={() => setShowCreateModal(true)}
-              variant="primary"
-              size="md"
-              radius="pill"
-              icon={PlusCircle}
-              className="font-bold"
-            >
-              {t('create_auction')}
-            </Button>
+            <>
+              <Button
+                onClick={() => setShowDistribution(true)}
+                variant="teal"
+                size="md"
+                radius="pill"
+                icon={Package}
+                className="font-bold"
+              >
+                {t('distribution_queue')}
+              </Button>
+              <Button
+                onClick={() => setShowCreateModal(true)}
+                variant="primary"
+                size="md"
+                radius="pill"
+                icon={PlusCircle}
+                className="font-bold"
+              >
+                {t('create_auction')}
+              </Button>
+            </>
           )}
         </div>
       </SectionHeader>
@@ -901,6 +931,11 @@ const AuctionTab = ({ onNavigate }) => {
           onClose={() => setBidModal({ open: false, auction: null })}
           onSuccess={handleBidSuccess}
         />
+      )}
+
+      {/* Distribution Queue Modal */}
+      {showDistribution && (
+        <DistributionQueue onClose={() => setShowDistribution(false)} />
       )}
 
       {/* Sound Settings Modal */}

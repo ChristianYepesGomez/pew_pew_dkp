@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { membersAPI, auctionsAPI, calendarAPI, bossesAPI, analyticsAPI, raidItemsAPI } from '../services/api'
+import { membersAPI, auctionsAPI, calendarAPI, bossesAPI, analyticsAPI, raidItemsAPI, hallOfFameAPI } from '../services/api'
 
 export function useMembers() {
   return useQuery({
@@ -57,6 +57,14 @@ export function useAnalytics(weeks = 8) {
         guildInsights: insightsRes.data,
       }
     },
+  })
+}
+
+export function useHallOfFame() {
+  return useQuery({
+    queryKey: ['hallOfFame'],
+    queryFn: () => hallOfFameAPI.getAll().then(r => r.data),
+    staleTime: 5 * 60_000,
   })
 }
 
