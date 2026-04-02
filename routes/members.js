@@ -702,6 +702,27 @@ router.delete('/:id', adminLimiter, authenticateToken, authorizeRole(['admin']),
 
     await req.db.run('UPDATE users SET is_active = 0 WHERE id = ?', id);
 
+    // Auto-create Hall of Fame entry if not already present
+    const existingHof = await req.db.get('SELECT id FROM hall_of_fame WHERE user_id = ?', id);
+    if (!existingHof) {
+      const raidCount = await req.db.get(
+        'SELECT COUNT(*) as count FROM raid_attendance WHERE user_id = ?', id
+      );
+      const killCount = await req.db.get(
+        'SELECT COUNT(*) as count FROM player_fight_performance WHERE user_id = ? AND is_kill = 1', id
+      );
+
+      await req.db.run(`
+        INSERT INTO hall_of_fame (user_id, character_name, character_class, spec, raid_role,
+                                  leave_date, lifetime_dkp_gained, lifetime_dkp_spent,
+                                  total_raids, total_boss_kills, avatar, added_by)
+        VALUES (?, ?, ?, ?, ?, date('now'), ?, ?, ?, ?, ?, ?)
+      `, id, member.character_name, member.character_class, member.spec, member.raid_role,
+         member.lifetime_gained || 0, member.lifetime_spent || 0,
+         raidCount?.count || 0, killCount?.count || 0,
+         member.avatar || null, req.user.userId);
+    }
+
     const io = req.app.get('io');
     io.emit('member_removed', { memberId: id });
     io.emit('auction_ended');

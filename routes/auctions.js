@@ -820,4 +820,182 @@ router.get('/:auctionId/bids', authenticateToken, validateParams({ auctionId: 'i
   }
 });
 
+// Reassign auction winner (admin only) — swap winner and fix DKP
+router.post('/:auctionId/reassign', adminLimiter, authenticateToken, authorizeRole(['admin']), validateParams({ auctionId: 'integer' }), async (req, res) => {
+  try {
+    const auctionId = parseInt(req.params.auctionId, 10);
+    const { newWinnerUserId } = req.body;
+
+    if (!newWinnerUserId || isNaN(parseInt(newWinnerUserId, 10))) {
+      return error(res, 'newWinnerUserId is required and must be a number', 400, ErrorCodes.VALIDATION_ERROR);
+    }
+    const newWinnerId = parseInt(newWinnerUserId, 10);
+
+    // Load auction
+    const auction = await req.db.get(`
+      SELECT a.id, a.item_name, a.winner_id, a.winning_bid, a.status,
+             w.character_name as old_winner_name
+      FROM auctions a
+      LEFT JOIN users w ON a.winner_id = w.id
+      WHERE a.id = ?
+    `, auctionId);
+
+    if (!auction) {
+      return error(res, 'Auction not found', 404, ErrorCodes.NOT_FOUND);
+    }
+    if (auction.status !== 'completed') {
+      return error(res, 'Only completed auctions can be reassigned', 400, ErrorCodes.VALIDATION_ERROR);
+    }
+    if (!auction.winner_id) {
+      return error(res, 'Auction has no winner to reassign from', 400, ErrorCodes.VALIDATION_ERROR);
+    }
+    if (auction.winner_id === newWinnerId) {
+      return error(res, 'New winner is the same as current winner', 400, ErrorCodes.VALIDATION_ERROR);
+    }
+
+    // Verify new winner exists and was a bidder
+    const newWinner = await req.db.get('SELECT id, character_name FROM users WHERE id = ?', newWinnerId);
+    if (!newWinner) {
+      return error(res, 'New winner user not found', 404, ErrorCodes.NOT_FOUND);
+    }
+
+    const newWinnerBid = await req.db.get(
+      'SELECT amount FROM auction_bids WHERE auction_id = ? AND user_id = ?',
+      auctionId, newWinnerId
+    );
+    if (!newWinnerBid) {
+      return error(res, `${newWinner.character_name} did not bid on this auction`, 400, ErrorCodes.VALIDATION_ERROR);
+    }
+
+    // Verify new winner has enough DKP
+    const newWinnerDkp = await req.db.get('SELECT current_dkp FROM member_dkp WHERE user_id = ?', newWinnerId);
+    if (!newWinnerDkp || newWinnerDkp.current_dkp < newWinnerBid.amount) {
+      return error(res, `${newWinner.character_name} does not have enough DKP (has ${newWinnerDkp?.current_dkp || 0}, needs ${newWinnerBid.amount})`, 400, ErrorCodes.INSUFFICIENT_DKP);
+    }
+
+    // Find the original DKP deduction amount (may differ from winning_bid if partial)
+    const originalTx = await req.db.get(
+      'SELECT amount FROM dkp_transactions WHERE auction_id = ? AND user_id = ? AND amount < 0 ORDER BY id DESC LIMIT 1',
+      auctionId, auction.winner_id
+    );
+    const refundAmount = originalTx ? Math.abs(originalTx.amount) : auction.winning_bid;
+    const chargeAmount = newWinnerBid.amount;
+
+    await req.db.transaction(async (tx) => {
+      // Refund old winner
+      await tx.run(`
+        UPDATE member_dkp
+        SET current_dkp = current_dkp + ?,
+            lifetime_spent = lifetime_spent - ?
+        WHERE user_id = ?
+      `, refundAmount, refundAmount, auction.winner_id);
+
+      await tx.run(`
+        INSERT INTO dkp_transactions (user_id, amount, reason, performed_by, auction_id)
+        VALUES (?, ?, ?, ?, ?)
+      `, auction.winner_id, refundAmount,
+        `Auction reassigned (refund): ${auction.item_name}`,
+        req.user.userId, auctionId);
+
+      // Charge new winner
+      await tx.run(`
+        UPDATE member_dkp
+        SET current_dkp = current_dkp - ?,
+            lifetime_spent = lifetime_spent + ?
+        WHERE user_id = ?
+      `, chargeAmount, chargeAmount, newWinnerId);
+
+      await tx.run(`
+        INSERT INTO dkp_transactions (user_id, amount, reason, performed_by, auction_id)
+        VALUES (?, ?, ?, ?, ?)
+      `, newWinnerId, -chargeAmount,
+        `Auction reassigned (winner): ${auction.item_name}`,
+        req.user.userId, auctionId);
+
+      // Update auction winner
+      await tx.run(`
+        UPDATE auctions
+        SET winner_id = ?, winning_bid = ?
+        WHERE id = ?
+      `, newWinnerId, chargeAmount, auctionId);
+    });
+
+    log.info(`Auction ${auctionId} (${auction.item_name}) reassigned: ${auction.old_winner_name} -> ${newWinner.character_name} by admin ${req.user.userId}`);
+
+    req.app.get('io').emit('auction_reassigned', {
+      auctionId,
+      itemName: auction.item_name,
+      oldWinner: auction.old_winner_name,
+      newWinner: newWinner.character_name,
+    });
+
+    return success(res, {
+      auctionId,
+      itemName: auction.item_name,
+      oldWinner: { userId: auction.winner_id, name: auction.old_winner_name, refunded: refundAmount },
+      newWinner: { userId: newWinnerId, name: newWinner.character_name, charged: chargeAmount },
+    }, 'Auction winner reassigned successfully');
+  } catch (err) {
+    log.error('Reassign auction winner error', err);
+    return error(res, 'Failed to reassign auction winner', 500, ErrorCodes.INTERNAL_ERROR);
+  }
+});
+
+// Get distribution queue — completed auctions with winners, not yet distributed
+router.get('/distribution-queue', adminLimiter, authenticateToken, authorizeRole(['admin', 'officer']), async (req, res) => {
+  try {
+    const items = await req.db.all(`
+      SELECT a.id, a.item_name, a.item_image, a.item_rarity, a.item_id,
+             a.winning_bid, a.ended_at, a.item_distributed,
+             u.character_name as winner_name, u.character_class as winner_class, u.id as winner_id
+      FROM auctions a
+      JOIN users u ON a.winner_id = u.id
+      WHERE a.status = 'completed' AND a.winner_id IS NOT NULL AND a.item_distributed = 0
+      ORDER BY a.ended_at ASC
+    `);
+
+    return success(res, items.map(i => ({
+      auctionId: i.id,
+      itemName: i.item_name,
+      itemImage: i.item_image,
+      itemRarity: i.item_rarity,
+      itemId: i.item_id,
+      winningBid: i.winning_bid,
+      endedAt: i.ended_at,
+      winner: {
+        userId: i.winner_id,
+        characterName: i.winner_name,
+        characterClass: i.winner_class,
+      },
+    })));
+  } catch (err) {
+    log.error('Distribution queue error', err);
+    return error(res, 'Failed to get distribution queue', 500, ErrorCodes.INTERNAL_ERROR);
+  }
+});
+
+// Mark auction item as distributed
+router.post('/:auctionId/distribute', adminLimiter, authenticateToken, authorizeRole(['admin', 'officer']), validateParams({ auctionId: 'integer' }), async (req, res) => {
+  try {
+    const auctionId = parseInt(req.params.auctionId, 10);
+
+    const result = await req.db.run(`
+      UPDATE auctions SET item_distributed = 1 WHERE id = ? AND status = 'completed' AND item_distributed = 0
+    `, auctionId);
+
+    if (result.changes === 0) {
+      return error(res, 'Auction not found or already distributed', 404, ErrorCodes.NOT_FOUND);
+    }
+
+    log.info(`Auction ${auctionId} marked as distributed by admin ${req.user.userId}`);
+
+    req.app.get('io').emit('item_distributed', { auctionId });
+
+    return success(res, null, 'Item marked as distributed');
+  } catch (err) {
+    log.error('Distribute item error', err);
+    return error(res, 'Failed to mark as distributed', 500, ErrorCodes.INTERNAL_ERROR);
+  }
+});
+
 export default router;

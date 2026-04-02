@@ -52,6 +52,7 @@ import notificationsRoutes from './routes/notifications.js';
 import lootCouncilRoutes from './routes/lootCouncil.js';
 import epgpRoutes from './routes/epgp.js';
 import addonsRoutes from './routes/addons.js';
+import hallOfFameRoutes from './routes/hallOfFame.js';
 
 const app = express();
 
@@ -156,6 +157,7 @@ app.use('/api/notifications', notificationsRoutes);
 app.use('/api/loot-council', lootCouncilRoutes);
 app.use('/api/epgp', epgpRoutes);
 app.use('/api/addons', addonsRoutes);
+app.use('/api/hall-of-fame', hallOfFameRoutes);
 
 // ============================================
 // WEBSOCKET HANDLING

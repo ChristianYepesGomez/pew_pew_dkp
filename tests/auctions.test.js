@@ -865,4 +865,168 @@ describe('Auctions — /api/auctions', () => {
       expect(auctionRow.winning_bid).toBeGreaterThan(0);
     });
   });
+
+  // ── POST /api/auctions/:id/reassign ─────────────────────────────
+  describe('POST /api/auctions/:id/reassign', () => {
+    let reassignAuctionId;
+
+    beforeAll(async () => {
+      // Cancel any lingering active auctions so committed DKP is zero
+      await request.post('/api/auctions/cancel-all').set('Authorization', `Bearer ${adminToken}`);
+
+      // Reset DKP for clean state
+      await setUserDkp(userId, 100);
+      await setUserDkp(otherId, 50);
+
+      // Create, bid, and end an auction
+      const auction = await createTestAuction(adminToken, { itemName: 'Reassign Test Sword' });
+      reassignAuctionId = auction.id;
+
+      // Bid order matters: lower bid first, then higher bid wins
+      const bid1 = await request.post(`/api/auctions/${reassignAuctionId}/bid`).set('Authorization', `Bearer ${otherToken}`).send({ amount: 15 });
+      if (bid1.status !== 200) throw new Error(`Bid 1 failed: ${JSON.stringify(bid1.body)}`);
+      const bid2 = await request.post(`/api/auctions/${reassignAuctionId}/bid`).set('Authorization', `Bearer ${userToken}`).send({ amount: 20 });
+      if (bid2.status !== 200) throw new Error(`Bid 2 failed: ${JSON.stringify(bid2.body)}`);
+
+      // End auction — userId wins with 20
+      await request.post(`/api/auctions/${reassignAuctionId}/end`).set('Authorization', `Bearer ${adminToken}`);
+    });
+
+    it('admin can reassign winner to another bidder', async () => {
+      const beforeUser = await db.get('SELECT current_dkp FROM member_dkp WHERE user_id = ?', userId);
+      const beforeOther = await db.get('SELECT current_dkp FROM member_dkp WHERE user_id = ?', otherId);
+
+      const res = await request
+        .post(`/api/auctions/${reassignAuctionId}/reassign`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ newWinnerUserId: otherId });
+
+      const data = expectSuccess(res);
+      expect(data.oldWinner.userId).toBe(userId);
+      expect(data.newWinner.userId).toBe(otherId);
+      expect(data.newWinner.charged).toBe(15); // other's bid was 15
+
+      // Verify DKP changes
+      const afterUser = await db.get('SELECT current_dkp FROM member_dkp WHERE user_id = ?', userId);
+      const afterOther = await db.get('SELECT current_dkp FROM member_dkp WHERE user_id = ?', otherId);
+
+      expect(afterUser.current_dkp).toBe(beforeUser.current_dkp + 20); // refunded original bid
+      expect(afterOther.current_dkp).toBe(beforeOther.current_dkp - 15); // charged their bid
+
+      // Verify auction record
+      const auction = await db.get('SELECT winner_id, winning_bid FROM auctions WHERE id = ?', reassignAuctionId);
+      expect(auction.winner_id).toBe(otherId);
+      expect(auction.winning_bid).toBe(15);
+    });
+
+    it('raider cannot reassign (403)', async () => {
+      const res = await request
+        .post(`/api/auctions/${reassignAuctionId}/reassign`)
+        .set('Authorization', `Bearer ${userToken}`)
+        .send({ newWinnerUserId: userId });
+
+      expectError(res, 403);
+    });
+
+    it('rejects reassign to a non-bidder', async () => {
+      // adminId did not bid on this auction
+      const res = await request
+        .post(`/api/auctions/${reassignAuctionId}/reassign`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ newWinnerUserId: adminId });
+
+      expectError(res, 400);
+    });
+
+    it('rejects reassign to same winner', async () => {
+      const res = await request
+        .post(`/api/auctions/${reassignAuctionId}/reassign`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ newWinnerUserId: otherId }); // already the winner after first test
+
+      expectError(res, 400);
+    });
+
+    it('returns 404 for non-existent auction', async () => {
+      const res = await request
+        .post('/api/auctions/99999/reassign')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ newWinnerUserId: userId });
+
+      expectError(res, 404);
+    });
+
+    it('rejects reassign on active auction', async () => {
+      const activeAuction = await createTestAuction(adminToken, { itemName: 'Still Active' });
+
+      const res = await request
+        .post(`/api/auctions/${activeAuction.id}/reassign`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ newWinnerUserId: userId });
+
+      expectError(res, 400);
+    });
+  });
+
+  // ── Distribution Queue ──────────────────────────────────────────
+  describe('Distribution Queue', () => {
+    let distAuctionId;
+
+    beforeAll(async () => {
+      await request.post('/api/auctions/cancel-all').set('Authorization', `Bearer ${adminToken}`);
+      await setUserDkp(userId, 100);
+
+      const auction = await createTestAuction(adminToken, { itemName: 'Dist Test Blade' });
+      distAuctionId = auction.id;
+
+      await request.post(`/api/auctions/${distAuctionId}/bid`).set('Authorization', `Bearer ${userToken}`).send({ amount: 10 });
+      await request.post(`/api/auctions/${distAuctionId}/end`).set('Authorization', `Bearer ${adminToken}`);
+    });
+
+    it('returns undistributed items for admin', async () => {
+      const res = await request
+        .get('/api/auctions/distribution-queue')
+        .set('Authorization', `Bearer ${adminToken}`);
+
+      const data = expectSuccess(res);
+      expect(Array.isArray(data)).toBe(true);
+      const item = data.find(i => i.auctionId === distAuctionId);
+      expect(item).toBeDefined();
+      expect(item.itemName).toBe('Dist Test Blade');
+      expect(item.winner).toBeDefined();
+    });
+
+    it('raider cannot access distribution queue (403)', async () => {
+      const res = await request
+        .get('/api/auctions/distribution-queue')
+        .set('Authorization', `Bearer ${userToken}`);
+
+      expectError(res, 403);
+    });
+
+    it('admin can mark item as distributed', async () => {
+      const res = await request
+        .post(`/api/auctions/${distAuctionId}/distribute`)
+        .set('Authorization', `Bearer ${adminToken}`);
+
+      expectSuccess(res);
+
+      // Should no longer appear in queue
+      const queueRes = await request
+        .get('/api/auctions/distribution-queue')
+        .set('Authorization', `Bearer ${adminToken}`);
+
+      const data = expectSuccess(queueRes);
+      const item = data.find(i => i.auctionId === distAuctionId);
+      expect(item).toBeUndefined();
+    });
+
+    it('cannot distribute already distributed item', async () => {
+      const res = await request
+        .post(`/api/auctions/${distAuctionId}/distribute`)
+        .set('Authorization', `Bearer ${adminToken}`);
+
+      expectError(res, 404);
+    });
+  });
 });

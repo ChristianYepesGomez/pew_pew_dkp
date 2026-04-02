@@ -549,6 +549,7 @@ export async function runMigrations(targetDb, connectionUrl = dbUrl) {
     'ALTER TABLE player_fight_performance ADD COLUMN wcl_class TEXT DEFAULT NULL',
     'ALTER TABLE player_fight_performance ADD COLUMN wcl_spec TEXT DEFAULT NULL',
     'ALTER TABLE player_fight_performance ADD COLUMN character_name TEXT DEFAULT NULL',
+    'ALTER TABLE auctions ADD COLUMN item_distributed INTEGER DEFAULT 0',
   ];
   for (const sql of columnMigrations) {
     try { await targetDb.exec(sql); } catch (_e) { /* column already exists */ }
@@ -638,6 +639,28 @@ export async function runMigrations(targetDb, connectionUrl = dbUrl) {
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   )`); } catch (_e) { /* table already exists */ }
 
+  // ── Hall of Fame — preserves legacy of former guild members ──
+  try { await targetDb.exec(`CREATE TABLE IF NOT EXISTS hall_of_fame (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER,
+    character_name TEXT NOT NULL,
+    character_class TEXT NOT NULL,
+    spec TEXT,
+    raid_role TEXT,
+    join_date DATE,
+    leave_date DATE,
+    tribute TEXT,
+    lifetime_dkp_gained INTEGER DEFAULT 0,
+    lifetime_dkp_spent INTEGER DEFAULT 0,
+    total_raids INTEGER DEFAULT 0,
+    total_boss_kills INTEGER DEFAULT 0,
+    avatar TEXT,
+    added_by INTEGER,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
+    FOREIGN KEY (added_by) REFERENCES users(id) ON DELETE SET NULL
+  )`); } catch (_e) { /* table already exists */ }
+
   await targetDb.exec(`CREATE TABLE IF NOT EXISTS db_migrations (
     id INTEGER PRIMARY KEY, version TEXT NOT NULL UNIQUE,
     applied_at TEXT DEFAULT (datetime('now')), description TEXT
@@ -697,6 +720,9 @@ export async function runMigrations(targetDb, connectionUrl = dbUrl) {
     // Push notification indexes
     'CREATE INDEX IF NOT EXISTS idx_push_subscriptions_user ON push_subscriptions(user_id)',
     'CREATE INDEX IF NOT EXISTS idx_push_subscriptions_endpoint ON push_subscriptions(endpoint)',
+    // Hall of Fame
+    'CREATE INDEX IF NOT EXISTS idx_hall_of_fame_user ON hall_of_fame(user_id)',
+    'CREATE INDEX IF NOT EXISTS idx_hall_of_fame_leave_date ON hall_of_fame(leave_date)',
   ];
   for (const sql of indexes) {
     await targetDb.exec(sql);
