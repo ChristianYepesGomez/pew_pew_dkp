@@ -364,7 +364,7 @@ const CalendarTab = () => {
         {adminView && overview ? (
           <AdminOverview overview={overview} t={t} language={language} isAdmin={isAdmin} />
         ) : showHistory ? (
-          <RaidHistory history={raidHistory} loading={loadingHistory} t={t} language={language} isAdmin={isAdmin} onLinkWcl={setWclModal} />
+          <RaidHistory history={raidHistory} loading={loadingHistory} t={t} language={language} isAdmin={isAdmin} onLinkWcl={setWclModal} onViewAttendance={openSummary} />
         ) : (
           <>
           {/* Unconfirmed days alert */}
@@ -1449,7 +1449,7 @@ const WCLLinkModal = ({ date, onClose, onLinked, t, language }) => {
 }
 
 // Raid History Component - shows past raid days with WCL logs
-const RaidHistory = ({ history, loading, t, language, isAdmin, onLinkWcl }) => {
+const RaidHistory = ({ history, loading, t, language, isAdmin, onLinkWcl, onViewAttendance }) => {
   const formatDateFull = (dateStr) => {
     const d = new Date(dateStr + 'T00:00:00')
     const dayName = d.toLocaleDateString(language === 'es' ? 'es-ES' : 'en-US', { weekday: 'long' })
@@ -1490,11 +1490,13 @@ const RaidHistory = ({ history, loading, t, language, isAdmin, onLinkWcl }) => {
           return (
             <div
               key={raid.date}
-              className={`bg-lavender-12/20 rounded-xl border p-4 transition-all ${
+              onClick={() => onViewAttendance && onViewAttendance(raid.date)}
+              className={`bg-lavender-12/20 rounded-xl border p-4 transition-all cursor-pointer hover:bg-lavender-12/40 ${
                 hasLog
                   ? 'border-orange-500/40'
                   : 'border-lavender-20/20'
               }`}
+              title={t('view_attendance') || t('raid_roster')}
             >
               <div className="flex items-center justify-between">
                 {/* Date info */}
@@ -1531,6 +1533,7 @@ const RaidHistory = ({ history, loading, t, language, isAdmin, onLinkWcl }) => {
                       href={`https://www.warcraftlogs.com/reports/${raid.wclReport.code}`}
                       target="_blank"
                       rel="noopener noreferrer"
+                      onClick={(e) => e.stopPropagation()}
                       className="flex items-center gap-2 px-3 py-2 bg-orange-500/20 rounded-lg hover:bg-orange-500/30 transition-all"
                     >
                       <WclIcon size={18} />
@@ -1540,7 +1543,7 @@ const RaidHistory = ({ history, loading, t, language, isAdmin, onLinkWcl }) => {
                     </a>
                   ) : isAdmin ? (
                     <button
-                      onClick={() => onLinkWcl(raid.date)}
+                      onClick={(e) => { e.stopPropagation(); onLinkWcl(raid.date) }}
                       className="flex items-center gap-2 px-3 py-2 bg-lavender-12/30 rounded-lg hover:bg-lavender-12/50 transition-all text-lavender hover:text-white"
                     >
                       <WclIcon size={16} opacity="opacity-50" />

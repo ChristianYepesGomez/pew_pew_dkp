@@ -20,6 +20,12 @@ const AdminTab = () => {
   const [bulkAmount, setBulkAmount] = useState('')
   const [bulkReason, setBulkReason] = useState('')
   const [bulkLoading, setBulkLoading] = useState(false)
+  // Individual DKP adjustment state
+  const [members, setMembers] = useState([])
+  const [individualUserId, setIndividualUserId] = useState('')
+  const [individualAmount, setIndividualAmount] = useState('')
+  const [individualReason, setIndividualReason] = useState('')
+  const [individualLoading, setIndividualLoading] = useState(false)
   const [notification, setNotification] = useState(null)
   const [wclUrl, setWclUrl] = useState('')
   const [wclPreview, setWclPreview] = useState(null)
@@ -126,7 +132,42 @@ const AdminTab = () => {
     loadWclHistory()
     loadRaidDays()
     checkPendingReports()
+    loadMembers()
   }, [])
+
+  const loadMembers = async () => {
+    try {
+      const res = await membersAPI.getAll()
+      const list = (res.data || []).slice().sort((a, b) =>
+        (a.characterName || '').localeCompare(b.characterName || '')
+      )
+      setMembers(list)
+    } catch (error) {
+      console.error('Error loading members:', error)
+    }
+  }
+
+  const handleIndividualAdjust = async () => {
+    const userIdNum = parseInt(individualUserId, 10)
+    const amountNum = parseInt(individualAmount, 10)
+    if (isNaN(userIdNum) || isNaN(amountNum) || !individualReason.trim()) {
+      showNotification('error', t('please_complete_fields'))
+      return
+    }
+    setIndividualLoading(true)
+    try {
+      await dkpAPI.adjust(userIdNum, amountNum, individualReason.trim())
+      showNotification('success', t('dkp_adjusted_successfully'))
+      setIndividualUserId('')
+      setIndividualAmount('')
+      setIndividualReason('')
+    } catch (error) {
+      const msg = error.response?.data?.error || t('error_adjusting_dkp')
+      showNotification('error', msg)
+    } finally {
+      setIndividualLoading(false)
+    }
+  }
 
   const checkPendingReports = async () => {
     setPendingLoading(true)
@@ -294,6 +335,49 @@ const AdminTab = () => {
               <><CircleNotch size={18} className="inline animate-spin mr-2" />{t('loading')}...</>
             ) : (
               <><Users size={18} className="inline mr-2" />{t('apply_to_all')}</>
+            )}
+          </Button>
+        </div>
+      </SurfaceCard>
+
+      {/* Individual Adjustment */}
+      <SurfaceCard className="p-6 sm:p-8">
+        <h3 className="flex items-center gap-3 text-xl font-bold text-coral"><User size={20} />{t('individual_adjustment')}</h3>
+        <p className="mt-1 mb-4 text-sm text-lavender/80">{t('individual_dkp_hint')}</p>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <select
+            value={individualUserId}
+            onChange={(e) => setIndividualUserId(e.target.value)}
+            className="rounded-full bg-indigo border border-lavender-20/40 px-4 py-2.5 text-sm text-cream focus:outline-none focus:border-coral"
+          >
+            <option value="">{t('select_member')}</option>
+            {members.map(m => (
+              <option key={m.id} value={m.id}>
+                {m.characterName} ({m.currentDkp ?? 0})
+              </option>
+            ))}
+          </select>
+          <Input
+            type="number"
+            value={individualAmount}
+            onChange={(e) => setIndividualAmount(e.target.value)}
+            placeholder={t('amount')}
+            size="md"
+            radius="round"
+          />
+          <Input
+            type="text"
+            value={individualReason}
+            onChange={(e) => setIndividualReason(e.target.value)}
+            placeholder={t('reason')}
+            size="md"
+            radius="round"
+          />
+          <Button onClick={handleIndividualAdjust} disabled={individualLoading} variant="success" size="md" radius="round" className="font-bold">
+            {individualLoading ? (
+              <><CircleNotch size={18} className="inline animate-spin mr-2" />{t('loading')}...</>
+            ) : (
+              <><Coins size={18} className="inline mr-2" />{t('apply_adjustment')}</>
             )}
           </Button>
         </div>
