@@ -10,12 +10,20 @@ const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:3000'
 export const SocketProvider = ({ children }) => {
   const [socket, setSocket] = useState(null)
   const [isConnected, setIsConnected] = useState(false)
-  const { token, isAuthenticated } = useAuth()
+  const { isAuthenticated } = useAuth()
 
   useEffect(() => {
-    if (isAuthenticated && token) {
+    if (isAuthenticated) {
       const newSocket = io(SOCKET_URL, {
-        auth: { token },
+        // Function form: re-read token from localStorage on every (re)connection.
+        // The axios interceptor refreshes the access token silently on 401 but only
+        // writes to localStorage — if we froze `token` here as an object, the socket
+        // would keep retrying with the stale (expired) token after any disconnect and
+        // the io.use JWT middleware would reject the handshake forever.
+        // Depending only on `isAuthenticated` (not `token`) avoids tearing down the
+        // socket every time a refresh happens — reconnection picks up the new token
+        // from localStorage automatically.
+        auth: (cb) => cb({ token: localStorage.getItem('token') }),
         transports: ['websocket', 'polling'],
       })
 
@@ -42,7 +50,7 @@ export const SocketProvider = ({ children }) => {
         newSocket.disconnect()
       }
     }
-  }, [isAuthenticated, token])
+  }, [isAuthenticated])
 
   const value = {
     socket,
