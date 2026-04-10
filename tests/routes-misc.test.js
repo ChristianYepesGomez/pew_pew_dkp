@@ -47,7 +47,15 @@ describe('Routes: Health, Bosses, Analytics', () => {
         status: expect.any(String),
         timestamp: expect.stringMatching(/^\d{4}-\d{2}-\d{2}T/),
         uptime: expect.any(Number),
-        checks: { database: expect.any(String) },
+        checks: {
+          database: expect.any(String),
+          latencyMs: expect.any(Number),
+          resilience: {
+            state: expect.any(String),
+            failures: expect.any(Number),
+            lastFailure: null,
+          },
+        },
       });
     });
   });

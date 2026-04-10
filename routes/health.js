@@ -7,15 +7,23 @@ const router = Router();
 router.get('/health', async (req, res) => {
   const checks = {};
 
-  // Database connectivity
+  // Database connectivity + latency
+  const start = Date.now();
   try {
     await req.db.get('SELECT 1');
     checks.database = 'ok';
+    checks.latencyMs = Date.now() - start;
   } catch (_e) {
     checks.database = 'error';
+    checks.latencyMs = Date.now() - start;
   }
 
-  const healthy = Object.values(checks).every(v => v === 'ok');
+  // Circuit breaker state
+  if (req.db._resilience) {
+    checks.resilience = req.db._resilience.getState();
+  }
+
+  const healthy = Object.values(checks).every(v => typeof v !== 'string' || v === 'ok');
   return success(res, {
     status: healthy ? 'healthy' : 'degraded',
     timestamp: new Date().toISOString(),

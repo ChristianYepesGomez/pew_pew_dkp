@@ -3,6 +3,7 @@ import { mkdirSync, existsSync } from 'fs';
 import { dirname } from 'path';
 import { createLogger } from './lib/logger.js';
 import { deriveArmorType, getEligibleClasses } from './lib/classRestrictions.js';
+import { createResilientExecutor } from './lib/dbResilience.js';
 
 const log = createLogger('Database');
 
@@ -10,20 +11,24 @@ const log = createLogger('Database');
 // Creates a db wrapper around any @libsql/client instance.
 // Used for both the default guild DB and per-tenant connections.
 
-export function createDbInterface(libsqlClient) {
+export function createDbInterface(libsqlClient, label = 'db') {
+  const resilience = createResilientExecutor(label);
+
   return {
+    _resilience: resilience,
+
     async get(sql, ...args) {
-      const result = await libsqlClient.execute({ sql, args });
+      const result = await resilience.execute(() => libsqlClient.execute({ sql, args }));
       return result.rows[0] || null;
     },
 
     async all(sql, ...args) {
-      const result = await libsqlClient.execute({ sql, args });
+      const result = await resilience.execute(() => libsqlClient.execute({ sql, args }));
       return result.rows;
     },
 
     async run(sql, ...args) {
-      const result = await libsqlClient.execute({ sql, args });
+      const result = await resilience.execute(() => libsqlClient.execute({ sql, args }));
       return {
         changes: result.rowsAffected,
         lastInsertRowid: result.lastInsertRowid != null ? Number(result.lastInsertRowid) : undefined,
@@ -31,15 +36,16 @@ export function createDbInterface(libsqlClient) {
     },
 
     async exec(sql) {
-      return await libsqlClient.execute(sql);
+      return await resilience.execute(() => libsqlClient.execute(sql));
     },
 
     async batch(stmts) {
-      return await libsqlClient.batch(stmts, 'write');
+      return await resilience.execute(() => libsqlClient.batch(stmts, 'write'));
     },
 
     async transaction(fn) {
-      const tx = await libsqlClient.transaction('write');
+      // Retry opening the transaction, but NOT individual ops inside (atomicity)
+      const tx = await resilience.execute(() => libsqlClient.transaction('write'));
       try {
         const txDb = {
           async get(sql, ...args) {
@@ -85,7 +91,7 @@ const client = createClient({
   authToken: process.env.TURSO_AUTH_TOKEN,
 });
 
-const db = createDbInterface(client);
+const db = createDbInterface(client, 'default');
 
 // ── Reusable migration runner ───────────────────────────────────
 // Applies the full guild schema to any db instance.
@@ -920,4 +926,8 @@ function calculateDecay(currentDkp, decayPercentage, minDkp = 0) {
   return Math.max(minDkp, currentDkp - decayAmount);
 }
 
-export { db, initDatabase, calculateDecay };
+function closeDefaultDb() {
+  client.close();
+}
+
+export { db, initDatabase, calculateDecay, closeDefaultDb };

@@ -16,7 +16,7 @@ import cors from 'cors';
 import jwt from 'jsonwebtoken';
 import { createLogger } from './lib/logger.js';
 import { requestId } from './middleware/requestId.js';
-import { db, initDatabase } from './database.js';
+import { db, initDatabase, closeDefaultDb } from './database.js';
 import { initPlatformDatabase } from './platformDb.js';
 import { getAllGuilds } from './lib/provisioning.js';
 import { getTenantDb, closeAllTenantDbs } from './lib/tenantDb.js';
@@ -215,7 +215,8 @@ const gracefulShutdown = async (signal) => {
   // Close Socket.IO connections
   io.close();
 
-  // Close tenant database connections
+  // Close database connections
+  closeDefaultDb();
   closeAllTenantDbs();
 
   // Force exit after timeout
