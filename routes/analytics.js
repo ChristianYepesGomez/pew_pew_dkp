@@ -668,31 +668,47 @@ router.get('/percentile-matrix', authenticateToken, async (req, res) => {
       ORDER BY wz.id, wb.boss_order
     `, difficulty);
 
-    // Get per-player best percentile per boss (role-aware) + the report/fight for WCL link
-    // Uses pfp.character_name to separate stats by character (handles rerolls)
-    // Determines role from wcl_spec: healer specs → Healer, tank specs → Tank, else DPS
+    // metric=dps → always dps_percentile, metric=healing → always hps_percentile, default → role-aware
+    const metric = ['dps', 'healing'].includes(req.query.metric) ? req.query.metric : null;
+    const roleFilter = ['Tank', 'Healer', 'DPS'].includes(req.query.roleFilter) ? req.query.roleFilter : null;
+
     const HEALER_SPECS = "('Holy','Discipline','Restoration','Mistweaver','Preservation')";
     const TANK_SPECS = "('Protection','Guardian','Blood','Brewmaster','Vengeance')";
+
+    // Percentile column: forced metric or role-aware
+    const pctExpr = metric === 'dps'
+      ? 'pfp.dps_percentile'
+      : metric === 'healing'
+        ? 'pfp.hps_percentile'
+        : `CASE WHEN pfp.wcl_spec IN ${HEALER_SPECS} THEN pfp.hps_percentile ELSE pfp.dps_percentile END`;
+
+    const roleExpr = `CASE WHEN pfp.wcl_spec IN ${HEALER_SPECS} THEN 'Healer'
+                    WHEN pfp.wcl_spec IN ${TANK_SPECS} THEN 'Tank'
+                    ELSE 'DPS' END`;
+
+    const roleFilterSql = roleFilter
+      ? `AND ${roleExpr} = '${roleFilter}'`
+      : '';
+
     const playerStats = await req.db.all(`
       WITH role_pct AS (
         SELECT pfp.user_id, pfp.boss_id,
-               CASE WHEN pfp.wcl_spec IN ${HEALER_SPECS} THEN pfp.hps_percentile ELSE pfp.dps_percentile END as pct,
+               ${pctExpr} as pct,
                pfp.report_code, pfp.fight_id,
                COALESCE(pfp.character_name, u.character_name) as character_name,
                COALESCE(pfp.wcl_class, u.character_class) as character_class,
-               CASE WHEN pfp.wcl_spec IN ${HEALER_SPECS} THEN 'Healer'
-                    WHEN pfp.wcl_spec IN ${TANK_SPECS} THEN 'Tank'
-                    ELSE 'DPS' END as raid_role,
+               ${roleExpr} as raid_role,
                ROW_NUMBER() OVER (
                  PARTITION BY pfp.user_id, pfp.character_name, pfp.boss_id
-                 ORDER BY CASE WHEN pfp.wcl_spec IN ${HEALER_SPECS} THEN pfp.hps_percentile ELSE pfp.dps_percentile END DESC
+                 ORDER BY ${pctExpr} DESC
                ) as rn
         FROM player_fight_performance pfp
         JOIN users u ON pfp.user_id = u.id
         WHERE pfp.boss_id IN (SELECT wb.id FROM wcl_bosses wb JOIN wcl_zones wz ON wb.zone_id = wz.id WHERE wz.is_current = 1)
           AND pfp.difficulty = ?
           AND pfp.is_kill = 1
-          AND CASE WHEN pfp.wcl_spec IN ${HEALER_SPECS} THEN pfp.hps_percentile ELSE pfp.dps_percentile END IS NOT NULL${activeFilter(req)}
+          AND ${pctExpr} IS NOT NULL${activeFilter(req)}
+          ${roleFilterSql}
       )
       SELECT user_id, boss_id, character_name, character_class, raid_role,
              pct as best_pct, report_code, fight_id
@@ -702,14 +718,15 @@ router.get('/percentile-matrix', authenticateToken, async (req, res) => {
     // Also get avg percentile per player per boss (all kills)
     const avgStats = await req.db.all(`
       SELECT pfp.user_id, pfp.character_name, pfp.boss_id,
-             ROUND(AVG(CASE WHEN pfp.wcl_spec IN ${HEALER_SPECS} THEN pfp.hps_percentile ELSE pfp.dps_percentile END), 1) as avg_pct,
+             ROUND(AVG(${pctExpr}), 1) as avg_pct,
              COUNT(*) as fights
       FROM player_fight_performance pfp
       JOIN users u ON pfp.user_id = u.id
       WHERE pfp.boss_id IN (SELECT wb.id FROM wcl_bosses wb JOIN wcl_zones wz ON wb.zone_id = wz.id WHERE wz.is_current = 1)
         AND pfp.difficulty = ?
         AND pfp.is_kill = 1
-        AND CASE WHEN pfp.wcl_spec IN ${HEALER_SPECS} THEN pfp.hps_percentile ELSE pfp.dps_percentile END IS NOT NULL${activeFilter(req)}
+        AND ${pctExpr} IS NOT NULL${activeFilter(req)}
+        ${roleFilterSql}
       GROUP BY pfp.user_id, pfp.character_name, pfp.boss_id
     `, difficulty);
 
@@ -769,6 +786,8 @@ router.get('/percentile-matrix', authenticateToken, async (req, res) => {
       players,
       difficulties: availableDiffs,
       selectedDifficulty: difficulty,
+      metric: metric || 'auto',
+      roleFilter: roleFilter || 'all',
     });
   } catch (err) {
     log.error('Percentile matrix error', err);
