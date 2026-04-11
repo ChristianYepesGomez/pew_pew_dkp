@@ -27,18 +27,33 @@ const RoleIcon = ({ role, size = 14 }) => {
   return <Sword size={size} weight="fill" className="text-red-400" />
 }
 
+const METRIC_OPTIONS = [
+  { value: null, labelKey: 'analytics_metric_auto' },
+  { value: 'dps', labelKey: 'analytics_metric_dps' },
+  { value: 'healing', labelKey: 'analytics_metric_healing' },
+]
+
+const ROLE_OPTIONS = [
+  { value: 'all', labelKey: 'analytics_role_all', icon: null },
+  { value: 'Tank', labelKey: 'analytics_role_tank', icon: <Shield size={12} weight="fill" className="text-blue-400" /> },
+  { value: 'Healer', labelKey: 'analytics_role_healer', icon: <Heart size={12} weight="fill" className="text-green-400" /> },
+  { value: 'DPS', labelKey: 'analytics_role_dps', icon: <Sword size={12} weight="fill" className="text-red-400" /> },
+]
+
 const PercentileMatrix = ({ includeInactive = false }) => {
   const { t } = useLanguage()
   const [loading, setLoading] = useState(true)
   const [data, setData] = useState(null)
   const [selectedDifficulty, setSelectedDifficulty] = useState(null)
+  const [metric, setMetric] = useState(null)
+  const [roleFilter, setRoleFilter] = useState('all')
 
   useEffect(() => {
     let cancelled = false
     const loadData = async () => {
       setLoading(true)
       try {
-        const res = await analyticsAPI.getPercentileMatrix(selectedDifficulty, includeInactive)
+        const res = await analyticsAPI.getPercentileMatrix(selectedDifficulty, includeInactive, metric, roleFilter)
         if (!cancelled) setData(res.data)
       } catch (err) {
         if (!cancelled) console.error('Failed to load percentile matrix:', err)
@@ -48,7 +63,7 @@ const PercentileMatrix = ({ includeInactive = false }) => {
     }
     loadData()
     return () => { cancelled = true }
-  }, [selectedDifficulty, includeInactive])
+  }, [selectedDifficulty, includeInactive, metric, roleFilter])
 
   if (loading && !data) {
     return (
@@ -85,31 +100,68 @@ const PercentileMatrix = ({ includeInactive = false }) => {
 
   return (
     <div className="rounded-xl border border-lavender-20/20 bg-indigo/30 p-5">
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
         <h3 className="text-lg text-white inline-flex items-center gap-2">
           <Trophy size={20} className="text-coral" />
           {t('analytics_percentile_matrix')}
         </h3>
 
-        {/* Difficulty filter — no "All", must pick one */}
-        {difficulties?.length > 0 && (
-          <div className="flex gap-1.5">
-            {difficulties.map((d) => (
+        <div className="flex items-center gap-3 flex-wrap">
+          {/* Metric filter: Auto / DPS / Healing */}
+          <div className="flex gap-1 items-center">
+            {METRIC_OPTIONS.map((opt) => (
               <button
-                key={d}
-                onClick={() => setSelectedDifficulty(d)}
-                className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all ${
-                  activeDifficulty === d
-                    ? 'bg-lavender-20/30'
+                key={opt.labelKey}
+                onClick={() => setMetric(opt.value)}
+                className={`px-2 py-1 rounded-lg text-xs font-semibold transition-all ${
+                  metric === opt.value
+                    ? 'bg-coral/20 text-coral'
                     : 'text-lavender/50 hover:text-lavender/80'
                 }`}
-                style={activeDifficulty === d ? { color: DIFFICULTY_COLORS[d] } : undefined}
               >
-                {d}
+                {t(opt.labelKey)}
               </button>
             ))}
           </div>
-        )}
+
+          {/* Role filter: All / Tank / Healer / DPS */}
+          <div className="flex gap-1 items-center border-l border-lavender-20/20 pl-3">
+            {ROLE_OPTIONS.map((opt) => (
+              <button
+                key={opt.value}
+                onClick={() => setRoleFilter(opt.value)}
+                className={`px-2 py-1 rounded-lg text-xs font-semibold transition-all inline-flex items-center gap-1 ${
+                  roleFilter === opt.value
+                    ? 'bg-lavender-20/30 text-white'
+                    : 'text-lavender/50 hover:text-lavender/80'
+                }`}
+              >
+                {opt.icon}
+                {t(opt.labelKey)}
+              </button>
+            ))}
+          </div>
+
+          {/* Difficulty filter */}
+          {difficulties?.length > 0 && (
+            <div className="flex gap-1.5 border-l border-lavender-20/20 pl-3">
+              {difficulties.map((d) => (
+                <button
+                  key={d}
+                  onClick={() => setSelectedDifficulty(d)}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all ${
+                    activeDifficulty === d
+                      ? 'bg-lavender-20/30'
+                      : 'text-lavender/50 hover:text-lavender/80'
+                  }`}
+                  style={activeDifficulty === d ? { color: DIFFICULTY_COLORS[d] } : undefined}
+                >
+                  {d}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="overflow-x-auto">
