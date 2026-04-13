@@ -206,6 +206,8 @@ const TombstoneCard = ({ legend, t, onClick }) => {
             † Causa: <span className="text-stone-300">Picadez crónica</span>
             <br />
             <span className="text-stone-500">(rotado 1 día, /gquit sin avisar)</span>
+            <br />
+            <span className="text-stone-500 text-[9px]">⚠ No se despidió de nadie</span>
           </p>
         )}
 
@@ -228,7 +230,7 @@ const TombstoneCard = ({ legend, t, onClick }) => {
               className="font-serif text-stone-500 text-[9px] italic mt-1"
               style={engraved}
             >
-              — y no dijo más
+              — ni un adiós, ni un gracias
             </p>
           </div>
         )}
