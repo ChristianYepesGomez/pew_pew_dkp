@@ -75,6 +75,7 @@ const TombstoneCard = ({ legend, t, onClick }) => {
   const untilDate = legend.leaveDate ? formatDate(legend.leaveDate) : '—'
 
   const isKrakatoar = legend.characterName?.toLowerCase() === 'krakatoar'
+  const isStras = legend.characterName?.toLowerCase() === 'stras'
 
   const engraved = {
     textShadow:
@@ -114,23 +115,14 @@ const TombstoneCard = ({ legend, t, onClick }) => {
           style={{ boxShadow: 'inset 0 2px 8px rgba(0,0,0,0.55)' }}
         />
 
-        {/* Cross ornament (clock frozen at 21:03 for Krakatoar) */}
-        {isKrakatoar ? (
-          <div
-            className="relative z-10 font-serif text-3xl text-stone-300/80 leading-none mb-2"
-            style={engraved}
-            title="Hora de la muerte"
-          >
-            🕘
-          </div>
-        ) : (
-          <div
-            className="relative z-10 font-serif text-3xl text-stone-300/80 leading-none mb-2"
-            style={engraved}
-          >
-            ✝
-          </div>
-        )}
+        {/* Cross ornament (special icons for legends) */}
+        <div
+          className="relative z-10 font-serif text-3xl text-stone-300/80 leading-none mb-2"
+          style={engraved}
+          title={isKrakatoar ? 'Hora de la muerte' : isStras ? '/gquit' : undefined}
+        >
+          {isKrakatoar ? '🕘' : isStras ? '🚪' : '✝'}
+        </div>
 
         {/* R.I.P. */}
         <div
@@ -201,6 +193,42 @@ const TombstoneCard = ({ legend, t, onClick }) => {
               style={engraved}
             >
               &ldquo;me voy que no me invita nadie&rdquo;
+            </p>
+          </div>
+        )}
+
+        {/* Stras — certificado de defunción */}
+        {isStras && (
+          <p
+            className="relative z-10 font-serif text-stone-400 text-[11px] italic mb-4"
+            style={engraved}
+          >
+            † Causa: <span className="text-stone-300">Picadez crónica</span>
+            <br />
+            <span className="text-stone-500">(rotado 1 día, /gquit sin avisar)</span>
+          </p>
+        )}
+
+        {/* Stras — últimas palabras */}
+        {isStras && (
+          <div className="relative z-10 mb-4 px-2">
+            <p
+              className="font-serif text-stone-500 text-[9px] tracking-[0.25em] uppercase mb-1"
+              style={engraved}
+            >
+              Últimas palabras
+            </p>
+            <p
+              className="font-serif text-stone-300 text-xs italic leading-snug"
+              style={engraved}
+            >
+              &ldquo;/gquit&rdquo;
+            </p>
+            <p
+              className="font-serif text-stone-500 text-[9px] italic mt-1"
+              style={engraved}
+            >
+              — y no dijo más
             </p>
           </div>
         )}
