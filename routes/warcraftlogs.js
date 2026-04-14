@@ -3,7 +3,7 @@ import { authenticateToken, authorizeRole } from '../middleware/auth.js';
 import { adminLimiter } from '../lib/rateLimiters.js';
 import { invalidateConfigCache } from '../lib/helpers.js';
 import { getLootSystem, getLootSystemType } from '../lib/lootSystems/index.js';
-import { processWarcraftLog, isConfigured as isWCLConfigured, getGuildReports, getFightStats, getFightStatsWithDeathEvents, getExtendedFightStats, getFightRankings, getConsumableCasts } from '../services/warcraftlogs.js';
+import { processWarcraftLog, isConfigured as isWCLConfigured, getGuildReports, getFightStats, getFightStatsWithDeathEvents, getExtendedFightStats, getFightRankings, getConsumableCasts, syncPercentilesForReport, syncAllPercentiles } from '../services/warcraftlogs.js';
 import { processExtendedFightData } from '../services/performanceAnalysis.js';
 import { seedRaidData, processFightStats, recordPlayerDeaths, recordPlayerPerformance } from '../services/raids.js';
 import { processReportPopularity } from '../services/itemPopularity.js';
@@ -457,6 +457,14 @@ router.post('/confirm', adminLimiter, authenticateToken, authorizeRole(['admin',
             }
           }
 
+          // Sync percentiles — re-fetch current WCL rankings for all kills in this report
+          // so the stored values match what WCL shows today (rankings shift as more logs are uploaded)
+          try {
+            await syncPercentilesForReport(req.db, reportCode);
+          } catch (syncErr) {
+            log.warn(`Percentile sync failed for ${reportCode}: ${syncErr.message}`);
+          }
+
           // Process item popularity from kill fights
           const killFights = processedBosses
             .filter(b => b.kill)
@@ -854,6 +862,13 @@ router.post('/import-boss-stats', adminLimiter, authenticateToken, authorizeRole
             log.info(`Extended performance: ${extendedRecorded} player-fight records from ${reportData.code}`);
           }
 
+          // Sync percentiles — re-fetch current WCL rankings for all kills in this report
+          try {
+            await syncPercentilesForReport(req.db, reportData.code);
+          } catch (syncErr) {
+            log.warn(`Percentile sync failed for ${reportData.code}: ${syncErr.message}`);
+          }
+
           // Process item popularity from kill fights
           const killFights = processedBosses.filter(b => b.kill);
           if (killFights.length > 0) {
@@ -1058,6 +1073,19 @@ router.post('/auto-process/:code', adminLimiter, authenticateToken, authorizeRol
   } catch (err) {
     log.error('Auto-process report error', err);
     return error(res, err.message || 'Failed to process report', 500, ErrorCodes.EXTERNAL_API_ERROR);
+  }
+});
+
+// Admin: bulk re-sync WCL percentiles for all kill fights in the current season
+// Use after large stale periods or when percentile data looks wrong
+router.post('/sync-percentiles', authenticateToken, authorizeRole(['admin']), adminLimiter, async (req, res) => {
+  try {
+    log.info('Admin triggered bulk percentile sync');
+    const result = await syncAllPercentiles(req.db);
+    return success(res, result, 'Percentile sync complete');
+  } catch (err) {
+    log.error('Bulk percentile sync error', err);
+    return error(res, 'Percentile sync failed', 500, ErrorCodes.INTERNAL_ERROR);
   }
 });
 

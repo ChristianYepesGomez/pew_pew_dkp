@@ -838,6 +838,111 @@ export async function getFightRankings(reportCode, fightIds) {
 }
 
 /**
+ * Re-fetch current WCL percentile rankings for all kill fights in a report and update the DB.
+ * Called after every import so stored percentiles stay in sync with WCL's live rankings.
+ * Fetches per-fight (not batched) to avoid overwriting when multiple fights exist.
+ * Returns the number of player-fight records updated.
+ */
+export async function syncPercentilesForReport(db, reportCode) {
+  const kills = await db.all(
+    `SELECT DISTINCT fight_id FROM player_fight_performance WHERE report_code = ? AND is_kill = 1`,
+    reportCode
+  );
+  if (!kills.length) return 0;
+
+  let updated = 0;
+  for (const { fight_id } of kills) {
+    // Invalidate cache so we always pull fresh data from WCL
+    wclCache.invalidate(`rankings:${reportCode}:${fight_id}`);
+
+    let rankingsData;
+    try {
+      rankingsData = await getFightRankings(reportCode, [fight_id]);
+    } catch (err) {
+      log.warn(`syncPercentiles: rankings fetch failed for fight ${fight_id} in ${reportCode}: ${err.message}`);
+      continue;
+    }
+
+    const players = await db.all(
+      `SELECT id, character_name FROM player_fight_performance WHERE report_code = ? AND fight_id = ?`,
+      reportCode, fight_id
+    );
+
+    for (const player of players) {
+      const nameLower = player.character_name.toLowerCase();
+      const dpsRank = rankingsData.dps[nameLower] || {};
+      const hpsRank = rankingsData.hps[nameLower] || {};
+      const dpsPercentile = dpsRank.rankPercent ?? null;
+      const hpsPercentile = hpsRank.rankPercent ?? null;
+
+      if (dpsPercentile === null && hpsPercentile === null) continue;
+
+      await db.run(
+        `UPDATE player_fight_performance
+         SET dps_percentile = ?,
+             hps_percentile = ?,
+             bracket_percentile = COALESCE(?, bracket_percentile),
+             bracket = COALESCE(?, bracket),
+             wcl_class = COALESCE(?, wcl_class),
+             wcl_spec = COALESCE(?, wcl_spec)
+         WHERE id = ?`,
+        dpsPercentile,
+        hpsPercentile,
+        dpsRank.bracketPercent ?? hpsRank.bracketPercent ?? null,
+        dpsRank.bracket ?? hpsRank.bracket ?? null,
+        dpsRank.class ?? hpsRank.class ?? null,
+        dpsRank.spec ?? hpsRank.spec ?? null,
+        player.id
+      );
+      updated++;
+    }
+  }
+
+  log.info(`syncPercentiles: updated ${updated} player-fight records for report ${reportCode}`);
+  return updated;
+}
+
+/**
+ * Bulk re-sync percentiles for ALL kill fights in the current season.
+ * Used by the admin endpoint to fix stale percentile data across all imported reports.
+ * Returns { reportsProcessed, fightsProcessed, recordsUpdated, errors }
+ */
+export async function syncAllPercentiles(db) {
+  const reports = await db.all(`
+    SELECT DISTINCT pfp.report_code
+    FROM player_fight_performance pfp
+    JOIN wcl_bosses wb ON wb.id = pfp.boss_id
+    JOIN wcl_zones wz ON wz.id = wb.zone_id
+    WHERE pfp.is_kill = 1 AND wz.is_current = 1
+  `);
+
+  let reportsProcessed = 0;
+  let fightsProcessed = 0;
+  let recordsUpdated = 0;
+  const errors = [];
+
+  for (const { report_code } of reports) {
+    try {
+      const updated = await syncPercentilesForReport(db, report_code);
+      // Count actual kill fights processed for this report
+      const kills = await db.all(
+        `SELECT DISTINCT fight_id FROM player_fight_performance WHERE report_code = ? AND is_kill = 1`,
+        report_code
+      );
+      reportsProcessed++;
+      fightsProcessed += kills.length;
+      recordsUpdated += updated;
+    } catch (err) {
+      log.warn(`syncAllPercentiles: failed for report ${report_code}: ${err.message}`);
+      errors.push({ reportCode: report_code, error: err.message });
+    }
+  }
+
+  log.info(`syncAllPercentiles complete: ${reportsProcessed} reports, ${fightsProcessed} fights, ${recordsUpdated} records updated`);
+  return { reportsProcessed, fightsProcessed, recordsUpdated, errors };
+}
+
+/**
  * Get reports uploaded by a specific user
  * Used for auto-detecting new logs from a designated uploader
  */
