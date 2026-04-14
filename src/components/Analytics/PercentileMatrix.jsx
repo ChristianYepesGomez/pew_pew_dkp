@@ -21,7 +21,15 @@ const wclColor = (pct) => {
   return '#666666'
 }
 
-const RoleIcon = ({ role, size = 14 }) => {
+// In auto mode: icon reflects the natural metric for that role
+//   Healer → Heart (HPS), Tank → Shield (DPS), DPS → Sword (DPS)
+// When a metric is forced:
+//   'healing' → Heart for all (showing HPS)
+//   'dps'     → Sword for all (showing DPS)
+const MetricIcon = ({ role, metric, size = 14 }) => {
+  if (metric === 'healing') return <Heart size={size} weight="fill" className="text-green-400" />
+  if (metric === 'dps') return <Sword size={size} weight="fill" className="text-red-400" />
+  // Auto: role-based
   if (role === 'Healer') return <Heart size={size} weight="fill" className="text-green-400" />
   if (role === 'Tank') return <Shield size={size} weight="fill" className="text-blue-400" />
   return <Sword size={size} weight="fill" className="text-red-400" />
@@ -195,7 +203,7 @@ const PercentileMatrix = ({ includeInactive = false }) => {
               <tr key={player.characterName} className="hover:bg-lavender-12/5 transition-colors">
                 <td className="py-1.5 pr-3 sticky left-0 bg-indigo/30 z-10">
                   <div className="flex items-center gap-1.5">
-                    <RoleIcon role={player.raidRole} />
+                    <MetricIcon role={player.raidRole} metric={metric} />
                     <span
                       className="font-semibold text-xs"
                       style={{ color: CLASS_COLORS[player.characterClass] || '#fff' }}
