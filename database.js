@@ -580,6 +580,26 @@ export async function runMigrations(targetDb, connectionUrl = dbUrl) {
     log.warn('Migration warning: ' + e.message);
   }
 
+  // ── Add 'late' to member_availability status check ──
+  // SQLite can't ALTER a CHECK constraint, so we recreate the table when the old constraint is detected.
+  try {
+    const avSchema = await targetDb.get("SELECT sql FROM sqlite_master WHERE type='table' AND name='member_availability'");
+    if (avSchema && avSchema.sql && !avSchema.sql.includes("'late'")) {
+      log.info('Migrating member_availability: adding late status');
+      await targetDb.exec('ALTER TABLE member_availability RENAME TO member_availability_old');
+      await targetDb.exec(`CREATE TABLE member_availability (
+        id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL,
+        raid_date DATE NOT NULL, status TEXT DEFAULT 'tentative' CHECK(status IN ('confirmed', 'declined', 'tentative', 'late')),
+        notes TEXT, dkp_awarded INTEGER DEFAULT 0,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP, updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE, UNIQUE(user_id, raid_date)
+      )`);
+      await targetDb.exec('INSERT INTO member_availability SELECT * FROM member_availability_old');
+      await targetDb.exec('DROP TABLE member_availability_old');
+      log.info('member_availability late status migration complete');
+    }
+  } catch (e) { log.warn('Late status migration warning: ' + e.message); }
+
   try { await targetDb.exec(`CREATE TABLE IF NOT EXISTS refresh_tokens (
     id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     token TEXT NOT NULL UNIQUE, token_family TEXT NOT NULL, used INTEGER DEFAULT 0,
@@ -644,6 +664,32 @@ export async function runMigrations(targetDb, connectionUrl = dbUrl) {
     display_order INTEGER DEFAULT 0,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   )`); } catch (_e) { /* table already exists */ }
+
+  // ── Raid Roster ──────────────────────────────────────────────────
+  try { await targetDb.exec(`CREATE TABLE IF NOT EXISTS raid_rosters (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    raid_date TEXT NOT NULL,
+    name TEXT NOT NULL DEFAULT 'Roster',
+    published INTEGER NOT NULL DEFAULT 0,
+    created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  )`); } catch (_e) {}
+
+  try { await targetDb.exec(`CREATE TABLE IF NOT EXISTS roster_players (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    roster_id INTEGER NOT NULL REFERENCES raid_rosters(id) ON DELETE CASCADE,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    slot TEXT NOT NULL DEFAULT 'in_roster' CHECK(slot IN ('in_roster', 'bench')),
+    UNIQUE(roster_id, user_id)
+  )`); } catch (_e) {}
+
+  try { await targetDb.exec(`CREATE TABLE IF NOT EXISTS roster_bosses (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    roster_id INTEGER NOT NULL REFERENCES raid_rosters(id) ON DELETE CASCADE,
+    boss_id INTEGER NOT NULL REFERENCES wcl_bosses(id) ON DELETE CASCADE,
+    UNIQUE(roster_id, boss_id)
+  )`); } catch (_e) {}
 
   // ── Hall of Fame — preserves legacy of former guild members ──
   try { await targetDb.exec(`CREATE TABLE IF NOT EXISTS hall_of_fame (
@@ -729,6 +775,10 @@ export async function runMigrations(targetDb, connectionUrl = dbUrl) {
     // Hall of Fame
     'CREATE INDEX IF NOT EXISTS idx_hall_of_fame_user ON hall_of_fame(user_id)',
     'CREATE INDEX IF NOT EXISTS idx_hall_of_fame_leave_date ON hall_of_fame(leave_date)',
+    // Raid Roster
+    'CREATE INDEX IF NOT EXISTS idx_raid_rosters_date ON raid_rosters(raid_date)',
+    'CREATE INDEX IF NOT EXISTS idx_roster_players_roster ON roster_players(roster_id)',
+    'CREATE INDEX IF NOT EXISTS idx_roster_bosses_roster ON roster_bosses(roster_id)',
   ];
   for (const sql of indexes) {
     await targetDb.exec(sql);

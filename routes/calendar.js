@@ -206,8 +206,8 @@ router.post('/signup', authenticateToken, async (req, res) => {
       return error(res, 'date and status are required', 400, ErrorCodes.VALIDATION_ERROR);
     }
 
-    if (!['confirmed', 'declined', 'tentative'].includes(status)) {
-      return error(res, 'Invalid status. Must be: confirmed, declined, or tentative', 400, ErrorCodes.VALIDATION_ERROR);
+    if (!['confirmed', 'declined', 'tentative', 'late'].includes(status)) {
+      return error(res, 'Invalid status. Must be: confirmed, declined, tentative, or late', 400, ErrorCodes.VALIDATION_ERROR);
     }
 
     const dateObj = new Date(date + 'T12:00:00');
@@ -322,6 +322,7 @@ router.get('/summary/:date', authenticateToken, async (req, res) => {
     const summary = {
       date,
       confirmed: [],
+      late: [],
       declined: [],
       tentative: [],
       noResponse: []
@@ -342,6 +343,8 @@ router.get('/summary/:date', authenticateToken, async (req, res) => {
         summary.noResponse.push(memberInfo);
       } else if (signup.status === 'confirmed') {
         summary.confirmed.push(memberInfo);
+      } else if (signup.status === 'late') {
+        summary.late.push(memberInfo);
       } else if (signup.status === 'declined') {
         summary.declined.push(memberInfo);
       } else {
@@ -351,6 +354,7 @@ router.get('/summary/:date', authenticateToken, async (req, res) => {
 
     summary.counts = {
       confirmed: summary.confirmed.length,
+      late: summary.late.length,
       declined: summary.declined.length,
       tentative: summary.tentative.length,
       noResponse: summary.noResponse.length,
