@@ -263,4 +263,14 @@ export const hallOfFameAPI = {
   remove: (id) => api.delete(`/hall-of-fame/${id}`),
 }
 
+export const rosterAPI = {
+  getByDate: (date) => api.get('/roster', { params: { date } }),
+  getAvailable: (date) => api.get('/roster/available', { params: { date } }),
+  getBosses: () => api.get('/roster/bosses'),
+  create: (data) => api.post('/roster', data),
+  update: (id, data) => api.put(`/roster/${id}`, data),
+  copy: (id, data) => api.post(`/roster/${id}/copy`, data),
+  remove: (id) => api.delete(`/roster/${id}`),
+}
+
 export default api

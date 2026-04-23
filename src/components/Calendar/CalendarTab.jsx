@@ -4,7 +4,7 @@ import { useAuth } from '../../hooks/useAuth'
 import { useLanguage } from '../../hooks/useLanguage'
 import { calendarAPI, warcraftLogsAPI } from '../../services/api'
 import CLASS_COLORS from '../../utils/classColors'
-import { CheckCircle, XCircle, Question, MinusCircle, ShieldStar, Heart, Crosshair, CircleNotch, CalendarDots, CalendarX, Users, ClockCounterClockwise, Coins, WarningCircle, Warning, X, Clock, Lock, FloppyDisk, Skull, Check, ChatDots, Note, MagnifyingGlass, ArrowLeft, Link, ArrowSquareOut, Info } from '@phosphor-icons/react'
+import { CheckCircle, XCircle, Question, MinusCircle, ShieldStar, Heart, Crosshair, CircleNotch, CalendarDots, CalendarX, Users, ClockCounterClockwise, Coins, WarningCircle, Warning, X, Clock, Lock, FloppyDisk, Skull, Check, ChatDots, Note, MagnifyingGlass, ArrowLeft, Link, ArrowSquareOut, Info, ClockCountdown } from '@phosphor-icons/react'
 import SectionHeader from '../ui/SectionHeader'
 import SurfaceCard from '../ui/SurfaceCard'
 import Button from '../ui/Button'
@@ -23,6 +23,13 @@ const STATUS_CONFIG = {
     bg: 'bg-green-500',
     bgHover: 'hover:bg-green-600',
     border: 'border-green-500'
+  },
+  late: {
+    Icon: ClockCountdown,
+    color: 'text-orange-400',
+    bg: 'bg-orange-500',
+    bgHover: 'hover:bg-orange-600',
+    border: 'border-orange-500'
   },
   declined: {
     Icon: XCircle,

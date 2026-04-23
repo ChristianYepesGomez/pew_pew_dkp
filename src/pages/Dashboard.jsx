@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Users, CalendarDots, Gavel, ChartLine, Skull, Trophy } from '@phosphor-icons/react'
+import { Users, CalendarDots, Gavel, ChartLine, Skull, Trophy, Clipboard } from '@phosphor-icons/react'
 import { useAuth } from '../hooks/useAuth'
 import { useLanguage } from '../hooks/useLanguage'
 import { calendarAPI } from '../services/api'
@@ -9,6 +9,7 @@ import MembersTab from '../components/Roster/MembersTab'
 import AuctionTab from '../components/Auction/AuctionTab'
 import HistoryTab from '../components/Auction/HistoryTab'
 import CalendarTab from '../components/Calendar/CalendarTab'
+import RosterTab from '../components/Roster/RosterTab'
 import AdminTab from '../components/Admin/AdminTab'
 import BossesTab from '../components/Bosses/BossesTab'
 import AnalyticsTab from '../components/Analytics/AnalyticsTab'
@@ -69,6 +70,7 @@ const Dashboard = () => {
   const tabs = [
     { id: 'members', icon: Users, label: t('members') },
     { id: 'calendar', icon: CalendarDots, label: t('calendar') },
+    { id: 'roster', icon: Clipboard, label: 'Roster' },
     { id: 'auction', icon: Gavel, label: t('active_auction') },
     { id: 'stats', icon: ChartLine, label: t('stats') },
     { id: 'bosses', icon: Skull, label: t('bosses') },
@@ -83,6 +85,7 @@ const Dashboard = () => {
         {activeTab === 'members' && <MembersTab />}
         {activeTab === 'bosses' && <BossesTab />}
         {activeTab === 'calendar' && <CalendarTab />}
+        {activeTab === 'roster' && <RosterTab />}
         {activeTab === 'auction' && <AuctionTab onNavigate={setActiveTab} />}
         {activeTab === 'history' && <HistoryTab onNavigate={setActiveTab} />}
         {activeTab === 'stats' && <AnalyticsTab />}
