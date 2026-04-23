@@ -67,10 +67,12 @@ const Dashboard = () => {
     checkUnconfirmed()
   }, [])
 
+  const isPrivileged = user?.role === 'admin' || user?.role === 'officer'
+
   const tabs = [
     { id: 'members', icon: Users, label: t('members') },
     { id: 'calendar', icon: CalendarDots, label: t('calendar') },
-    { id: 'roster', icon: Clipboard, label: 'Roster' },
+    ...(isPrivileged ? [{ id: 'roster', icon: Clipboard, label: 'Roster' }] : []),
     { id: 'auction', icon: Gavel, label: t('active_auction') },
     { id: 'stats', icon: ChartLine, label: t('stats') },
     { id: 'bosses', icon: Skull, label: t('bosses') },
