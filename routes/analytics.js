@@ -259,6 +259,7 @@ router.get('/superlatives', authenticateToken, async (req, res) => {
         WHERE pfp.is_kill = 1
           AND pfp.damage_taken > 0
           AND COALESCE(c.raid_role, u.raid_role) != 'Tank'
+          AND (pfp.wcl_spec IS NULL OR pfp.wcl_spec NOT IN ('Protection','Guardian','Blood','Brewmaster','Vengeance'))
           AND pfp.boss_id IN (SELECT wb.id FROM wcl_bosses wb JOIN wcl_zones wz ON wb.zone_id = wz.id WHERE wz.is_current = 1)${activeFilter(req)}
         ORDER BY total DESC LIMIT 1
       `),
@@ -528,6 +529,7 @@ router.get('/guild-leaderboards', authenticateToken, async (req, res) => {
         WHERE pfp.damage_taken > 0
           AND pfp.is_kill = 1
           AND COALESCE(c.raid_role, u.raid_role) != 'Tank'
+          AND (pfp.wcl_spec IS NULL OR pfp.wcl_spec NOT IN ('Protection','Guardian','Blood','Brewmaster','Vengeance'))
           AND pfp.boss_id IN (SELECT wb.id FROM wcl_bosses wb JOIN wcl_zones wz ON wb.zone_id = wz.id WHERE wz.is_current = 1)${af}
         GROUP BY pfp.user_id, pfp.character_name
         HAVING COUNT(*) >= ?
