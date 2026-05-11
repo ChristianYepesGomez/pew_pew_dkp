@@ -160,12 +160,15 @@ router.post('/date/:date/copy-previous', authenticateToken, authorizeRole(['admi
     return error(res, 'Invalid date', 400);
   }
 
-  // Find the most recent past roster
-  const source = await db.get(
-    'SELECT id FROM raid_rosters WHERE raid_date < ? ORDER BY raid_date DESC LIMIT 1',
-    date
-  );
-  if (!source) return error(res, 'No previous roster found', 404);
+  // Find the most recent roster with players (any date except current)
+  const source = await db.get(`
+    SELECT r.id FROM raid_rosters r
+    JOIN roster_players rp ON rp.roster_id = r.id
+    WHERE r.raid_date != ?
+    GROUP BY r.id
+    ORDER BY r.raid_date DESC LIMIT 1
+  `, date);
+  if (!source) return error(res, 'No hay ningún roster anterior con jugadores', 404);
 
   const sourcePlayers = await db.all(
     'SELECT user_id, slot FROM roster_players WHERE roster_id = ?',
