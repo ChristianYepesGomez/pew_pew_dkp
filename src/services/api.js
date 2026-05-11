@@ -266,11 +266,9 @@ export const hallOfFameAPI = {
 export const rosterAPI = {
   getByDate: (date) => api.get('/roster', { params: { date } }),
   getAvailable: (date) => api.get('/roster/available', { params: { date } }),
-  getBosses: () => api.get('/roster/bosses'),
-  create: (data) => api.post('/roster', data),
-  update: (id, data) => api.put(`/roster/${id}`, data),
-  copy: (id, data) => api.post(`/roster/${id}/copy`, data),
-  remove: (id) => api.delete(`/roster/${id}`),
+  togglePlayer: (date, userId, slot) => api.post(`/roster/date/${date}/toggle-player`, { user_id: userId, slot }),
+  publish: (date) => api.post(`/roster/date/${date}/publish`),
+  copyPrevious: (date) => api.post(`/roster/date/${date}/copy-previous`),
 }
 
 export default api
