@@ -6,8 +6,31 @@ import { createLogger } from '../lib/logger.js';
 const log = createLogger('Route:Roster');
 const router = Router();
 
+// ── Shared helper: load full roster for a date ───────────────────────────────
+async function loadRosterForDate(db, date, isPrivileged) {
+  const roster = await db.get(`
+    SELECT id, raid_date, published, created_at, updated_at
+    FROM raid_rosters
+    WHERE raid_date = ?
+    ${isPrivileged ? '' : 'AND published = 1'}
+    ORDER BY created_at ASC LIMIT 1
+  `, date);
+
+  if (!roster) return null;
+
+  roster.players = await db.all(`
+    SELECT rp.slot, u.id as user_id, u.character_name, u.character_class, u.raid_role, u.spec
+    FROM roster_players rp
+    JOIN users u ON u.id = rp.user_id
+    WHERE rp.roster_id = ?
+    ORDER BY u.raid_role, u.character_name
+  `, roster.id);
+
+  return roster;
+}
+
 // ── GET /api/roster?date=YYYY-MM-DD ─────────────────────────────────────────
-// Returns all published rosters for a date (members) or all (admin/officer).
+// Returns the single roster for a date (or null).
 router.get('/', authenticateToken, async (req, res) => {
   const { db, user } = req;
   const { date } = req.query;
@@ -17,43 +40,13 @@ router.get('/', authenticateToken, async (req, res) => {
   }
 
   const isPrivileged = user.role === 'admin' || user.role === 'officer';
+  const roster = await loadRosterForDate(db, date, isPrivileged);
 
-  const rosters = await db.all(`
-    SELECT r.id, r.raid_date, r.name, r.published, r.created_at, r.updated_at,
-           u.character_name as created_by_name
-    FROM raid_rosters r
-    LEFT JOIN users u ON u.id = r.created_by
-    WHERE r.raid_date = ?
-    ${isPrivileged ? '' : 'AND r.published = 1'}
-    ORDER BY r.created_at ASC
-  `, date);
-
-  // Attach players and bosses to each roster
-  for (const roster of rosters) {
-    roster.players = await db.all(`
-      SELECT rp.slot, u.id as user_id, u.character_name, u.character_class, u.raid_role, u.spec
-      FROM roster_players rp
-      JOIN users u ON u.id = rp.user_id
-      WHERE rp.roster_id = ?
-      ORDER BY u.raid_role, u.character_name
-    `, roster.id);
-
-    roster.bosses = await db.all(`
-      SELECT wb.id as boss_id, wb.name as boss_name, wb.slug, wb.boss_order, wb.image_url,
-             wz.name as zone_name
-      FROM roster_bosses rb
-      JOIN wcl_bosses wb ON wb.id = rb.boss_id
-      JOIN wcl_zones wz ON wz.id = wb.zone_id
-      WHERE rb.roster_id = ?
-      ORDER BY wb.boss_order
-    `, roster.id);
-  }
-
-  return res.json(success(rosters));
+  return res.json(success(roster)); // null = no roster yet
 });
 
 // ── GET /api/roster/available?date=YYYY-MM-DD ────────────────────────────────
-// Admin/officer: list players available for a given date (confirmed + late signups).
+// Admin/officer: confirmed + late + tentative players (no declined, no no-response).
 router.get('/available', authenticateToken, authorizeRole('admin', 'officer'), async (req, res) => {
   const { db } = req;
   const { date } = req.query;
@@ -62,23 +55,20 @@ router.get('/available', authenticateToken, authorizeRole('admin', 'officer'), a
     return res.status(400).json(error('Invalid or missing date'));
   }
 
-  // Returns ALL active members with their signup status for the date.
-  // Admin can roster anyone regardless of whether they signed up.
-  // signup_status: confirmed/late = highlighted; tentative/null = can still be added; declined = shown dimmed.
   const players = await db.all(`
     SELECT u.id as user_id, u.character_name, u.character_class, u.raid_role, u.spec,
-           ma.status as signup_status, ma.notes
+           ma.status as signup_status
     FROM users u
-    LEFT JOIN member_availability ma ON ma.user_id = u.id AND ma.raid_date = ?
+    JOIN member_availability ma ON ma.user_id = u.id AND ma.raid_date = ?
     WHERE u.is_active = 1
       AND u.character_name IS NOT NULL
       AND TRIM(u.character_name) != ''
+      AND ma.status IN ('confirmed', 'late', 'tentative')
     ORDER BY
       CASE ma.status
         WHEN 'confirmed' THEN 1
         WHEN 'late'      THEN 2
         WHEN 'tentative' THEN 3
-        ELSE 4
       END,
       u.raid_role, u.character_name
   `, date);
@@ -86,187 +76,123 @@ router.get('/available', authenticateToken, authorizeRole('admin', 'officer'), a
   return res.json(success(players));
 });
 
-// ── GET /api/roster/bosses ────────────────────────────────────────────────────
-// Returns current-tier bosses for boss picker.
-router.get('/bosses', authenticateToken, async (req, res) => {
-  const { db } = req;
-
-  const bosses = await db.all(`
-    SELECT wb.id, wb.name, wb.slug, wb.boss_order, wb.image_url,
-           wz.id as zone_id, wz.name as zone_name, wz.expansion
-    FROM wcl_bosses wb
-    JOIN wcl_zones wz ON wz.id = wb.zone_id
-    WHERE wz.is_current = 1
-    ORDER BY wz.tier ASC, wb.boss_order ASC
-  `);
-
-  return res.json(success(bosses));
-});
-
-// ── POST /api/roster ──────────────────────────────────────────────────────────
-// Admin/officer: create a new roster for a date.
-router.post('/', authenticateToken, authorizeRole('admin', 'officer'), async (req, res) => {
+// ── POST /api/roster/date/:date/toggle-player ────────────────────────────────
+// Add or move a player in the roster (auto-creates roster if needed).
+// Body: { user_id, slot: 'in_roster' | 'bench' | null (remove) }
+router.post('/date/:date/toggle-player', authenticateToken, authorizeRole('admin', 'officer'), async (req, res) => {
   const { db, user } = req;
-  const { raid_date, name, player_ids, bench_ids, boss_ids, published } = req.body;
+  const { date } = req.params;
 
-  if (!raid_date || !/^\d{4}-\d{2}-\d{2}$/.test(raid_date)) {
-    return res.status(400).json(error('Invalid or missing raid_date'));
-  }
-  if (!name || typeof name !== 'string' || !name.trim()) {
-    return res.status(400).json(error('Invalid roster name'));
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    return res.status(400).json(error('Invalid date'));
   }
 
-  const safePlayerIds = Array.isArray(player_ids) ? player_ids.filter(Number.isInteger) : [];
-  const safeBenchIds  = Array.isArray(bench_ids)  ? bench_ids.filter(Number.isInteger)  : [];
-  const safeBossIds   = Array.isArray(boss_ids)   ? boss_ids.filter(Number.isInteger)   : [];
+  const userId = parseInt(req.body.user_id);
+  const slot   = req.body.slot; // 'in_roster' | 'bench' | null (remove)
 
-  const result = await db.transaction(async (tx) => {
-    const ins = await tx.run(
-      'INSERT INTO raid_rosters (raid_date, name, published, created_by) VALUES (?, ?, ?, ?)',
-      raid_date, name.trim(), published ? 1 : 0, user.id
-    );
-    const rosterId = ins.lastInsertRowid;
+  if (isNaN(userId)) return res.status(400).json(error('Invalid user_id'));
+  if (slot !== null && !['in_roster', 'bench'].includes(slot)) {
+    return res.status(400).json(error('Invalid slot'));
+  }
 
-    for (const uid of safePlayerIds) {
-      await tx.run(
-        'INSERT OR IGNORE INTO roster_players (roster_id, user_id, slot) VALUES (?, ?, ?)',
-        rosterId, uid, 'in_roster'
+  const roster = await db.transaction(async (tx) => {
+    // Get or create roster for this date
+    let r = await tx.get('SELECT id FROM raid_rosters WHERE raid_date = ? LIMIT 1', date);
+    if (!r) {
+      const ins = await tx.run(
+        'INSERT INTO raid_rosters (raid_date, published, created_by) VALUES (?, 0, ?)',
+        date, user.id
       );
+      r = { id: ins.lastInsertRowid };
+      log.info(`Auto-created roster for ${date} by ${user.character_name}`);
     }
-    for (const uid of safeBenchIds) {
-      await tx.run(
-        'INSERT OR IGNORE INTO roster_players (roster_id, user_id, slot) VALUES (?, ?, ?)',
-        rosterId, uid, 'bench'
-      );
+
+    if (slot === null) {
+      await tx.run('DELETE FROM roster_players WHERE roster_id = ? AND user_id = ?', r.id, userId);
+    } else {
+      await tx.run(`
+        INSERT INTO roster_players (roster_id, user_id, slot) VALUES (?, ?, ?)
+        ON CONFLICT(roster_id, user_id) DO UPDATE SET slot = excluded.slot
+      `, r.id, userId, slot);
     }
-    for (const bid of safeBossIds) {
-      await tx.run(
-        'INSERT OR IGNORE INTO roster_bosses (roster_id, boss_id) VALUES (?, ?)',
-        rosterId, bid
-      );
-    }
-    return rosterId;
+
+    await tx.run('UPDATE raid_rosters SET updated_at = CURRENT_TIMESTAMP WHERE id = ?', r.id);
+    return r.id;
   });
 
-  log.info(`Roster ${result} created for ${raid_date} by ${user.character_name}`);
-  return res.status(201).json(success({ id: result }));
+  const updated = await loadRosterForDate(db, date, true);
+  return res.json(success(updated));
 });
 
-// ── PUT /api/roster/:id ───────────────────────────────────────────────────────
-// Admin/officer: update roster name, players, bosses, or published state.
-router.put('/:id', authenticateToken, authorizeRole('admin', 'officer'), async (req, res) => {
+// ── POST /api/roster/date/:date/publish ──────────────────────────────────────
+// Toggle published state of the roster for a date.
+router.post('/date/:date/publish', authenticateToken, authorizeRole('admin', 'officer'), async (req, res) => {
   const { db, user } = req;
-  const rosterId = parseInt(req.params.id);
-  if (isNaN(rosterId)) return res.status(400).json(error('Invalid roster id'));
+  const { date } = req.params;
 
-  const roster = await db.get('SELECT id FROM raid_rosters WHERE id = ?', rosterId);
-  if (!roster) return res.status(404).json(error('Roster not found'));
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    return res.status(400).json(error('Invalid date'));
+  }
 
-  const { name, player_ids, bench_ids, boss_ids, published } = req.body;
+  const roster = await db.get('SELECT id, published FROM raid_rosters WHERE raid_date = ? LIMIT 1', date);
+  if (!roster) return res.status(404).json(error('No roster for this date'));
+
+  const newPublished = roster.published ? 0 : 1;
+  await db.run(
+    'UPDATE raid_rosters SET published = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+    newPublished, roster.id
+  );
+
+  log.info(`Roster for ${date} ${newPublished ? 'published' : 'unpublished'} by ${user.character_name}`);
+  const updated = await loadRosterForDate(db, date, true);
+  return res.json(success(updated));
+});
+
+// ── POST /api/roster/date/:date/copy-previous ─────────────────────────────────
+// Copy the most recent past roster into this date (replaces existing players).
+router.post('/date/:date/copy-previous', authenticateToken, authorizeRole('admin', 'officer'), async (req, res) => {
+  const { db, user } = req;
+  const { date } = req.params;
+
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    return res.status(400).json(error('Invalid date'));
+  }
+
+  // Find the most recent past roster
+  const source = await db.get(
+    'SELECT id FROM raid_rosters WHERE raid_date < ? ORDER BY raid_date DESC LIMIT 1',
+    date
+  );
+  if (!source) return res.status(404).json(error('No previous roster found'));
+
+  const sourcePlayers = await db.all(
+    'SELECT user_id, slot FROM roster_players WHERE roster_id = ?',
+    source.id
+  );
 
   await db.transaction(async (tx) => {
-    if (name !== undefined) {
-      if (typeof name !== 'string' || !name.trim()) throw new Error('Invalid name');
-      await tx.run(
-        'UPDATE raid_rosters SET name = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
-        name.trim(), rosterId
+    let r = await tx.get('SELECT id FROM raid_rosters WHERE raid_date = ? LIMIT 1', date);
+    if (!r) {
+      const ins = await tx.run(
+        'INSERT INTO raid_rosters (raid_date, published, created_by) VALUES (?, 0, ?)',
+        date, user.id
       );
+      r = { id: ins.lastInsertRowid };
     }
-    if (published !== undefined) {
-      await tx.run(
-        'UPDATE raid_rosters SET published = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
-        published ? 1 : 0, rosterId
-      );
-    }
-    if (Array.isArray(player_ids) || Array.isArray(bench_ids)) {
-      await tx.run('DELETE FROM roster_players WHERE roster_id = ?', rosterId);
-      for (const uid of (player_ids || []).filter(Number.isInteger)) {
-        await tx.run(
-          'INSERT OR IGNORE INTO roster_players (roster_id, user_id, slot) VALUES (?, ?, ?)',
-          rosterId, uid, 'in_roster'
-        );
-      }
-      for (const uid of (bench_ids || []).filter(Number.isInteger)) {
-        await tx.run(
-          'INSERT OR IGNORE INTO roster_players (roster_id, user_id, slot) VALUES (?, ?, ?)',
-          rosterId, uid, 'bench'
-        );
-      }
-    }
-    if (Array.isArray(boss_ids)) {
-      await tx.run('DELETE FROM roster_bosses WHERE roster_id = ?', rosterId);
-      for (const bid of boss_ids.filter(Number.isInteger)) {
-        await tx.run(
-          'INSERT OR IGNORE INTO roster_bosses (roster_id, boss_id) VALUES (?, ?)',
-          rosterId, bid
-        );
-      }
-    }
-  });
-
-  log.info(`Roster ${rosterId} updated by ${user.character_name}`);
-  return res.json(success({ id: rosterId }));
-});
-
-// ── POST /api/roster/:id/copy ─────────────────────────────────────────────────
-// Admin/officer: duplicate a roster (optionally to a different date).
-router.post('/:id/copy', authenticateToken, authorizeRole('admin', 'officer'), async (req, res) => {
-  const { db, user } = req;
-  const rosterId = parseInt(req.params.id);
-  if (isNaN(rosterId)) return res.status(400).json(error('Invalid roster id'));
-
-  const source = await db.get('SELECT * FROM raid_rosters WHERE id = ?', rosterId);
-  if (!source) return res.status(404).json(error('Roster not found'));
-
-  const { target_date, name } = req.body;
-  const newDate = target_date || source.raid_date;
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(newDate)) {
-    return res.status(400).json(error('Invalid target_date'));
-  }
-
-  const newName = name || `${source.name} (copia)`;
-
-  const [players, bosses] = await Promise.all([
-    db.all('SELECT user_id, slot FROM roster_players WHERE roster_id = ?', rosterId),
-    db.all('SELECT boss_id FROM roster_bosses WHERE roster_id = ?', rosterId),
-  ]);
-
-  const newId = await db.transaction(async (tx) => {
-    const ins = await tx.run(
-      'INSERT INTO raid_rosters (raid_date, name, published, created_by) VALUES (?, ?, 0, ?)',
-      newDate, newName, user.id
-    );
-    const id = ins.lastInsertRowid;
-    for (const p of players) {
+    // Replace all players
+    await tx.run('DELETE FROM roster_players WHERE roster_id = ?', r.id);
+    for (const p of sourcePlayers) {
       await tx.run(
         'INSERT INTO roster_players (roster_id, user_id, slot) VALUES (?, ?, ?)',
-        id, p.user_id, p.slot
+        r.id, p.user_id, p.slot
       );
     }
-    for (const b of bosses) {
-      await tx.run('INSERT INTO roster_bosses (roster_id, boss_id) VALUES (?, ?)', id, b.boss_id);
-    }
-    return id;
+    await tx.run('UPDATE raid_rosters SET updated_at = CURRENT_TIMESTAMP WHERE id = ?', r.id);
   });
 
-  log.info(`Roster ${rosterId} copied to new roster ${newId} by ${user.character_name}`);
-  return res.status(201).json(success({ id: newId }));
-});
-
-// ── DELETE /api/roster/:id ───────────────────────────────────────────────────
-router.delete('/:id', authenticateToken, authorizeRole('admin', 'officer'), async (req, res) => {
-  const { db, user } = req;
-  const rosterId = parseInt(req.params.id);
-  if (isNaN(rosterId)) return res.status(400).json(error('Invalid roster id'));
-
-  const roster = await db.get('SELECT id, name FROM raid_rosters WHERE id = ?', rosterId);
-  if (!roster) return res.status(404).json(error('Roster not found'));
-
-  // CASCADE handles roster_players and roster_bosses
-  await db.run('DELETE FROM raid_rosters WHERE id = ?', rosterId);
-
-  log.info(`Roster ${rosterId} (${roster.name}) deleted by ${user.character_name}`);
-  return res.json(success({ deleted: rosterId }));
+  log.info(`Roster for ${date} copied from previous by ${user.character_name}`);
+  const updated = await loadRosterForDate(db, date, true);
+  return res.json(success(updated));
 });
 
 export default router;
