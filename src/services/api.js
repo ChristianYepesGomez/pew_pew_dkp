@@ -266,11 +266,15 @@ export const hallOfFameAPI = {
 export const rosterAPI = {
   getByDate: (date) => api.get('/roster', { params: { date } }),
   getAvailable: (date) => api.get('/roster/available', { params: { date } }),
+  getBosses: () => api.get('/roster/bosses'),
   getCoaches: () => api.get('/roster/coaches'),
-  togglePlayer: (date, userId, slot) => api.post(`/roster/date/${date}/toggle-player`, { user_id: userId, slot }),
-  setCoach: (date, userId) => api.post(`/roster/date/${date}/coach`, { user_id: userId }),
-  publish: (date) => api.post(`/roster/date/${date}/publish`),
-  copyPrevious: (date) => api.post(`/roster/date/${date}/copy-previous`),
+  // ID-based operations (new — one roster per boss)
+  togglePlayer: (rosterId, userId, slot) => api.post(`/roster/${rosterId}/toggle-player`, { user_id: userId, slot }),
+  setCoach: (rosterId, userId) => api.post(`/roster/${rosterId}/coach`, { user_id: userId }),
+  publish: (rosterId) => api.post(`/roster/${rosterId}/publish`),
+  copyPrevious: (rosterId) => api.post(`/roster/${rosterId}/copy-previous`),
+  createBossRoster: (date, bossId) => api.post(`/roster/date/${date}/create-boss-roster`, { boss_id: bossId }),
+  deleteRoster: (rosterId) => api.delete(`/roster/${rosterId}`),
 }
 
 export default api
