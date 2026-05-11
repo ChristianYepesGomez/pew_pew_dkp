@@ -63,9 +63,10 @@ export default function RosterTab() {
       ])
       const list = Array.isArray(rosterRes.data) ? rosterRes.data : []
       setRosters(list)
-      // Auto-select first roster, or null
-      if (list.length > 0) setSelectedRosterId(list[0].id)
-      else setSelectedRosterId(null)
+      // If boss-specific rosters exist, skip general (boss_id=null) and select first boss
+      const bossSpecific = list.filter(r => r.boss_id !== null)
+      const firstToShow = bossSpecific.length > 0 ? bossSpecific[0] : list[0]
+      setSelectedRosterId(firstToShow?.id || null)
 
       setAvailable(availRes.data || [])
       const summary = summaryRes.data || {}
@@ -149,6 +150,10 @@ export default function RosterTab() {
     section: d.status === 'declined' ? 'declined' : 'no_response',
   }))
 
+  // Only show boss-specific rosters in tabs; general (null) only if no boss rosters exist
+  const bossRosters = rosters.filter(r => r.boss_id !== null)
+  const visibleRosters = bossRosters.length > 0 ? bossRosters : rosters
+
   // Bosses already added (to exclude from picker)
   const usedBossIds = new Set(rosters.filter(r => r.boss_id).map(r => r.boss_id))
 
@@ -181,8 +186,8 @@ export default function RosterTab() {
 
           {/* ── Boss tabs + toolbar ──────────────────────────────────── */}
           <div className="flex items-center gap-2 flex-wrap">
-            {/* Boss tabs */}
-            {rosters.map(r => (
+            {/* Boss tabs — only boss-specific, or general if none exist */}
+            {visibleRosters.map(r => (
               <div key={r.id} className="flex items-center gap-1">
                 <button
                   onClick={() => setSelectedRosterId(r.id)}
