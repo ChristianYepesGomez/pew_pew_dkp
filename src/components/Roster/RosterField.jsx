@@ -3,6 +3,18 @@ import { Plus, X, MegaphoneSimple, ShieldStar, Heart, Crosshair } from '@phospho
 import CLASS_COLORS from '../../utils/classColors'
 import StandsPanel from './StandsPanel'
 import { checkBuffCoverage, getBuffIconUrl } from '../../utils/raidBuffs'
+import { useSpeechBubble, SpeechBubbleRight } from './SpeechBubble'
+
+const BENCH_PHRASES = [
+  'Ponme a mí',
+  'Llevo 45 min calentando',
+  'Estoy listo RL',
+  'Yo lo hago mejor',
+  '¿Para cuándo?',
+  'Sigo disponible por si acaso',
+  'Me pido el siguiente pull',
+  'Necesitáis un DPS de verdad',
+]
 
 const SLOTS    = { Tank: 4, Healer: 5, DPS: 15 }
 const MIN      = { Tank: 2, Healer: 3, DPS: 13 }
@@ -157,12 +169,12 @@ function PlayerListPanel({ banquilloByRole, saving, onDragStart, onClick, onDrop
 
   return (
     <div
-      className={`h-full flex flex-col rounded-2xl border transition-all overflow-hidden ${
+      className={`h-full flex flex-col rounded-2xl border transition-all ${
         dropOver
           ? 'border-yellow-400/40 bg-[rgba(250,204,21,0.04)]'
           : 'border-[rgba(177,167,208,0.15)] bg-[rgba(9,11,26,0.92)]'
       }`}
-      style={{ backdropFilter: 'blur(8px)' }}
+      style={{ backdropFilter: 'blur(8px)', overflow: 'visible' }}
       onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setDropOver(true) }}
       onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget)) setDropOver(false) }}
       onDrop={e => { setDropOver(false); onDropToBanquillo(e) }}
@@ -208,6 +220,7 @@ function ListPlayer({ player, saving, onDragStart, onClick }) {
   const [dragging, setDragging] = useState(false)
   const classColor = CLASS_COLORS[player.character_class] || '#b1a7d0'
   const dot = SIGNUP_DOT[player.signup_status]
+  const { text, visible } = useSpeechBubble(BENCH_PHRASES, { minDelay: 8000, maxDelay: 30000 })
 
   return (
     <div
@@ -216,11 +229,12 @@ function ListPlayer({ player, saving, onDragStart, onClick }) {
       onDragEnd={() => setDragging(false)}
       onClick={onClick}
       title="Click para asignar · Arrastrar al campo"
-      className={`flex items-center gap-1.5 px-2 py-1.5 rounded-lg mb-0.5 transition-all ${
+      className={`relative flex items-center gap-1.5 px-2 py-1.5 rounded-lg mb-0.5 transition-all ${
         dragging ? 'opacity-30 scale-95' : 'hover:bg-[rgba(177,167,208,0.12)] cursor-grab active:cursor-grabbing'
       }`}
-      style={{ borderLeft: `2px solid ${classColor}70` }}
+      style={{ borderLeft: `2px solid ${classColor}70`, overflow: 'visible' }}
     >
+      {visible && <SpeechBubbleRight text={text} visible={visible} />}
       {dot && <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: dot }} />}
       <span className="text-xs font-semibold truncate" style={{ color: classColor }}>
         {player.character_name}
@@ -251,25 +265,31 @@ function PlayerSlot({ player, role, available, isPrivileged, saving, onDragStart
   const classColor = player ? (CLASS_COLORS[player.character_class] || '#b1a7d0') : null
 
   if (player) {
-    // Occupied slot — click removes, drag moves
     return (
       <div ref={ref} className="relative flex flex-col items-center gap-1 group">
         <div
-          className={`w-14 h-14 rounded-full flex items-center justify-center relative ${isPrivileged ? 'cursor-grab active:cursor-grabbing' : ''}`}
+          className={`w-14 h-14 rounded-full overflow-hidden relative ${isPrivileged ? 'cursor-grab active:cursor-grabbing' : ''}`}
           draggable={isPrivileged}
           onDragStart={isPrivileged ? onDragStart : undefined}
-          style={{
-            background: `radial-gradient(circle at 35% 35%, ${classColor}22, ${classColor}08)`,
-            boxShadow: `0 0 0 2px ${classColor}60, 0 0 12px ${classColor}25`,
-          }}
+          style={{ boxShadow: `0 0 0 2px ${classColor}70, 0 0 12px ${classColor}30` }}
         >
-          <span className="text-lg font-black" style={{ color: classColor, textShadow: `0 0 8px ${classColor}80` }}>
-            {player.character_name.charAt(0).toUpperCase()}
-          </span>
+          {/* Avatar or initial */}
+          {player.avatar ? (
+            <img src={player.avatar} alt={player.character_name}
+              className="w-full h-full object-cover" />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center"
+              style={{ background: `radial-gradient(circle at 35% 35%, ${classColor}25, ${classColor}08)` }}>
+              <span className="text-lg font-black"
+                style={{ color: classColor, textShadow: `0 0 8px ${classColor}80` }}>
+                {player.character_name.charAt(0).toUpperCase()}
+              </span>
+            </div>
+          )}
 
           {/* Hover: remove */}
           {isPrivileged && (
-            <div className="absolute inset-0 rounded-full bg-black/65 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+            <div className="absolute inset-0 bg-black/65 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
               <button onClick={() => onRemove(player.user_id)} title="Quitar del campo"
                 className="w-7 h-7 rounded-full bg-red-500/20 hover:bg-red-500/40 flex items-center justify-center transition-all">
                 <X size={12} className="text-red-300" />
@@ -454,28 +474,72 @@ function ZoneLabel({ color, label }) {
 
 // ── BenchRail ─────────────────────────────────────────────────────────────────
 // ── FieldBuffBar ──────────────────────────────────────────────────────────────
-// Shows ALL buff icons always. Full opacity when covered, greyed+dim when missing.
+// Two rows: green (covered) on top, red (missing) below.
+// Always shown — even with empty roster all show as missing.
 function FieldBuffBar({ players }) {
   const coverage = checkBuffCoverage(players || [])
+  const covered  = coverage.filter(b => b.covered)
+  const missing  = coverage.filter(b => !b.covered)
 
   return (
-    <div className="flex items-center gap-1.5 flex-wrap px-1 py-2">
-      {coverage.map(buff => (
-        <div
-          key={buff.id}
-          title={`${buff.name} — ${buff.effect}${buff.covered ? `\n${buff.coveredBy.join(', ')}` : '\nSin cobertura'}`}
-          className="transition-all"
-          style={{ opacity: buff.covered ? 1 : 0.2, filter: buff.covered ? 'none' : 'grayscale(1)' }}
-        >
-          <img
-            src={getBuffIconUrl(buff.icon)}
-            alt={buff.name}
-            className="w-9 h-9 rounded-lg"
-            style={buff.covered ? { boxShadow: '0 0 6px rgba(74,222,128,0.35)' } : undefined}
-            loading="lazy"
-          />
+    <div className="flex flex-col gap-1.5 px-1 py-2">
+      {/* Covered — green row */}
+      {covered.length > 0 && (
+        <div className="flex items-center gap-1 flex-wrap">
+          <span className="text-[8px] font-bold uppercase tracking-wider text-green-500 opacity-60 w-12 flex-shrink-0">Tienen</span>
+          {covered.map(buff => <BuffIcon key={buff.id} buff={buff} covered />)}
         </div>
-      ))}
+      )}
+
+      {/* Missing — red row */}
+      {missing.length > 0 && (
+        <div className="flex items-center gap-1 flex-wrap">
+          <span className="text-[8px] font-bold uppercase tracking-wider text-red-400 opacity-60 w-12 flex-shrink-0">Faltan</span>
+          {missing.map(buff => <BuffIcon key={buff.id} buff={buff} covered={false} />)}
+        </div>
+      )}
+
+      {/* All covered state */}
+      {missing.length === 0 && covered.length > 0 && (
+        <p className="text-[10px] text-green-400 opacity-60 pl-14">✓ Composición completa</p>
+      )}
+    </div>
+  )
+}
+
+function BuffIcon({ buff, covered }) {
+  const [imgOk, setImgOk] = useState(true)
+
+  return (
+    <div
+      title={`${buff.name} — ${buff.effect}${covered ? `\nAportado por: ${buff.coveredBy.join(', ')}` : '\nNadie lo aporta'}`}
+      className="relative"
+      style={{
+        opacity: covered ? 1 : 0.35,
+        filter: covered ? 'none' : 'grayscale(0.8)',
+      }}
+    >
+      {imgOk ? (
+        <img
+          src={getBuffIconUrl(buff.icon)}
+          alt={buff.name}
+          className="w-8 h-8 rounded-md"
+          style={covered ? { boxShadow: '0 0 0 1.5px rgba(74,222,128,0.60), 0 0 8px rgba(74,222,128,0.25)' } : { boxShadow: '0 0 0 1.5px rgba(248,113,113,0.40)' }}
+          onError={() => setImgOk(false)}
+          loading="lazy"
+        />
+      ) : (
+        <div
+          className="w-8 h-8 rounded-md flex items-center justify-center text-[10px] font-bold"
+          style={{
+            background: covered ? 'rgba(74,222,128,0.12)' : 'rgba(248,113,113,0.10)',
+            border: covered ? '1.5px solid rgba(74,222,128,0.4)' : '1.5px solid rgba(248,113,113,0.3)',
+            color: covered ? '#4ade80' : '#f87171',
+          }}
+        >
+          {buff.name.slice(0, 2)}
+        </div>
+      )}
     </div>
   )
 }
