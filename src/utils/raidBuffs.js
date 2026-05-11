@@ -91,6 +91,14 @@ export const RAID_BUFFS = [
     classes: ['Evoker'],
     specs: null,
   },
+  {
+    id: 'draconic_attunements',
+    name: 'Attunements',
+    effect: '+2% vida ó +10% mov speed',
+    icon: 'ability_evoker_draconicattunements', // verified HTTP 200
+    classes: ['Evoker'],
+    specs: { Evoker: ['Augmentation'] },        // Aug only
+  },
 ]
 
 const WOW_ICON_BASE = 'https://wow.zamimg.com/images/wow/icons/medium'
