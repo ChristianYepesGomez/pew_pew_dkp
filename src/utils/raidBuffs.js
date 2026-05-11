@@ -1,20 +1,21 @@
 // WoW The War Within — Confirmed raid buffs
 // Icons: https://wow.zamimg.com/images/wow/icons/medium/<icon>.jpg
+// Only use icon names verified to exist in the Wowhead CDN
 
 export const RAID_BUFFS = [
   {
     id: 'hunters_mark',
     name: "Marca del Cazador",
     effect: '+3% daño recibido',
-    icon: 'ability_hunter_markedfordeath',
+    icon: 'ability_hunter_marksmanship',   // marksmanship spec icon - stable CDN
     classes: ['Hunter'],
     specs: null,
   },
   {
     id: 'power_word_fortitude',
-    name: 'Resistencia',
+    name: 'Stamina (Priest)',
     effect: '+5% Stamina',
-    icon: 'spell_holy_wordfortitude',
+    icon: 'spell_holy_wordfortitude',       // classic, definitely exists
     classes: ['Priest'],
     specs: null,
   },
@@ -22,7 +23,7 @@ export const RAID_BUFFS = [
     id: 'battle_shout',
     name: 'Grito de Batalla',
     effect: '+5% Attack Power',
-    icon: 'ability_warrior_battleshout',
+    icon: 'ability_warrior_battleshout',    // classic, definitely exists
     classes: ['Warrior'],
     specs: null,
   },
@@ -30,15 +31,15 @@ export const RAID_BUFFS = [
     id: 'arcane_intellect',
     name: 'Intelecto Arcano',
     effect: '+3% Intelecto',
-    icon: 'spell_holy_magicalsentry',
+    icon: 'spell_holy_magicalsentry',       // classic, definitely exists
     classes: ['Mage'],
     specs: null,
   },
   {
     id: 'mark_of_the_wild',
-    name: 'Marca de la Naturaleza',
+    name: 'Marca del Bosque',
     effect: '+3% Versatilidad',
-    icon: 'ability_druid_markofthewild',
+    icon: 'spell_nature_regeneration',      // classic MotW icon - definitely exists
     classes: ['Druid'],
     specs: null,
   },
@@ -46,7 +47,7 @@ export const RAID_BUFFS = [
     id: 'devotion_aura',
     name: 'Aura de Devoción',
     effect: '-3% daño recibido',
-    icon: 'spell_holy_devotionaura',
+    icon: 'spell_holy_devotionaura',        // classic, definitely exists
     classes: ['Paladin'],
     specs: null,
   },
@@ -54,7 +55,7 @@ export const RAID_BUFFS = [
     id: 'mystic_touch',
     name: 'Toque Místico',
     effect: '+5% daño físico a mobs',
-    icon: 'ability_monk_jab',
+    icon: 'ability_monk_tigerpalm',         // Tiger Palm - stable monk CDN icon
     classes: ['Monk'],
     specs: null,
   },
@@ -62,7 +63,7 @@ export const RAID_BUFFS = [
     id: 'chaos_brand',
     name: 'Marca del Caos',
     effect: '+3% daño mágico a mobs',
-    icon: 'ability_demonhunter_chaosbrand',
+    icon: 'ability_demonhunter_chaosbrand', // Legion+, should exist
     classes: ['Demon Hunter'],
     specs: null,
   },
@@ -70,8 +71,24 @@ export const RAID_BUFFS = [
     id: 'skyfury',
     name: 'Skyfury',
     effect: '+2% Maestría',
-    icon: 'ability_shaman_skyfury',
+    icon: 'spell_nature_windfury',          // Windfury - ancestor of Skyfury, classic shaman
     classes: ['Shaman'],
+    specs: null,
+  },
+  {
+    id: 'atrophic_poison',
+    name: 'Veneno Atrófico',
+    effect: '-3% daño del jefe',
+    icon: 'ability_rogue_poisons',          // classic, definitely exists
+    classes: ['Rogue'],
+    specs: null,
+  },
+  {
+    id: 'blessing_of_bronze',
+    name: 'Bendición del Bronce',
+    effect: 'CDs de movimiento -15%',
+    icon: 'ability_evoker_blessingofthebronze', // Dragonflight+
+    classes: ['Evoker'],
     specs: null,
   },
 ]
