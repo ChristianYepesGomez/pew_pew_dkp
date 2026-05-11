@@ -9,11 +9,16 @@ const router = Router();
 // ── Shared helper: load full roster for a date ───────────────────────────────
 async function loadRosterForDate(db, date, isPrivileged) {
   const roster = await db.get(`
-    SELECT id, raid_date, published, created_at, updated_at
-    FROM raid_rosters
-    WHERE raid_date = ?
-    ${isPrivileged ? '' : 'AND published = 1'}
-    ORDER BY created_at ASC LIMIT 1
+    SELECT r.id, r.raid_date, r.published, r.created_at, r.updated_at,
+           r.coach_user_id,
+           u.character_name as coach_name,
+           u.character_class as coach_class,
+           u.spec as coach_spec
+    FROM raid_rosters r
+    LEFT JOIN users u ON u.id = r.coach_user_id
+    WHERE r.raid_date = ?
+    ${isPrivileged ? '' : 'AND r.published = 1'}
+    ORDER BY r.created_at ASC LIMIT 1
   `, date);
 
   if (!roster) return null;
@@ -193,6 +198,51 @@ router.post('/date/:date/copy-previous', authenticateToken, authorizeRole(['admi
   log.info(`Roster for ${date} copied from previous by ${user.character_name}`);
   const updated = await loadRosterForDate(db, date, true);
   return success(res, updated);
+});
+
+// ── GET /api/roster/coaches ───────────────────────────────────────────────────
+// Returns all active admin/officer users as coach candidates.
+router.get('/coaches', authenticateToken, async (req, res) => {
+  const { db } = req;
+  const coaches = await db.all(`
+    SELECT id as user_id, character_name, character_class, spec
+    FROM users
+    WHERE is_active = 1 AND role IN ('admin', 'officer')
+      AND character_name IS NOT NULL AND TRIM(character_name) != ''
+    ORDER BY character_name
+  `);
+  return success(res, coaches);
+});
+
+// ── POST /api/roster/date/:date/coach ────────────────────────────────────────
+// Set or unset the coach (raid leader) for a roster.
+// Body: { user_id } or { user_id: null } to unset
+router.post('/date/:date/coach', authenticateToken, authorizeRole(['admin', 'officer']), async (req, res) => {
+  const { db, user } = req;
+  const { date } = req.params;
+
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return error(res, 'Invalid date', 400);
+
+  const coachId = req.body.user_id === null ? null : parseInt(req.body.user_id);
+  if (coachId !== null && isNaN(coachId)) return error(res, 'Invalid user_id', 400);
+
+  await db.transaction(async (tx) => {
+    let r = await tx.get('SELECT id FROM raid_rosters WHERE raid_date = ? LIMIT 1', date);
+    if (!r) {
+      const ins = await tx.run(
+        'INSERT INTO raid_rosters (raid_date, published, created_by) VALUES (?, 0, ?)',
+        date, user.id
+      );
+      r = { id: ins.lastInsertRowid };
+    }
+    await tx.run(
+      'UPDATE raid_rosters SET coach_user_id = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+      coachId, r.id
+    );
+  });
+
+  log.info(`Coach for ${date} set to user ${coachId} by ${user.character_name}`);
+  return success(res, await loadRosterForDate(db, date, true));
 });
 
 export default router;
