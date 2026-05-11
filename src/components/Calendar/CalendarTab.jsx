@@ -4,7 +4,7 @@ import { useAuth } from '../../hooks/useAuth'
 import { useLanguage } from '../../hooks/useLanguage'
 import { calendarAPI, warcraftLogsAPI } from '../../services/api'
 import CLASS_COLORS from '../../utils/classColors'
-import { CheckCircle, XCircle, Question, MinusCircle, ShieldStar, Heart, Crosshair, CircleNotch, CalendarDots, CalendarX, Users, ClockCounterClockwise, Coins, WarningCircle, Warning, X, Clock, Lock, FloppyDisk, Skull, Check, ChatDots, Note, MagnifyingGlass, ArrowLeft, Link, ArrowSquareOut, Info, ClockCountdown } from '@phosphor-icons/react'
+import { CheckCircle, XCircle, Question, MinusCircle, ShieldStar, Heart, Crosshair, CircleNotch, CalendarDots, CalendarX, Users, ClockCounterClockwise, Coins, WarningCircle, Warning, X, Clock, Lock, FloppyDisk, Skull, Check, ChatDots, Note, MagnifyingGlass, ArrowLeft, Link, ArrowSquareOut, Info, Clipboard } from '@phosphor-icons/react'
 import SectionHeader from '../ui/SectionHeader'
 import SurfaceCard from '../ui/SurfaceCard'
 import Button from '../ui/Button'
@@ -24,13 +24,6 @@ const STATUS_CONFIG = {
     bgHover: 'hover:bg-green-600',
     border: 'border-green-500'
   },
-  late: {
-    Icon: ClockCountdown,
-    color: 'text-orange-400',
-    bg: 'bg-orange-500',
-    bgHover: 'hover:bg-orange-600',
-    border: 'border-orange-500'
-  },
   declined: {
     Icon: XCircle,
     color: 'text-red-400',
@@ -47,7 +40,7 @@ const STATUS_CONFIG = {
   }
 }
 
-const CalendarTab = () => {
+const CalendarTab = ({ initialDate, onGoToRoster }) => {
   const { user } = useAuth()
   const { t, language } = useLanguage()
   const [signups, setSignups] = useState([])
@@ -495,7 +488,18 @@ const CalendarTab = () => {
                             </div>
                           </div>
                           <div className="flex items-center gap-2">
-                            {/* DKP Bonus indicator: show when NOT yet awarded (incentive), hide when received */}
+                            {/* Link to Roster */}
+                            {onGoToRoster && (
+                              <button
+                                onClick={e => { e.stopPropagation(); onGoToRoster(signup.date) }}
+                                title="Ver Roster de este día"
+                                className="flex items-center gap-1 text-xs text-[#b1a7d0] hover:text-[#ffaf9d] transition-colors px-1.5 py-0.5 rounded hover:bg-[rgba(255,175,157,0.10)]"
+                              >
+                                <Clipboard size={13} />
+                                <span className="hidden sm:inline">Roster</span>
+                              </button>
+                            )}
+                            {/* DKP Bonus indicator */}
                             {!isLocked && !signup.dkpAwarded && (
                               <div className="flex items-center gap-1 text-yellow-400 text-sm opacity-60 animate-pulse" title={t('signup_dkp_hint')}>
                                 <Coins size={14} />
@@ -633,9 +637,9 @@ const CalendarTab = () => {
                             </>
                           ) : (
                             <>
-                              {currentStatus && cardSize === 'medium' && (
-                                <div className={`flex items-center gap-2 text-sm ${STATUS_CONFIG[currentStatus]?.color}`}>
-                                  {(() => { const Ic = STATUS_CONFIG[currentStatus]?.Icon; return Ic ? <Ic size={16} /> : null })()}
+                              {currentStatus && (
+                                <div className={`flex items-center gap-2 ${cardSize === 'medium' ? 'text-sm' : 'text-xs'} ${STATUS_CONFIG[currentStatus]?.color}`}>
+                                  {(() => { const Ic = STATUS_CONFIG[currentStatus]?.Icon; return Ic ? <Ic size={cardSize === 'medium' ? 16 : 13} /> : null })()}
                                   <span>{t('your_status')}: <strong>{t(currentStatus)}</strong></span>
                                 </div>
                               )}
@@ -645,22 +649,23 @@ const CalendarTab = () => {
                                     key={status}
                                     onClick={(e) => { e.stopPropagation(); handleStatusChange(signup.date, status) }}
                                     disabled={isSaving}
-                                    className={`flex-1 ${cardSize === 'medium' ? 'py-3 px-3' : 'py-2 px-2'} rounded-lg transition-all flex items-center justify-center gap-2 ${
+                                    title={t(status)}
+                                    className={`flex-1 ${cardSize === 'medium' ? 'py-3 px-3' : 'py-3'} rounded-lg transition-all flex items-center justify-center ${cardSize === 'medium' ? 'gap-2' : ''} ${
                                       currentStatus === status
-                                        ? `${config.bg} text-white`
+                                        ? `${config.bg} text-white shadow-sm`
                                         : `bg-lavender-12/30 ${config.color} ${config.bgHover} hover:text-white`
                                     } ${isSaving ? 'opacity-50 cursor-not-allowed' : ''}`}
                                   >
                                     {isSaving && saving === signup.date ? (
                                       <CircleNotch size={16} className="animate-spin" />
                                     ) : (
-                                      <config.Icon size={cardSize === 'medium' ? 20 : 16} />
+                                      <config.Icon size={cardSize === 'medium' ? 20 : 18} />
                                     )}
-                                    <span className={cardSize === 'medium' ? 'inline text-sm' : 'hidden sm:inline text-xs'}>{t(status)}</span>
+                                    {cardSize === 'medium' && <span className="text-sm">{t(status)}</span>}
                                   </button>
                                 ))}
                               </div>
-                              {currentStatus === 'tentative' && cardSize === 'medium' && (
+                              {currentStatus === 'tentative' && (
                                 <div className="space-y-2" onClick={(e) => e.stopPropagation()}>
                                   <Input
                                     type="text"

@@ -2,12 +2,12 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { useAuth } from '../../hooks/useAuth'
 import { rosterAPI, calendarAPI } from '../../services/api'
 import RosterField from './RosterField'
-import { CircleNotch, Copy, Plus, Skull, X, Trash } from '@phosphor-icons/react'
+import { CircleNotch, Copy, Plus, Skull, X, Trash, CalendarDots } from '@phosphor-icons/react'
 import SurfaceCard from '../ui/SurfaceCard'
 import Button from '../ui/Button'
 import CLASS_COLORS from '../../utils/classColors'
 
-export default function RosterTab() {
+export default function RosterTab({ initialDate, onGoToCalendar }) {
   const { user } = useAuth()
   const isPrivileged = user?.role === 'admin' || user?.role === 'officer'
 
@@ -33,7 +33,9 @@ export default function RosterTab() {
         .filter(d => d.date >= today)
         .map(d => ({ date: d.date, dayName: d.dayName, raidTime: d.raidTime || '21:00' }))
       setRaidDates(dates)
-      if (dates.length > 0) setSelectedDate(dates[0].date)
+      // Use initialDate if valid, otherwise first date
+      const target = initialDate && dates.find(d => d.date === initialDate)
+      setSelectedDate(target ? initialDate : (dates[0]?.date || null))
     }).catch(() => {})
   }, [])
 
@@ -131,10 +133,20 @@ export default function RosterTab() {
 
   const handleAddBoss = async (bossId) => {
     setBossPickerOpen(false)
+    if (!selectedDate || !bossId) return
+    setSaving(true)
     try {
       const res = await rosterAPI.createBossRoster(selectedDate, bossId)
-      updateRoster(res.data)
-    } catch (_) {}
+      if (res.data) {
+        updateRoster(res.data)
+        await load(selectedDate) // reload full list to sync
+      }
+    } catch (e) {
+      console.error('Error creating boss roster:', e?.response?.data || e.message)
+      alert(e?.response?.data?.error || 'Error al crear roster para ese boss')
+    } finally {
+      setSaving(false)
+    }
   }
 
   const selectedRoster = rosters.find(r => r.id === selectedRosterId) || null
@@ -161,7 +173,16 @@ export default function RosterTab() {
     <div className="flex flex-col gap-4">
 
       {/* ── Date selector — CENTERED ───────────────────────────────── */}
-      <div className="flex items-center justify-center gap-2 flex-wrap">
+      <div className="flex items-center justify-center gap-2 flex-wrap relative">
+        {onGoToCalendar && (
+          <button
+            onClick={() => onGoToCalendar(selectedDate)}
+            className="absolute left-0 flex items-center gap-1 text-xs text-[#b1a7d0] hover:text-[#ffeccd] transition-colors px-2 py-1 rounded hover:bg-[rgba(177,167,208,0.10)]"
+          >
+            <CalendarDots size={13} />
+            Calendario
+          </button>
+        )}
         {raidDates.map(({ date, dayName }) => (
           <button key={date} onClick={() => setSelectedDate(date)}
             className={`flex flex-col items-center px-4 py-2 rounded-xl text-xs font-semibold transition-all leading-tight ${

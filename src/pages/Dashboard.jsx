@@ -16,8 +16,13 @@ import AnalyticsTab from '../components/Analytics/AnalyticsTab'
 import HallOfFameTab from '../components/HallOfFame/HallOfFameTab'
 
 const Dashboard = () => {
-  const [activeTab, setActiveTab] = useState('members')
+  const [activeTab, setActiveTab]       = useState('members')
   const [calendarBadge, setCalendarBadge] = useState(0)
+  const [rosterDate, setRosterDate]     = useState(null)
+  const [calendarDate, setCalendarDate] = useState(null)
+
+  const goToRoster = (date) => { setRosterDate(date); setActiveTab('roster') }
+  const goToCalendar = (date) => { setCalendarDate(date); setActiveTab('calendar') }
   const { t } = useLanguage()
   const { user } = useAuth()
 
@@ -86,8 +91,8 @@ const Dashboard = () => {
       <div className="mx-auto w-full max-w-[960px] animate-fade-in flex-1">
         {activeTab === 'members' && <MembersTab />}
         {activeTab === 'bosses' && <BossesTab />}
-        {activeTab === 'calendar' && <CalendarTab />}
-        {activeTab === 'roster' && <RosterTab />}
+        {activeTab === 'calendar' && <CalendarTab initialDate={calendarDate} onGoToRoster={goToRoster} />}
+        {activeTab === 'roster' && <RosterTab initialDate={rosterDate} onGoToCalendar={goToCalendar} />}
         {activeTab === 'auction' && <AuctionTab onNavigate={setActiveTab} />}
         {activeTab === 'history' && <HistoryTab onNavigate={setActiveTab} />}
         {activeTab === 'stats' && <AnalyticsTab />}
