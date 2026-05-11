@@ -55,7 +55,7 @@ router.get('/', authenticateToken, async (req, res) => {
     LEFT JOIN wcl_bosses wb ON wb.id = r.boss_id
     LEFT JOIN wcl_zones wz ON wz.id = wb.zone_id
     WHERE r.raid_date = ?
-    ORDER BY r.boss_id ASC NULLS LAST, r.created_at ASC
+    ORDER BY CASE WHEN r.boss_id IS NULL THEN 0 ELSE 1 END, r.boss_id ASC, r.created_at ASC
   `, date);
 
   for (const r of rows) {
@@ -134,17 +134,15 @@ router.post('/date/:date/create-boss-roster', authenticateToken, authorizeRole([
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return error(res, 'Invalid date', 400);
   if (boss_id !== null && isNaN(boss_id)) return error(res, 'Invalid boss_id', 400);
 
-  // Prevent duplicate (date + boss)
-  const existing = await db.get(
-    'SELECT id FROM raid_rosters WHERE raid_date = ? AND (boss_id = ? OR (boss_id IS NULL AND ? IS NULL)) LIMIT 1',
-    date, boss_id, boss_id
-  );
+  // Prevent duplicate (date + boss) — avoid null bind params
+  const existing = boss_id !== null
+    ? await db.get('SELECT id FROM raid_rosters WHERE raid_date = ? AND boss_id = ? LIMIT 1', date, boss_id)
+    : await db.get('SELECT id FROM raid_rosters WHERE raid_date = ? AND boss_id IS NULL LIMIT 1', date);
   if (existing) return success(res, await buildRoster(db, existing.id));
 
-  const ins = await db.run(
-    'INSERT INTO raid_rosters (raid_date, boss_id, published, created_by) VALUES (?, ?, 0, ?)',
-    date, boss_id, user.id
-  );
+  const ins = boss_id !== null
+    ? await db.run('INSERT INTO raid_rosters (raid_date, boss_id, published, created_by) VALUES (?, ?, 0, ?)', date, boss_id, user.id)
+    : await db.run('INSERT INTO raid_rosters (raid_date, published, created_by) VALUES (?, 0, ?)', date, user.id);
   log.info(`Created roster for ${date} boss=${boss_id} by ${user.character_name}`);
   return success(res, await buildRoster(db, ins.lastInsertRowid));
 });
@@ -215,17 +213,20 @@ router.post('/:id/copy-previous', authenticateToken, authorizeRole(['admin', 'of
   const target = await db.get('SELECT id, raid_date, boss_id FROM raid_rosters WHERE id = ?', rosterId);
   if (!target) return error(res, 'Roster not found', 404);
 
-  // Find most recent roster with same boss (or any boss if target has none)
-  const source = await db.get(`
-    SELECT r.id FROM raid_rosters r
-    JOIN roster_players rp ON rp.roster_id = r.id
-    WHERE r.id != ? AND (
-      (? IS NOT NULL AND r.boss_id = ?) OR
-      (? IS NULL AND r.boss_id IS NULL)
-    )
-    GROUP BY r.id
-    ORDER BY r.raid_date DESC LIMIT 1
-  `, rosterId, target.boss_id, target.boss_id, target.boss_id);
+  // Find most recent roster with same boss — conditional to avoid null bind params
+  const source = target.boss_id !== null
+    ? await db.get(`
+        SELECT r.id FROM raid_rosters r
+        JOIN roster_players rp ON rp.roster_id = r.id
+        WHERE r.id != ? AND r.boss_id = ?
+        GROUP BY r.id ORDER BY r.raid_date DESC LIMIT 1
+      `, rosterId, target.boss_id)
+    : await db.get(`
+        SELECT r.id FROM raid_rosters r
+        JOIN roster_players rp ON rp.roster_id = r.id
+        WHERE r.id != ? AND r.boss_id IS NULL
+        GROUP BY r.id ORDER BY r.raid_date DESC LIMIT 1
+      `, rosterId);
 
   // Fallback: any roster with players if no same-boss match
   const fallback = source || await db.get(`
