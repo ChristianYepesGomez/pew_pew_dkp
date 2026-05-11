@@ -37,6 +37,7 @@ async function buildRoster(db, rosterId) {
 // ── GET /api/roster?date=YYYY-MM-DD ─────────────────────────────────────────
 // Returns all rosters for a date (one per boss + optional general).
 router.get('/', authenticateToken, async (req, res) => {
+  try {
   const { db } = req;
   const { date } = req.query;
 
@@ -70,6 +71,7 @@ router.get('/', authenticateToken, async (req, res) => {
   }
 
   return success(res, rows);
+  } catch (e) { log.error('GET /roster error', e); return error(res, e.message, 500); }
 });
 
 // ── GET /api/roster/available?date=YYYY-MM-DD ────────────────────────────────
@@ -127,24 +129,30 @@ router.get('/coaches', authenticateToken, async (req, res) => {
 // Creates a new roster for a specific boss on a given date.
 // If boss_id is null, creates a general day roster.
 router.post('/date/:date/create-boss-roster', authenticateToken, authorizeRole(['admin', 'officer']), async (req, res) => {
-  const { db, user } = req;
-  const { date } = req.params;
-  const boss_id = req.body.boss_id ? parseInt(req.body.boss_id) : null;
+  try {
+    const { db, user } = req;
+    const { date } = req.params;
+    const boss_id = req.body.boss_id ? parseInt(req.body.boss_id) : null;
 
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return error(res, 'Invalid date', 400);
-  if (boss_id !== null && isNaN(boss_id)) return error(res, 'Invalid boss_id', 400);
+    log.info(`create-boss-roster date=${date} boss_id=${boss_id} user=${user.character_name}`);
 
-  // Prevent duplicate (date + boss) — avoid null bind params
-  const existing = boss_id !== null
-    ? await db.get('SELECT id FROM raid_rosters WHERE raid_date = ? AND boss_id = ? LIMIT 1', date, boss_id)
-    : await db.get('SELECT id FROM raid_rosters WHERE raid_date = ? AND boss_id IS NULL LIMIT 1', date);
-  if (existing) return success(res, await buildRoster(db, existing.id));
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return error(res, 'Invalid date', 400);
+    if (boss_id !== null && isNaN(boss_id)) return error(res, 'Invalid boss_id', 400);
 
-  const ins = boss_id !== null
-    ? await db.run('INSERT INTO raid_rosters (raid_date, boss_id, published, created_by) VALUES (?, ?, 0, ?)', date, boss_id, user.id)
-    : await db.run('INSERT INTO raid_rosters (raid_date, published, created_by) VALUES (?, 0, ?)', date, user.id);
-  log.info(`Created roster for ${date} boss=${boss_id} by ${user.character_name}`);
-  return success(res, await buildRoster(db, ins.lastInsertRowid));
+    const existing = boss_id !== null
+      ? await db.get('SELECT id FROM raid_rosters WHERE raid_date = ? AND boss_id = ? LIMIT 1', date, boss_id)
+      : await db.get('SELECT id FROM raid_rosters WHERE raid_date = ? AND boss_id IS NULL LIMIT 1', date);
+    if (existing) return success(res, await buildRoster(db, existing.id));
+
+    const ins = boss_id !== null
+      ? await db.run('INSERT INTO raid_rosters (raid_date, boss_id, published, created_by) VALUES (?, ?, 0, ?)', date, boss_id, user.id)
+      : await db.run('INSERT INTO raid_rosters (raid_date, published, created_by) VALUES (?, 0, ?)', date, user.id);
+    log.info(`Created roster ${ins.lastInsertRowid} for ${date} boss=${boss_id}`);
+    return success(res, await buildRoster(db, ins.lastInsertRowid));
+  } catch (e) {
+    log.error('create-boss-roster error', e);
+    return error(res, e.message || 'Internal error', 500);
+  }
 });
 
 // ── POST /api/roster/:id/toggle-player ───────────────────────────────────────
