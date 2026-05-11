@@ -101,39 +101,29 @@ export default function RosterField({ roster, available, coaches, stands, isPriv
             <ZoneLabel color="#f87171" label="Tanks" />
           </div>
 
-          {/* DPS */}
-          <div className="pt-8 px-4 pb-4 flex flex-col gap-3 items-center">
-            {DPS_ROWS.map((row, rowIdx) => (
-              <div key={rowIdx} className="flex gap-3 justify-center flex-wrap">
-                {row.map(slotIdx => (
-                  <PlayerSlot key={slotIdx}
-                    player={byRole.DPS[slotIdx] || null} role="DPS"
-                    available={pickerByRole.DPS} isPrivileged={isPrivileged} saving={saving}
-                    onDragStart={e => { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', String(byRole.DPS[slotIdx]?.user_id)) }}
-                    onDrop={e => handleDrop(e, 'in_roster')}
-                    onAdd={uid => onTogglePlayer(uid, 'in_roster')}
-                    onRemove={uid => onTogglePlayer(uid, null)}
-                  />
-                ))}
-              </div>
-            ))}
-          </div>
+          {/* DPS — dynamic centered rows */}
+          <FieldZone
+            players={byRole.DPS} role="DPS" max={15} rowSize={5}
+            available={pickerByRole.DPS} isPrivileged={isPrivileged} saving={saving}
+            className="pt-8 px-4 pb-4"
+            onDragStart={(uid, e) => { e.dataTransfer.effectAllowed='move'; e.dataTransfer.setData('text/plain', String(uid)) }}
+            onDrop={e => handleDrop(e, 'in_roster')}
+            onAdd={uid => onTogglePlayer(uid, 'in_roster')}
+            onRemove={uid => onTogglePlayer(uid, null)}
+          />
 
           <div className="mx-8 h-px bg-white/10 my-1" />
 
           {/* Healers */}
-          <div className="py-5 px-4 flex justify-center gap-4 flex-wrap">
-            {Array.from({ length: SLOTS.Healer }, (_, i) => (
-              <PlayerSlot key={i}
-                player={byRole.Healer[i] || null} role="Healer"
-                available={pickerByRole.Healer} isPrivileged={isPrivileged} saving={saving}
-                onDragStart={e => { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', String(byRole.Healer[i]?.user_id)) }}
-                onDrop={e => handleDrop(e, 'in_roster')}
-                onAdd={uid => onTogglePlayer(uid, 'in_roster')}
-                onRemove={uid => onTogglePlayer(uid, null)}
-              />
-            ))}
-          </div>
+          <FieldZone
+            players={byRole.Healer} role="Healer" max={5} rowSize={5}
+            available={pickerByRole.Healer} isPrivileged={isPrivileged} saving={saving}
+            className="py-5 px-4"
+            onDragStart={(uid, e) => { e.dataTransfer.effectAllowed='move'; e.dataTransfer.setData('text/plain', String(uid)) }}
+            onDrop={e => handleDrop(e, 'in_roster')}
+            onAdd={uid => onTogglePlayer(uid, 'in_roster')}
+            onRemove={uid => onTogglePlayer(uid, null)}
+          />
 
           <div className="relative mx-16">
             <div className="h-px bg-white/10" />
@@ -141,18 +131,15 @@ export default function RosterField({ roster, available, coaches, stands, isPriv
           </div>
 
           {/* Tanks */}
-          <div className="py-5 px-4 flex justify-center gap-16">
-            {Array.from({ length: SLOTS.Tank }, (_, i) => (
-              <PlayerSlot key={i}
-                player={byRole.Tank[i] || null} role="Tank"
-                available={pickerByRole.Tank} isPrivileged={isPrivileged} saving={saving}
-                onDragStart={e => { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', String(byRole.Tank[i]?.user_id)) }}
-                onDrop={e => handleDrop(e, 'in_roster')}
-                onAdd={uid => onTogglePlayer(uid, 'in_roster')}
-                onRemove={uid => onTogglePlayer(uid, null)}
-              />
-            ))}
-          </div>
+          <FieldZone
+            players={byRole.Tank} role="Tank" max={4} rowSize={4}
+            available={pickerByRole.Tank} isPrivileged={isPrivileged} saving={saving}
+            className="py-5 px-4"
+            onDragStart={(uid, e) => { e.dataTransfer.effectAllowed='move'; e.dataTransfer.setData('text/plain', String(uid)) }}
+            onDrop={e => handleDrop(e, 'in_roster')}
+            onAdd={uid => onTogglePlayer(uid, 'in_roster')}
+            onRemove={uid => onTogglePlayer(uid, null)}
+          />
         </div>
       </div>
 
@@ -244,6 +231,54 @@ function ListPlayer({ player, saving, onDragStart, onClick }) {
           {player.spec}
         </span>
       )}
+    </div>
+  )
+}
+
+// ── FieldZone ─────────────────────────────────────────────────────────────────
+// Renders a zone (DPS/Healer/Tank) with dynamic slot count and centered layout.
+// Below MIN: shows empty + slots (clickable). At/above MIN: players only, drop-only.
+function FieldZone({ players, role, max, rowSize, available, isPrivileged, saving, className, onDragStart, onDrop, onAdd, onRemove }) {
+  const [dropOver, setDropOver] = useState(false)
+  const min = MIN[role]
+  const hasMin = players.length >= min
+  // How many slots to render: actual players, or up to min if below
+  const slotCount = hasMin ? players.length : Math.max(players.length, min)
+
+  // Split into rows
+  const rows = []
+  for (let i = 0; i < slotCount; i += rowSize) {
+    rows.push(Array.from({ length: Math.min(rowSize, slotCount - i) }, (_, j) => i + j))
+  }
+
+  return (
+    <div
+      className={`flex flex-col gap-3 items-center ${className}`}
+      onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setDropOver(true) }}
+      onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget)) setDropOver(false) }}
+      onDrop={e => { setDropOver(false); onDrop(e) }}
+      style={dropOver ? { outline: `1px dashed ${ROLE_COLOR[role]}60`, borderRadius: 8 } : undefined}
+    >
+      {rows.map((row, rowIdx) => (
+        <div key={rowIdx} className="flex gap-3 justify-center">
+          {row.map(slotIdx => (
+            <PlayerSlot key={slotIdx}
+              player={players[slotIdx] || null}
+              role={role}
+              // Only show picker if below min (otherwise drag-only)
+              available={hasMin ? [] : available}
+              isPrivileged={isPrivileged}
+              saving={saving}
+              onDragStart={players[slotIdx]
+                ? e => onDragStart(players[slotIdx].user_id, e)
+                : undefined}
+              onDrop={onDrop}
+              onAdd={onAdd}
+              onRemove={onRemove}
+            />
+          ))}
+        </div>
+      ))}
     </div>
   )
 }
