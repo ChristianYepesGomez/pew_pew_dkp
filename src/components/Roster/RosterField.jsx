@@ -1,9 +1,12 @@
 import { useState, useRef, useEffect } from 'react'
-import { Plus, X, MegaphoneSimple } from '@phosphor-icons/react'
+import { Plus, X, MegaphoneSimple, ShieldStar, Heart, Crosshair } from '@phosphor-icons/react'
 import CLASS_COLORS from '../../utils/classColors'
 
 const SLOTS = { Tank: 2, Healer: 5, DPS: 15 }
 const DPS_ROWS = [[0,1,2,3,4],[5,6,7,8,9],[10,11,12,13,14]]
+
+const ROLE_ICON  = { Tank: ShieldStar,  Healer: Heart,   DPS: Crosshair }
+const ROLE_COLOR = { Tank: '#f87171',   Healer: '#4ade80', DPS: '#69cff0' }
 
 export default function RosterField({ roster, available, coaches, isPrivileged, saving, onTogglePlayer, onSetCoach }) {
   const inRoster = roster?.players?.filter(p => p.slot === 'in_roster') || []
@@ -15,7 +18,7 @@ export default function RosterField({ roster, available, coaches, isPrivileged, 
     DPS:    inRoster.filter(p => p.raid_role === 'DPS'),
   }
 
-  const rosterIds = new Set(roster?.players?.map(p => p.user_id) || [])
+  const rosterIds  = new Set(roster?.players?.map(p => p.user_id) || [])
   const availByRole = {
     Tank:   available.filter(p => p.raid_role === 'Tank'   && !rosterIds.has(p.user_id)),
     Healer: available.filter(p => p.raid_role === 'Healer' && !rosterIds.has(p.user_id)),
@@ -23,13 +26,42 @@ export default function RosterField({ roster, available, coaches, isPrivileged, 
     any:    available.filter(p => !rosterIds.has(p.user_id)),
   }
 
+  // Drag state — shared across all slots
+  const drag = useRef(null) // { userId, fromSlot }
+
+  const startDrag = (userId, fromSlot) => { drag.current = { userId, fromSlot } }
+  const endDrag   = () => { drag.current = null }
+
+  const dropToSlot = (slot) => {
+    if (!drag.current) return
+    onTogglePlayer(drag.current.userId, slot)
+    drag.current = null
+  }
+
+  const dropToList = () => {
+    if (!drag.current || drag.current.fromSlot === 'list') return
+    onTogglePlayer(drag.current.userId, null) // remove from roster
+    drag.current = null
+  }
+
   return (
     <div className="flex flex-col gap-2 select-none">
-
-      {/* ── Coach + Field row ─────────────────────────────────────────── */}
       <div className="flex gap-3 items-stretch">
 
-        {/* Coach — left sideline */}
+        {/* ── Player list (far left) ───────────────────────────────── */}
+        {isPrivileged && (
+          <PlayerListPanel
+            availByRole={availByRole}
+            saving={saving}
+            drag={drag}
+            onStartDrag={startDrag}
+            onEndDrag={endDrag}
+            onDropToList={dropToList}
+            onClickAdd={(userId) => onTogglePlayer(userId, 'in_roster')}
+          />
+        )}
+
+        {/* ── Coach — sideline ────────────────────────────────────── */}
         <CoachSlot
           roster={roster}
           coaches={coaches || []}
@@ -38,7 +70,7 @@ export default function RosterField({ roster, available, coaches, isPrivileged, 
           onSetCoach={onSetCoach}
         />
 
-        {/* Field */}
+        {/* ── Field ──────────────────────────────────────────────── */}
         <div className="flex-1 relative rounded-2xl overflow-hidden"
           style={{
             background: 'linear-gradient(180deg, #0a1a10 0%, #0d1f14 35%, #0f2416 55%, #0d1e13 75%, #091610 100%)',
@@ -54,7 +86,7 @@ export default function RosterField({ roster, available, coaches, isPrivileged, 
             <ZoneLabel color="#f87171" label="Tanks" />
           </div>
 
-          {/* DPS zone (top) */}
+          {/* DPS zone */}
           <div className="pt-8 px-4 pb-4 flex flex-col gap-3 items-center">
             {DPS_ROWS.map((row, rowIdx) => (
               <div key={rowIdx} className="flex gap-3 justify-center flex-wrap">
@@ -62,6 +94,9 @@ export default function RosterField({ roster, available, coaches, isPrivileged, 
                   <PlayerSlot key={slotIdx}
                     player={byRole.DPS[slotIdx] || null} role="DPS"
                     available={availByRole.DPS} isPrivileged={isPrivileged} saving={saving}
+                    drag={drag}
+                    onStartDrag={startDrag} onEndDrag={endDrag}
+                    onDrop={() => dropToSlot('in_roster')}
                     onAdd={uid => onTogglePlayer(uid, 'in_roster')}
                     onRemove={uid => onTogglePlayer(uid, null)}
                     onBench={uid => onTogglePlayer(uid, 'bench')}
@@ -80,6 +115,9 @@ export default function RosterField({ roster, available, coaches, isPrivileged, 
               <PlayerSlot key={i}
                 player={byRole.Healer[i] || null} role="Healer"
                 available={availByRole.Healer} isPrivileged={isPrivileged} saving={saving}
+                drag={drag}
+                onStartDrag={startDrag} onEndDrag={endDrag}
+                onDrop={() => dropToSlot('in_roster')}
                 onAdd={uid => onTogglePlayer(uid, 'in_roster')}
                 onRemove={uid => onTogglePlayer(uid, null)}
                 onBench={uid => onTogglePlayer(uid, 'bench')}
@@ -94,12 +132,15 @@ export default function RosterField({ roster, available, coaches, isPrivileged, 
               style={{ borderBottom: 'none' }} />
           </div>
 
-          {/* Tanks zone (goal area) */}
+          {/* Tanks zone */}
           <div className="py-5 px-4 flex justify-center gap-16">
             {Array.from({ length: SLOTS.Tank }, (_, i) => (
               <PlayerSlot key={i}
                 player={byRole.Tank[i] || null} role="Tank"
                 available={availByRole.Tank} isPrivileged={isPrivileged} saving={saving}
+                drag={drag}
+                onStartDrag={startDrag} onEndDrag={endDrag}
+                onDrop={() => dropToSlot('in_roster')}
                 onAdd={uid => onTogglePlayer(uid, 'in_roster')}
                 onRemove={uid => onTogglePlayer(uid, null)}
                 onBench={uid => onTogglePlayer(uid, 'bench')}
@@ -114,11 +155,107 @@ export default function RosterField({ roster, available, coaches, isPrivileged, 
         <BenchRail
           bench={bench} available={availByRole.any}
           isPrivileged={isPrivileged} saving={saving}
+          drag={drag}
+          onStartDrag={startDrag} onEndDrag={endDrag}
+          onDropToBench={() => dropToSlot('bench')}
           onAdd={uid => onTogglePlayer(uid, 'bench')}
           onRemove={uid => onTogglePlayer(uid, null)}
           onMoveToField={uid => onTogglePlayer(uid, 'in_roster')}
         />
       )}
+    </div>
+  )
+}
+
+// ── PlayerListPanel ───────────────────────────────────────────────────────────
+function PlayerListPanel({ availByRole, saving, drag, onStartDrag, onEndDrag, onDropToList, onClickAdd }) {
+  const [dropOver, setDropOver] = useState(false)
+
+  return (
+    <div
+      className={`w-44 flex flex-col rounded-2xl border transition-all overflow-hidden ${
+        dropOver
+          ? 'border-red-400/40 bg-[rgba(248,113,113,0.05)]'
+          : 'border-[rgba(177,167,208,0.15)] bg-[rgba(177,167,208,0.03)]'
+      }`}
+      onDragOver={e => { e.preventDefault(); setDropOver(true) }}
+      onDragLeave={() => setDropOver(false)}
+      onDrop={e => { e.preventDefault(); setDropOver(false); onDropToList() }}
+    >
+      {/* Header */}
+      <div className="px-3 pt-3 pb-2 border-b border-[rgba(177,167,208,0.10)]">
+        <span className="text-[9px] font-bold uppercase tracking-[0.15em] text-[#b1a7d0] opacity-50">
+          Jugadores
+        </span>
+        {dropOver && (
+          <div className="text-[9px] text-red-400 mt-0.5">Soltar para quitar</div>
+        )}
+      </div>
+
+      {/* Player groups */}
+      <div className="flex-1 overflow-y-auto p-2 flex flex-col gap-2">
+        {Object.entries(availByRole).filter(([role]) => role !== 'any').map(([role, players]) => {
+          if (players.length === 0) return null
+          const Icon  = ROLE_ICON[role]
+          const color = ROLE_COLOR[role]
+          return (
+            <div key={role}>
+              <div className="flex items-center gap-1 mb-1 px-1">
+                <Icon size={9} style={{ color }} />
+                <span className="text-[9px] font-bold uppercase tracking-wider" style={{ color }}>{role}</span>
+              </div>
+              {players.map(p => (
+                <ListPlayer
+                  key={p.user_id}
+                  player={p}
+                  saving={saving}
+                  onDragStart={() => onStartDrag(p.user_id, 'list')}
+                  onDragEnd={onEndDrag}
+                  onClick={() => onClickAdd(p.user_id)}
+                />
+              ))}
+            </div>
+          )
+        })}
+
+        {availByRole.any.length === 0 && (
+          <p className="text-[10px] text-center text-[#b1a7d0] opacity-30 py-4">
+            Todos asignados
+          </p>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function ListPlayer({ player, saving, onDragStart, onDragEnd, onClick }) {
+  const [isDragging, setIsDragging] = useState(false)
+  const classColor = CLASS_COLORS[player.character_class] || '#b1a7d0'
+  const SIGNUP_DOT = { confirmed: '#4ade80', late: '#fb923c', tentative: '#facc15' }
+  const dot = SIGNUP_DOT[player.signup_status]
+
+  return (
+    <div
+      draggable
+      onDragStart={e => {
+        e.dataTransfer.effectAllowed = 'move'
+        e.dataTransfer.setData('text/plain', String(player.user_id))
+        setIsDragging(true)
+        onDragStart()
+      }}
+      onDragEnd={() => { setIsDragging(false); onDragEnd() }}
+      onClick={() => !saving && onClick()}
+      className={`flex items-center gap-1.5 px-2 py-1.5 rounded-lg cursor-grab active:cursor-grabbing transition-all mb-0.5 ${
+        isDragging
+          ? 'opacity-30 scale-95'
+          : 'hover:bg-[rgba(177,167,208,0.10)]'
+      }`}
+      style={{ borderLeft: `2px solid ${classColor}60` }}
+    >
+      {dot && <div className="w-1 h-1 rounded-full flex-shrink-0" style={{ background: dot }} />}
+      <span className="text-xs font-semibold truncate flex-1" style={{ color: classColor }}>
+        {player.character_name}
+      </span>
     </div>
   )
 }
@@ -135,12 +272,11 @@ function CoachSlot({ roster, coaches, isPrivileged, saving, onSetCoach }) {
     return () => document.removeEventListener('mousedown', handler)
   }, [open])
 
-  const hasCoach = !!roster?.coach_name
+  const hasCoach   = !!roster?.coach_name
   const classColor = hasCoach ? (CLASS_COLORS[roster.coach_class] || '#b1a7d0') : null
 
   return (
-    <div
-      ref={ref}
+    <div ref={ref}
       className="relative flex flex-col items-center justify-center w-20 rounded-xl"
       style={{
         background: 'linear-gradient(180deg, #0a1a10 0%, #091610 100%)',
@@ -148,18 +284,13 @@ function CoachSlot({ roster, coaches, isPrivileged, saving, onSetCoach }) {
         minHeight: 480,
       }}
     >
-      {/* Sideline label */}
       <div className="absolute top-4 left-0 right-0 flex justify-center">
         <span className="text-[9px] font-bold uppercase tracking-[0.15em] text-white/20">Banda</span>
       </div>
 
-      {/* Coach content */}
       <div className="flex flex-col items-center gap-2">
-        {/* Icon */}
         <div
-          className={`w-14 h-14 rounded-full flex items-center justify-center cursor-pointer transition-all ${
-            isPrivileged ? 'hover:brightness-125' : ''
-          }`}
+          className={`w-14 h-14 rounded-full flex items-center justify-center ${isPrivileged ? 'cursor-pointer' : ''}`}
           style={hasCoach ? {
             background: `radial-gradient(circle at 35% 35%, ${classColor}22, ${classColor}08)`,
             boxShadow: `0 0 0 2px ${classColor}60, 0 0 12px ${classColor}25`,
@@ -168,7 +299,6 @@ function CoachSlot({ roster, coaches, isPrivileged, saving, onSetCoach }) {
             boxShadow: '0 0 0 2px rgba(255,255,255,0.10)',
           }}
           onClick={() => isPrivileged && coaches.length > 0 && setOpen(v => !v)}
-          title={isPrivileged ? 'Seleccionar raid leader' : ''}
         >
           {hasCoach ? (
             <span className="text-xl font-black" style={{ color: classColor, textShadow: `0 0 8px ${classColor}80` }}>
@@ -179,11 +309,10 @@ function CoachSlot({ roster, coaches, isPrivileged, saving, onSetCoach }) {
           )}
         </div>
 
-        {/* Name */}
         <div className="flex flex-col items-center gap-0.5 px-1 text-center">
           {hasCoach ? (
             <>
-              <span className="text-[11px] font-bold leading-tight" style={{ color: classColor, textShadow: '0 1px 4px rgba(0,0,0,0.8)', writingMode: 'horizontal-tb' }}>
+              <span className="text-[11px] font-bold leading-tight" style={{ color: classColor, textShadow: '0 1px 4px rgba(0,0,0,0.8)' }}>
                 {roster.coach_name}
               </span>
               <span className="text-[9px] text-white/30 leading-tight">Raid Leader</span>
@@ -195,19 +324,14 @@ function CoachSlot({ roster, coaches, isPrivileged, saving, onSetCoach }) {
           )}
         </div>
 
-        {/* Remove coach button */}
         {hasCoach && isPrivileged && (
-          <button
-            onClick={() => onSetCoach(null)}
-            disabled={saving}
-            className="w-5 h-5 rounded-full bg-red-500/10 hover:bg-red-500/25 flex items-center justify-center transition-all"
-          >
+          <button onClick={() => onSetCoach(null)} disabled={saving}
+            className="w-5 h-5 rounded-full bg-red-500/10 hover:bg-red-500/25 flex items-center justify-center transition-all">
             <X size={9} className="text-red-400" />
           </button>
         )}
       </div>
 
-      {/* Picker popover */}
       {open && (
         <div className="absolute left-full top-1/2 -translate-y-1/2 ml-2 z-50 w-48 bg-[#0f0b20] border border-[rgba(177,167,208,0.25)] rounded-xl shadow-2xl overflow-hidden">
           <div className="px-3 py-2 border-b border-[rgba(177,167,208,0.12)]">
@@ -219,8 +343,7 @@ function CoachSlot({ roster, coaches, isPrivileged, saving, onSetCoach }) {
               return (
                 <button key={c.user_id}
                   onClick={() => { onSetCoach(c.user_id); setOpen(false) }}
-                  className="w-full flex items-center gap-2 px-3 py-2 hover:bg-[rgba(177,167,208,0.08)] text-left"
-                >
+                  className="w-full flex items-center gap-2 px-3 py-2 hover:bg-[rgba(177,167,208,0.08)] text-left">
                   <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: color }} />
                   <span className="text-sm font-medium" style={{ color }}>{c.character_name}</span>
                   <span className="text-[10px] text-[#b1a7d0] ml-auto">{c.spec}</span>
@@ -254,7 +377,8 @@ function ZoneLabel({ color, label }) {
 }
 
 // ── PlayerSlot ────────────────────────────────────────────────────────────────
-function PlayerSlot({ player, role, available, isPrivileged, saving, onAdd, onRemove, onBench }) {
+function PlayerSlot({ player, role, available, isPrivileged, saving, drag, onStartDrag, onEndDrag, onDrop, onAdd, onRemove, onBench }) {
+  const [dropOver, setDropOver] = useState(false)
   const [open, setOpen] = useState(false)
   const ref = useRef(null)
 
@@ -265,13 +389,21 @@ function PlayerSlot({ player, role, available, isPrivileged, saving, onAdd, onRe
     return () => document.removeEventListener('mousedown', handler)
   }, [open])
 
-  const roleColor = { Tank: '#f87171', Healer: '#4ade80', DPS: '#69cff0' }[role]
+  const roleColor  = ROLE_COLOR[role]
   const classColor = player ? (CLASS_COLORS[player.character_class] || '#b1a7d0') : null
 
   if (player) {
     return (
       <div ref={ref} className="relative flex flex-col items-center gap-1 group">
-        <div className="w-14 h-14 rounded-full flex items-center justify-center relative cursor-default"
+        <div
+          className="w-14 h-14 rounded-full flex items-center justify-center relative cursor-grab active:cursor-grabbing"
+          draggable={isPrivileged}
+          onDragStart={e => {
+            e.dataTransfer.effectAllowed = 'move'
+            e.dataTransfer.setData('text/plain', String(player.user_id))
+            onStartDrag(player.user_id, 'in_roster')
+          }}
+          onDragEnd={onEndDrag}
           style={{
             background: `radial-gradient(circle at 35% 35%, ${classColor}22, ${classColor}08)`,
             boxShadow: `0 0 0 2px ${classColor}60, 0 0 12px ${classColor}25`,
@@ -308,6 +440,7 @@ function PlayerSlot({ player, role, available, isPrivileged, saving, onAdd, onRe
     )
   }
 
+  // Empty slot — drop target
   if (!isPrivileged) {
     return (
       <div className="flex flex-col items-center gap-1 opacity-20">
@@ -319,14 +452,20 @@ function PlayerSlot({ player, role, available, isPrivileged, saving, onAdd, onRe
 
   return (
     <div ref={ref} className="relative flex flex-col items-center gap-1">
-      <button
-        onClick={() => available.length > 0 && setOpen(v => !v)}
-        disabled={saving || available.length === 0}
-        className="w-14 h-14 rounded-full border-2 border-dashed flex items-center justify-center transition-all hover:border-opacity-80 hover:bg-white/5 disabled:opacity-25 disabled:cursor-default"
-        style={{ borderColor: `${roleColor}60` }}
+      <div
+        className={`w-14 h-14 rounded-full border-2 flex items-center justify-center transition-all ${
+          dropOver
+            ? 'border-solid scale-110 bg-white/10'
+            : 'border-dashed hover:bg-white/5'
+        }`}
+        style={{ borderColor: dropOver ? `${roleColor}` : `${roleColor}60` }}
+        onDragOver={e => { e.preventDefault(); setDropOver(true) }}
+        onDragLeave={() => setDropOver(false)}
+        onDrop={e => { e.preventDefault(); setDropOver(false); onDrop() }}
+        onClick={() => available.length > 0 && !saving && setOpen(v => !v)}
       >
-        <Plus size={16} style={{ color: roleColor, opacity: 0.6 }} />
-      </button>
+        <Plus size={16} style={{ color: roleColor, opacity: dropOver ? 1 : 0.6 }} />
+      </div>
       <div className="h-3" />
 
       {open && (
@@ -370,7 +509,8 @@ function SlotPickerPopover({ players, roleColor, onSelect }) {
 }
 
 // ── BenchRail ─────────────────────────────────────────────────────────────────
-function BenchRail({ bench, available, isPrivileged, saving, onAdd, onRemove, onMoveToField }) {
+function BenchRail({ bench, available, isPrivileged, saving, drag, onStartDrag, onEndDrag, onDropToBench, onAdd, onRemove, onMoveToField }) {
+  const [dropOver, setDropOver] = useState(false)
   const [open, setOpen] = useState(false)
   const ref = useRef(null)
 
@@ -382,9 +522,20 @@ function BenchRail({ bench, available, isPrivileged, saving, onAdd, onRemove, on
   }, [open])
 
   return (
-    <div className="mt-1 rounded-xl bg-[rgba(177,167,208,0.04)] border border-[rgba(177,167,208,0.12)] px-4 py-3">
+    <div
+      className={`mt-1 rounded-xl border px-4 py-3 transition-all ${
+        dropOver
+          ? 'border-yellow-400/40 bg-[rgba(250,204,21,0.05)]'
+          : 'border-[rgba(177,167,208,0.12)] bg-[rgba(177,167,208,0.04)]'
+      }`}
+      onDragOver={e => { e.preventDefault(); setDropOver(true) }}
+      onDragLeave={() => setDropOver(false)}
+      onDrop={e => { e.preventDefault(); setDropOver(false); onDropToBench() }}
+    >
       <div className="flex items-center gap-2 mb-3">
-        <span className="text-[10px] font-bold uppercase tracking-widest text-[#b1a7d0] opacity-40">🪑 Banquillo</span>
+        <span className="text-[10px] font-bold uppercase tracking-widest text-[#b1a7d0] opacity-40">
+          🪑 Banquillo {dropOver && <span className="text-yellow-400 normal-case font-normal">— soltar aquí</span>}
+        </span>
         <div className="flex-1 h-px bg-[rgba(177,167,208,0.10)]" />
       </div>
 
@@ -393,15 +544,19 @@ function BenchRail({ bench, available, isPrivileged, saving, onAdd, onRemove, on
           const classColor = CLASS_COLORS[p.character_class] || '#b1a7d0'
           return (
             <div key={p.user_id}
-              className="flex items-center gap-1.5 pl-2.5 pr-1.5 py-1 rounded-full border border-[rgba(177,167,208,0.15)] bg-[rgba(177,167,208,0.05)] group"
-              style={{ borderLeftWidth: 2, borderLeftColor: classColor }}>
+              className="flex items-center gap-1.5 pl-2.5 pr-1.5 py-1 rounded-full border border-[rgba(177,167,208,0.15)] bg-[rgba(177,167,208,0.05)] group cursor-grab"
+              style={{ borderLeftWidth: 2, borderLeftColor: classColor }}
+              draggable={isPrivileged}
+              onDragStart={e => { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', String(p.user_id)); onStartDrag(p.user_id, 'bench') }}
+              onDragEnd={onEndDrag}
+            >
               <span className="text-xs font-semibold" style={{ color: classColor }}>{p.character_name}</span>
               {isPrivileged && (
                 <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
                   <button onClick={() => onMoveToField(p.user_id)} disabled={saving}
-                    title="Al campo" className="w-4 h-4 flex items-center justify-center text-[10px] hover:text-green-400 text-[#b1a7d0] transition-colors">↑</button>
+                    className="w-4 h-4 flex items-center justify-center text-[10px] hover:text-green-400 text-[#b1a7d0] transition-colors">↑</button>
                   <button onClick={() => onRemove(p.user_id)} disabled={saving}
-                    title="Quitar" className="w-4 h-4 flex items-center justify-center hover:text-red-400 text-[#b1a7d0] transition-colors">
+                    className="w-4 h-4 flex items-center justify-center hover:text-red-400 text-[#b1a7d0] transition-colors">
                     <X size={9} />
                   </button>
                 </div>
