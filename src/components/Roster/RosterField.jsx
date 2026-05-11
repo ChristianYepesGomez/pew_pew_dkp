@@ -1,9 +1,10 @@
 import { useState, useRef, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { Plus, X, MegaphoneSimple, ShieldStar, Heart, Crosshair } from '@phosphor-icons/react'
 import CLASS_COLORS from '../../utils/classColors'
 import StandsPanel from './StandsPanel'
 import { checkBuffCoverage, getBuffIconUrl } from '../../utils/raidBuffs'
-import { useSpeechBubble, SpeechBubbleRight } from './SpeechBubble'
+import { useSpeechBubble } from './SpeechBubble'
 
 const BENCH_PHRASES = [
   'Ponme a mí',
@@ -204,24 +205,70 @@ function PlayerListPanel({ banquilloByRole, saving, onDragStart, onClick, onDrop
 }
 
 function ListPlayer({ player, saving, onDragStart, onClick }) {
-  const [dragging, setDragging] = useState(false)
+  const [dragging, setDragging]   = useState(false)
+  const [bubblePos, setBubblePos] = useState(null)
+  const rowRef = useRef(null)
   const classColor = CLASS_COLORS[player.character_class] || '#b1a7d0'
   const dot = SIGNUP_DOT[player.signup_status]
   const { text, visible } = useSpeechBubble(BENCH_PHRASES, { minDelay: 8000, maxDelay: 30000 })
 
+  // When bubble becomes visible, calculate fixed position from DOM element
+  useEffect(() => {
+    if (visible && rowRef.current) {
+      const rect = rowRef.current.getBoundingClientRect()
+      setBubblePos({ top: rect.top + rect.height / 2, left: rect.right + 10 })
+    }
+  }, [visible])
+
   return (
     <div
+      ref={rowRef}
       draggable
       onDragStart={e => { setDragging(true); onDragStart(e) }}
       onDragEnd={() => setDragging(false)}
       onClick={onClick}
       title="Click para asignar · Arrastrar al campo"
-      className={`relative flex items-center gap-1.5 px-2 py-1.5 rounded-lg mb-0.5 transition-all ${
+      className={`flex items-center gap-1.5 px-2 py-1.5 rounded-lg mb-0.5 transition-all ${
         dragging ? 'opacity-30 scale-95' : 'hover:bg-[rgba(177,167,208,0.12)] cursor-grab active:cursor-grabbing'
       }`}
-      style={{ borderLeft: `2px solid ${classColor}70`, overflow: 'visible' }}
+      style={{ borderLeft: `2px solid ${classColor}70` }}
     >
-      {visible && <SpeechBubbleRight text={text} visible={visible} />}
+      {/* Bubble rendered via portal so overflow never clips it */}
+      {(visible || text) && bubblePos && createPortal(
+        <div style={{
+          position: 'fixed',
+          top: bubblePos.top,
+          left: bubblePos.left,
+          transform: 'translateY(-50%)',
+          zIndex: 9999,
+          whiteSpace: 'nowrap',
+          pointerEvents: 'none',
+          opacity: visible ? 1 : 0,
+          transition: 'opacity 0.3s',
+        }}>
+          <div style={{
+            background: 'linear-gradient(135deg,rgba(15,11,32,0.96),rgba(34,30,53,0.96))',
+            border: '1px solid rgba(177,167,208,0.35)',
+            borderRadius: 8,
+            padding: '4px 10px',
+            fontSize: 10,
+            fontWeight: 600,
+            color: '#ffeccd',
+          }}>
+            {text}
+          </div>
+          {/* Arrow pointing left toward the player */}
+          <div style={{
+            position: 'absolute', left: -4, top: '50%', transform: 'translateY(-50%)',
+            width: 0, height: 0,
+            borderTop: '4px solid transparent',
+            borderBottom: '4px solid transparent',
+            borderRight: '4px solid rgba(177,167,208,0.35)',
+          }} />
+        </div>,
+        document.body
+      )}
+
       {dot && <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: dot }} />}
       <span className="text-xs font-semibold truncate" style={{ color: classColor }}>
         {player.character_name}
