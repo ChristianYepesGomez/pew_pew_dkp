@@ -31,27 +31,20 @@ export default function RosterTab() {
   const [adminOpen, setAdminOpen]         = useState(false)
   const [editingRoster, setEditingRoster] = useState(null)
 
-  // Load actual raid days from calendar
+  // Load actual raid days from calendar (2 weeks = ~6 dates: Mon/Wed/Thu x2)
   useEffect(() => {
-    calendarAPI.getMySignups(4).then((res) => {
-      const dates = (res.data.dates || []).map((d) => ({
-        date: d.date,
-        dayName: d.dayName || formatDateLabel(d.date),
-        raidTime: d.raidTime || '21:00',
-      }))
+    const today = new Date().toISOString().slice(0, 10)
+    calendarAPI.getMySignups(2).then((res) => {
+      const dates = (res.data.dates || [])
+        .filter((d) => d.date >= today)
+        .map((d) => ({
+          date: d.date,
+          dayName: d.dayName || formatDateLabel(d.date),
+          raidTime: d.raidTime || '21:00',
+        }))
       setRaidDates(dates)
       if (dates.length > 0) setSelectedDate(dates[0].date)
-    }).catch(() => {
-      // Fallback: generate upcoming dates manually
-      const now = new Date()
-      const fallback = [0, 7, 14, 21].map((offset) => {
-        const d = new Date(now)
-        d.setDate(d.getDate() + offset)
-        return { date: d.toISOString().slice(0, 10), dayName: formatDateLabel(d.toISOString().slice(0, 10)), raidTime: '21:00' }
-      })
-      setRaidDates(fallback)
-      setSelectedDate(fallback[0].date)
-    })
+    }).catch(() => {})
   }, [])
 
   // Load bosses for picker
