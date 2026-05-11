@@ -7,7 +7,7 @@ const log = createLogger('Route:Roster');
 const router = Router();
 
 // ── Shared helper: load full roster for a date ───────────────────────────────
-async function loadRosterForDate(db, date, isPrivileged) {
+async function loadRosterForDate(db, date) {
   const roster = await db.get(`
     SELECT r.id, r.raid_date, r.published, r.created_at, r.updated_at,
            r.coach_user_id,
@@ -17,7 +17,6 @@ async function loadRosterForDate(db, date, isPrivileged) {
     FROM raid_rosters r
     LEFT JOIN users u ON u.id = r.coach_user_id
     WHERE r.raid_date = ?
-    ${isPrivileged ? '' : 'AND r.published = 1'}
     ORDER BY r.created_at ASC LIMIT 1
   `, date);
 
@@ -44,9 +43,7 @@ router.get('/', authenticateToken, async (req, res) => {
     return error(res, 'Invalid or missing date', 400);
   }
 
-  const isPrivileged = user.role === 'admin' || user.role === 'officer';
-  const roster = await loadRosterForDate(db, date, isPrivileged);
-
+  const roster = await loadRosterForDate(db, date);
   return success(res, roster);
 });
 
@@ -242,7 +239,7 @@ router.post('/date/:date/coach', authenticateToken, authorizeRole(['admin', 'off
   });
 
   log.info(`Coach for ${date} set to user ${coachId} by ${user.character_name}`);
-  return success(res, await loadRosterForDate(db, date, true));
+  return success(res, await loadRosterForDate(db, date));
 });
 
 export default router;
