@@ -128,7 +128,7 @@ export default function RosterTab() {
                 : 'text-[#b1a7d0] hover:text-[#ffeccd] hover:bg-[rgba(177,167,208,0.10)]'
             }`}>
             <span className="font-bold">{dayName}</span>
-            <span className="opacity-60">{date.slice(5)} · {raidTime}</span>
+            <span className="opacity-60">{date.slice(5)}</span>
           </button>
         ))}
       </div>
