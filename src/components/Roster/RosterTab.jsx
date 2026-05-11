@@ -1,13 +1,12 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '../../hooks/useAuth'
-import { rosterAPI } from '../../services/api'
+import { rosterAPI, calendarAPI } from '../../services/api'
 import CLASS_COLORS from '../../utils/classColors'
 import BuffChecker from './BuffChecker'
 import RosterAdmin from './RosterAdmin'
 import {
-  Skull, Users, ShieldStar, Heart, Crosshair, CircleNotch,
-  Copy, PencilSimple, Plus, Trash, Eye, EyeSlash,
-  ClockCountdown, CheckCircle,
+  Skull, ShieldStar, Heart, Crosshair, CircleNotch,
+  Copy, PencilSimple, Plus, Trash, Eye, EyeSlash, ArrowLeft,
 } from '@phosphor-icons/react'
 import SurfaceCard from '../ui/SurfaceCard'
 import Button from '../ui/Button'
@@ -18,35 +17,41 @@ const ROLE_CONFIG = {
   DPS:    { icon: Crosshair,   color: '#69cff0', label: 'DPS' },
 }
 
-// Upcoming raid dates (next 4 weeks) — we query each unique date
-function getUpcomingDates() {
-  const now = new Date()
-  return [0, 7, 14, 21].map((offset) => {
-    const d = new Date(now)
-    d.setDate(d.getDate() + offset)
-    return d.toISOString().slice(0, 10)
-  })
-}
-
 export default function RosterTab() {
   const { user } = useAuth()
   const isPrivileged = user?.role === 'admin' || user?.role === 'officer'
 
-  const [dates, setDates] = useState([])
-  const [selectedDate, setSelectedDate] = useState(null)
-  const [rosters, setRosters] = useState([])
+  const [raidDates, setRaidDates]         = useState([])   // [{date, dayName, raidTime}]
+  const [selectedDate, setSelectedDate]   = useState(null)
+  const [rosters, setRosters]             = useState([])
   const [selectedRosterId, setSelectedRosterId] = useState(null)
-  const [availableBosses, setAvailableBosses] = useState([])
-  const [loading, setLoading] = useState(false)
-  const [adminOpen, setAdminOpen] = useState(false)
+  const [selectedBossId, setSelectedBossId]     = useState(null) // for member boss-first view
+  const [availableBosses, setAvailableBosses]   = useState([])
+  const [loading, setLoading]             = useState(false)
+  const [adminOpen, setAdminOpen]         = useState(false)
   const [editingRoster, setEditingRoster] = useState(null)
 
-  // Load current raid dates from the calendar dates we know about
+  // Load actual raid days from calendar
   useEffect(() => {
-    // Use today + next few weeks, filter to configured raid days server-side
-    const upcoming = getUpcomingDates()
-    setDates(upcoming)
-    setSelectedDate(upcoming[0])
+    calendarAPI.getMySignups(4).then((res) => {
+      const dates = (res.data.dates || []).map((d) => ({
+        date: d.date,
+        dayName: d.dayName || formatDateLabel(d.date),
+        raidTime: d.raidTime || '21:00',
+      }))
+      setRaidDates(dates)
+      if (dates.length > 0) setSelectedDate(dates[0].date)
+    }).catch(() => {
+      // Fallback: generate upcoming dates manually
+      const now = new Date()
+      const fallback = [0, 7, 14, 21].map((offset) => {
+        const d = new Date(now)
+        d.setDate(d.getDate() + offset)
+        return { date: d.toISOString().slice(0, 10), dayName: formatDateLabel(d.toISOString().slice(0, 10)), raidTime: '21:00' }
+      })
+      setRaidDates(fallback)
+      setSelectedDate(fallback[0].date)
+    })
   }, [])
 
   // Load bosses for picker
@@ -59,11 +64,11 @@ export default function RosterTab() {
   const loadRosters = useCallback(async (date) => {
     if (!date) return
     setLoading(true)
+    setSelectedBossId(null)
     try {
       const res = await rosterAPI.getByDate(date)
       setRosters(res.data)
-      if (res.data.length > 0) setSelectedRosterId(res.data[0].id)
-      else setSelectedRosterId(null)
+      setSelectedRosterId(res.data.length > 0 ? res.data[0].id : null)
     } catch (_) {
       setRosters([])
     } finally {
@@ -71,59 +76,62 @@ export default function RosterTab() {
     }
   }, [])
 
-  useEffect(() => {
-    loadRosters(selectedDate)
-  }, [selectedDate, loadRosters])
+  useEffect(() => { loadRosters(selectedDate) }, [selectedDate, loadRosters])
 
   const handlePublishToggle = async (roster) => {
-    try {
-      await rosterAPI.update(roster.id, { published: !roster.published })
-      loadRosters(selectedDate)
-    } catch (_) {}
+    await rosterAPI.update(roster.id, { published: !roster.published }).catch(() => {})
+    loadRosters(selectedDate)
   }
 
   const handleDelete = async (roster) => {
     if (!confirm(`¿Borrar el roster "${roster.name}"?`)) return
-    try {
-      await rosterAPI.remove(roster.id)
-      loadRosters(selectedDate)
-    } catch (_) {}
+    await rosterAPI.remove(roster.id).catch(() => {})
+    loadRosters(selectedDate)
   }
 
   const handleCopy = async (roster) => {
-    try {
-      await rosterAPI.copy(roster.id, { target_date: selectedDate })
-      loadRosters(selectedDate)
-    } catch (_) {}
+    await rosterAPI.copy(roster.id, { target_date: selectedDate }).catch(() => {})
+    loadRosters(selectedDate)
   }
+
+  // All bosses across all rosters for this date (member view: boss list)
+  const allBossesForDate = rosters.flatMap((r) =>
+    r.bosses.map((b) => ({ ...b, rosterId: r.id, rosterName: r.name }))
+  )
+  const uniqueBosses = allBossesForDate.filter(
+    (b, i, arr) => arr.findIndex((x) => x.boss_id === b.boss_id) === i
+  )
+
+  // Roster that contains the selected boss
+  const rosterForBoss = selectedBossId
+    ? rosters.find((r) => r.bosses.some((b) => b.boss_id === selectedBossId))
+    : null
 
   const selectedRoster = rosters.find((r) => r.id === selectedRosterId) || null
 
-  // Group boss list by zone for the member view (left panel)
-  const bossesInRosters = rosters.flatMap((r) =>
-    r.bosses.map((b) => ({ ...b, rosterId: r.id, rosterName: r.name }))
-  )
-
   return (
     <div className="flex flex-col gap-6">
+
       {/* ── Date selector ─────────────────────────────────────────── */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div className="flex items-center gap-2 flex-wrap">
           <span className="text-xs font-bold uppercase tracking-widest text-[#b1a7d0]">Fecha</span>
-          {dates.map((d) => (
+          {raidDates.map(({ date, dayName, raidTime }) => (
             <button
-              key={d}
-              onClick={() => setSelectedDate(d)}
-              className={`text-xs font-semibold px-3 py-1.5 rounded-full transition-all ${
-                selectedDate === d
+              key={date}
+              onClick={() => setSelectedDate(date)}
+              className={`flex flex-col items-center text-xs font-semibold px-3 py-1.5 rounded-xl transition-all leading-tight ${
+                selectedDate === date
                   ? 'bg-[rgba(255,175,157,0.20)] text-[#ffaf9d] outline outline-1 outline-[rgba(255,175,157,0.40)]'
                   : 'text-[#b1a7d0] hover:text-[#ffeccd] hover:bg-[rgba(177,167,208,0.10)]'
               }`}
             >
-              {formatDateLabel(d)}
+              <span>{dayName}</span>
+              <span className="text-[10px] opacity-60">{date.slice(5)} · {raidTime}</span>
             </button>
           ))}
         </div>
+
         {isPrivileged && (
           <Button
             variant="coral"
@@ -138,23 +146,18 @@ export default function RosterTab() {
       </div>
 
       {loading && (
-        <div className="flex justify-center py-12">
+        <div className="flex justify-center py-16">
           <CircleNotch size={28} className="animate-spin text-[#b1a7d0]" />
         </div>
       )}
 
       {!loading && rosters.length === 0 && (
-        <SurfaceCard className="p-8 text-center">
-          <Skull size={32} className="mx-auto mb-3 opacity-30 text-[#b1a7d0]" />
+        <SurfaceCard className="p-10 text-center">
+          <Skull size={36} className="mx-auto mb-3 opacity-20 text-[#b1a7d0]" />
           <p className="text-[#b1a7d0]">No hay rosters publicados para esta fecha.</p>
           {isPrivileged && (
-            <Button
-              variant="outline"
-              size="sm"
-              radius="round"
-              className="mt-4"
-              onClick={() => { setEditingRoster(null); setAdminOpen(true) }}
-            >
+            <Button variant="outline" size="sm" radius="round" className="mt-4"
+              onClick={() => { setEditingRoster(null); setAdminOpen(true) }}>
               Crear el primero
             </Button>
           )}
@@ -162,44 +165,28 @@ export default function RosterTab() {
       )}
 
       {!loading && rosters.length > 0 && (
-        <>
-          {/* ── Roster tabs (if multiple) ──────────────────────────── */}
-          {rosters.length > 1 && (
-            <div className="flex gap-2 flex-wrap">
-              {rosters.map((r) => (
-                <button
-                  key={r.id}
-                  onClick={() => setSelectedRosterId(r.id)}
-                  className={`flex items-center gap-2 text-xs font-semibold px-3 py-1.5 rounded-full transition-all ${
-                    selectedRosterId === r.id
-                      ? 'bg-[rgba(177,167,208,0.20)] text-[#ffeccd] outline outline-1 outline-[rgba(177,167,208,0.30)]'
-                      : 'text-[#b1a7d0] hover:bg-[rgba(177,167,208,0.10)]'
-                  }`}
-                >
-                  {r.name}
-                  {!r.published && isPrivileged && (
-                    <span className="text-[10px] text-orange-400 font-bold">BORRADOR</span>
-                  )}
-                </button>
-              ))}
-            </div>
-          )}
-
-          {selectedRoster && (
-            <RosterView
-              roster={selectedRoster}
+        isPrivileged
+          ? <AdminRosterView
+              rosters={rosters}
+              selectedRosterId={selectedRosterId}
+              onSelectRoster={setSelectedRosterId}
+              selectedRoster={selectedRoster}
               currentUserId={user?.id}
-              isPrivileged={isPrivileged}
-              onEdit={() => { setEditingRoster(selectedRoster); setAdminOpen(true) }}
-              onPublishToggle={() => handlePublishToggle(selectedRoster)}
-              onCopy={() => handleCopy(selectedRoster)}
-              onDelete={() => handleDelete(selectedRoster)}
+              onEdit={(r) => { setEditingRoster(r); setAdminOpen(true) }}
+              onPublishToggle={handlePublishToggle}
+              onCopy={handleCopy}
+              onDelete={handleDelete}
             />
-          )}
-        </>
+          : <MemberRosterView
+              rosters={rosters}
+              uniqueBosses={uniqueBosses}
+              selectedBossId={selectedBossId}
+              onSelectBoss={setSelectedBossId}
+              rosterForBoss={rosterForBoss}
+              currentUserId={user?.id}
+            />
       )}
 
-      {/* ── Admin modal ───────────────────────────────────────────── */}
       {adminOpen && (
         <RosterAdmin
           roster={editingRoster}
@@ -213,7 +200,120 @@ export default function RosterTab() {
   )
 }
 
-// ── RosterView ────────────────────────────────────────────────────────────────
+// ── Admin view: tabs entre rosters + editor ────────────────────────────────────
+function AdminRosterView({ rosters, selectedRosterId, onSelectRoster, selectedRoster,
+  currentUserId, onEdit, onPublishToggle, onCopy, onDelete }) {
+  return (
+    <>
+      {rosters.length > 1 && (
+        <div className="flex gap-2 flex-wrap">
+          {rosters.map((r) => (
+            <button key={r.id} onClick={() => onSelectRoster(r.id)}
+              className={`flex items-center gap-2 text-xs font-semibold px-3 py-1.5 rounded-full transition-all ${
+                selectedRosterId === r.id
+                  ? 'bg-[rgba(177,167,208,0.20)] text-[#ffeccd] outline outline-1 outline-[rgba(177,167,208,0.30)]'
+                  : 'text-[#b1a7d0] hover:bg-[rgba(177,167,208,0.10)]'
+              }`}
+            >
+              {r.name}
+              {!r.published && <span className="text-[10px] text-orange-400 font-bold">BORRADOR</span>}
+            </button>
+          ))}
+        </div>
+      )}
+      {selectedRoster && (
+        <RosterView
+          roster={selectedRoster}
+          currentUserId={currentUserId}
+          isPrivileged
+          onEdit={() => onEdit(selectedRoster)}
+          onPublishToggle={() => onPublishToggle(selectedRoster)}
+          onCopy={() => onCopy(selectedRoster)}
+          onDelete={() => onDelete(selectedRoster)}
+        />
+      )}
+    </>
+  )
+}
+
+// ── Member view: boss list → click → roster ────────────────────────────────────
+function MemberRosterView({ rosters, uniqueBosses, selectedBossId, onSelectBoss, rosterForBoss, currentUserId }) {
+  if (selectedBossId && rosterForBoss) {
+    return (
+      <div>
+        <button
+          onClick={() => onSelectBoss(null)}
+          className="flex items-center gap-1.5 text-xs text-[#b1a7d0] hover:text-[#ffeccd] mb-4 transition-colors"
+        >
+          <ArrowLeft size={13} />
+          Ver todos los bosses
+        </button>
+        <RosterView roster={rosterForBoss} currentUserId={currentUserId} isPrivileged={false} />
+      </div>
+    )
+  }
+
+  // No bosses assigned yet — show roster list directly
+  if (uniqueBosses.length === 0) {
+    return (
+      <div className="flex flex-col gap-4">
+        {rosters.map((r) => (
+          <RosterView key={r.id} roster={r} currentUserId={currentUserId} isPrivileged={false} />
+        ))}
+      </div>
+    )
+  }
+
+  // Boss list
+  return (
+    <div className="flex flex-col gap-3">
+      <p className="text-xs text-[#b1a7d0] uppercase tracking-widest font-bold">Bosses de esta sesión</p>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+        {uniqueBosses.map((boss) => {
+          const roster = rosters.find((r) => r.bosses.some((b) => b.boss_id === boss.boss_id))
+          const inRoster = roster?.players.some(
+            (p) => p.slot === 'in_roster' && p.user_id === currentUserId
+          )
+          const onBench = roster?.players.some(
+            (p) => p.slot === 'bench' && p.user_id === currentUserId
+          )
+          return (
+            <button
+              key={boss.boss_id}
+              onClick={() => onSelectBoss(boss.boss_id)}
+              className="relative flex flex-col gap-2 p-4 rounded-xl border border-[rgba(177,167,208,0.15)] bg-[rgba(177,167,208,0.05)] hover:bg-[rgba(177,167,208,0.10)] hover:border-[rgba(177,167,208,0.30)] transition-all text-left group"
+            >
+              <div className="flex items-start justify-between gap-2">
+                <span className="font-bold text-sm text-[#ffeccd] leading-tight">{boss.boss_name}</span>
+                <Skull size={14} className="text-[#b1a7d0] opacity-40 flex-shrink-0 mt-0.5" />
+              </div>
+              <span className="text-[11px] text-[#b1a7d0]">{boss.zone_name}</span>
+
+              {/* Personal badge */}
+              {inRoster && (
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[rgba(255,175,157,0.15)] text-[#ffaf9d] w-fit">
+                  🐾 Estás dentro
+                </span>
+              )}
+              {onBench && !inRoster && (
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[rgba(177,167,208,0.12)] text-[#b1a7d0] w-fit">
+                  🪑 Banquillo
+                </span>
+              )}
+
+              {/* Roster name */}
+              {roster && (
+                <span className="text-[10px] text-[#b1a7d0] opacity-50">{roster.name}</span>
+              )}
+            </button>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+// ── RosterView (detalle) ──────────────────────────────────────────────────────
 function RosterView({ roster, currentUserId, isPrivileged, onEdit, onPublishToggle, onCopy, onDelete }) {
   const inRoster = roster.players.filter((p) => p.slot === 'in_roster')
   const bench    = roster.players.filter((p) => p.slot === 'bench')
@@ -234,16 +334,10 @@ function RosterView({ roster, currentUserId, isPrivileged, onEdit, onPublishTogg
         <div>
           <div className="flex items-center gap-2 flex-wrap">
             <h3 className="text-lg font-bold text-[#ffeccd]">{roster.name}</h3>
-            {roster.published ? (
-              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[rgba(74,222,128,0.12)] text-green-400 border border-green-500/20">
-                ✓ Publicado
-              </span>
-            ) : (
-              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[rgba(250,204,21,0.10)] text-yellow-400 border border-yellow-500/20">
-                Borrador
-              </span>
-            )}
-            {/* Personal badge */}
+            {roster.published
+              ? <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[rgba(74,222,128,0.12)] text-green-400 border border-green-500/20">✓ Publicado</span>
+              : <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[rgba(250,204,21,0.10)] text-yellow-400 border border-yellow-500/20">Borrador</span>
+            }
             {isInRoster && (
               <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[rgba(255,175,157,0.15)] text-[#ffaf9d] border border-[rgba(255,175,157,0.30)]">
                 🐾 Estás dentro
@@ -256,28 +350,28 @@ function RosterView({ roster, currentUserId, isPrivileged, onEdit, onPublishTogg
             )}
           </div>
 
-          {/* Bosses */}
           {roster.bosses.length > 0 && (
             <div className="flex items-center gap-1.5 mt-2 flex-wrap">
-              <Skull size={13} className="text-[#b1a7d0] opacity-60" />
-              {roster.bosses.map((b) => (
+              <Skull size={12} className="text-[#b1a7d0] opacity-50" />
+              {roster.bosses.map((b, i) => (
                 <span key={b.boss_id} className="text-xs text-[#b1a7d0]">
+                  {i > 0 && <span className="opacity-30 mr-1.5">·</span>}
                   {b.boss_name}
                 </span>
-              )).reduce((acc, el, i) => i === 0 ? [el] : [...acc, <span key={`sep-${i}`} className="text-[#b1a7d0] opacity-30">·</span>, el], [])}
+              ))}
             </div>
           )}
         </div>
 
         {isPrivileged && (
-          <div className="flex items-center gap-1.5 flex-shrink-0">
+          <div className="flex items-center gap-1 flex-shrink-0">
             <Button variant="ghost" size="sm" radius="round" onClick={onPublishToggle} title={roster.published ? 'Despublicar' : 'Publicar'}>
               {roster.published ? <EyeSlash size={15} /> : <Eye size={15} />}
             </Button>
             <Button variant="ghost" size="sm" radius="round" onClick={onEdit} title="Editar">
               <PencilSimple size={15} />
             </Button>
-            <Button variant="ghost" size="sm" radius="round" onClick={onCopy} title="Copiar roster">
+            <Button variant="ghost" size="sm" radius="round" onClick={onCopy} title="Copiar">
               <Copy size={15} />
             </Button>
             <Button variant="ghost" size="sm" radius="round" className="text-red-400 hover:text-red-300" onClick={onDelete} title="Borrar">
@@ -296,7 +390,7 @@ function RosterView({ roster, currentUserId, isPrivileged, onEdit, onPublishTogg
             <div key={role} className="flex flex-col items-center py-3 gap-0.5">
               <span className="text-2xl font-bold" style={{ color: cfg.color }}>{count}</span>
               <span className="text-[11px] text-[#b1a7d0]">
-                <Icon size={11} style={{ color: cfg.color, display: 'inline', marginRight: 3 }} />
+                <Icon size={10} style={{ color: cfg.color, display: 'inline', marginRight: 3 }} />
                 {cfg.label}
               </span>
             </div>
@@ -304,7 +398,7 @@ function RosterView({ roster, currentUserId, isPrivileged, onEdit, onPublishTogg
         })}
       </div>
 
-      {/* Players by role */}
+      {/* Players */}
       <div className="p-5 flex flex-col gap-5">
         {Object.entries(ROLE_CONFIG).map(([role, cfg]) => {
           const Icon = cfg.icon
@@ -313,7 +407,7 @@ function RosterView({ roster, currentUserId, isPrivileged, onEdit, onPublishTogg
           return (
             <div key={role}>
               <div className="flex items-center gap-2 mb-2">
-                <Icon size={13} style={{ color: cfg.color }} />
+                <Icon size={12} style={{ color: cfg.color }} />
                 <span className="text-[11px] font-bold uppercase tracking-wider" style={{ color: cfg.color }}>
                   {cfg.label}
                 </span>
@@ -321,38 +415,27 @@ function RosterView({ roster, currentUserId, isPrivileged, onEdit, onPublishTogg
               </div>
               <div className="flex flex-wrap gap-2">
                 {players.map((p) => (
-                  <PlayerCard
-                    key={p.user_id}
-                    player={p}
-                    isCurrentUser={p.user_id === currentUserId}
-                  />
+                  <PlayerCard key={p.user_id} player={p} isCurrentUser={p.user_id === currentUserId} />
                 ))}
               </div>
             </div>
           )
         })}
 
-        {/* Bench */}
         {bench.length > 0 && (
           <div>
             <div className="flex items-center gap-2 mb-2">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-[#b1a7d0] opacity-50">🪑 Banquillo</span>
-              <div className="flex-1 h-px bg-[rgba(177,167,208,0.10)]" />
+              <span className="text-[11px] font-bold uppercase tracking-wider text-[#b1a7d0] opacity-40">🪑 Banquillo</span>
+              <div className="flex-1 h-px bg-[rgba(177,167,208,0.08)]" />
             </div>
-            <div className="flex flex-wrap gap-2 opacity-50">
+            <div className="flex flex-wrap gap-2 opacity-40">
               {bench.map((p) => (
-                <PlayerCard
-                  key={p.user_id}
-                  player={p}
-                  isCurrentUser={p.user_id === currentUserId}
-                  bench
-                />
+                <PlayerCard key={p.user_id} player={p} isCurrentUser={p.user_id === currentUserId} bench />
               ))}
             </div>
           </div>
         )}
 
-        {/* Buff checker */}
         <BuffChecker players={inRoster} />
       </div>
     </SurfaceCard>
@@ -360,25 +443,20 @@ function RosterView({ roster, currentUserId, isPrivileged, onEdit, onPublishTogg
 }
 
 // ── PlayerCard ────────────────────────────────────────────────────────────────
-function PlayerCard({ player, isCurrentUser, bench }) {
+function PlayerCard({ player, isCurrentUser }) {
   const classColor = CLASS_COLORS[player.character_class] || '#b1a7d0'
-
   return (
     <div
       className={`relative flex items-center gap-2 px-3 py-2 rounded-xl border transition-all ${
         isCurrentUser
-          ? 'border-[rgba(255,175,157,0.40)] bg-[rgba(255,175,157,0.08)] outline outline-1 outline-[rgba(255,175,157,0.20)]'
+          ? 'border-[rgba(255,175,157,0.40)] bg-[rgba(255,175,157,0.08)]'
           : 'border-[rgba(177,167,208,0.15)] bg-[rgba(177,167,208,0.05)]'
       }`}
       style={{ borderLeftWidth: 3, borderLeftColor: classColor }}
     >
       <div className="flex flex-col min-w-0">
-        <span
-          className="text-sm font-bold leading-tight truncate"
-          style={{ color: isCurrentUser ? '#ffaf9d' : classColor }}
-        >
-          {player.character_name}
-          {isCurrentUser && ' ★'}
+        <span className="text-sm font-bold leading-tight truncate" style={{ color: isCurrentUser ? '#ffaf9d' : classColor }}>
+          {player.character_name}{isCurrentUser ? ' ★' : ''}
         </span>
         <span className="text-[11px] text-[#b1a7d0] leading-tight">
           {player.character_class}{player.spec ? ` · ${player.spec}` : ''}
@@ -388,7 +466,6 @@ function PlayerCard({ player, isCurrentUser, bench }) {
   )
 }
 
-// ── helpers ───────────────────────────────────────────────────────────────────
 function formatDateLabel(dateStr) {
   const d = new Date(dateStr + 'T12:00:00')
   return d.toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' })

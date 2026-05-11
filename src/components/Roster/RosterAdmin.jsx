@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { rosterAPI } from '../../services/api'
 import CLASS_COLORS from '../../utils/classColors'
-import { X, CircleNotch, ShieldStar, Heart, Crosshair, Check, ClockCountdown, CheckCircle } from '@phosphor-icons/react'
+import { X, CircleNotch, ShieldStar, Heart, Crosshair, Check, ClockCountdown, CheckCircle, XCircle } from '@phosphor-icons/react'
 import Button from '../ui/Button'
 
 const ROLE_CONFIG = {
@@ -11,10 +11,11 @@ const ROLE_CONFIG = {
   DPS:    { icon: Crosshair,   color: '#69cff0' },
 }
 
-const SIGNUP_ICONS = {
-  confirmed: { Icon: CheckCircle, color: 'text-green-400', label: 'Confirmado' },
-  late:      { Icon: ClockCountdown, color: 'text-orange-400', label: 'Llega tarde' },
-  tentative: { Icon: () => <span>?</span>, color: 'text-yellow-400', label: 'Tentativo' },
+const SIGNUP_CONFIG = {
+  confirmed: { icon: CheckCircle,    color: 'text-green-400',  label: 'Confirmado',   dim: false },
+  late:      { icon: ClockCountdown, color: 'text-orange-400', label: 'Llega tarde',  dim: false },
+  tentative: { icon: null,           color: 'text-yellow-400', label: 'Tentativo',    dim: false },
+  declined:  { icon: XCircle,        color: 'text-red-400',    label: 'No disponible',dim: true  },
 }
 
 export default function RosterAdmin({ roster, date, availableBosses, onClose, onSaved }) {
@@ -32,7 +33,7 @@ export default function RosterAdmin({ roster, date, availableBosses, onClose, on
   const [available, setAvailable] = useState([])
   const [loadingAvail, setLoadingAvail] = useState(true)
   const [saving, setSaving]       = useState(false)
-  const [error, setError]         = useState('')
+  const [errorMsg, setErrorMsg]   = useState('')
 
   useEffect(() => {
     rosterAPI.getAvailable(date)
@@ -43,9 +44,8 @@ export default function RosterAdmin({ roster, date, availableBosses, onClose, on
 
   // Group bosses by zone
   const bossGroups = availableBosses.reduce((acc, b) => {
-    const key = b.zone_name
-    if (!acc[key]) acc[key] = []
-    acc[key].push(b)
+    if (!acc[b.zone_name]) acc[b.zone_name] = []
+    acc[b.zone_name].push(b)
     return acc
   }, {})
 
@@ -63,16 +63,13 @@ export default function RosterAdmin({ roster, date, availableBosses, onClose, on
     setPlayerIds((prev) => prev.filter((id) => id !== userId))
   }
 
-  const toggleBoss = (bossId) => {
-    setBossIds((prev) =>
-      prev.includes(bossId) ? prev.filter((id) => id !== bossId) : [...prev, bossId]
-    )
-  }
+  const toggleBoss = (bossId) =>
+    setBossIds((prev) => prev.includes(bossId) ? prev.filter((id) => id !== bossId) : [...prev, bossId])
 
   const handleSave = async () => {
-    if (!name.trim()) { setError('El nombre es obligatorio'); return }
+    if (!name.trim()) { setErrorMsg('El nombre es obligatorio'); return }
     setSaving(true)
-    setError('')
+    setErrorMsg('')
     try {
       const payload = { name, player_ids: playerIds, bench_ids: benchIds, boss_ids: bossIds, published }
       if (isEdit) {
@@ -82,20 +79,21 @@ export default function RosterAdmin({ roster, date, availableBosses, onClose, on
       }
       onSaved()
     } catch (e) {
-      setError(e?.response?.data?.message || 'Error al guardar')
-    } finally {
+      setErrorMsg(e?.response?.data?.message || 'Error al guardar')
       setSaving(false)
     }
   }
 
-  // Group available players by role
   const byRole = {
     Tank:   available.filter((p) => p.raid_role === 'Tank'),
     Healer: available.filter((p) => p.raid_role === 'Healer'),
     DPS:    available.filter((p) => p.raid_role === 'DPS'),
   }
 
-  const totalSelected = playerIds.length
+  const totalInRoster = playerIds.length
+  const counterColor = totalInRoster > 20
+    ? 'text-red-400' : totalInRoster === 20
+    ? 'text-green-400' : 'text-[#b1a7d0]'
 
   return createPortal(
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/70">
@@ -103,33 +101,36 @@ export default function RosterAdmin({ roster, date, availableBosses, onClose, on
 
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-[rgba(177,167,208,0.15)]">
-          <h2 className="text-lg font-bold text-[#ffeccd]">
-            {isEdit ? 'Editar roster' : 'Nuevo roster'} — {formatDateLabel(date)}
-          </h2>
-          <button onClick={onClose} className="text-[#b1a7d0] hover:text-[#ffeccd] transition-colors">
+          <div>
+            <h2 className="text-lg font-bold text-[#ffeccd]">
+              {isEdit ? 'Editar roster' : 'Nuevo roster'}
+            </h2>
+            <p className="text-xs text-[#b1a7d0]">{formatDateLabel(date)}</p>
+          </div>
+          <button onClick={onClose} className="text-[#b1a7d0] hover:text-[#ffeccd] transition-colors p-1">
             <X size={20} />
           </button>
         </div>
 
         <div className="overflow-y-auto flex-1 p-5 flex flex-col gap-5">
 
-          {/* Name + publish */}
-          <div className="flex items-center gap-3">
+          {/* Name + publish toggle */}
+          <div className="flex items-end gap-3">
             <div className="flex-1">
-              <label className="text-xs font-semibold text-[#b1a7d0] mb-1 block">Nombre del roster</label>
+              <label className="text-xs font-semibold text-[#b1a7d0] mb-1.5 block">Nombre del roster</label>
               <input
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                className="w-full bg-[rgba(177,167,208,0.08)] border border-[rgba(177,167,208,0.20)] rounded-lg px-3 py-2 text-sm text-[#ffeccd] outline-none focus:border-[#b1a7d0]"
+                className="w-full bg-[rgba(177,167,208,0.08)] border border-[rgba(177,167,208,0.20)] rounded-lg px-3 py-2 text-sm text-[#ffeccd] outline-none focus:border-[#b1a7d0] transition-colors"
                 placeholder="Ej: Roster principal"
               />
             </div>
-            <div className="flex flex-col items-center gap-1 mt-5">
+            <div className="flex flex-col items-center gap-1 pb-0.5">
               <button
                 onClick={() => setPublished((v) => !v)}
-                className={`w-10 h-6 rounded-full transition-all relative ${published ? 'bg-green-500' : 'bg-[rgba(177,167,208,0.20)]'}`}
+                className={`w-11 h-6 rounded-full transition-all relative ${published ? 'bg-green-500' : 'bg-[rgba(177,167,208,0.20)]'}`}
               >
-                <span className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all ${published ? 'right-1' : 'left-1'}`} />
+                <span className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-all ${published ? 'right-1' : 'left-1'}`} />
               </button>
               <span className="text-[10px] text-[#b1a7d0]">{published ? 'Publicado' : 'Borrador'}</span>
             </div>
@@ -138,31 +139,27 @@ export default function RosterAdmin({ roster, date, availableBosses, onClose, on
           {/* Boss picker */}
           <div>
             <label className="text-xs font-semibold text-[#b1a7d0] mb-2 block uppercase tracking-wider">
-              Bosses asignados a este roster
+              Bosses asignados
             </label>
-            <div className="flex flex-col gap-3">
-              {Object.entries(bossGroups).map(([zoneName, bosses]) => (
-                <div key={zoneName}>
-                  <div className="text-[10px] font-bold text-[#b1a7d0] opacity-50 uppercase tracking-widest mb-1.5">{zoneName}</div>
-                  <div className="flex flex-wrap gap-1.5">
-                    {bosses.map((b) => (
-                      <button
-                        key={b.id}
-                        onClick={() => toggleBoss(b.id)}
-                        className={`text-xs px-2.5 py-1 rounded-full transition-all ${
-                          bossIds.includes(b.id)
-                            ? 'bg-[rgba(255,175,157,0.20)] text-[#ffaf9d] border border-[rgba(255,175,157,0.40)]'
-                            : 'bg-[rgba(177,167,208,0.08)] text-[#b1a7d0] border border-[rgba(177,167,208,0.15)] hover:border-[rgba(177,167,208,0.30)]'
-                        }`}
-                      >
-                        {bossIds.includes(b.id) && <Check size={10} className="inline mr-1" weight="bold" />}
-                        {b.name}
-                      </button>
-                    ))}
-                  </div>
+            {Object.entries(bossGroups).map(([zoneName, bosses]) => (
+              <div key={zoneName} className="mb-3">
+                <div className="text-[10px] font-bold text-[#b1a7d0] opacity-40 uppercase tracking-widest mb-1.5">{zoneName}</div>
+                <div className="flex flex-wrap gap-1.5">
+                  {bosses.map((b) => (
+                    <button key={b.id} onClick={() => toggleBoss(b.id)}
+                      className={`text-xs px-2.5 py-1 rounded-full transition-all ${
+                        bossIds.includes(b.id)
+                          ? 'bg-[rgba(255,175,157,0.20)] text-[#ffaf9d] border border-[rgba(255,175,157,0.40)]'
+                          : 'bg-[rgba(177,167,208,0.08)] text-[#b1a7d0] border border-[rgba(177,167,208,0.15)] hover:border-[rgba(177,167,208,0.30)]'
+                      }`}
+                    >
+                      {bossIds.includes(b.id) && <Check size={10} className="inline mr-1" weight="bold" />}
+                      {b.name}
+                    </button>
+                  ))}
                 </div>
-              ))}
-            </div>
+              </div>
+            ))}
           </div>
 
           {/* Player picker */}
@@ -171,13 +168,22 @@ export default function RosterAdmin({ roster, date, availableBosses, onClose, on
               <label className="text-xs font-semibold text-[#b1a7d0] uppercase tracking-wider">
                 Jugadores
               </label>
-              <span className={`text-xs font-bold ${totalSelected > 20 ? 'text-red-400' : totalSelected === 20 ? 'text-green-400' : 'text-[#b1a7d0]'}`}>
-                {totalSelected} / 20 en roster · {benchIds.length} banquillo
-              </span>
+              <div className="flex items-center gap-3 text-xs">
+                <span className={`font-bold ${counterColor}`}>{totalInRoster} / 20 roster</span>
+                {benchIds.length > 0 && <span className="text-[#b1a7d0]">· {benchIds.length} banquillo</span>}
+              </div>
+            </div>
+
+            {/* Legend */}
+            <div className="flex items-center gap-3 mb-3 text-[10px] text-[#b1a7d0]">
+              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-green-400" />Confirmado</span>
+              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-orange-400" />Llega tarde</span>
+              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-yellow-400" />Tentativo</span>
+              <span className="flex items-center gap-1 opacity-40"><span className="w-2 h-2 rounded-full bg-red-400" />No viene</span>
             </div>
 
             {loadingAvail ? (
-              <div className="flex justify-center py-6">
+              <div className="flex justify-center py-8">
                 <CircleNotch size={22} className="animate-spin text-[#b1a7d0]" />
               </div>
             ) : (
@@ -212,20 +218,24 @@ export default function RosterAdmin({ roster, date, availableBosses, onClose, on
             )}
           </div>
 
-          {error && (
-            <p className="text-sm text-red-400 bg-[rgba(248,113,113,0.10)] rounded-lg px-3 py-2">{error}</p>
+          {errorMsg && (
+            <p className="text-sm text-red-400 bg-[rgba(248,113,113,0.10)] rounded-lg px-3 py-2">{errorMsg}</p>
           )}
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-[rgba(177,167,208,0.15)]">
-          <Button variant="outline" size="sm" radius="round" onClick={onClose}>
-            Cancelar
-          </Button>
-          <Button variant="success" size="sm" radius="round" disabled={saving} onClick={handleSave}>
-            {saving ? <CircleNotch size={14} className="animate-spin" /> : <Check size={14} weight="bold" />}
-            {isEdit ? 'Guardar cambios' : 'Crear roster'}
-          </Button>
+        <div className="flex items-center justify-between gap-3 px-6 py-4 border-t border-[rgba(177,167,208,0.15)]">
+          <span className={`text-sm font-bold ${counterColor}`}>
+            {totalInRoster} jugadores en roster
+            {totalInRoster > 20 && ' ⚠ máximo 20'}
+          </span>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" radius="round" onClick={onClose}>Cancelar</Button>
+            <Button variant="success" size="sm" radius="round" disabled={saving} onClick={handleSave}>
+              {saving ? <CircleNotch size={14} className="animate-spin" /> : <Check size={14} weight="bold" />}
+              {isEdit ? 'Guardar' : 'Crear roster'}
+            </Button>
+          </div>
         </div>
       </div>
     </div>,
@@ -235,53 +245,59 @@ export default function RosterAdmin({ roster, date, availableBosses, onClose, on
 
 function PlayerRow({ player, inRoster, onBench, onToggleRoster, onToggleBench }) {
   const classColor = CLASS_COLORS[player.character_class] || '#b1a7d0'
-  const signupCfg = SIGNUP_ICONS[player.signup_status] || null
+  const signupCfg = SIGNUP_CONFIG[player.signup_status] || null
+  const isDimmed = signupCfg?.dim && !inRoster && !onBench
+
+  // Signup status indicator dot
+  const dotColor = {
+    confirmed: '#4ade80',
+    late:      '#fb923c',
+    tentative: '#facc15',
+    declined:  '#f87171',
+  }[player.signup_status] || 'transparent'
 
   return (
-    <div
-      className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-all ${
-        inRoster
-          ? 'bg-[rgba(74,222,128,0.06)] border border-[rgba(74,222,128,0.20)]'
-          : onBench
-          ? 'bg-[rgba(177,167,208,0.06)] border border-[rgba(177,167,208,0.15)]'
-          : 'border border-transparent hover:bg-[rgba(177,167,208,0.05)]'
-      }`}
-    >
-      <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: classColor }} />
+    <div className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-all ${
+      inRoster
+        ? 'bg-[rgba(74,222,128,0.07)] border border-[rgba(74,222,128,0.20)]'
+        : onBench
+        ? 'bg-[rgba(177,167,208,0.06)] border border-[rgba(177,167,208,0.20)]'
+        : 'border border-transparent hover:bg-[rgba(177,167,208,0.05)]'
+    } ${isDimmed ? 'opacity-35' : ''}`}>
+      {/* Status dot */}
+      <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: dotColor }} />
+      {/* Class dot */}
+      <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: classColor }} />
+
       <span className="text-sm font-medium flex-1 truncate" style={{ color: classColor }}>
         {player.character_name}
       </span>
-      <span className="text-xs text-[#b1a7d0] mr-1">{player.spec || player.character_class}</span>
+      <span className="text-xs text-[#b1a7d0] mr-1 hidden sm:inline">{player.spec || player.character_class}</span>
 
-      {/* Signup status badge */}
+      {/* Signup label */}
       {signupCfg && (
         <span className={`text-[10px] font-semibold ${signupCfg.color} mr-1`} title={signupCfg.label}>
-          {player.signup_status === 'late' ? '⏰' : '✓'}
+          {player.signup_status === 'late' ? '⏰' : player.signup_status === 'confirmed' ? '✓' : player.signup_status === 'declined' ? '✗' : '?'}
         </span>
       )}
 
-      {/* Roster / Bench toggles */}
-      <button
-        onClick={onToggleRoster}
-        title={inRoster ? 'Quitar del roster' : 'Añadir al roster'}
-        className={`text-[10px] font-bold px-2 py-0.5 rounded-full transition-all ${
+      <button onClick={onToggleRoster}
+        className={`text-[10px] font-bold px-2 py-0.5 rounded-full transition-all whitespace-nowrap ${
           inRoster
-            ? 'bg-[rgba(74,222,128,0.20)] text-green-400'
-            : 'bg-[rgba(177,167,208,0.10)] text-[#b1a7d0] hover:text-[#ffeccd]'
+            ? 'bg-[rgba(74,222,128,0.20)] text-green-400 hover:bg-[rgba(248,113,113,0.20)] hover:text-red-400'
+            : 'bg-[rgba(177,167,208,0.10)] text-[#b1a7d0] hover:text-[#ffeccd] hover:bg-[rgba(177,167,208,0.20)]'
         }`}
       >
         {inRoster ? '✓ Dentro' : '+ Roster'}
       </button>
-      <button
-        onClick={onToggleBench}
-        title={onBench ? 'Quitar del banquillo' : 'Al banquillo'}
-        className={`text-[10px] font-bold px-2 py-0.5 rounded-full transition-all ${
+      <button onClick={onToggleBench}
+        className={`text-[10px] font-bold px-2 py-0.5 rounded-full transition-all whitespace-nowrap ${
           onBench
             ? 'bg-[rgba(177,167,208,0.20)] text-[#ffeccd]'
-            : 'bg-[rgba(177,167,208,0.06)] text-[#b1a7d0] hover:text-[#ffeccd]'
+            : 'bg-transparent text-[#b1a7d0] hover:text-[#ffeccd]'
         }`}
       >
-        {onBench ? '🪑 Banq.' : 'Banq.'}
+        {onBench ? '🪑' : 'Banq.'}
       </button>
     </div>
   )
