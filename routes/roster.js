@@ -36,23 +36,23 @@ router.get('/', authenticateToken, async (req, res) => {
   const { date } = req.query;
 
   if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
-    return res.status(400).json(error('Invalid or missing date'));
+    return error(res, 'Invalid or missing date', 400);
   }
 
   const isPrivileged = user.role === 'admin' || user.role === 'officer';
   const roster = await loadRosterForDate(db, date, isPrivileged);
 
-  return res.json(success(roster)); // null = no roster yet
+  return success(res, roster);
 });
 
 // ── GET /api/roster/available?date=YYYY-MM-DD ────────────────────────────────
 // Admin/officer: confirmed + late + tentative players (no declined, no no-response).
-router.get('/available', authenticateToken, authorizeRole('admin', 'officer'), async (req, res) => {
+router.get('/available', authenticateToken, authorizeRole(['admin', 'officer']), async (req, res) => {
   const { db } = req;
   const { date } = req.query;
 
   if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
-    return res.status(400).json(error('Invalid or missing date'));
+    return error(res, 'Invalid or missing date', 400);
   }
 
   const players = await db.all(`
@@ -73,26 +73,26 @@ router.get('/available', authenticateToken, authorizeRole('admin', 'officer'), a
       u.raid_role, u.character_name
   `, date);
 
-  return res.json(success(players));
+  return success(res, players);
 });
 
 // ── POST /api/roster/date/:date/toggle-player ────────────────────────────────
 // Add or move a player in the roster (auto-creates roster if needed).
 // Body: { user_id, slot: 'in_roster' | 'bench' | null (remove) }
-router.post('/date/:date/toggle-player', authenticateToken, authorizeRole('admin', 'officer'), async (req, res) => {
+router.post('/date/:date/toggle-player', authenticateToken, authorizeRole(['admin', 'officer']), async (req, res) => {
   const { db, user } = req;
   const { date } = req.params;
 
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
-    return res.status(400).json(error('Invalid date'));
+    return error(res, 'Invalid date', 400);
   }
 
   const userId = parseInt(req.body.user_id);
   const slot   = req.body.slot; // 'in_roster' | 'bench' | null (remove)
 
-  if (isNaN(userId)) return res.status(400).json(error('Invalid user_id'));
+  if (isNaN(userId)) return error(res, 'Invalid user_id', 400);
   if (slot !== null && !['in_roster', 'bench'].includes(slot)) {
-    return res.status(400).json(error('Invalid slot'));
+    return error(res, 'Invalid slot', 400);
   }
 
   const roster = await db.transaction(async (tx) => {
@@ -121,21 +121,21 @@ router.post('/date/:date/toggle-player', authenticateToken, authorizeRole('admin
   });
 
   const updated = await loadRosterForDate(db, date, true);
-  return res.json(success(updated));
+  return success(res, updated);
 });
 
 // ── POST /api/roster/date/:date/publish ──────────────────────────────────────
 // Toggle published state of the roster for a date.
-router.post('/date/:date/publish', authenticateToken, authorizeRole('admin', 'officer'), async (req, res) => {
+router.post('/date/:date/publish', authenticateToken, authorizeRole(['admin', 'officer']), async (req, res) => {
   const { db, user } = req;
   const { date } = req.params;
 
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
-    return res.status(400).json(error('Invalid date'));
+    return error(res, 'Invalid date', 400);
   }
 
   const roster = await db.get('SELECT id, published FROM raid_rosters WHERE raid_date = ? LIMIT 1', date);
-  if (!roster) return res.status(404).json(error('No roster for this date'));
+  if (!roster) return error(res, 'No roster for this date', 404);
 
   const newPublished = roster.published ? 0 : 1;
   await db.run(
@@ -145,17 +145,17 @@ router.post('/date/:date/publish', authenticateToken, authorizeRole('admin', 'of
 
   log.info(`Roster for ${date} ${newPublished ? 'published' : 'unpublished'} by ${user.character_name}`);
   const updated = await loadRosterForDate(db, date, true);
-  return res.json(success(updated));
+  return success(res, updated);
 });
 
 // ── POST /api/roster/date/:date/copy-previous ─────────────────────────────────
 // Copy the most recent past roster into this date (replaces existing players).
-router.post('/date/:date/copy-previous', authenticateToken, authorizeRole('admin', 'officer'), async (req, res) => {
+router.post('/date/:date/copy-previous', authenticateToken, authorizeRole(['admin', 'officer']), async (req, res) => {
   const { db, user } = req;
   const { date } = req.params;
 
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
-    return res.status(400).json(error('Invalid date'));
+    return error(res, 'Invalid date', 400);
   }
 
   // Find the most recent past roster
@@ -163,7 +163,7 @@ router.post('/date/:date/copy-previous', authenticateToken, authorizeRole('admin
     'SELECT id FROM raid_rosters WHERE raid_date < ? ORDER BY raid_date DESC LIMIT 1',
     date
   );
-  if (!source) return res.status(404).json(error('No previous roster found'));
+  if (!source) return error(res, 'No previous roster found', 404);
 
   const sourcePlayers = await db.all(
     'SELECT user_id, slot FROM roster_players WHERE roster_id = ?',
@@ -192,7 +192,7 @@ router.post('/date/:date/copy-previous', authenticateToken, authorizeRole('admin
 
   log.info(`Roster for ${date} copied from previous by ${user.character_name}`);
   const updated = await loadRosterForDate(db, date, true);
-  return res.json(success(updated));
+  return success(res, updated);
 });
 
 export default router;
