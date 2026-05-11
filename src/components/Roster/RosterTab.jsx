@@ -15,6 +15,7 @@ export default function RosterTab() {
   const [selectedDate, setSelectedDate] = useState(null)
   const [roster, setRoster]             = useState(null)
   const [available, setAvailable]       = useState([])
+  const [coaches, setCoaches]           = useState([])
   const [loading, setLoading]           = useState(false)
   const [saving, setSaving]             = useState(false)
   const [copying, setCopying]           = useState(false)
@@ -30,6 +31,12 @@ export default function RosterTab() {
       if (dates.length > 0) setSelectedDate(dates[0].date)
     }).catch(() => {})
   }, [])
+
+  // Load coaches once (admin/officer users)
+  useEffect(() => {
+    if (!isPrivileged) return
+    rosterAPI.getCoaches().then(res => setCoaches(res.data || [])).catch(() => {})
+  }, [isPrivileged])
 
   const load = useCallback(async (date) => {
     if (!date) return
@@ -56,6 +63,16 @@ export default function RosterTab() {
     setSaving(true)
     try {
       const res = await rosterAPI.togglePlayer(selectedDate, userId, slot)
+      setRoster(res.data)
+    } catch (_) {}
+    setSaving(false)
+  }
+
+  const handleSetCoach = async (userId) => {
+    if (!selectedDate || saving) return
+    setSaving(true)
+    try {
+      const res = await rosterAPI.setCoach(selectedDate, userId)
       setRoster(res.data)
     } catch (_) {}
     setSaving(false)
@@ -151,9 +168,11 @@ export default function RosterTab() {
             <RosterField
               roster={roster}
               available={available}
+              coaches={coaches}
               isPrivileged={isPrivileged}
               saving={saving}
               onTogglePlayer={togglePlayer}
+              onSetCoach={handleSetCoach}
             />
           ) : (
             <SurfaceCard className="p-10 text-center">

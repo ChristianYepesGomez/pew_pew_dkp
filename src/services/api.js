@@ -266,7 +266,9 @@ export const hallOfFameAPI = {
 export const rosterAPI = {
   getByDate: (date) => api.get('/roster', { params: { date } }),
   getAvailable: (date) => api.get('/roster/available', { params: { date } }),
+  getCoaches: () => api.get('/roster/coaches'),
   togglePlayer: (date, userId, slot) => api.post(`/roster/date/${date}/toggle-player`, { user_id: userId, slot }),
+  setCoach: (date, userId) => api.post(`/roster/date/${date}/coach`, { user_id: userId }),
   publish: (date) => api.post(`/roster/date/${date}/publish`),
   copyPrevious: (date) => api.post(`/roster/date/${date}/copy-previous`),
 }
