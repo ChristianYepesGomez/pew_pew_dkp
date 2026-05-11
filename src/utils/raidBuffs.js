@@ -7,7 +7,7 @@ export const RAID_BUFFS = [
     id: 'hunters_mark',
     name: "Marca del Cazador",
     effect: '+3% daño recibido',
-    icon: 'ability_hunter_marksmanship',   // marksmanship spec icon - stable CDN
+    icon: 'ability_hunter_markedfordeath',  // verified HTTP 200 - crosshair target icon
     classes: ['Hunter'],
     specs: null,
   },
@@ -39,7 +39,7 @@ export const RAID_BUFFS = [
     id: 'mark_of_the_wild',
     name: 'Marca del Bosque',
     effect: '+3% Versatilidad',
-    icon: 'spell_nature_regeneration',      // classic MotW icon - definitely exists
+    icon: 'spell_nature_regeneration',      // verified HTTP 200
     classes: ['Druid'],
     specs: null,
   },
@@ -55,7 +55,7 @@ export const RAID_BUFFS = [
     id: 'mystic_touch',
     name: 'Toque Místico',
     effect: '+5% daño físico a mobs',
-    icon: 'ability_monk_tigerpalm',         // Tiger Palm - stable monk CDN icon
+    icon: 'ability_monk_sparring',           // verified HTTP 200 - monk passive
     classes: ['Monk'],
     specs: null,
   },
@@ -63,7 +63,7 @@ export const RAID_BUFFS = [
     id: 'chaos_brand',
     name: 'Marca del Caos',
     effect: '+3% daño mágico a mobs',
-    icon: 'ability_demonhunter_chaosbrand', // Legion+, should exist
+    icon: 'ability_demonhunter_empowerwards', // verified HTTP 200
     classes: ['Demon Hunter'],
     specs: null,
   },
@@ -71,7 +71,7 @@ export const RAID_BUFFS = [
     id: 'skyfury',
     name: 'Skyfury',
     effect: '+2% Maestría',
-    icon: 'spell_nature_windfury',          // Windfury - ancestor of Skyfury, classic shaman
+    icon: 'achievement_raidprimalist_windelemental', // verified HTTP 200 - wind elemental
     classes: ['Shaman'],
     specs: null,
   },
@@ -79,7 +79,7 @@ export const RAID_BUFFS = [
     id: 'atrophic_poison',
     name: 'Veneno Atrófico',
     effect: '-3% daño del jefe',
-    icon: 'ability_rogue_poisons',          // classic, definitely exists
+    icon: 'ability_rogue_nervesofsteel',    // verified HTTP 200
     classes: ['Rogue'],
     specs: null,
   },
