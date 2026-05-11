@@ -145,8 +145,8 @@ router.post('/date/:date/create-boss-roster', authenticateToken, authorizeRole([
     if (existing) return success(res, await buildRoster(db, existing.id));
 
     const ins = boss_id !== null
-      ? await db.run('INSERT INTO raid_rosters (raid_date, boss_id, published, created_by) VALUES (?, ?, 0, ?)', date, boss_id, user.id)
-      : await db.run('INSERT INTO raid_rosters (raid_date, published, created_by) VALUES (?, 0, ?)', date, user.id);
+      ? await db.run('INSERT INTO raid_rosters (raid_date, boss_id, published, created_by) VALUES (?, ?, 0, ?)', date, boss_id, user.userId)
+      : await db.run('INSERT INTO raid_rosters (raid_date, published, created_by) VALUES (?, 0, ?)', date, user.userId);
     log.info(`Created roster ${ins.lastInsertRowid} for ${date} boss=${boss_id}`);
     return success(res, await buildRoster(db, ins.lastInsertRowid));
   } catch (e) {
@@ -286,7 +286,7 @@ router.post('/date/:date/toggle-player', authenticateToken, authorizeRole(['admi
 
   let r = await db.get('SELECT id FROM raid_rosters WHERE raid_date = ? AND boss_id IS NULL LIMIT 1', date);
   if (!r) {
-    const ins = await db.run('INSERT INTO raid_rosters (raid_date, published, created_by) VALUES (?, 0, ?)', date, user.id);
+    const ins = await db.run('INSERT INTO raid_rosters (raid_date, published, created_by) VALUES (?, 0, ?)', date, user.userId);
     r = { id: ins.lastInsertRowid };
   }
 
@@ -316,7 +316,7 @@ router.post('/date/:date/coach', authenticateToken, authorizeRole(['admin', 'off
   const coachId = req.body.user_id === null ? null : parseInt(req.body.user_id);
   let r = await db.get('SELECT id FROM raid_rosters WHERE raid_date = ? AND boss_id IS NULL LIMIT 1', date);
   if (!r) {
-    const ins = await db.run('INSERT INTO raid_rosters (raid_date, published, created_by) VALUES (?,0,?)', date, user.id);
+    const ins = await db.run('INSERT INTO raid_rosters (raid_date, published, created_by) VALUES (?,0,?)', date, user.userId);
     r = { id: ins.lastInsertRowid };
   }
   await db.run('UPDATE raid_rosters SET coach_user_id=?,updated_at=CURRENT_TIMESTAMP WHERE id=?', coachId, r.id);
