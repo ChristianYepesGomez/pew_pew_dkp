@@ -62,6 +62,9 @@ router.get('/available', authenticateToken, authorizeRole('admin', 'officer'), a
     return res.status(400).json(error('Invalid or missing date'));
   }
 
+  // Returns ALL active members with their signup status for the date.
+  // Admin can roster anyone regardless of whether they signed up.
+  // signup_status: confirmed/late = highlighted; tentative/null = can still be added; declined = shown dimmed.
   const players = await db.all(`
     SELECT u.id as user_id, u.character_name, u.character_class, u.raid_role, u.spec,
            ma.status as signup_status, ma.notes
@@ -69,8 +72,15 @@ router.get('/available', authenticateToken, authorizeRole('admin', 'officer'), a
     LEFT JOIN member_availability ma ON ma.user_id = u.id AND ma.raid_date = ?
     WHERE u.is_active = 1
       AND u.character_name IS NOT NULL
-      AND (ma.status IN ('confirmed', 'late') OR ma.status IS NOT NULL)
-    ORDER BY u.raid_role, u.character_name
+      AND TRIM(u.character_name) != ''
+    ORDER BY
+      CASE ma.status
+        WHEN 'confirmed' THEN 1
+        WHEN 'late'      THEN 2
+        WHEN 'tentative' THEN 3
+        ELSE 4
+      END,
+      u.raid_role, u.character_name
   `, date);
 
   return res.json(success(players));
