@@ -23,7 +23,6 @@ export default function RosterTab({ initialDate, onGoToCalendar }) {
   const [saving, setSaving]                 = useState(false)
   const [copying, setCopying]               = useState(false)
   const [bossPickerOpen, setBossPickerOpen] = useState(false)
-  const bossPickerRef = useRef(null)
 
   // Load raid days
   useEffect(() => {
@@ -45,14 +44,6 @@ export default function RosterTab({ initialDate, onGoToCalendar }) {
     rosterAPI.getCoaches().then(r => setCoaches(r.data || [])).catch(() => {})
     rosterAPI.getBosses().then(r => setAvailableBosses(r.data || [])).catch(() => {})
   }, [isPrivileged])
-
-  // Close boss picker on outside click
-  useEffect(() => {
-    if (!bossPickerOpen) return
-    const h = e => { if (!bossPickerRef.current?.contains(e.target)) setBossPickerOpen(false) }
-    document.addEventListener('mousedown', h)
-    return () => document.removeEventListener('mousedown', h)
-  }, [bossPickerOpen])
 
   const load = useCallback(async (date) => {
     if (!date) return
@@ -132,7 +123,6 @@ export default function RosterTab({ initialDate, onGoToCalendar }) {
   }
 
   const handleAddBoss = async (bossId) => {
-    setBossPickerOpen(false)
     if (!selectedDate || !bossId) return
     setSaving(true)
     try {
@@ -232,7 +222,7 @@ export default function RosterTab({ initialDate, onGoToCalendar }) {
 
             {/* Add boss button */}
             {isPrivileged && (
-              <div ref={bossPickerRef} className="relative">
+              <div className="relative">
                 <button
                   onClick={() => setBossPickerOpen(v => !v)}
                   className="flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-semibold border border-dashed border-[rgba(177,167,208,0.25)] text-[#b1a7d0] hover:text-[#ffeccd] hover:border-[rgba(177,167,208,0.45)] transition-all"
@@ -242,11 +232,21 @@ export default function RosterTab({ initialDate, onGoToCalendar }) {
                 </button>
 
                 {bossPickerOpen && (
-                  <BossPicker
-                    bosses={availableBosses}
-                    usedBossIds={usedBossIds}
-                    onSelect={handleAddBoss}
-                  />
+                  <>
+                    {/* Backdrop to close picker */}
+                    <div
+                      className="fixed inset-0 z-40"
+                      onClick={() => setBossPickerOpen(false)}
+                    />
+                    <BossPicker
+                      bosses={availableBosses}
+                      usedBossIds={usedBossIds}
+                      onSelect={(bossId) => {
+                        setBossPickerOpen(false)
+                        handleAddBoss(bossId)
+                      }}
+                    />
+                  </>
                 )}
               </div>
             )}
