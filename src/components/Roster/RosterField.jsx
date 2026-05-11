@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { Plus, X, MegaphoneSimple, ShieldStar, Heart, Crosshair } from '@phosphor-icons/react'
 import CLASS_COLORS from '../../utils/classColors'
+import StandsPanel from './StandsPanel'
 
 const SLOTS    = { Tank: 2, Healer: 5, DPS: 15 }
 const DPS_ROWS = [[0,1,2,3,4],[5,6,7,8,9],[10,11,12,13,14]]
@@ -10,7 +11,7 @@ const ROLE_COLOR = { Tank: '#f87171',  Healer: '#4ade80', DPS: '#69cff0' }
 const SIGNUP_DOT = { confirmed: '#4ade80', late: '#fb923c', tentative: '#facc15' }
 
 // ── Main component ────────────────────────────────────────────────────────────
-export default function RosterField({ roster, available, coaches, isPrivileged, saving, onTogglePlayer, onSetCoach }) {
+export default function RosterField({ roster, available, coaches, stands, isPrivileged, saving, onTogglePlayer, onSetCoach }) {
   const inRoster = roster?.players?.filter(p => p.slot === 'in_roster') || []
   const bench    = roster?.players?.filter(p => p.slot === 'bench')    || []
 
@@ -66,6 +67,9 @@ export default function RosterField({ roster, available, coaches, isPrivileged, 
           />
         </div>
       )}
+
+      {/* ── Stands — floats outside to the right ───────────────────────── */}
+      {stands?.length > 0 && <StandsPanel stands={stands} />}
 
       {/* ── Coach + Field row ───────────────────────────────────────────── */}
       <div className="flex gap-3 items-stretch">

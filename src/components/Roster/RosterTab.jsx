@@ -16,14 +16,14 @@ export default function RosterTab() {
   const [roster, setRoster]             = useState(null)
   const [available, setAvailable]       = useState([])
   const [coaches, setCoaches]           = useState([])
+  const [declined, setDeclined]         = useState([])  // for stands
   const [loading, setLoading]           = useState(false)
   const [saving, setSaving]             = useState(false)
   const [copying, setCopying]           = useState(false)
 
-  // Load raid days from calendar (2 weeks, only future dates)
   useEffect(() => {
     const today = new Date().toISOString().slice(0, 10)
-    calendarAPI.getMySignups(2).then((res) => {
+    calendarAPI.getMySignups(2).then(res => {
       const dates = (res.data.dates || [])
         .filter(d => d.date >= today)
         .map(d => ({ date: d.date, dayName: d.dayName, raidTime: d.raidTime || '21:00' }))
@@ -32,7 +32,6 @@ export default function RosterTab() {
     }).catch(() => {})
   }, [])
 
-  // Load coaches once (admin/officer users)
   useEffect(() => {
     if (!isPrivileged) return
     rosterAPI.getCoaches().then(res => setCoaches(res.data || [])).catch(() => {})
@@ -42,15 +41,20 @@ export default function RosterTab() {
     if (!date) return
     setLoading(true)
     try {
-      const [rosterRes, availRes] = await Promise.all([
+      const [rosterRes, availRes, summaryRes] = await Promise.all([
         rosterAPI.getByDate(date),
         isPrivileged ? rosterAPI.getAvailable(date) : Promise.resolve({ data: [] }),
+        calendarAPI.getSummary(date),
       ])
       setRoster(rosterRes.data)
       setAvailable(availRes.data || [])
+      // Declined players for the stands
+      const summary = summaryRes.data || {}
+      setDeclined(summary.declined || [])
     } catch (_) {
       setRoster(null)
       setAvailable([])
+      setDeclined([])
     } finally {
       setLoading(false)
     }
@@ -100,24 +104,37 @@ export default function RosterTab() {
     setCopying(false)
   }
 
-  const inRoster = roster?.players?.filter(p => p.slot === 'in_roster') || []
+  const inRoster    = roster?.players?.filter(p => p.slot === 'in_roster') || []
+  const bench       = roster?.players?.filter(p => p.slot === 'bench') || []
   const isPublished = !!roster?.published
+
+  // Stands: bench + declined (exclude anyone on the field)
+  const rosterFieldIds = new Set(inRoster.map(p => p.user_id))
+  const stands = [
+    ...bench,
+    ...declined
+      .filter(d => !rosterFieldIds.has(d.id))
+      .map(d => ({
+        user_id: d.id,
+        character_name: d.characterName,
+        character_class: d.characterClass,
+        spec: d.spec,
+        section: 'declined',
+      })),
+  ]
 
   return (
     <div className="flex flex-col gap-5">
 
-      {/* ── Date selector ─────────────────────────────────────────── */}
+      {/* Date selector */}
       <div className="flex items-center gap-2 flex-wrap">
         {raidDates.map(({ date, dayName, raidTime }) => (
-          <button
-            key={date}
-            onClick={() => setSelectedDate(date)}
+          <button key={date} onClick={() => setSelectedDate(date)}
             className={`flex flex-col items-center px-4 py-2 rounded-xl text-xs font-semibold transition-all leading-tight ${
               selectedDate === date
                 ? 'bg-[rgba(255,175,157,0.18)] text-[#ffaf9d] outline outline-1 outline-[rgba(255,175,157,0.35)]'
                 : 'text-[#b1a7d0] hover:text-[#ffeccd] hover:bg-[rgba(177,167,208,0.10)]'
-            }`}
-          >
+            }`}>
             <span className="font-bold">{dayName}</span>
             <span className="opacity-60">{date.slice(5)} · {raidTime}</span>
           </button>
@@ -132,8 +149,7 @@ export default function RosterTab() {
 
       {!loading && selectedDate && (
         <div className="flex flex-col gap-3">
-
-          {/* ── Toolbar ───────────────────────────────────────────── */}
+          {/* Toolbar */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               {isPublished
@@ -143,19 +159,14 @@ export default function RosterTab() {
               <span className="text-xs text-[#b1a7d0]">{inRoster.length} jugadores</span>
               {saving && <CircleNotch size={12} className="animate-spin text-[#b1a7d0]" />}
             </div>
-
             {isPrivileged && (
               <div className="flex items-center gap-2">
                 <Button variant="ghost" size="sm" radius="round" disabled={copying} onClick={handleCopyPrevious}>
                   {copying ? <CircleNotch size={12} className="animate-spin" /> : <Copy size={12} />}
                   Copiar anterior
                 </Button>
-                <Button
-                  variant={isPublished ? 'outline' : 'teal'}
-                  size="sm" radius="round"
-                  disabled={!roster || saving}
-                  onClick={handlePublish}
-                >
+                <Button variant={isPublished ? 'outline' : 'teal'} size="sm" radius="round"
+                  disabled={!roster || saving} onClick={handlePublish}>
                   {isPublished ? <EyeSlash size={12} /> : <Eye size={12} />}
                   {isPublished ? 'Despublicar' : 'Publicar'}
                 </Button>
@@ -163,12 +174,13 @@ export default function RosterTab() {
             )}
           </div>
 
-          {/* ── Field ─────────────────────────────────────────────── */}
+          {/* Field */}
           {(isPrivileged || roster) ? (
             <RosterField
               roster={roster}
               available={available}
               coaches={coaches}
+              stands={stands}
               isPrivileged={isPrivileged}
               saving={saving}
               onTogglePlayer={togglePlayer}
@@ -180,10 +192,7 @@ export default function RosterTab() {
             </SurfaceCard>
           )}
 
-          {/* ── Buff checker ──────────────────────────────────────── */}
-          {inRoster.length > 0 && (
-            <BuffChecker players={inRoster} />
-          )}
+          {inRoster.length > 0 && <BuffChecker players={inRoster} />}
         </div>
       )}
     </div>
