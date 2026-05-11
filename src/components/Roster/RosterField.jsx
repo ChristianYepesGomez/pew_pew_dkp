@@ -4,7 +4,8 @@ import CLASS_COLORS from '../../utils/classColors'
 import StandsPanel from './StandsPanel'
 import { checkBuffCoverage, getBuffIconUrl } from '../../utils/raidBuffs'
 
-const SLOTS    = { Tank: 2, Healer: 5, DPS: 15 }
+const SLOTS    = { Tank: 4, Healer: 5, DPS: 15 }
+const MIN      = { Tank: 2, Healer: 3, DPS: 13 }
 const DPS_ROWS = [[0,1,2,3,4],[5,6,7,8,9],[10,11,12,13,14]]
 
 const ROLE_ICON  = { Tank: ShieldStar, Healer: Heart, DPS: Crosshair }
@@ -213,11 +214,11 @@ function ListPlayer({ player, saving, onDragStart, onClick }) {
       draggable
       onDragStart={e => { setDragging(true); onDragStart(e) }}
       onDragEnd={() => setDragging(false)}
-      onClick={() => !saving && onClick()}
-      title={`Click para asignar · Arrastrar al campo`}
+      onClick={onClick}
+      title="Click para asignar · Arrastrar al campo"
       className={`flex items-center gap-1.5 px-2 py-1.5 rounded-lg mb-0.5 transition-all ${
         dragging ? 'opacity-30 scale-95' : 'hover:bg-[rgba(177,167,208,0.12)] cursor-grab active:cursor-grabbing'
-      } ${saving ? 'pointer-events-none opacity-50' : ''}`}
+      }`}
       style={{ borderLeft: `2px solid ${classColor}70` }}
     >
       {dot && <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: dot }} />}
@@ -269,7 +270,7 @@ function PlayerSlot({ player, role, available, isPrivileged, saving, onDragStart
           {/* Hover: remove */}
           {isPrivileged && (
             <div className="absolute inset-0 rounded-full bg-black/65 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-              <button onClick={() => !saving && onRemove(player.user_id)} title="Quitar del campo"
+              <button onClick={() => onRemove(player.user_id)} title="Quitar del campo"
                 className="w-7 h-7 rounded-full bg-red-500/20 hover:bg-red-500/40 flex items-center justify-center transition-all">
                 <X size={12} className="text-red-300" />
               </button>
@@ -310,7 +311,7 @@ function PlayerSlot({ player, role, available, isPrivileged, saving, onDragStart
         onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setDropOver(true) }}
         onDragLeave={() => setDropOver(false)}
         onDrop={e => { setDropOver(false); onDrop(e) }}
-        onClick={() => !saving && available.length > 0 && setOpen(v => !v)}
+        onClick={() => available.length > 0 && setOpen(v => !v)}
         title="Click para elegir jugador"
       >
         <Plus size={16} style={{ color: roleColor, opacity: dropOver ? 1 : 0.6 }} />

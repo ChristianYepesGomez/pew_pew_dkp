@@ -3,9 +3,9 @@ import CLASS_COLORS from '../../utils/classColors'
 // ── StandsPanel — right side bleachers ───────────────────────────────────────
 // Visual only: shows bench + declined players as stadium seats.
 export default function StandsPanel({ stands }) {
-  const bench    = stands.filter(p => p.slot === 'bench')
-  const declined = stands.filter(p => p.section === 'declined')
-  const total    = stands.length
+  const declined   = stands.filter(p => p.section === 'declined')
+  const noResponse = stands.filter(p => p.section === 'no_response')
+  const total      = stands.length
 
   if (total === 0) return null
 
@@ -35,14 +35,14 @@ export default function StandsPanel({ stands }) {
 
         <div className="flex-1 overflow-y-auto px-2 pb-3 flex flex-col gap-3">
 
-          {/* Bench section */}
-          {bench.length > 0 && (
-            <Section label="🪑 Banquillo" players={bench} accentColor="#facc15" />
-          )}
-
-          {/* Declined section */}
+          {/* Declined */}
           {declined.length > 0 && (
             <Section label="✗ No disponibles" players={declined} accentColor="#f87171" dimmed />
+          )}
+
+          {/* No response */}
+          {noResponse.length > 0 && (
+            <Section label="— Sin respuesta" players={noResponse} accentColor="#b1a7d0" dimmed />
           )}
         </div>
 

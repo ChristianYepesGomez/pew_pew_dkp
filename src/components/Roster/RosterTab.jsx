@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '../../hooks/useAuth'
 import { rosterAPI, calendarAPI } from '../../services/api'
 import RosterField from './RosterField'
-import { CircleNotch, Eye, EyeSlash, Copy } from '@phosphor-icons/react'
+import { CircleNotch, Copy } from '@phosphor-icons/react'
 import SurfaceCard from '../ui/SurfaceCard'
 import Button from '../ui/Button'
 
@@ -47,9 +47,12 @@ export default function RosterTab() {
       ])
       setRoster(rosterRes.data)
       setAvailable(availRes.data || [])
-      // Declined players for the stands
+      // Stands: declined + no-response, tagged with status
       const summary = summaryRes.data || {}
-      setDeclined(summary.declined || [])
+      setDeclined([
+        ...(summary.declined || []).map(d => ({ ...d, status: 'declined' })),
+        ...(summary.noResponse || []).map(d => ({ ...d, status: 'no_response' })),
+      ])
     } catch (_) {
       setRoster(null)
       setAvailable([])
@@ -62,33 +65,23 @@ export default function RosterTab() {
   useEffect(() => { load(selectedDate) }, [selectedDate, load])
 
   const togglePlayer = async (userId, slot) => {
-    if (!selectedDate || saving) return
+    if (!selectedDate) return
     setSaving(true)
     try {
       const res = await rosterAPI.togglePlayer(selectedDate, userId, slot)
       setRoster(res.data)
     } catch (_) {}
-    setSaving(false)
+    finally { setSaving(false) }
   }
 
   const handleSetCoach = async (userId) => {
-    if (!selectedDate || saving) return
+    if (!selectedDate) return
     setSaving(true)
     try {
       const res = await rosterAPI.setCoach(selectedDate, userId)
       setRoster(res.data)
     } catch (_) {}
-    setSaving(false)
-  }
-
-  const handlePublish = async () => {
-    if (!selectedDate || saving) return
-    setSaving(true)
-    try {
-      const res = await rosterAPI.publish(selectedDate)
-      setRoster(res.data)
-    } catch (_) {}
-    setSaving(false)
+    finally { setSaving(false) }
   }
 
   const handleCopyPrevious = async () => {
@@ -99,28 +92,24 @@ export default function RosterTab() {
       setRoster(res.data)
     } catch (e) {
       alert(e?.response?.data?.error || 'No hay roster anterior')
+    } finally {
+      setCopying(false)
     }
-    setCopying(false)
   }
 
-  const inRoster    = roster?.players?.filter(p => p.slot === 'in_roster') || []
-  const bench       = roster?.players?.filter(p => p.slot === 'bench') || []
-  const isPublished = !!roster?.published
+  const inRoster = roster?.players?.filter(p => p.slot === 'in_roster') || []
 
-  // Stands: bench + declined (exclude anyone on the field)
-  const rosterFieldIds = new Set(inRoster.map(p => p.user_id))
-  const stands = [
-    ...bench,
-    ...declined
-      .filter(d => !rosterFieldIds.has(d.id))
-      .map(d => ({
-        user_id: d.id,
-        character_name: d.characterName,
-        character_class: d.characterClass,
-        spec: d.spec,
-        section: 'declined',
-      })),
-  ]
+  // Stands: declined + no-response (not in field)
+  const inRosterIds = new Set(inRoster.map(p => p.user_id))
+  const stands = declined
+    .filter(d => !inRosterIds.has(d.id))
+    .map(d => ({
+      user_id: d.id,
+      character_name: d.characterName || d.character_name,
+      character_class: d.characterClass || d.character_class,
+      spec: d.spec,
+      section: d.status === 'declined' ? 'declined' : 'no_response',
+    }))
 
   return (
     <div className="flex flex-col gap-5">
@@ -151,25 +140,14 @@ export default function RosterTab() {
           {/* Toolbar */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              {isPublished
-                ? <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[rgba(74,222,128,0.12)] text-green-400 border border-green-500/20">✓ Publicado</span>
-                : <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[rgba(250,204,21,0.10)] text-yellow-400 border border-yellow-500/20">Borrador</span>
-              }
-              <span className="text-xs text-[#b1a7d0]">{inRoster.length} jugadores</span>
+              <span className="text-xs text-[#b1a7d0]">{inRoster.length} en campo</span>
               {saving && <CircleNotch size={12} className="animate-spin text-[#b1a7d0]" />}
             </div>
             {isPrivileged && (
-              <div className="flex items-center gap-2">
-                <Button variant="ghost" size="sm" radius="round" disabled={copying} onClick={handleCopyPrevious}>
-                  {copying ? <CircleNotch size={12} className="animate-spin" /> : <Copy size={12} />}
-                  Copiar anterior
-                </Button>
-                <Button variant={isPublished ? 'outline' : 'teal'} size="sm" radius="round"
-                  disabled={!roster || saving} onClick={handlePublish}>
-                  {isPublished ? <EyeSlash size={12} /> : <Eye size={12} />}
-                  {isPublished ? 'Despublicar' : 'Publicar'}
-                </Button>
-              </div>
+              <Button variant="ghost" size="sm" radius="round" disabled={copying} onClick={handleCopyPrevious}>
+                {copying ? <CircleNotch size={12} className="animate-spin" /> : <Copy size={12} />}
+                Copiar anterior
+              </Button>
             )}
           </div>
 
