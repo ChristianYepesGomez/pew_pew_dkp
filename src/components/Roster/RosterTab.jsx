@@ -2,7 +2,6 @@ import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '../../hooks/useAuth'
 import { rosterAPI, calendarAPI } from '../../services/api'
 import RosterField from './RosterField'
-import BuffChecker from './BuffChecker'
 import { CircleNotch, Eye, EyeSlash, Copy } from '@phosphor-icons/react'
 import SurfaceCard from '../ui/SurfaceCard'
 import Button from '../ui/Button'
@@ -192,7 +191,6 @@ export default function RosterTab() {
             </SurfaceCard>
           )}
 
-          {inRoster.length > 0 && <BuffChecker players={inRoster} />}
         </div>
       )}
     </div>
