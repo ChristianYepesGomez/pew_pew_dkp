@@ -23,7 +23,7 @@ async function loadRosterForDate(db, date) {
   if (!roster) return null;
 
   roster.players = await db.all(`
-    SELECT rp.slot, u.id as user_id, u.character_name, u.character_class, u.raid_role, u.spec
+    SELECT rp.slot, u.id as user_id, u.character_name, u.character_class, u.raid_role, u.spec, u.avatar
     FROM roster_players rp
     JOIN users u ON u.id = rp.user_id
     WHERE rp.roster_id = ?
@@ -58,7 +58,7 @@ router.get('/available', authenticateToken, authorizeRole(['admin', 'officer']),
   }
 
   const players = await db.all(`
-    SELECT u.id as user_id, u.character_name, u.character_class, u.raid_role, u.spec,
+    SELECT u.id as user_id, u.character_name, u.character_class, u.raid_role, u.spec, u.avatar,
            ma.status as signup_status
     FROM users u
     JOIN member_availability ma ON ma.user_id = u.id AND ma.raid_date = ?
