@@ -70,8 +70,10 @@ export default function RosterTab() {
     try {
       const res = await rosterAPI.togglePlayer(selectedDate, userId, slot)
       setRoster(res.data)
-    } catch (_) {}
-    finally { setSaving(false) }
+    } catch (_) {
+    } finally {
+      setSaving(false)
+    }
   }
 
   const handleSetCoach = async (userId) => {
@@ -80,8 +82,10 @@ export default function RosterTab() {
     try {
       const res = await rosterAPI.setCoach(selectedDate, userId)
       setRoster(res.data)
-    } catch (_) {}
-    finally { setSaving(false) }
+    } catch (_) {
+    } finally {
+      setSaving(false)
+    }
   }
 
   const handleCopyPrevious = async () => {

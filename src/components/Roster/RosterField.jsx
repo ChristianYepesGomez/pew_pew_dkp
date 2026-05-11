@@ -67,7 +67,7 @@ export default function RosterField({ roster, available, coaches, stands, isPriv
               e.dataTransfer.effectAllowed = 'move'
               e.dataTransfer.setData('text/plain', String(userId))
             }}
-            onClick={(player) => !saving && onTogglePlayer(player.user_id, 'in_roster')}
+            onClick={(player) => onTogglePlayer(player.user_id, 'in_roster')}
             onDropToBanquillo={handleDropToBanquillo}
           />
         </div>
@@ -454,10 +454,9 @@ function ZoneLabel({ color, label }) {
 
 // ── BenchRail ─────────────────────────────────────────────────────────────────
 // ── FieldBuffBar ──────────────────────────────────────────────────────────────
-// Buff icons: full opacity + subtle glow when covered, desaturated+dim when missing.
+// Shows ALL buff icons always. Full opacity when covered, greyed+dim when missing.
 function FieldBuffBar({ players }) {
-  if (!players || players.length === 0) return null
-  const coverage = checkBuffCoverage(players)
+  const coverage = checkBuffCoverage(players || [])
 
   return (
     <div className="flex items-center gap-1.5 flex-wrap px-1 py-2">
