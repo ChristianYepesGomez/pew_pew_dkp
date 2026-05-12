@@ -4,6 +4,7 @@ import { userLimiter } from '../lib/rateLimiters.js';
 import { createLogger } from '../lib/logger.js';
 import { success, error } from '../lib/response.js';
 import { ErrorCodes } from '../lib/errorCodes.js';
+import { audit, getIp } from '../lib/audit.js';
 
 const log = createLogger('Route:Characters');
 const router = Router();
@@ -85,6 +86,7 @@ router.post('/', userLimiter, authenticateToken, async (req, res) => {
     // Read actual is_primary from the character record for accurate response
     const charRecord = await req.db.get('SELECT is_primary FROM characters WHERE id = ?', charId);
 
+    await audit(req.db, { performedBy: userId, action: 'character_created', resourceType: 'character', resourceId: charId, details: { characterName, characterClass, isPrimary: !!charRecord?.is_primary }, ip: getIp(req) });
     return success(res, {
       id: charId,
       characterName,
@@ -165,7 +167,9 @@ router.delete('/:id', authenticateToken, async (req, res) => {
       return error(res, 'Cannot delete primary character. Set another as primary first.', 400, ErrorCodes.VALIDATION_ERROR);
     }
 
+    const charToDelete = await req.db.get('SELECT character_name, character_class FROM characters WHERE id = ?', id);
     await req.db.run('DELETE FROM characters WHERE id = ?', id);
+    await audit(req.db, { performedBy: userId, action: 'character_deleted', resourceType: 'character', resourceId: id, details: { characterName: charToDelete?.character_name, characterClass: charToDelete?.character_class }, ip: getIp(req) });
     return success(res, null, 'Character deleted');
   } catch (err) {
     log.error('Delete character error', err);
@@ -196,6 +200,7 @@ router.put('/:id/primary', authenticateToken, async (req, res) => {
       character.character_name, character.character_class, character.spec, character.raid_role, character.realm_slug, userId
     );
 
+    await audit(req.db, { performedBy: userId, action: 'primary_character_changed', resourceType: 'character', resourceId: id, details: { newPrimary: character.character_name, characterClass: character.character_class }, ip: getIp(req) });
     req.app.get('io').emit('member_updated', { memberId: userId });
     return success(res, null, 'Primary character updated');
   } catch (err) {

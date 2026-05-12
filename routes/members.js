@@ -10,6 +10,7 @@ import { ErrorCodes } from '../lib/errorCodes.js';
 import { fetchVaultData, isWoWAuditConfigured } from '../services/wowaudit.js';
 import { evaluateVault, isInGracePeriod } from '../lib/vaultRules.js';
 import { parsePagination } from '../lib/pagination.js';
+import { audit, getIp } from '../lib/audit.js';
 
 const log = createLogger('Route:Members');
 const router = Router();
@@ -86,8 +87,10 @@ router.put('/:id/role', adminLimiter, authenticateToken, authorizeRole(['admin']
       return error(res, 'Invalid role', 400, ErrorCodes.VALIDATION_ERROR);
     }
 
+    const current = await req.db.get('SELECT role FROM users WHERE id = ?', id);
     await req.db.run('UPDATE users SET role = ? WHERE id = ?', role, id);
 
+    await audit(req.db, { performedBy: req.user.userId, action: 'role_changed', resourceType: 'user', resourceId: id, details: { from: current?.role, to: role }, ip: getIp(req) });
     req.app.get('io').emit('member_updated', { memberId: id });
     return success(res, null, 'Role updated successfully');
   } catch (err) {
@@ -128,6 +131,7 @@ router.put('/:id/vault', adminLimiter, authenticateToken, authorizeRole(['admin'
         WHERE user_id = ?
       `, id);
 
+      await audit(req.db, { performedBy: req.user.userId, action: 'vault_toggled', resourceType: 'user', resourceId: id, details: { characterName: member.character_name, completed: false, week: currentWeek }, ip: getIp(req) });
       req.app.get('io').emit('member_updated', { memberId: id });
       return success(res, { completed: false }, 'Vault unmarked');
     } else {
@@ -140,6 +144,7 @@ router.put('/:id/vault', adminLimiter, authenticateToken, authorizeRole(['admin'
         WHERE user_id = ?
       `, currentWeek, id);
 
+      await audit(req.db, { performedBy: req.user.userId, action: 'vault_toggled', resourceType: 'user', resourceId: id, details: { characterName: member.character_name, completed: true, week: currentWeek }, ip: getIp(req) });
       req.app.get('io').emit('member_updated', { memberId: id });
       return success(res, { completed: true }, 'Vault marked as completed');
     }
@@ -723,6 +728,7 @@ router.delete('/:id', adminLimiter, authenticateToken, authorizeRole(['admin']),
          member.avatar || null, req.user.userId);
     }
 
+    await audit(req.db, { performedBy: req.user.userId, action: 'member_deactivated', resourceType: 'user', resourceId: id, details: { characterName: member.character_name, characterClass: member.character_class, lifetimeDkpGained: member.lifetime_gained || 0 }, ip: getIp(req) });
     const io = req.app.get('io');
     io.emit('member_removed', { memberId: id });
     io.emit('auction_ended');
@@ -763,6 +769,7 @@ router.post('/', adminLimiter, authenticateToken, authorizeRole(['admin', 'offic
       VALUES (?, ?, ?)
     `, result.lastInsertRowid, dkp, dkp);
 
+    await audit(req.db, { performedBy: req.user.userId, action: 'member_created', resourceType: 'user', resourceId: result.lastInsertRowid, details: { username, characterName, characterClass, role: validRole, initialDkp: dkp }, ip: getIp(req) });
     req.app.get('io').emit('member_updated', { memberId: result.lastInsertRowid });
 
     return success(res, {

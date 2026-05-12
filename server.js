@@ -56,6 +56,7 @@ import lootCouncilRoutes from './routes/lootCouncil.js';
 import epgpRoutes from './routes/epgp.js';
 import addonsRoutes from './routes/addons.js';
 import hallOfFameRoutes from './routes/hallOfFame.js';
+import auditLogRoutes from './routes/auditLog.js';
 
 const app = express();
 
@@ -162,6 +163,7 @@ app.use('/api/loot-council', lootCouncilRoutes);
 app.use('/api/epgp', epgpRoutes);
 app.use('/api/addons', addonsRoutes);
 app.use('/api/hall-of-fame', hallOfFameRoutes);
+app.use('/api/audit-log', auditLogRoutes);
 
 // ============================================
 // WEBSOCKET HANDLING

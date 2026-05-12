@@ -13,6 +13,7 @@ import pLimit from 'p-limit';
 import { success, error, paginated } from '../lib/response.js';
 import { ErrorCodes } from '../lib/errorCodes.js';
 import { parsePagination } from '../lib/pagination.js';
+import { audit, getIp } from '../lib/audit.js';
 
 const log = createLogger('Route:WarcraftLogs');
 const router = Router();
@@ -50,6 +51,7 @@ router.put('/config', adminLimiter, authenticateToken, authorizeRole(['admin']),
       return error(res, 'config_key and config_value required', 400, ErrorCodes.VALIDATION_ERROR);
     }
 
+    const old = await req.db.get('SELECT config_value FROM dkp_config WHERE config_key = ?', config_key);
     await req.db.run(`
       UPDATE dkp_config
       SET config_value = ?, updated_at = CURRENT_TIMESTAMP, updated_by = ?
@@ -59,6 +61,7 @@ router.put('/config', adminLimiter, authenticateToken, authorizeRole(['admin']),
     // Invalidate config cache so new values take effect immediately
     invalidateConfigCache();
 
+    await audit(req.db, { performedBy: req.user.userId, action: 'config_changed', resourceType: 'config', details: { key: config_key, from: old?.config_value, to: config_value }, ip: getIp(req) });
     return success(res, { config_key, config_value }, 'Configuration updated');
   } catch (err) {
     log.error('Update WCL config error', err);
@@ -509,6 +512,7 @@ router.post('/confirm', adminLimiter, authenticateToken, authorizeRole(['admin',
       })();
     }
 
+    await audit(req.db, { performedBy: req.user.userId, action: 'wcl_report_processed', resourceType: 'wcl_report', details: { reportCode, participantsCount: matchedParticipants.length, totalDkpAssigned: totalDKP }, ip: getIp(req) });
     return success(res, {
       report_code: reportCode,
       participants_count: matchedParticipants.length,
@@ -650,6 +654,7 @@ router.post('/revert/:reportCode', adminLimiter, authenticateToken, authorizeRol
       `, req.user.userId, report.id);
     });
 
+    await audit(req.db, { performedBy: req.user.userId, action: 'wcl_report_reverted', resourceType: 'wcl_report', details: { reportCode, reportTitle: report.report_title }, ip: getIp(req) });
     return success(res, { report_code: reportCode }, 'DKP reverted successfully');
   } catch (err) {
     log.error('WCL revert error', err);

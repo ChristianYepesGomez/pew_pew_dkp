@@ -693,6 +693,19 @@ export async function runMigrations(targetDb, connectionUrl = dbUrl) {
     UNIQUE(roster_id, boss_id)
   )`); } catch (_e) {}
 
+  // ── Audit Log — central record of all security-relevant actions ──
+  try { await targetDb.exec(`CREATE TABLE IF NOT EXISTS audit_log (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    performed_by INTEGER,
+    action TEXT NOT NULL,
+    resource_type TEXT,
+    resource_id INTEGER,
+    details TEXT,
+    ip_address TEXT,
+    created_at TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (performed_by) REFERENCES users(id) ON DELETE SET NULL
+  )`); } catch (_e) {}
+
   // ── Hall of Fame — preserves legacy of former guild members ──
   try { await targetDb.exec(`CREATE TABLE IF NOT EXISTS hall_of_fame (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -781,6 +794,11 @@ export async function runMigrations(targetDb, connectionUrl = dbUrl) {
     'CREATE INDEX IF NOT EXISTS idx_raid_rosters_date ON raid_rosters(raid_date)',
     'CREATE INDEX IF NOT EXISTS idx_roster_players_roster ON roster_players(roster_id)',
     'CREATE INDEX IF NOT EXISTS idx_roster_bosses_roster ON roster_bosses(roster_id)',
+    // Audit Log
+    'CREATE INDEX IF NOT EXISTS idx_audit_log_performed_by ON audit_log(performed_by)',
+    'CREATE INDEX IF NOT EXISTS idx_audit_log_action ON audit_log(action)',
+    'CREATE INDEX IF NOT EXISTS idx_audit_log_created_at ON audit_log(created_at)',
+    'CREATE INDEX IF NOT EXISTS idx_audit_log_resource ON audit_log(resource_type, resource_id)',
   ];
   for (const sql of indexes) {
     await targetDb.exec(sql);
@@ -963,6 +981,53 @@ export async function runMigrations(targetDb, connectionUrl = dbUrl) {
     await targetDb.run("UPDATE player_fight_performance SET wcl_class = 'DeathKnight' WHERE wcl_class = 'Death Knight'");
     await targetDb.run("UPDATE player_fight_performance SET wcl_class = 'DemonHunter' WHERE wcl_class = 'Demon Hunter'");
     log.info('Fight performance wcl_class backfill complete');
+  }
+
+  // Fix most_damage_taken boss records held by tank-spec players.
+  // These were recorded before the spec check was added to recordPlayerPerformance.
+  try {
+    const badRecords = await targetDb.all(`
+      SELECT br.id FROM boss_records br
+      JOIN player_fight_performance pfp
+        ON pfp.report_code = br.report_code AND pfp.fight_id = br.fight_id AND pfp.user_id = br.user_id
+      WHERE br.record_type = 'most_damage_taken'
+        AND pfp.wcl_spec IN ('Protection','Guardian','Blood','Brewmaster','Vengeance','Devourer')
+    `);
+    if (badRecords.length > 0) {
+      log.info(`Removing ${badRecords.length} tank-spec most_damage_taken boss record(s)`);
+      for (const { id } of badRecords) {
+        await targetDb.run('DELETE FROM boss_records WHERE id = ?', id);
+      }
+      // Re-populate with the correct (highest non-tank) record holder from player_fight_performance
+      await targetDb.run(`
+        INSERT OR IGNORE INTO boss_records (boss_id, difficulty, record_type, user_id, value, character_name, character_class, report_code, fight_id)
+        WITH ranked AS (
+          SELECT
+            pfp.boss_id, pfp.difficulty, pfp.user_id, pfp.damage_taken AS value,
+            COALESCE(pfp.character_name, u.character_name) AS character_name,
+            COALESCE(pfp.wcl_class, u.character_class) AS character_class,
+            pfp.report_code, pfp.fight_id,
+            ROW_NUMBER() OVER (PARTITION BY pfp.boss_id, pfp.difficulty ORDER BY pfp.damage_taken DESC) AS rn
+          FROM player_fight_performance pfp
+          JOIN users u ON pfp.user_id = u.id
+          LEFT JOIN characters c ON c.user_id = pfp.user_id AND LOWER(c.character_name) = LOWER(pfp.character_name)
+          WHERE pfp.is_kill = 1
+            AND pfp.damage_taken > 0
+            AND COALESCE(c.raid_role, u.raid_role) != 'Tank'
+            AND (pfp.wcl_spec IS NULL OR pfp.wcl_spec NOT IN ('Protection','Guardian','Blood','Brewmaster','Vengeance','Devourer'))
+        )
+        SELECT boss_id, difficulty, 'most_damage_taken', user_id, value, character_name, character_class, report_code, fight_id
+        FROM ranked
+        WHERE rn = 1
+          AND NOT EXISTS (
+            SELECT 1 FROM boss_records br
+            WHERE br.boss_id = ranked.boss_id AND br.difficulty = ranked.difficulty AND br.record_type = 'most_damage_taken'
+          )
+      `);
+      log.info('most_damage_taken boss records corrected');
+    }
+  } catch (e) {
+    log.warn('most_damage_taken migration warning: ' + e.message);
   }
 
   log.info('Database initialized successfully');

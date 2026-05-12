@@ -13,6 +13,7 @@ import { createLogger } from '../lib/logger.js';
 import { hashToken } from '../lib/encryption.js';
 import { success, error } from '../lib/response.js';
 import { ErrorCodes } from '../lib/errorCodes.js';
+import { audit, getIp } from '../lib/audit.js';
 
 const log = createLogger('Route:Auth');
 const router = Router();
@@ -32,11 +33,13 @@ router.post('/login', authLimiter, async (req, res) => {
     `, username, username);
 
     if (!user) {
+      await audit(req.db, { performedBy: null, action: 'login_failed', resourceType: 'user', details: { username }, ip: getIp(req) });
       return error(res, 'Invalid credentials', 401, ErrorCodes.UNAUTHORIZED);
     }
 
     const validPassword = await bcrypt.compare(password, user.password);
     if (!validPassword) {
+      await audit(req.db, { performedBy: null, action: 'login_failed', resourceType: 'user', resourceId: user.id, details: { username }, ip: getIp(req) });
       return error(res, 'Invalid credentials', 401, ErrorCodes.UNAUTHORIZED);
     }
 
@@ -48,6 +51,8 @@ router.post('/login', authLimiter, async (req, res) => {
       'INSERT INTO refresh_tokens (user_id, token, token_family, expires_at) VALUES (?, ?, ?, ?)',
       user.id, hashToken(refreshToken), crypto.randomUUID(), new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
     );
+
+    await audit(req.db, { performedBy: user.id, action: 'login', resourceType: 'user', resourceId: user.id, details: { username: user.username }, ip: getIp(req) });
 
     return success(res, {
       token: accessToken,
@@ -121,6 +126,7 @@ router.post('/register', authLimiter, async (req, res) => {
     `, userId);
 
     log.info(`New user registered: ${username}`);
+    await audit(req.db, { performedBy: userId, action: 'register', resourceType: 'user', resourceId: userId, details: { username: username.trim() }, ip: getIp(req) });
 
     // Issue tokens on registration so user is immediately logged in
     const newUser = { id: userId, username: username.trim(), role: 'raider' };
@@ -262,6 +268,7 @@ router.post('/change-password', authenticateToken, async (req, res) => {
     const hashedPassword = await bcrypt.hash(newPassword, 10);
     await req.db.run('UPDATE users SET password = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', hashedPassword, userId);
 
+    await audit(req.db, { performedBy: userId, action: 'password_changed', resourceType: 'user', resourceId: userId, ip: getIp(req) });
     return success(res, null, 'Password updated successfully');
 
   } catch (err) {
@@ -291,6 +298,7 @@ router.post('/admin-reset-password', authenticateToken, authorizeRole(['admin', 
     const hashedPassword = await bcrypt.hash(newPassword, 10);
     await req.db.run('UPDATE users SET password = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', hashedPassword, userId);
 
+    await audit(req.db, { performedBy: req.user.userId, action: 'admin_password_reset', resourceType: 'user', resourceId: userId, details: { targetCharacter: user.character_name }, ip: getIp(req) });
     return success(res, null, `Password reset successfully for ${user.character_name}`);
 
   } catch (err) {
@@ -483,6 +491,7 @@ router.post('/logout', authenticateToken, async (req, res) => {
         await req.db.run('DELETE FROM refresh_tokens WHERE token_family = ?', stored.token_family);
       }
     }
+    await audit(req.db, { performedBy: req.user.userId, action: 'logout', resourceType: 'user', resourceId: req.user.userId, ip: getIp(req) });
     return success(res, null, 'Logged out successfully');
   } catch (err) {
     log.error('Logout failed', err);

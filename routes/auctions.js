@@ -8,6 +8,7 @@ import { ErrorCodes } from '../lib/errorCodes.js';
 import { canBid, deriveArmorType, getEligibleClasses } from '../lib/classRestrictions.js';
 import { validateParams } from '../middleware/validate.js';
 import { parsePagination } from '../lib/pagination.js';
+import { audit, getIp } from '../lib/audit.js';
 
 const log = createLogger('Route:Auctions');
 const router = Router();
@@ -179,6 +180,7 @@ router.post('/', adminLimiter, authenticateToken, authorizeRole(['admin', 'offic
     // Schedule auto-close using centralized function (enables anti-snipe rescheduling)
     scheduleAuctionClose(req.db, auction.id, new Date(endsAt).getTime());
 
+    await audit(req.db, { performedBy: req.user.userId, action: 'auction_created', resourceType: 'auction', resourceId: auction.id, details: { itemName, itemRarity: itemRarity || 'epic', minBid: minBid || 0, durationMinutes: duration }, ip: getIp(req) });
     req.app.get('io').emit('auction_started', auction);
     return success(res, auction, null, 201);
   } catch (err) {
@@ -492,6 +494,7 @@ router.post('/:auctionId/end', adminLimiter, authenticateToken, authorizeRole(['
     };
 
     cancelAuctionClose(auctionId); // Prevent duplicate emit from scheduled auto-close
+    await audit(req.db, { performedBy: req.user.userId, action: 'auction_ended_manual', resourceType: 'auction', resourceId: auctionId, details: { itemName: auction.item_name, winner: result.winner?.characterName || null, winningBid: result.winner?.amount || null, wasTie: result.wasTie }, ip: getIp(req) });
     req.app.get('io').emit('auction_ended', eventData);
     return success(res, eventData);
   } catch (err) {
@@ -513,7 +516,9 @@ router.post('/:auctionId/cancel', adminLimiter, authenticateToken, authorizeRole
       return error(res, 'Active auction not found', 404, ErrorCodes.AUCTION_CLOSED);
     }
 
+    const cancelledAuction = await req.db.get('SELECT item_name FROM auctions WHERE id = ?', auctionId);
     cancelAuctionClose(auctionId);
+    await audit(req.db, { performedBy: req.user.userId, action: 'auction_cancelled', resourceType: 'auction', resourceId: auctionId, details: { itemName: cancelledAuction?.item_name }, ip: getIp(req) });
     req.app.get('io').emit('auction_cancelled', { auctionId });
     return success(res, null, 'Auction cancelled');
   } catch (err) {

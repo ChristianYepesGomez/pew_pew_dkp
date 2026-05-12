@@ -437,6 +437,9 @@ router.get('/guild-leaderboards', authenticateToken, async (req, res) => {
   try {
     const MIN_FIGHTS = 1;
     const af = activeFilter(req);
+    // mythicOnly defaults to true — pass mythicOnly=false to include all difficulties
+    const mf = req.query.mythicOnly !== 'false' ? " AND pfp.difficulty = 'Mythic'" : '';
+    const mfd = req.query.mythicOnly !== 'false' ? " AND pbd.difficulty = 'Mythic'" : '';
     const CURRENT_BOSS_CTE = `WITH current_boss_ids AS (
       SELECT wb.id FROM wcl_bosses wb JOIN wcl_zones wz ON wb.zone_id = wz.id WHERE wz.is_current = 1
     )`;
@@ -449,7 +452,7 @@ router.get('/guild-leaderboards', authenticateToken, async (req, res) => {
           SELECT user_id, character_name, COUNT(*) as fights,
                  SUM(healing_done) as total_healing, SUM(damage_done) as total_damage
           FROM player_fight_performance
-          WHERE dps > 0 AND is_kill = 1 AND boss_id IN (SELECT id FROM current_boss_ids)
+          WHERE dps > 0 AND is_kill = 1 AND boss_id IN (SELECT id FROM current_boss_ids)${mf}
           GROUP BY user_id, character_name
           HAVING COUNT(*) >= ? AND SUM(healing_done) < SUM(damage_done)
         ),
@@ -458,7 +461,7 @@ router.get('/guild-leaderboards', authenticateToken, async (req, res) => {
                  ROW_NUMBER() OVER (PARTITION BY pfp.user_id, pfp.character_name ORDER BY pfp.dps DESC) as rn
           FROM player_fight_performance pfp
           JOIN player_totals pt ON pfp.user_id = pt.user_id AND pfp.character_name = pt.character_name
-          WHERE pfp.dps > 0 AND pfp.is_kill = 1 AND pfp.boss_id IN (SELECT id FROM current_boss_ids)
+          WHERE pfp.dps > 0 AND pfp.is_kill = 1 AND pfp.boss_id IN (SELECT id FROM current_boss_ids)${mf}
         )
         SELECT COALESCE(b.character_name, u.character_name) as character_name,
                COALESCE(pfp_class.wcl_class, u.character_class) as character_class,
@@ -479,7 +482,7 @@ router.get('/guild-leaderboards', authenticateToken, async (req, res) => {
           SELECT user_id, character_name, COUNT(*) as fights,
                  SUM(healing_done) as total_healing, SUM(damage_done) as total_damage
           FROM player_fight_performance
-          WHERE hps > 0 AND is_kill = 1 AND boss_id IN (SELECT id FROM current_boss_ids)
+          WHERE hps > 0 AND is_kill = 1 AND boss_id IN (SELECT id FROM current_boss_ids)${mf}
           GROUP BY user_id, character_name
           HAVING COUNT(*) >= ? AND SUM(healing_done) > SUM(damage_done)
         ),
@@ -488,7 +491,7 @@ router.get('/guild-leaderboards', authenticateToken, async (req, res) => {
                  ROW_NUMBER() OVER (PARTITION BY pfp.user_id, pfp.character_name ORDER BY pfp.hps DESC) as rn
           FROM player_fight_performance pfp
           JOIN player_totals pt ON pfp.user_id = pt.user_id AND pfp.character_name = pt.character_name
-          WHERE pfp.hps > 0 AND pfp.is_kill = 1 AND pfp.boss_id IN (SELECT id FROM current_boss_ids)
+          WHERE pfp.hps > 0 AND pfp.is_kill = 1 AND pfp.boss_id IN (SELECT id FROM current_boss_ids)${mf}
         )
         SELECT COALESCE(b.character_name, u.character_name) as character_name,
                COALESCE(pfp_class.wcl_class, u.character_class) as character_class,
@@ -511,7 +514,7 @@ router.get('/guild-leaderboards', authenticateToken, async (req, res) => {
         JOIN users u ON pbd.user_id = u.id
         JOIN wcl_bosses wb ON pbd.boss_id = wb.id
         JOIN wcl_zones wz ON wb.zone_id = wz.id
-        WHERE wz.is_current = 1${af}
+        WHERE wz.is_current = 1${mfd}${af}
         GROUP BY pbd.user_id
         HAVING SUM(pbd.total_fights) >= ?
         ORDER BY value DESC LIMIT 10
@@ -530,10 +533,9 @@ router.get('/guild-leaderboards', authenticateToken, async (req, res) => {
           AND pfp.is_kill = 1
           AND COALESCE(c.raid_role, u.raid_role) != 'Tank'
           AND (pfp.wcl_spec IS NULL OR pfp.wcl_spec NOT IN ('Protection','Guardian','Blood','Brewmaster','Vengeance','Devourer'))
-          AND pfp.boss_id IN (SELECT wb.id FROM wcl_bosses wb JOIN wcl_zones wz ON wb.zone_id = wz.id WHERE wz.is_current = 1)${af}
+          AND pfp.boss_id IN (SELECT wb.id FROM wcl_bosses wb JOIN wcl_zones wz ON wb.zone_id = wz.id WHERE wz.is_current = 1)${mf}${af}
         GROUP BY pfp.user_id, pfp.character_name
         HAVING COUNT(*) >= ?
-          AND SUM(pfp.healing_done) < SUM(pfp.damage_done)
         ORDER BY value DESC LIMIT 10
       `, MIN_FIGHTS),
 
@@ -552,9 +554,8 @@ router.get('/guild-leaderboards', authenticateToken, async (req, res) => {
           AND (pfp.wcl_spec IS NULL OR pfp.wcl_spec NOT IN ('Protection','Guardian','Blood','Brewmaster','Vengeance','Devourer'))
           AND pfp.boss_id IN (SELECT wb.id FROM wcl_bosses wb JOIN wcl_zones wz ON wb.zone_id = wz.id WHERE wz.is_current = 1)
           AND pfp.fight_date >= date('now', '-' || ((CAST(strftime('%w', 'now') AS INTEGER) + 6) % 7) || ' days')
-          AND pfp.fight_date <= date('now', '-' || ((CAST(strftime('%w', 'now') AS INTEGER) + 6) % 7) || ' days', '+3 days')${af}
+          AND pfp.fight_date <= date('now', '-' || ((CAST(strftime('%w', 'now') AS INTEGER) + 6) % 7) || ' days', '+3 days')${mf}${af}
         GROUP BY pfp.user_id, pfp.character_name
-        HAVING SUM(pfp.healing_done) < SUM(pfp.damage_done)
         ORDER BY value DESC LIMIT 10
       `),
 
@@ -566,7 +567,7 @@ router.get('/guild-leaderboards', authenticateToken, async (req, res) => {
                COUNT(*) as fights
         FROM player_fight_performance pfp
         JOIN users u ON pfp.user_id = u.id
-        WHERE pfp.boss_id IN (SELECT wb.id FROM wcl_bosses wb JOIN wcl_zones wz ON wb.zone_id = wz.id WHERE wz.is_current = 1)${af}
+        WHERE pfp.boss_id IN (SELECT wb.id FROM wcl_bosses wb JOIN wcl_zones wz ON wb.zone_id = wz.id WHERE wz.is_current = 1)${mf}${af}
         GROUP BY pfp.user_id, pfp.character_name
         HAVING COUNT(*) >= ? AND SUM(pfp.health_potions) > 0
         ORDER BY value DESC LIMIT 10
@@ -580,7 +581,7 @@ router.get('/guild-leaderboards', authenticateToken, async (req, res) => {
                COUNT(*) as fights
         FROM player_fight_performance pfp
         JOIN users u ON pfp.user_id = u.id
-        WHERE pfp.boss_id IN (SELECT wb.id FROM wcl_bosses wb JOIN wcl_zones wz ON wb.zone_id = wz.id WHERE wz.is_current = 1)${af}
+        WHERE pfp.boss_id IN (SELECT wb.id FROM wcl_bosses wb JOIN wcl_zones wz ON wb.zone_id = wz.id WHERE wz.is_current = 1)${mf}${af}
         GROUP BY pfp.user_id, pfp.character_name
         HAVING COUNT(*) >= ? AND SUM(pfp.interrupts) > 0
         ORDER BY value DESC LIMIT 10
@@ -593,7 +594,7 @@ router.get('/guild-leaderboards', authenticateToken, async (req, res) => {
                SUM(pfp.dispels) as value
         FROM player_fight_performance pfp
         JOIN users u ON pfp.user_id = u.id
-        WHERE pfp.boss_id IN (SELECT wb.id FROM wcl_bosses wb JOIN wcl_zones wz ON wb.zone_id = wz.id WHERE wz.is_current = 1)${af}
+        WHERE pfp.boss_id IN (SELECT wb.id FROM wcl_bosses wb JOIN wcl_zones wz ON wb.zone_id = wz.id WHERE wz.is_current = 1)${mf}${af}
         GROUP BY pfp.user_id, pfp.character_name
         HAVING COUNT(*) >= ? AND SUM(pfp.dispels) > 0
         ORDER BY value DESC LIMIT 10
@@ -606,7 +607,7 @@ router.get('/guild-leaderboards', authenticateToken, async (req, res) => {
                SUM(pfp.combat_potions) as value
         FROM player_fight_performance pfp
         JOIN users u ON pfp.user_id = u.id
-        WHERE pfp.boss_id IN (SELECT wb.id FROM wcl_bosses wb JOIN wcl_zones wz ON wb.zone_id = wz.id WHERE wz.is_current = 1)${af}
+        WHERE pfp.boss_id IN (SELECT wb.id FROM wcl_bosses wb JOIN wcl_zones wz ON wb.zone_id = wz.id WHERE wz.is_current = 1)${mf}${af}
         GROUP BY pfp.user_id, pfp.character_name
         HAVING COUNT(*) >= ? AND SUM(pfp.combat_potions) > 0
         ORDER BY value DESC LIMIT 10
@@ -619,7 +620,7 @@ router.get('/guild-leaderboards', authenticateToken, async (req, res) => {
                SUM(pfp.healthstones) as value
         FROM player_fight_performance pfp
         JOIN users u ON pfp.user_id = u.id
-        WHERE pfp.boss_id IN (SELECT wb.id FROM wcl_bosses wb JOIN wcl_zones wz ON wb.zone_id = wz.id WHERE wz.is_current = 1)${af}
+        WHERE pfp.boss_id IN (SELECT wb.id FROM wcl_bosses wb JOIN wcl_zones wz ON wb.zone_id = wz.id WHERE wz.is_current = 1)${mf}${af}
         GROUP BY pfp.user_id, pfp.character_name
         HAVING COUNT(*) >= ? AND SUM(pfp.healthstones) > 0
         ORDER BY value DESC LIMIT 10
@@ -632,7 +633,7 @@ router.get('/guild-leaderboards', authenticateToken, async (req, res) => {
                SUM(pfp.mana_potions) as value
         FROM player_fight_performance pfp
         JOIN users u ON pfp.user_id = u.id
-        WHERE pfp.boss_id IN (SELECT wb.id FROM wcl_bosses wb JOIN wcl_zones wz ON wb.zone_id = wz.id WHERE wz.is_current = 1)${af}
+        WHERE pfp.boss_id IN (SELECT wb.id FROM wcl_bosses wb JOIN wcl_zones wz ON wb.zone_id = wz.id WHERE wz.is_current = 1)${mf}${af}
         GROUP BY pfp.user_id, pfp.character_name
         HAVING COUNT(*) >= ? AND SUM(pfp.mana_potions) > 0
         ORDER BY value DESC LIMIT 10
@@ -645,7 +646,7 @@ router.get('/guild-leaderboards', authenticateToken, async (req, res) => {
                COUNT(DISTINCT pfp.fight_date) as value
         FROM player_fight_performance pfp
         JOIN users u ON pfp.user_id = u.id
-        WHERE pfp.boss_id IN (SELECT wb.id FROM wcl_bosses wb JOIN wcl_zones wz ON wb.zone_id = wz.id WHERE wz.is_current = 1)${af}
+        WHERE pfp.boss_id IN (SELECT wb.id FROM wcl_bosses wb JOIN wcl_zones wz ON wb.zone_id = wz.id WHERE wz.is_current = 1)${mf}${af}
         GROUP BY pfp.user_id, pfp.character_name
         HAVING COUNT(DISTINCT pfp.fight_date) >= ?
         ORDER BY value DESC LIMIT 10

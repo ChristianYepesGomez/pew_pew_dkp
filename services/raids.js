@@ -391,8 +391,16 @@ export async function getBossDetails(db, bossId, requestedDifficulty = null) {
       FROM boss_records br
       LEFT JOIN characters c ON c.user_id = br.user_id AND LOWER(c.character_name) = LOWER(br.character_name)
       LEFT JOIN users u ON br.user_id = u.id
+      LEFT JOIN player_fight_performance pfp ON pfp.report_code = br.report_code
+        AND pfp.fight_id = br.fight_id AND pfp.user_id = br.user_id
       WHERE br.boss_id = ? AND br.difficulty = ?
-        AND NOT (br.record_type = 'most_damage_taken' AND COALESCE(c.raid_role, u.raid_role) = 'Tank')
+        AND NOT (
+          br.record_type = 'most_damage_taken'
+          AND (
+            COALESCE(c.raid_role, u.raid_role) = 'Tank'
+            OR pfp.wcl_spec IN ('Protection','Guardian','Blood','Brewmaster','Vengeance','Devourer')
+          )
+        )
     `, bossId, selectedDifficulty),
   ]);
 
@@ -649,13 +657,19 @@ export async function recordPlayerPerformance(db, bossId, difficulty, fightStats
       damageTaken: entry.total,
     });
 
-    // Check for record — exclude tanks by character role, not user's current main role
+    // Check for record — exclude tanks by character role and by the spec they used in this fight
     const charRole = await db.get(
       'SELECT raid_role FROM characters WHERE user_id = ? AND LOWER(character_name) = LOWER(?) LIMIT 1',
       userId, entry.name
     );
     const effectiveRole = charRole?.raid_role || (await db.get('SELECT raid_role FROM users WHERE id = ?', userId))?.raid_role;
-    if (effectiveRole !== 'Tank') {
+    // Also check pfp spec (available on re-imports where extended data was already processed)
+    const pfpSpec = (await db.get(
+      'SELECT wcl_spec FROM player_fight_performance WHERE report_code = ? AND fight_id = ? AND user_id = ? LIMIT 1',
+      reportCode, fightId, userId
+    ))?.wcl_spec;
+    const TANK_SPECS = new Set(['Protection', 'Guardian', 'Blood', 'Brewmaster', 'Vengeance', 'Devourer']);
+    if (effectiveRole !== 'Tank' && !TANK_SPECS.has(pfpSpec)) {
       await checkAndUpdateRecord(db, bossId, normalizedDifficulty, 'most_damage_taken', userId, entry.total, entry.name, reportCode, fightId, participantUserMap);
     }
   }
