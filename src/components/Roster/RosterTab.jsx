@@ -222,33 +222,13 @@ export default function RosterTab({ initialDate, onGoToCalendar }) {
 
             {/* Add boss button */}
             {isPrivileged && (
-              <div className="relative">
-                <button
-                  onClick={() => setBossPickerOpen(v => !v)}
-                  className="flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-semibold border border-dashed border-[rgba(177,167,208,0.25)] text-[#b1a7d0] hover:text-[#ffeccd] hover:border-[rgba(177,167,208,0.45)] transition-all"
-                >
-                  <Plus size={11} weight="bold" />
-                  Boss
-                </button>
-
-                {bossPickerOpen && (
-                  <>
-                    {/* Backdrop to close picker */}
-                    <div
-                      className="fixed inset-0 z-40"
-                      onClick={() => setBossPickerOpen(false)}
-                    />
-                    <BossPicker
-                      bosses={availableBosses}
-                      usedBossIds={usedBossIds}
-                      onSelect={(bossId) => {
-                        setBossPickerOpen(false)
-                        handleAddBoss(bossId)
-                      }}
-                    />
-                  </>
-                )}
-              </div>
+              <BossPickerControl
+                open={bossPickerOpen}
+                onOpenChange={setBossPickerOpen}
+                bosses={availableBosses}
+                usedBossIds={usedBossIds}
+                onSelect={handleAddBoss}
+              />
             )}
 
             {/* Spacer + actions */}
@@ -299,6 +279,60 @@ export default function RosterTab({ initialDate, onGoToCalendar }) {
   )
 }
 
+// ── BossPickerControl ─────────────────────────────────────────────────────────
+// Self-contained picker: trigger button + dropdown + outside-click detection.
+// We deliberately AVOID a fullscreen backdrop div — that pattern interacts
+// badly with stacking contexts created by ancestors using `transform`
+// (e.g. `animate-fade-in` on the dashboard wrapper), and can swallow the
+// click before the boss button receives it. Instead we register a global
+// pointerdown listener that closes the picker only when the click target
+// is outside the container ref.
+function BossPickerControl({ open, onOpenChange, bosses, usedBossIds, onSelect }) {
+  const wrapperRef = useRef(null)
+
+  useEffect(() => {
+    if (!open) return
+    const handlePointerDown = (e) => {
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target)) {
+        onOpenChange(false)
+      }
+    }
+    // Use mousedown so the dropdown closes BEFORE the click event fires on
+    // any underlying element — but our boss-button onClick still fires
+    // because the click target is INSIDE the wrapper.
+    document.addEventListener('mousedown', handlePointerDown)
+    return () => document.removeEventListener('mousedown', handlePointerDown)
+  }, [open, onOpenChange])
+
+  const handleSelect = (bossId) => {
+    onOpenChange(false)
+    // Coerce to Number so a string id from the DOM doesn't fail the
+    // `!bossId` guard in handleAddBoss (and 0 is never a valid boss id).
+    onSelect(Number(bossId))
+  }
+
+  return (
+    <div ref={wrapperRef} className="relative">
+      <button
+        type="button"
+        onClick={() => onOpenChange(!open)}
+        className="flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-semibold border border-dashed border-[rgba(177,167,208,0.25)] text-[#b1a7d0] hover:text-[#ffeccd] hover:border-[rgba(177,167,208,0.45)] transition-all"
+      >
+        <Plus size={11} weight="bold" />
+        Boss
+      </button>
+
+      {open && (
+        <BossPicker
+          bosses={bosses}
+          usedBossIds={usedBossIds}
+          onSelect={handleSelect}
+        />
+      )}
+    </div>
+  )
+}
+
 // ── BossPicker ─────────────────────────────────────────────────────────────────
 function BossPicker({ bosses, usedBossIds, onSelect }) {
   const [filter, setFilter] = useState('')
@@ -326,8 +360,12 @@ function BossPicker({ bosses, usedBossIds, onSelect }) {
               {zoneName}
             </div>
             {bsses.map(b => (
-              <button key={b.id} onClick={() => onSelect(b.id)}
-                className="w-full flex items-center gap-2 px-3 py-2 hover:bg-[rgba(177,167,208,0.08)] text-left">
+              <button
+                key={b.id}
+                type="button"
+                onClick={(e) => { e.stopPropagation(); onSelect(b.id) }}
+                className="w-full flex items-center gap-2 px-3 py-2 hover:bg-[rgba(177,167,208,0.08)] text-left"
+              >
                 <Skull size={11} className="text-[#b1a7d0] opacity-50" />
                 <span className="text-sm text-[#ffeccd]">{b.name}</span>
               </button>
