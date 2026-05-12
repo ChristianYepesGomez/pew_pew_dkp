@@ -200,7 +200,7 @@ export const analyticsAPI = {
   getSuperlatives: (includeInactive) => api.get(`/analytics/superlatives${includeInactive ? '?includeInactive=true' : ''}`),
   getMyPerformance: () => api.get('/analytics/my-performance'),
   getGuildInsights: (includeInactive) => api.get(`/analytics/guild-insights${includeInactive ? '?includeInactive=true' : ''}`),
-  getGuildLeaderboards: (includeInactive) => api.get(`/analytics/guild-leaderboards${includeInactive ? '?includeInactive=true' : ''}`),
+  getGuildLeaderboards: (includeInactive, mythicOnly = true) => { const params = new URLSearchParams(); if (includeInactive) params.set('includeInactive', 'true'); if (!mythicOnly) params.set('mythicOnly', 'false'); const qs = params.toString(); return api.get(`/analytics/guild-leaderboards${qs ? `?${qs}` : ''}`) },
   getMyPerformanceDetail: (weeks = 8, bossId, difficulty) => {
     const params = new URLSearchParams({ weeks });
     if (bossId) params.append('bossId', bossId);

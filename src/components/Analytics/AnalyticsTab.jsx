@@ -110,13 +110,14 @@ const AnalyticsTab = () => {
   const { t } = useLanguage()
   const [openModal, setOpenModal] = useState(null)
   const [includeInactive, setIncludeInactive] = useState(false)
+  const [mythicOnly, setMythicOnly] = useState(true)
 
   const { data, isLoading } = useQuery({
-    queryKey: ['analytics', 'tab', includeInactive],
+    queryKey: ['analytics', 'tab', includeInactive, mythicOnly],
     queryFn: async () => {
       const [perfRes, lbRes] = await Promise.all([
         analyticsAPI.getMyPerformance().catch(() => ({ data: null })),
-        analyticsAPI.getGuildLeaderboards(includeInactive).catch(() => ({ data: null })),
+        analyticsAPI.getGuildLeaderboards(includeInactive, mythicOnly).catch(() => ({ data: null })),
       ])
       return { myPerformance: perfRes.data, leaderboards: lbRes.data }
     },
@@ -247,15 +248,26 @@ const AnalyticsTab = () => {
             <UsersThree size={20} className="text-coral" />
             {t('analytics_leaderboards')}
           </h3>
-          <label className="flex items-center gap-2 cursor-pointer select-none">
-            <input
-              type="checkbox"
-              checked={includeInactive}
-              onChange={(e) => setIncludeInactive(e.target.checked)}
-              className="w-4 h-4 rounded border-lavender/30 bg-indigo accent-coral cursor-pointer"
-            />
-            <span className="text-xs text-lavender">{t('stats_include_legends')}</span>
-          </label>
+          <div className="flex items-center gap-4">
+            <label className="flex items-center gap-2 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={mythicOnly}
+                onChange={(e) => setMythicOnly(e.target.checked)}
+                className="w-4 h-4 rounded border-lavender/30 bg-indigo accent-orange-400 cursor-pointer"
+              />
+              <span className="text-xs font-medium text-orange-400">{t('stats_only_mythic')}</span>
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={includeInactive}
+                onChange={(e) => setIncludeInactive(e.target.checked)}
+                className="w-4 h-4 rounded border-lavender/30 bg-indigo accent-coral cursor-pointer"
+              />
+              <span className="text-xs text-lavender">{t('stats_include_legends')}</span>
+            </label>
+          </div>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {LEADERBOARDS.map(({ key, title, Icon, color, format, valueColorFn, badge, showBuffs }) => (
