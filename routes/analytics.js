@@ -439,6 +439,7 @@ router.get('/guild-leaderboards', authenticateToken, async (req, res) => {
     const af = activeFilter(req);
     // mythicOnly defaults to true — pass mythicOnly=false to include all difficulties
     const mf = req.query.mythicOnly !== 'false' ? " AND pfp.difficulty = 'Mythic'" : '';
+    const mfr = req.query.mythicOnly !== 'false' ? " AND difficulty = 'Mythic'" : '';   // CTEs without pfp alias
     const mfd = req.query.mythicOnly !== 'false' ? " AND pbd.difficulty = 'Mythic'" : '';
     const CURRENT_BOSS_CTE = `WITH current_boss_ids AS (
       SELECT wb.id FROM wcl_bosses wb JOIN wcl_zones wz ON wb.zone_id = wz.id WHERE wz.is_current = 1
@@ -452,7 +453,7 @@ router.get('/guild-leaderboards', authenticateToken, async (req, res) => {
           SELECT user_id, character_name, COUNT(*) as fights,
                  SUM(healing_done) as total_healing, SUM(damage_done) as total_damage
           FROM player_fight_performance
-          WHERE dps > 0 AND is_kill = 1 AND boss_id IN (SELECT id FROM current_boss_ids)${mf}
+          WHERE dps > 0 AND is_kill = 1 AND boss_id IN (SELECT id FROM current_boss_ids)${mfr}
           GROUP BY user_id, character_name
           HAVING COUNT(*) >= ? AND SUM(healing_done) < SUM(damage_done)
         ),
@@ -482,7 +483,7 @@ router.get('/guild-leaderboards', authenticateToken, async (req, res) => {
           SELECT user_id, character_name, COUNT(*) as fights,
                  SUM(healing_done) as total_healing, SUM(damage_done) as total_damage
           FROM player_fight_performance
-          WHERE hps > 0 AND is_kill = 1 AND boss_id IN (SELECT id FROM current_boss_ids)${mf}
+          WHERE hps > 0 AND is_kill = 1 AND boss_id IN (SELECT id FROM current_boss_ids)${mfr}
           GROUP BY user_id, character_name
           HAVING COUNT(*) >= ? AND SUM(healing_done) > SUM(damage_done)
         ),
@@ -656,6 +657,7 @@ router.get('/guild-leaderboards', authenticateToken, async (req, res) => {
     return success(res, { topDps, topHps, topDeaths, topDamageTaken, topDamageTakenWeekly, topPotions, topInterrupts, topDispels, topCombatPotions, topHealthstones, topManaPotions, topAttendance });
   } catch (err) {
     log.error('Guild leaderboards error', err);
+    log.error('Guild leaderboards detail:', err?.message, err?.stack?.slice(0, 300));
     return error(res, 'Failed to get guild leaderboards', 500, ErrorCodes.INTERNAL_ERROR);
   }
 });
