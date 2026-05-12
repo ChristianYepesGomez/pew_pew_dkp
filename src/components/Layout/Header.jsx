@@ -294,7 +294,7 @@ const Header = ({ tabs = [], activeTab, onTabChange }) => {
           )}
         </div>
 
-        <div className="flex flex-col items-center gap-1.5">
+        <div className="flex flex-col items-center gap-3">
           <GuildRankingBanner />
           <IconContext.Provider value={{ weight: 'regular' }}>
           <div className="flex flex-wrap items-center justify-center gap-3">

@@ -610,9 +610,10 @@ export const translations = {
     hof_show_less: 'Ver menos',
     // Banner de ranking WCL del guild
     ranking_label: 'Rankings',
-    ranking_world: 'Mundial',
-    ranking_realm: 'Reino',
-    ranking_speed: 'Velocidad',
+    ranking_world: 'World',
+    ranking_realm: 'Realm',
+    ranking_speed_world: 'Speed World',
+    ranking_speed_realm: 'Speed Realm',
   },
   en: {
     guild_name: 'Pew Pew Kittens with Guns',
@@ -1227,6 +1228,7 @@ export const translations = {
     ranking_label: 'Rankings',
     ranking_world: 'World',
     ranking_realm: 'Realm',
-    ranking_speed: 'Speed',
+    ranking_speed_world: 'Speed World',
+    ranking_speed_realm: 'Speed Realm',
   },
 }
