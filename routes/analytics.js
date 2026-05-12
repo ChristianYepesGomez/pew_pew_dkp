@@ -525,22 +525,41 @@ router.get('/guild-leaderboards', authenticateToken, async (req, res) => {
         ORDER BY value DESC LIMIT 10
       `, MIN_FIGHTS),
 
-      // Top 10 Damage Taken (single encounter max, per character role)
+      // Top 10 Damage Taken (single encounter max, per character role) — with WCL link to that fight
       req.db.all(`
-        SELECT COALESCE(pfp.character_name, u.character_name) as character_name,
-               COALESCE(pfp.wcl_class, u.character_class) as character_class,
-               MAX(pfp.damage_taken) as value,
-               COUNT(*) as fights
-        FROM player_fight_performance pfp
-        JOIN users u ON pfp.user_id = u.id
-        LEFT JOIN characters c ON c.user_id = pfp.user_id AND LOWER(c.character_name) = LOWER(pfp.character_name)
-        WHERE pfp.damage_taken > 0
-          AND pfp.is_kill = 1
-          AND COALESCE(c.raid_role, u.raid_role) != 'Tank'
-          AND (pfp.wcl_spec IS NULL OR pfp.wcl_spec NOT IN ('Protection','Guardian','Blood','Brewmaster','Vengeance','Devourer'))
-          AND pfp.boss_id IN (SELECT wb.id FROM wcl_bosses wb JOIN wcl_zones wz ON wb.zone_id = wz.id WHERE wz.is_current = 1)${mf}${af}
-        GROUP BY pfp.user_id, pfp.character_name
-        HAVING COUNT(*) >= ?
+        ${CURRENT_BOSS_CTE},
+        eligible_fights AS (
+          SELECT pfp.user_id, pfp.character_name, pfp.damage_taken, pfp.report_code, pfp.fight_id, pfp.wcl_class
+          FROM player_fight_performance pfp
+          JOIN users u ON pfp.user_id = u.id
+          LEFT JOIN characters c ON c.user_id = pfp.user_id AND LOWER(c.character_name) = LOWER(pfp.character_name)
+          WHERE pfp.damage_taken > 0
+            AND pfp.is_kill = 1
+            AND COALESCE(c.raid_role, u.raid_role) != 'Tank'
+            AND (pfp.wcl_spec IS NULL OR pfp.wcl_spec NOT IN ('Protection','Guardian','Blood','Brewmaster','Vengeance','Devourer'))
+            AND pfp.boss_id IN (SELECT id FROM current_boss_ids)${mf}
+        ),
+        player_totals AS (
+          SELECT user_id, character_name, COUNT(*) as fights
+          FROM eligible_fights
+          GROUP BY user_id, character_name
+          HAVING COUNT(*) >= ?
+        ),
+        best AS (
+          SELECT ef.user_id, ef.character_name, ef.damage_taken, ef.report_code, ef.fight_id, ef.wcl_class,
+                 ROW_NUMBER() OVER (PARTITION BY ef.user_id, ef.character_name ORDER BY ef.damage_taken DESC) as rn
+          FROM eligible_fights ef
+          JOIN player_totals pt ON ef.user_id = pt.user_id AND ef.character_name = pt.character_name
+        )
+        SELECT COALESCE(b.character_name, u.character_name) as character_name,
+               COALESCE(b.wcl_class, u.character_class) as character_class,
+               b.damage_taken as value, pt.fights,
+               b.report_code, b.fight_id
+        FROM best b
+        JOIN users u ON b.user_id = u.id
+        JOIN player_totals pt ON b.user_id = pt.user_id AND b.character_name = pt.character_name
+        WHERE b.rn = 1${af}
+        GROUP BY b.user_id, b.character_name
         ORDER BY value DESC LIMIT 10
       `, MIN_FIGHTS),
 
