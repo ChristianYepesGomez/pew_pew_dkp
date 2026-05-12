@@ -465,11 +465,13 @@ export async function getFightDeaths(reportCode, fightIds) {
       return [];
     }
 
-    // Table entries have: id, name, total (deaths)
-    return table.entries.map(entry => ({
-      name: entry.name,
-      deaths: entry.total || 0,
-    }));
+    // WCL Deaths table: each entry = one death event, `total` is overkill (not death count).
+    // Count entries per player name to get the actual number of deaths.
+    const counts = {};
+    for (const entry of table.entries) {
+      if (entry.name) counts[entry.name] = (counts[entry.name] || 0) + 1;
+    }
+    return Object.entries(counts).map(([name, deaths]) => ({ name, deaths }));
   } catch (error) {
     log.error('Error fetching deaths table', error);
     return [];
@@ -635,10 +637,16 @@ export async function getFightStats(reportCode, fightIds) {
         name: e.name,
         total: e.total || 0,
       })),
-      deaths: parseTable(report.deaths).map(e => ({
-        name: e.name,
-        total: e.total || 0,
-      })),
+      // WCL Deaths table: each entry = one death event, `total` is overkill damage (always 0 or irrelevant).
+      // Count entries per player name to get the actual death count.
+      deaths: (() => {
+        const entries = parseTable(report.deaths);
+        const counts = {};
+        for (const e of entries) {
+          if (e.name) counts[e.name] = (counts[e.name] || 0) + 1;
+        }
+        return Object.entries(counts).map(([name, total]) => ({ name, total }));
+      })(),
     };
 
     wclCache.set(cacheKey, result);

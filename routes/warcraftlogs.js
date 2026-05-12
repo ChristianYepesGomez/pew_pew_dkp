@@ -3,7 +3,8 @@ import { authenticateToken, authorizeRole } from '../middleware/auth.js';
 import { adminLimiter, userLimiter } from '../lib/rateLimiters.js';
 import { invalidateConfigCache } from '../lib/helpers.js';
 import { getLootSystem, getLootSystemType } from '../lib/lootSystems/index.js';
-import { processWarcraftLog, isConfigured as isWCLConfigured, getGuildReports, getFightStats, getFightStatsWithDeathEvents, getExtendedFightStats, getFightRankings, getConsumableCasts, getGuildRankings, syncPercentilesForReport, syncAllPercentiles } from '../services/warcraftlogs.js';
+import { processWarcraftLog, isConfigured as isWCLConfigured, getGuildReports, getFightStats, getFightStatsWithDeathEvents, getExtendedFightStats, getFightRankings, getConsumableCasts, getFightDeaths, getGuildRankings, syncPercentilesForReport, syncAllPercentiles } from '../services/warcraftlogs.js';
+import { syncGuildReports } from '../services/autoSync.js';
 import { processExtendedFightData } from '../services/performanceAnalysis.js';
 import { seedRaidData, processFightStats, recordPlayerDeaths, recordPlayerPerformance } from '../services/raids.js';
 import { processReportPopularity } from '../services/itemPopularity.js';
@@ -1180,225 +1181,87 @@ router.get('/sync-guild-reports', authenticateToken, authorizeRole(['admin', 'of
 // Sync (auto-import boss stats for) all unprocessed guild reports within a lookback window
 router.post('/sync-guild-reports', adminLimiter, authenticateToken, authorizeRole(['admin']), async (req, res) => {
   try {
-    log.info('Syncing guild reports...');
-
-    // Get guild ID from dkp_config
-    const guildConfig = await req.db.get("SELECT config_value FROM dkp_config WHERE config_key = 'wcl_guild_id'");
-    if (!guildConfig?.config_value) {
-      return error(res, 'WCL guild ID not configured. Set wcl_guild_id in admin config.', 400, ErrorCodes.VALIDATION_ERROR);
-    }
-    const guildId = parseInt(guildConfig.config_value, 10);
-    if (Number.isNaN(guildId) || guildId <= 0) {
-      return error(res, 'WCL guild ID not configured. Set wcl_guild_id in admin config.', 400, ErrorCodes.VALIDATION_ERROR);
-    }
-
-    // Validate lookbackDays from body: default 60, max 90
+    log.info('Manual sync-guild-reports triggered');
     const rawDays = parseInt(req.body.lookbackDays, 10);
     const lookbackDays = Number.isNaN(rawDays) || rawDays <= 0 ? 60 : Math.min(rawDays, 90);
 
-    const endTime = Date.now();
-    const startTime = endTime - lookbackDays * 24 * 60 * 60 * 1000;
+    const io = req.app.get('io');
+    const result = await syncGuildReports(req.db, { lookbackDays, io });
+    return success(res, result);
+  } catch (err) {
+    log.error('Sync guild reports error', err);
+    return error(res, err.message || 'Failed to sync guild reports', err.message?.includes('not configured') ? 400 : 500, ErrorCodes.INTERNAL_ERROR);
+  }
+});
 
-    const rawReports = await getGuildReports(guildId, startTime, endTime);
+// Recalculate deaths for all kill fights from WCL — fixes incorrect zero-death data
+router.post('/recalculate-deaths', adminLimiter, authenticateToken, authorizeRole(['admin']), async (req, res) => {
+  try {
+    log.info('Starting death recalculation from WCL...');
 
-    // Filter to unprocessed reports only
-    const toImport = [];
-    for (const r of rawReports) {
-      const imported = await req.db.get(
-        'SELECT 1 FROM boss_stats_processed WHERE report_code = ? LIMIT 1',
-        r.code
-      );
-      if (!imported) toImport.push(r);
-    }
-
-    log.info(`Guild sync: found ${rawReports.length} reports, ${toImport.length} unprocessed`);
-
-    // Build participant map once — reused for all reports
+    // Build participant map
     const allUsers = await req.db.all('SELECT id, character_name FROM users WHERE is_active = 1');
     const allCharacters = await req.db.all('SELECT user_id, character_name FROM characters');
     const participantUserMap = {};
-    for (const u of allUsers) {
-      if (u.character_name) participantUserMap[u.character_name.toLowerCase()] = u.id;
-    }
-    for (const c of allCharacters) {
-      if (c.character_name) participantUserMap[c.character_name.toLowerCase()] = c.user_id;
-    }
+    for (const u of allUsers) { if (u.character_name) participantUserMap[u.character_name.toLowerCase()] = u.id; }
+    for (const c of allCharacters) { if (c.character_name) participantUserMap[c.character_name.toLowerCase()] = c.user_id; }
 
-    // Ensure boss data is seeded before processing
-    await seedRaidData(req.db);
+    // Get all kills to re-process
+    const killFights = await req.db.all(`
+      SELECT bkl.boss_id, bkl.report_code, bkl.fight_id, bkl.difficulty
+      FROM boss_kill_log bkl
+      ORDER BY bkl.kill_date ASC
+    `);
+    log.info(`Recalculating deaths for ${killFights.length} kill fights...`);
 
-    const syncLimit = pLimit(2);
-    const io = req.app.get('io');
+    const killLimit = pLimit(3);
+    let updated = 0;
+    let errors = 0;
 
-    // Process each unprocessed report — synchronous main stats, background extended stats
-    const results = await Promise.all(
-      toImport.map(report => syncLimit(async () => {
-        const resultEntry = { code: report.code, title: report.title, processed: 0, skipped: 0, error: null };
-        try {
-          // Fetch full report data from WCL
-          const reportData = await processWarcraftLog(report.code);
-
-          let statsProcessed = 0;
-          let statsSkipped = 0;
-          const processedBosses = [];
-          const fightLimit = pLimit(3);
-
-          // Process each fight for boss statistics
-          const fightResults = await Promise.all(
-            reportData.fights.map(fight => fightLimit(async () => {
-              const result = await processFightStats(req.db, reportData.code, fight, fight.difficulty);
-              return { fight, result };
-            }))
+    // Step 1: For each kill fight, re-fetch deaths and update player_fight_performance.deaths
+    await Promise.all(killFights.map(fight => killLimit(async () => {
+      try {
+        const deaths = await getFightDeaths(fight.report_code, [fight.fight_id]);
+        for (const d of deaths) {
+          if (d.deaths <= 0) continue;
+          await req.db.run(
+            `UPDATE player_fight_performance
+             SET deaths = ?
+             WHERE report_code = ? AND fight_id = ? AND LOWER(character_name) = LOWER(?)`,
+            d.deaths, fight.report_code, fight.fight_id, d.name
           );
-
-          for (const { fight, result } of fightResults) {
-            if (result.skipped) {
-              statsSkipped++;
-            } else {
-              statsProcessed++;
-            }
-            const bossId = result.bossId
-              || (await req.db.get('SELECT id FROM wcl_bosses WHERE wcl_encounter_id = ?', fight.encounterID))?.id;
-            if (bossId) {
-              processedBosses.push({
-                bossId,
-                fightId: fight.id,
-                name: fight.name,
-                difficulty: fight.difficulty,
-                kill: result.skipped ? fight.kill : result.kill,
-                duration: fight.duration,
-                startTime: fight.startTime,
-                endTime: fight.endTime,
-              });
-            }
-          }
-
-          resultEntry.processed = statsProcessed;
-          resultEntry.skipped = statsSkipped;
-
-          log.info(`Sync: ${reportData.code} — ${statsProcessed} processed, ${statsSkipped} skipped`);
-
-          // Run extended stats (deaths, performance, consumables, percentiles) in background
-          if (processedBosses.length > 0 && Object.keys(participantUserMap).length > 0) {
-            (async () => {
-              try {
-                const reportDate = new Date(reportData.startTime).toISOString().split('T')[0];
-                const extLimit = pLimit(3);
-
-                // Deaths + basic performance
-                await Promise.all(
-                  processedBosses.map(bossInfo => extLimit(async () => {
-                    try {
-                      const alreadyHasData = await req.db.get(
-                        'SELECT 1 FROM player_fight_performance WHERE report_code = ? AND fight_id = ? LIMIT 1',
-                        reportData.code, bossInfo.fightId
-                      );
-                      if (alreadyHasData) return;
-
-                      const fightStats = await getFightStatsWithDeathEvents(reportData.code, {
-                        id: bossInfo.fightId,
-                        startTime: bossInfo.startTime,
-                        endTime: bossInfo.endTime,
-                        kill: bossInfo.kill,
-                      });
-
-                      if (fightStats.deaths && fightStats.deaths.length > 0) {
-                        const deathsFormatted = fightStats.deaths.map(d => ({ name: d.name, deaths: d.total }));
-                        await recordPlayerDeaths(req.db, bossInfo.bossId, bossInfo.difficulty, deathsFormatted, participantUserMap);
-                      }
-
-                      if (fightStats.damage.length > 0 || fightStats.healing.length > 0) {
-                        await recordPlayerPerformance(
-                          req.db,
-                          bossInfo.bossId,
-                          bossInfo.difficulty,
-                          fightStats,
-                          participantUserMap,
-                          reportData.code,
-                          bossInfo.fightId
-                        );
-                      }
-                    } catch (perfErr) {
-                      log.warn(`Sync deaths/perf failed for fight ${bossInfo.fightId} in ${reportData.code}: ${perfErr.message}`);
-                    }
-                  }))
-                );
-
-                // Extended fight data (consumables, interrupts, dispels, DPS/HPS, rankings)
-                const extResults = await Promise.all(
-                  processedBosses.map(bossInfo => extLimit(async () => {
-                    try {
-                      const fetches = [
-                        getExtendedFightStats(reportData.code, [bossInfo.fightId]),
-                        getFightStats(reportData.code, [bossInfo.fightId]),
-                        getConsumableCasts(reportData.code, [bossInfo.fightId]),
-                      ];
-                      if (bossInfo.kill) {
-                        fetches.push(getFightRankings(reportData.code, [bossInfo.fightId]));
-                      }
-                      const [extStats, basicStats, consumableCasts, rankingsData] = await Promise.all(fetches);
-                      return await processExtendedFightData(
-                        req.db, reportData.code, bossInfo, basicStats, extStats, participantUserMap, reportDate,
-                        rankingsData || { dps: {}, hps: {} }, consumableCasts
-                      );
-                    } catch (extErr) {
-                      log.warn(`Sync extended stats failed for fight ${bossInfo.fightId} in ${reportData.code}: ${extErr.message}`);
-                      return 0;
-                    }
-                  }))
-                );
-                const extendedRecorded = extResults.reduce((sum, c) => sum + c, 0);
-
-                // Sync percentiles
-                try {
-                  await syncPercentilesForReport(req.db, reportData.code);
-                } catch (syncErr) {
-                  log.warn(`Sync percentiles failed for ${reportData.code}: ${syncErr.message}`);
-                }
-
-                // Item popularity
-                const killFights = processedBosses.filter(b => b.kill);
-                if (killFights.length > 0) {
-                  try {
-                    await processReportPopularity(req.db, reportData.code, killFights);
-                  } catch (popErr) {
-                    log.warn(`Sync item popularity failed for ${reportData.code}: ${popErr.message}`);
-                  }
-                }
-
-                if (extendedRecorded > 0) {
-                  log.info(`Sync extended: ${extendedRecorded} player-fight records from ${reportData.code}`);
-                }
-                io?.emit('stats_processing_complete', {
-                  reportCode: reportData.code,
-                  bossStatsProcessed: statsProcessed,
-                  extendedRecords: extendedRecorded,
-                  totalFights: processedBosses.length,
-                  status: 'success',
-                });
-              } catch (bgErr) {
-                log.error(`Sync background processing failed for ${reportData.code}: ${bgErr.message}`);
-                io?.emit('stats_processing_complete', { reportCode: reportData.code, status: 'error', message: bgErr.message });
-              }
-            })();
-          }
-
-        } catch (reportErr) {
-          log.error(`Sync failed for report ${report.code}: ${reportErr.message}`);
-          resultEntry.error = reportErr.message;
         }
-        return resultEntry;
-      }))
-    );
+        updated++;
+      } catch (err) {
+        log.warn(`Death recalc failed for ${fight.report_code}/${fight.fight_id}: ${err.message}`);
+        errors++;
+      }
+    })));
 
-    return success(res, {
-      found: rawReports.length,
-      toImport: toImport.length,
-      results,
-    });
+    // Step 2: Reset player_boss_deaths.total_deaths = 0 (was wrong due to the bug)
+    await req.db.run('UPDATE player_boss_deaths SET total_deaths = 0');
+
+    // Step 3: Re-aggregate total_deaths from player_fight_performance (kills only)
+    // libsql doesn't support UPDATE...FROM, so we do it row by row
+    const deathRows = await req.db.all(`
+      SELECT pfp.user_id, pfp.boss_id, pfp.difficulty, SUM(pfp.deaths) as total_deaths
+      FROM player_fight_performance pfp
+      WHERE pfp.is_kill = 1 AND pfp.deaths > 0
+      GROUP BY pfp.user_id, pfp.boss_id, pfp.difficulty
+    `);
+    for (const row of deathRows) {
+      await req.db.run(
+        `UPDATE player_boss_deaths SET total_deaths = ?, updated_at = CURRENT_TIMESTAMP
+         WHERE user_id = ? AND boss_id = ? AND difficulty = ?`,
+        row.total_deaths, row.user_id, row.boss_id, row.difficulty
+      );
+    }
+
+    log.info(`Death recalculation complete: ${updated} fights processed, ${errors} errors, ${deathRows.length} player-boss records updated`);
+    return success(res, { killFights: killFights.length, updated, errors, playerBossRecordsUpdated: deathRows.length });
   } catch (err) {
-    log.error('Sync guild reports error', err);
-    return error(res, 'Failed to sync guild reports', 500, ErrorCodes.INTERNAL_ERROR);
+    log.error('Death recalculation error', err);
+    return error(res, 'Failed to recalculate deaths', 500, ErrorCodes.INTERNAL_ERROR);
   }
 });
 

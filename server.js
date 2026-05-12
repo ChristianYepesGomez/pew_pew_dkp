@@ -27,6 +27,8 @@ import { getAllDungeonItems } from './services/dungeonItems.js';
 import { scheduleExistingAuctions, startAuctionSweep, setIO as setAuctionIO } from './lib/auctionScheduler.js';
 import { JWT_SECRET, FRONTEND_URL, DISCORD_TOKEN } from './lib/config.js';
 import { startBot } from './bot/index.js';
+import cron from 'node-cron';
+import { syncGuildReports } from './services/autoSync.js';
 
 const log = createLogger('Server');
 
@@ -282,6 +284,20 @@ async function startServer() {
   if (DISCORD_TOKEN) {
     startBot(io).catch(err => log.error('Discord bot failed to start', err));
   }
+
+  // Auto-sync WCL guild reports at 23:15 Spain time on raid nights (Mon=1, Wed=3, Thu=4)
+  // Runs after all logs are expected to be uploaded to WarcraftLogs.
+  cron.schedule('15 23 * * 1,3,4', async () => {
+    log.info('[AutoSync] Scheduled guild report sync starting...');
+    try {
+      // Each guild gets its own tenant DB — for now we use the single default DB
+      await syncGuildReports(db, { lookbackDays: 7, io });
+      log.info('[AutoSync] Scheduled guild report sync complete');
+    } catch (err) {
+      log.error('[AutoSync] Scheduled sync failed', err);
+    }
+  }, { timezone: 'Europe/Madrid' });
+  log.info('Scheduled WCL guild sync: 23:15 Europe/Madrid on Mon/Wed/Thu');
 
   server.listen(PORT, () => {
     log.info('DKP Backend Server started', { port: PORT, build: 'v4.0 Multi-Tenant' });
