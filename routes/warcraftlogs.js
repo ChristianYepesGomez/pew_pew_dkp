@@ -1,9 +1,9 @@
 import { Router } from 'express';
 import { authenticateToken, authorizeRole } from '../middleware/auth.js';
-import { adminLimiter } from '../lib/rateLimiters.js';
+import { adminLimiter, userLimiter } from '../lib/rateLimiters.js';
 import { invalidateConfigCache } from '../lib/helpers.js';
 import { getLootSystem, getLootSystemType } from '../lib/lootSystems/index.js';
-import { processWarcraftLog, isConfigured as isWCLConfigured, getGuildReports, getFightStats, getFightStatsWithDeathEvents, getExtendedFightStats, getFightRankings, getConsumableCasts, syncPercentilesForReport, syncAllPercentiles } from '../services/warcraftlogs.js';
+import { processWarcraftLog, isConfigured as isWCLConfigured, getGuildReports, getFightStats, getFightStatsWithDeathEvents, getExtendedFightStats, getFightRankings, getConsumableCasts, getGuildRankings, syncPercentilesForReport, syncAllPercentiles } from '../services/warcraftlogs.js';
 import { processExtendedFightData } from '../services/performanceAnalysis.js';
 import { seedRaidData, processFightStats, recordPlayerDeaths, recordPlayerPerformance } from '../services/raids.js';
 import { processReportPopularity } from '../services/itemPopularity.js';
@@ -1086,6 +1086,319 @@ router.post('/sync-percentiles', authenticateToken, authorizeRole(['admin']), ad
   } catch (err) {
     log.error('Bulk percentile sync error', err);
     return error(res, 'Percentile sync failed', 500, ErrorCodes.INTERNAL_ERROR);
+  }
+});
+
+// Public guild ranking banner — fetches current-tier world/realm/speed ranks from WCL.
+// No auth (it's already public on warcraftlogs.com), but rate-limited to protect the WCL token.
+// Resolves the guild ID from the `wcl_guild_id` DKP config so the banner stays correct per-tenant.
+// Cached for 1h in-memory inside the service layer; rankings only update sporadically.
+router.get('/guild-ranking', userLimiter, async (req, res) => {
+  try {
+    if (!isWCLConfigured()) {
+      return error(res, 'Warcraft Logs integration not configured', 503, ErrorCodes.EXTERNAL_API_ERROR);
+    }
+
+    const guildConfig = await req.db.get(
+      "SELECT config_value FROM dkp_config WHERE config_key = 'wcl_guild_id'"
+    );
+    // parseInt + isNaN guard to refuse anything that's not a positive integer
+    const rawId = guildConfig?.config_value;
+    const guildId = parseInt(rawId, 10);
+    if (!rawId || Number.isNaN(guildId) || guildId <= 0) {
+      return error(res, 'WCL guild ID not configured', 400, ErrorCodes.VALIDATION_ERROR);
+    }
+
+    const ranking = await getGuildRankings(guildId);
+    // Shape matches what the frontend banner consumes:
+    //   world / realm / worldSpeed (+ extras for future use)
+    return success(res, {
+      guildName: ranking.guildName,
+      zoneName: ranking.zoneName,
+      world: ranking.world,
+      realm: ranking.server,
+      region: ranking.region,
+      worldSpeed: ranking.worldSpeed,
+      realmSpeed: ranking.serverSpeed,
+      regionSpeed: ranking.regionSpeed,
+    });
+  } catch (err) {
+    log.error('Guild ranking fetch error', err);
+    return error(res, 'Failed to fetch guild ranking', 502, ErrorCodes.EXTERNAL_API_ERROR);
+  }
+});
+
+// List all guild reports from WCL within a lookback window, annotated with import status
+router.get('/sync-guild-reports', authenticateToken, authorizeRole(['admin', 'officer']), async (req, res) => {
+  try {
+    // Get guild ID from dkp_config
+    const guildConfig = await req.db.get("SELECT config_value FROM dkp_config WHERE config_key = 'wcl_guild_id'");
+    if (!guildConfig?.config_value) {
+      return error(res, 'WCL guild ID not configured. Set wcl_guild_id in admin config.', 400, ErrorCodes.VALIDATION_ERROR);
+    }
+    const guildId = parseInt(guildConfig.config_value, 10);
+    if (Number.isNaN(guildId) || guildId <= 0) {
+      return error(res, 'WCL guild ID not configured. Set wcl_guild_id in admin config.', 400, ErrorCodes.VALIDATION_ERROR);
+    }
+
+    // Validate lookbackDays: default 60, max 90
+    const rawDays = parseInt(req.query.lookbackDays, 10);
+    const lookbackDays = Number.isNaN(rawDays) || rawDays <= 0 ? 60 : Math.min(rawDays, 90);
+
+    const endTime = Date.now();
+    const startTime = endTime - lookbackDays * 24 * 60 * 60 * 1000;
+
+    const rawReports = await getGuildReports(guildId, startTime, endTime);
+
+    // Annotate each report with import status from boss_stats_processed
+    const reports = [];
+    for (const r of rawReports) {
+      const imported = await req.db.get(
+        'SELECT 1 FROM boss_stats_processed WHERE report_code = ? LIMIT 1',
+        r.code
+      );
+      reports.push({
+        code: r.code,
+        title: r.title,
+        startTime: r.startTime,
+        endTime: r.endTime,
+        zone: r.zone,
+        owner: r.owner,
+        isImported: !!imported,
+      });
+    }
+
+    const newCount = reports.filter(r => !r.isImported).length;
+
+    return success(res, { guildId, reports, newCount });
+  } catch (err) {
+    log.error('Guild reports sync list error', err);
+    return error(res, 'Failed to fetch guild reports', 500, ErrorCodes.EXTERNAL_API_ERROR);
+  }
+});
+
+// Sync (auto-import boss stats for) all unprocessed guild reports within a lookback window
+router.post('/sync-guild-reports', adminLimiter, authenticateToken, authorizeRole(['admin']), async (req, res) => {
+  try {
+    log.info('Syncing guild reports...');
+
+    // Get guild ID from dkp_config
+    const guildConfig = await req.db.get("SELECT config_value FROM dkp_config WHERE config_key = 'wcl_guild_id'");
+    if (!guildConfig?.config_value) {
+      return error(res, 'WCL guild ID not configured. Set wcl_guild_id in admin config.', 400, ErrorCodes.VALIDATION_ERROR);
+    }
+    const guildId = parseInt(guildConfig.config_value, 10);
+    if (Number.isNaN(guildId) || guildId <= 0) {
+      return error(res, 'WCL guild ID not configured. Set wcl_guild_id in admin config.', 400, ErrorCodes.VALIDATION_ERROR);
+    }
+
+    // Validate lookbackDays from body: default 60, max 90
+    const rawDays = parseInt(req.body.lookbackDays, 10);
+    const lookbackDays = Number.isNaN(rawDays) || rawDays <= 0 ? 60 : Math.min(rawDays, 90);
+
+    const endTime = Date.now();
+    const startTime = endTime - lookbackDays * 24 * 60 * 60 * 1000;
+
+    const rawReports = await getGuildReports(guildId, startTime, endTime);
+
+    // Filter to unprocessed reports only
+    const toImport = [];
+    for (const r of rawReports) {
+      const imported = await req.db.get(
+        'SELECT 1 FROM boss_stats_processed WHERE report_code = ? LIMIT 1',
+        r.code
+      );
+      if (!imported) toImport.push(r);
+    }
+
+    log.info(`Guild sync: found ${rawReports.length} reports, ${toImport.length} unprocessed`);
+
+    // Build participant map once — reused for all reports
+    const allUsers = await req.db.all('SELECT id, character_name FROM users WHERE is_active = 1');
+    const allCharacters = await req.db.all('SELECT user_id, character_name FROM characters');
+    const participantUserMap = {};
+    for (const u of allUsers) {
+      if (u.character_name) participantUserMap[u.character_name.toLowerCase()] = u.id;
+    }
+    for (const c of allCharacters) {
+      if (c.character_name) participantUserMap[c.character_name.toLowerCase()] = c.user_id;
+    }
+
+    // Ensure boss data is seeded before processing
+    await seedRaidData(req.db);
+
+    const syncLimit = pLimit(2);
+    const io = req.app.get('io');
+
+    // Process each unprocessed report — synchronous main stats, background extended stats
+    const results = await Promise.all(
+      toImport.map(report => syncLimit(async () => {
+        const resultEntry = { code: report.code, title: report.title, processed: 0, skipped: 0, error: null };
+        try {
+          // Fetch full report data from WCL
+          const reportData = await processWarcraftLog(report.code);
+
+          let statsProcessed = 0;
+          let statsSkipped = 0;
+          const processedBosses = [];
+          const fightLimit = pLimit(3);
+
+          // Process each fight for boss statistics
+          const fightResults = await Promise.all(
+            reportData.fights.map(fight => fightLimit(async () => {
+              const result = await processFightStats(req.db, reportData.code, fight, fight.difficulty);
+              return { fight, result };
+            }))
+          );
+
+          for (const { fight, result } of fightResults) {
+            if (result.skipped) {
+              statsSkipped++;
+            } else {
+              statsProcessed++;
+            }
+            const bossId = result.bossId
+              || (await req.db.get('SELECT id FROM wcl_bosses WHERE wcl_encounter_id = ?', fight.encounterID))?.id;
+            if (bossId) {
+              processedBosses.push({
+                bossId,
+                fightId: fight.id,
+                name: fight.name,
+                difficulty: fight.difficulty,
+                kill: result.skipped ? fight.kill : result.kill,
+                duration: fight.duration,
+                startTime: fight.startTime,
+                endTime: fight.endTime,
+              });
+            }
+          }
+
+          resultEntry.processed = statsProcessed;
+          resultEntry.skipped = statsSkipped;
+
+          log.info(`Sync: ${reportData.code} — ${statsProcessed} processed, ${statsSkipped} skipped`);
+
+          // Run extended stats (deaths, performance, consumables, percentiles) in background
+          if (processedBosses.length > 0 && Object.keys(participantUserMap).length > 0) {
+            (async () => {
+              try {
+                const reportDate = new Date(reportData.startTime).toISOString().split('T')[0];
+                const extLimit = pLimit(3);
+
+                // Deaths + basic performance
+                await Promise.all(
+                  processedBosses.map(bossInfo => extLimit(async () => {
+                    try {
+                      const alreadyHasData = await req.db.get(
+                        'SELECT 1 FROM player_fight_performance WHERE report_code = ? AND fight_id = ? LIMIT 1',
+                        reportData.code, bossInfo.fightId
+                      );
+                      if (alreadyHasData) return;
+
+                      const fightStats = await getFightStatsWithDeathEvents(reportData.code, {
+                        id: bossInfo.fightId,
+                        startTime: bossInfo.startTime,
+                        endTime: bossInfo.endTime,
+                        kill: bossInfo.kill,
+                      });
+
+                      if (fightStats.deaths && fightStats.deaths.length > 0) {
+                        const deathsFormatted = fightStats.deaths.map(d => ({ name: d.name, deaths: d.total }));
+                        await recordPlayerDeaths(req.db, bossInfo.bossId, bossInfo.difficulty, deathsFormatted, participantUserMap);
+                      }
+
+                      if (fightStats.damage.length > 0 || fightStats.healing.length > 0) {
+                        await recordPlayerPerformance(
+                          req.db,
+                          bossInfo.bossId,
+                          bossInfo.difficulty,
+                          fightStats,
+                          participantUserMap,
+                          reportData.code,
+                          bossInfo.fightId
+                        );
+                      }
+                    } catch (perfErr) {
+                      log.warn(`Sync deaths/perf failed for fight ${bossInfo.fightId} in ${reportData.code}: ${perfErr.message}`);
+                    }
+                  }))
+                );
+
+                // Extended fight data (consumables, interrupts, dispels, DPS/HPS, rankings)
+                const extResults = await Promise.all(
+                  processedBosses.map(bossInfo => extLimit(async () => {
+                    try {
+                      const fetches = [
+                        getExtendedFightStats(reportData.code, [bossInfo.fightId]),
+                        getFightStats(reportData.code, [bossInfo.fightId]),
+                        getConsumableCasts(reportData.code, [bossInfo.fightId]),
+                      ];
+                      if (bossInfo.kill) {
+                        fetches.push(getFightRankings(reportData.code, [bossInfo.fightId]));
+                      }
+                      const [extStats, basicStats, consumableCasts, rankingsData] = await Promise.all(fetches);
+                      return await processExtendedFightData(
+                        req.db, reportData.code, bossInfo, basicStats, extStats, participantUserMap, reportDate,
+                        rankingsData || { dps: {}, hps: {} }, consumableCasts
+                      );
+                    } catch (extErr) {
+                      log.warn(`Sync extended stats failed for fight ${bossInfo.fightId} in ${reportData.code}: ${extErr.message}`);
+                      return 0;
+                    }
+                  }))
+                );
+                const extendedRecorded = extResults.reduce((sum, c) => sum + c, 0);
+
+                // Sync percentiles
+                try {
+                  await syncPercentilesForReport(req.db, reportData.code);
+                } catch (syncErr) {
+                  log.warn(`Sync percentiles failed for ${reportData.code}: ${syncErr.message}`);
+                }
+
+                // Item popularity
+                const killFights = processedBosses.filter(b => b.kill);
+                if (killFights.length > 0) {
+                  try {
+                    await processReportPopularity(req.db, reportData.code, killFights);
+                  } catch (popErr) {
+                    log.warn(`Sync item popularity failed for ${reportData.code}: ${popErr.message}`);
+                  }
+                }
+
+                if (extendedRecorded > 0) {
+                  log.info(`Sync extended: ${extendedRecorded} player-fight records from ${reportData.code}`);
+                }
+                io?.emit('stats_processing_complete', {
+                  reportCode: reportData.code,
+                  bossStatsProcessed: statsProcessed,
+                  extendedRecords: extendedRecorded,
+                  totalFights: processedBosses.length,
+                  status: 'success',
+                });
+              } catch (bgErr) {
+                log.error(`Sync background processing failed for ${reportData.code}: ${bgErr.message}`);
+                io?.emit('stats_processing_complete', { reportCode: reportData.code, status: 'error', message: bgErr.message });
+              }
+            })();
+          }
+
+        } catch (reportErr) {
+          log.error(`Sync failed for report ${report.code}: ${reportErr.message}`);
+          resultEntry.error = reportErr.message;
+        }
+        return resultEntry;
+      }))
+    );
+
+    return success(res, {
+      found: rawReports.length,
+      toImport: toImport.length,
+      results,
+    });
+  } catch (err) {
+    log.error('Sync guild reports error', err);
+    return error(res, 'Failed to sync guild reports', 500, ErrorCodes.INTERNAL_ERROR);
   }
 });
 

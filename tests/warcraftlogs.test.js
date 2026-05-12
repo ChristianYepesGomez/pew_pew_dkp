@@ -11,6 +11,7 @@ vi.mock('../services/warcraftlogs.js', () => ({
   getFightStatsWithDeathEvents: vi.fn(),
   getExtendedFightStats: vi.fn(),
   getUserReports: vi.fn(),
+  getGuildRankings: vi.fn(),
 }));
 
 // Mock raids service (background processing)
@@ -31,7 +32,7 @@ vi.mock('../services/itemPopularity.js', () => ({
   processReportPopularity: vi.fn(),
 }));
 
-const { processWarcraftLog, isConfigured, getGuildReports, getUserReports } = await import('../services/warcraftlogs.js');
+const { processWarcraftLog, isConfigured, getGuildReports, getUserReports, getGuildRankings } = await import('../services/warcraftlogs.js');
 
 describe('WarcraftLogs — /api/warcraftlogs', () => {
   let adminToken, adminId;
@@ -511,6 +512,75 @@ describe('WarcraftLogs — /api/warcraftlogs', () => {
         .set('Authorization', `Bearer ${raiderToken}`);
 
       expect(res.status).toBe(403);
+    });
+  });
+
+  // ── Guild ranking banner ──
+  // Public endpoint (no auth) used by the header banner. Reads wcl_guild_id from
+  // dkp_config and forwards to WCL via the cached getGuildRankings helper.
+  describe('GET /api/warcraftlogs/guild-ranking', () => {
+    beforeAll(async () => {
+      await db.run(
+        "INSERT OR REPLACE INTO dkp_config (config_key, config_value) VALUES ('wcl_guild_id', '822526')"
+      );
+    });
+
+    it('returns ranking shape with world/realm/speed when configured', async () => {
+      isConfigured.mockReturnValueOnce(true);
+      getGuildRankings.mockResolvedValueOnce({
+        guildName: 'Pew Pew Kittens with Guns',
+        zoneName: null,
+        world: 1234,
+        region: 56,
+        server: 7,
+        worldSpeed: 999,
+        regionSpeed: 42,
+        serverSpeed: 3,
+      });
+
+      const res = await request.get('/api/warcraftlogs/guild-ranking');
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data).toMatchObject({
+        guildName: 'Pew Pew Kittens with Guns',
+        world: 1234,
+        realm: 7,        // server → realm
+        region: 56,
+        worldSpeed: 999,
+        realmSpeed: 3,
+        regionSpeed: 42,
+      });
+    });
+
+    it('returns 400 when wcl_guild_id is not configured', async () => {
+      isConfigured.mockReturnValueOnce(true);
+      await db.run("DELETE FROM dkp_config WHERE config_key = 'wcl_guild_id'");
+
+      const res = await request.get('/api/warcraftlogs/guild-ranking');
+
+      expect(res.status).toBe(400);
+      // Reinstate for any later tests
+      await db.run(
+        "INSERT OR REPLACE INTO dkp_config (config_key, config_value) VALUES ('wcl_guild_id', '822526')"
+      );
+    });
+
+    it('returns 503 when WCL is not configured at all', async () => {
+      isConfigured.mockReturnValueOnce(false);
+
+      const res = await request.get('/api/warcraftlogs/guild-ranking');
+
+      expect(res.status).toBe(503);
+    });
+
+    it('returns 502 when the WCL API call throws', async () => {
+      isConfigured.mockReturnValueOnce(true);
+      getGuildRankings.mockRejectedValueOnce(new Error('WCL down'));
+
+      const res = await request.get('/api/warcraftlogs/guild-ranking');
+
+      expect(res.status).toBe(502);
     });
   });
 });

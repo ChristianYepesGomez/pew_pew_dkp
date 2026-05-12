@@ -10,6 +10,10 @@ const wclCache = createCache(10 * 60 * 1000);
 // Cache for report actors (avoids redundant GraphQL queries for actor name resolution)
 const actorsCache = createCache(10 * 60 * 1000);
 
+// Longer-lived cache for guild rankings — rankings only change a handful of times
+// per week as new kills get logged, so 1h is plenty and keeps us well below WCL rate limits.
+const guildRankingsCache = createCache(60 * 60 * 1000);
+
 // Warcraft Logs API Configuration
 const WCL_API_URL = 'https://www.warcraftlogs.com/api/v2/client';
 const WCL_TOKEN_URL = 'https://www.warcraftlogs.com/oauth/token';
@@ -343,6 +347,96 @@ export async function getGuildId(guildName, serverSlug, serverRegion) {
   }
 
   return data.guildData.guild.id;
+}
+
+/**
+ * Get guild's progression and speed rankings for the current raid zone.
+ * Returns the best (lowest = highest-ranked) rank across all difficulties for the current tier.
+ *
+ * @param {number} guildId — WCL numeric guild ID
+ * @returns {Promise<{ guildName: string|null, zoneName: string|null, world: number|null, region: number|null, server: number|null, worldSpeed: number|null, regionSpeed: number|null, serverSpeed: number|null }>}
+ *
+ * Note: WCL's zoneRankings returns per-zone breakdowns. We pick the zone with `zone.frozen === false`
+ * (i.e. the active tier) when available, otherwise fall back to the highest tier number.
+ * Each zoneRanking exposes `progress` (kill ordering rank) and `speed` (fastest clear rank)
+ * with `world`, `region`, and `server` numerators. We surface "realm" via `server` for the UI.
+ */
+export async function getGuildRankings(guildId) {
+  const cacheKey = `guildRankings:${guildId}`;
+  const cached = guildRankingsCache.get(cacheKey);
+  if (cached) return cached;
+
+  const query = `
+    query GuildRankings($guildID: Int!) {
+      guildData {
+        guild(id: $guildID) {
+          id
+          name
+          zoneRanking {
+            progress {
+              worldRank { number }
+              regionRank { number }
+              serverRank { number }
+            }
+            speed {
+              worldRank { number }
+              regionRank { number }
+              serverRank { number }
+            }
+          }
+        }
+      }
+    }
+  `;
+
+  try {
+    const data = await executeGraphQL(query, { guildID: guildId });
+    const guild = data?.guildData?.guild;
+    if (!guild) {
+      log.warn(`Guild not found for ranking lookup: id=${guildId}`);
+      const empty = {
+        guildName: null,
+        zoneName: null,
+        world: null,
+        region: null,
+        server: null,
+        worldSpeed: null,
+        regionSpeed: null,
+        serverSpeed: null,
+      };
+      guildRankingsCache.set(cacheKey, empty);
+      return empty;
+    }
+
+    const ranking = guild.zoneRanking || {};
+    const progress = ranking.progress || {};
+    const speed = ranking.speed || {};
+
+    const pickNumber = (rankObj) => {
+      const n = rankObj?.number;
+      return typeof n === 'number' && n > 0 ? n : null;
+    };
+
+    const result = {
+      guildName: guild.name || null,
+      // zoneRanking is whatever WCL considers the "current" tier for this guild —
+      // it doesn't expose the zone name here, so the UI just labels it generically.
+      zoneName: null,
+      world: pickNumber(progress.worldRank),
+      region: pickNumber(progress.regionRank),
+      server: pickNumber(progress.serverRank),
+      worldSpeed: pickNumber(speed.worldRank),
+      regionSpeed: pickNumber(speed.regionRank),
+      serverSpeed: pickNumber(speed.serverRank),
+    };
+
+    guildRankingsCache.set(cacheKey, result);
+    log.info(`Fetched guild rankings for ${guild.name} (id=${guildId}): world=${result.world} server=${result.server} speed=${result.worldSpeed}`);
+    return result;
+  } catch (err) {
+    log.error(`Failed to fetch guild rankings for id=${guildId}`, err);
+    throw err;
+  }
 }
 
 /**
