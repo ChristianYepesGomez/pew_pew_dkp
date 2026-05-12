@@ -259,7 +259,7 @@ router.get('/superlatives', authenticateToken, async (req, res) => {
         WHERE pfp.is_kill = 1
           AND pfp.damage_taken > 0
           AND COALESCE(c.raid_role, u.raid_role) != 'Tank'
-          AND (pfp.wcl_spec IS NULL OR pfp.wcl_spec NOT IN ('Protection','Guardian','Blood','Brewmaster','Vengeance'))
+          AND (pfp.wcl_spec IS NULL OR pfp.wcl_spec NOT IN ('Protection','Guardian','Blood','Brewmaster','Vengeance','Devourer'))
           AND pfp.boss_id IN (SELECT wb.id FROM wcl_bosses wb JOIN wcl_zones wz ON wb.zone_id = wz.id WHERE wz.is_current = 1)${activeFilter(req)}
         ORDER BY total DESC LIMIT 1
       `),
@@ -441,7 +441,7 @@ router.get('/guild-leaderboards', authenticateToken, async (req, res) => {
       SELECT wb.id FROM wcl_bosses wb JOIN wcl_zones wz ON wb.zone_id = wz.id WHERE wz.is_current = 1
     )`;
 
-    const [topDps, topHps, topDeaths, topDamageTaken, topPotions, topInterrupts, topDispels, topCombatPotions, topHealthstones, topManaPotions, topAttendance] = await Promise.all([
+    const [topDps, topHps, topDeaths, topDamageTaken, topDamageTakenWeekly, topPotions, topInterrupts, topDispels, topCombatPotions, topHealthstones, topManaPotions, topAttendance] = await Promise.all([
       // Top 10 DPS — best single fight DPS (kills only) + external buffs, DPS players only
       req.db.all(`
         ${CURRENT_BOSS_CTE},
@@ -529,13 +529,34 @@ router.get('/guild-leaderboards', authenticateToken, async (req, res) => {
         WHERE pfp.damage_taken > 0
           AND pfp.is_kill = 1
           AND COALESCE(c.raid_role, u.raid_role) != 'Tank'
-          AND (pfp.wcl_spec IS NULL OR pfp.wcl_spec NOT IN ('Protection','Guardian','Blood','Brewmaster','Vengeance'))
+          AND (pfp.wcl_spec IS NULL OR pfp.wcl_spec NOT IN ('Protection','Guardian','Blood','Brewmaster','Vengeance','Devourer'))
           AND pfp.boss_id IN (SELECT wb.id FROM wcl_bosses wb JOIN wcl_zones wz ON wb.zone_id = wz.id WHERE wz.is_current = 1)${af}
         GROUP BY pfp.user_id, pfp.character_name
         HAVING COUNT(*) >= ?
           AND SUM(pfp.healing_done) < SUM(pfp.damage_done)
         ORDER BY value DESC LIMIT 10
       `, MIN_FIGHTS),
+
+      // Top 10 Damage Taken this week (Mon–Thu of current calendar week, total across kills, excl. tanks)
+      req.db.all(`
+        SELECT COALESCE(pfp.character_name, u.character_name) as character_name,
+               COALESCE(pfp.wcl_class, u.character_class) as character_class,
+               SUM(pfp.damage_taken) as value,
+               COUNT(*) as fights
+        FROM player_fight_performance pfp
+        JOIN users u ON pfp.user_id = u.id
+        LEFT JOIN characters c ON c.user_id = pfp.user_id AND LOWER(c.character_name) = LOWER(pfp.character_name)
+        WHERE pfp.damage_taken > 0
+          AND pfp.is_kill = 1
+          AND COALESCE(c.raid_role, u.raid_role) != 'Tank'
+          AND (pfp.wcl_spec IS NULL OR pfp.wcl_spec NOT IN ('Protection','Guardian','Blood','Brewmaster','Vengeance','Devourer'))
+          AND pfp.boss_id IN (SELECT wb.id FROM wcl_bosses wb JOIN wcl_zones wz ON wb.zone_id = wz.id WHERE wz.is_current = 1)
+          AND pfp.fight_date >= date('now', '-' || ((CAST(strftime('%w', 'now') AS INTEGER) + 6) % 7) || ' days')
+          AND pfp.fight_date <= date('now', '-' || ((CAST(strftime('%w', 'now') AS INTEGER) + 6) % 7) || ' days', '+3 days')${af}
+        GROUP BY pfp.user_id, pfp.character_name
+        HAVING SUM(pfp.healing_done) < SUM(pfp.damage_done)
+        ORDER BY value DESC LIMIT 10
+      `),
 
       // Top 10 Health Potions
       req.db.all(`
@@ -631,7 +652,7 @@ router.get('/guild-leaderboards', authenticateToken, async (req, res) => {
       `, MIN_FIGHTS),
     ]);
 
-    return success(res, { topDps, topHps, topDeaths, topDamageTaken, topPotions, topInterrupts, topDispels, topCombatPotions, topHealthstones, topManaPotions, topAttendance });
+    return success(res, { topDps, topHps, topDeaths, topDamageTaken, topDamageTakenWeekly, topPotions, topInterrupts, topDispels, topCombatPotions, topHealthstones, topManaPotions, topAttendance });
   } catch (err) {
     log.error('Guild leaderboards error', err);
     return error(res, 'Failed to get guild leaderboards', 500, ErrorCodes.INTERNAL_ERROR);
@@ -675,7 +696,7 @@ router.get('/percentile-matrix', authenticateToken, async (req, res) => {
     const roleFilter = ['Tank', 'Healer', 'DPS'].includes(req.query.roleFilter) ? req.query.roleFilter : null;
 
     const HEALER_SPECS = "('Holy','Discipline','Restoration','Mistweaver','Preservation')";
-    const TANK_SPECS = "('Protection','Guardian','Blood','Brewmaster','Vengeance')";
+    const TANK_SPECS = "('Protection','Guardian','Blood','Brewmaster','Vengeance','Devourer')";
 
     // Percentile column: forced metric or role-aware
     const pctExpr = metric === 'dps'
@@ -808,7 +829,7 @@ router.get('/boss/:bossId/percentiles', authenticateToken, async (req, res) => {
     const diffParams = difficulty ? [bossId, difficulty] : [bossId];
 
     const HEALER_SPECS_BP = "('Holy','Discipline','Restoration','Mistweaver','Preservation')";
-    const TANK_SPECS_BP = "('Protection','Guardian','Blood','Brewmaster','Vengeance')";
+    const TANK_SPECS_BP = "('Protection','Guardian','Blood','Brewmaster','Vengeance','Devourer')";
     const players = await req.db.all(`
       SELECT pfp.user_id,
              COALESCE(pfp.character_name, u.character_name) as character_name,
