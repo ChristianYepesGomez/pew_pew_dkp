@@ -459,6 +459,7 @@ router.get('/guild-leaderboards', authenticateToken, async (req, res) => {
         ),
         best AS (
           SELECT pfp.user_id, pfp.character_name, pfp.dps, pfp.external_buffs_json,
+                 pfp.report_code, pfp.fight_id,
                  ROW_NUMBER() OVER (PARTITION BY pfp.user_id, pfp.character_name ORDER BY pfp.dps DESC) as rn
           FROM player_fight_performance pfp
           JOIN player_totals pt ON pfp.user_id = pt.user_id AND pfp.character_name = pt.character_name
@@ -466,7 +467,8 @@ router.get('/guild-leaderboards', authenticateToken, async (req, res) => {
         )
         SELECT COALESCE(b.character_name, u.character_name) as character_name,
                COALESCE(pfp_class.wcl_class, u.character_class) as character_class,
-               ROUND(b.dps) as value, b.external_buffs_json, pt.fights
+               ROUND(b.dps) as value, b.external_buffs_json, pt.fights,
+               b.report_code, b.fight_id
         FROM best b
         JOIN users u ON b.user_id = u.id
         JOIN player_totals pt ON b.user_id = pt.user_id AND b.character_name = pt.character_name
@@ -489,6 +491,7 @@ router.get('/guild-leaderboards', authenticateToken, async (req, res) => {
         ),
         best AS (
           SELECT pfp.user_id, pfp.character_name, pfp.hps, pfp.external_buffs_json,
+                 pfp.report_code, pfp.fight_id,
                  ROW_NUMBER() OVER (PARTITION BY pfp.user_id, pfp.character_name ORDER BY pfp.hps DESC) as rn
           FROM player_fight_performance pfp
           JOIN player_totals pt ON pfp.user_id = pt.user_id AND pfp.character_name = pt.character_name
@@ -496,7 +499,8 @@ router.get('/guild-leaderboards', authenticateToken, async (req, res) => {
         )
         SELECT COALESCE(b.character_name, u.character_name) as character_name,
                COALESCE(pfp_class.wcl_class, u.character_class) as character_class,
-               ROUND(b.hps) as value, b.external_buffs_json, pt.fights
+               ROUND(b.hps) as value, b.external_buffs_json, pt.fights,
+               b.report_code, b.fight_id
         FROM best b
         JOIN users u ON b.user_id = u.id
         JOIN player_totals pt ON b.user_id = pt.user_id AND b.character_name = pt.character_name
