@@ -131,6 +131,7 @@ export const warcraftLogsAPI = {
   guildRanking: () => api.get('/warcraftlogs/guild-ranking'),
   syncGuildReportsList: (lookbackDays = 60) => api.get(`/warcraftlogs/sync-guild-reports?lookbackDays=${lookbackDays}`),
   syncGuildReports: (lookbackDays = 60) => api.post('/warcraftlogs/sync-guild-reports', { lookbackDays }),
+  recalculateDeaths: () => api.post('/warcraftlogs/recalculate-deaths'),
 }
 
 export const raidItemsAPI = {
