@@ -251,8 +251,6 @@ const Header = ({ tabs = [], activeTab, onTabChange }) => {
 
   return (
     <>
-      {/* WCL guild ranking banner — sits above the tab row, fetches once on mount */}
-      <GuildRankingBanner />
       <nav className="flex items-center justify-between">
         <div className="flex items-center gap-3 shrink-0">
           {/* Logo — normal: original SVG | alive/dead: composite (Baldomero face + styled text) */}
@@ -296,7 +294,9 @@ const Header = ({ tabs = [], activeTab, onTabChange }) => {
           )}
         </div>
 
-        <IconContext.Provider value={{ weight: 'regular' }}>
+        <div className="flex flex-col items-center gap-1.5">
+          <GuildRankingBanner />
+          <IconContext.Provider value={{ weight: 'regular' }}>
           <div className="flex flex-wrap items-center justify-center gap-3">
             {tabs.map((tab) => (
               <PillButton
@@ -309,7 +309,8 @@ const Header = ({ tabs = [], activeTab, onTabChange }) => {
               </PillButton>
             ))}
           </div>
-        </IconContext.Provider>
+          </IconContext.Provider>
+        </div>
 
         <div className="flex items-center gap-3 shrink-0">
           {/* Real button — invisible during step 1 onboarding, stays in layout for measurement */}
