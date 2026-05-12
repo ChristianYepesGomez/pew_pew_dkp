@@ -251,7 +251,9 @@ const Header = ({ tabs = [], activeTab, onTabChange }) => {
 
   return (
     <>
-      <nav className="flex items-center justify-between">
+      <div className="flex flex-col items-center gap-3">
+        <GuildRankingBanner />
+      <nav className="flex w-full items-center justify-between">
         <div className="flex items-center gap-3 shrink-0">
           {/* Logo — normal: original SVG | alive/dead: composite (Baldomero face + styled text) */}
           {baldState === 'normal' ? (
@@ -294,9 +296,7 @@ const Header = ({ tabs = [], activeTab, onTabChange }) => {
           )}
         </div>
 
-        <div className="flex flex-col items-center gap-3">
-          <GuildRankingBanner />
-          <IconContext.Provider value={{ weight: 'regular' }}>
+        <IconContext.Provider value={{ weight: 'regular' }}>
           <div className="flex flex-wrap items-center justify-center gap-3">
             {tabs.map((tab) => (
               <PillButton
@@ -309,8 +309,7 @@ const Header = ({ tabs = [], activeTab, onTabChange }) => {
               </PillButton>
             ))}
           </div>
-          </IconContext.Provider>
-        </div>
+        </IconContext.Provider>
 
         <div className="flex items-center gap-3 shrink-0">
           {/* Real button — invisible during step 1 onboarding, stays in layout for measurement */}
@@ -413,6 +412,7 @@ const Header = ({ tabs = [], activeTab, onTabChange }) => {
         </PopoverMenu>
         </div>
       </nav>
+      </div>
 
       {showCharacterModal && (
         <MyCharacterModal
