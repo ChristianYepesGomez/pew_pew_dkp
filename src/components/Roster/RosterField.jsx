@@ -5,6 +5,7 @@ import CLASS_COLORS from '../../utils/classColors'
 import StandsPanel from './StandsPanel'
 import { checkBuffCoverage, getBuffIconUrl } from '../../utils/raidBuffs'
 import { useSpeechBubble } from './SpeechBubble'
+import ArmoryModal from './ArmoryModal'
 
 const BENCH_PHRASES = [
   'Ponme a mí',
@@ -27,6 +28,9 @@ const SIGNUP_DOT = { confirmed: '#4ade80', late: '#fb923c', tentative: '#facc15'
 
 // ── Main component ────────────────────────────────────────────────────────────
 export default function RosterField({ roster, available, coaches, stands, isPrivileged, saving, onTogglePlayer, onSetCoach }) {
+  const [armoryMemberId, setArmoryMemberId] = useState(null)
+  const [avatarPreview, setAvatarPreview] = useState(null)
+
   const inRoster = roster?.players?.filter(p => p.slot === 'in_roster') || []
   const benchPlayers = roster?.players?.filter(p => p.slot === 'bench') || []
 
@@ -70,21 +74,21 @@ export default function RosterField({ roster, available, coaches, stands, isPriv
   return (
     <div className="relative flex flex-col gap-2 select-none">
 
-      {/* ── Banquillo — floats outside to the left ──────────────────────── */}
-      {isPrivileged && (
-        <div className="absolute right-full top-0 bottom-0 pr-3 w-52 z-10">
-          <PlayerListPanel
-            banquilloByRole={banquilloByRole}
-            saving={saving}
-            onDragStart={(e, userId) => {
-              e.dataTransfer.effectAllowed = 'move'
-              e.dataTransfer.setData('text/plain', String(userId))
-            }}
-            onClick={(player) => onTogglePlayer(player.user_id, 'in_roster')}
-            onDropToBanquillo={handleDropToBanquillo}
-          />
-        </div>
-      )}
+      {/* ── Banquillo — floats outside to the left (visible to all, editable only for privileged) ── */}
+      <div className="absolute right-full top-0 bottom-0 pr-3 w-52 z-10">
+        <PlayerListPanel
+          banquilloByRole={banquilloByRole}
+          saving={saving}
+          readOnly={!isPrivileged}
+          onDragStart={isPrivileged ? (e, userId) => {
+            e.dataTransfer.effectAllowed = 'move'
+            e.dataTransfer.setData('text/plain', String(userId))
+          } : undefined}
+          onClick={isPrivileged ? (player) => onTogglePlayer(player.user_id, 'in_roster') : undefined}
+          onDropToBanquillo={isPrivileged ? handleDropToBanquillo : undefined}
+          onPlayerProfile={(userId) => setArmoryMemberId(userId)}
+        />
+      </div>
 
       {/* ── Stands — floats outside to the right ───────────────────────── */}
       {stands?.length > 0 && <StandsPanel stands={stands} />}
@@ -111,6 +115,8 @@ export default function RosterField({ roster, available, coaches, stands, isPriv
             onDrop={e => handleDrop(e, 'in_roster')}
             onAdd={uid => onTogglePlayer(uid, 'in_roster')}
             onRemove={uid => onTogglePlayer(uid, null)}
+            onAvatarClick={(player) => setAvatarPreview(player.avatar ? player.avatar : null)}
+            onNameClick={(player) => setArmoryMemberId(player.user_id)}
           />
 
           <div className="mx-8 h-px bg-white/10 my-1" />
@@ -124,6 +130,8 @@ export default function RosterField({ roster, available, coaches, stands, isPriv
             onDrop={e => handleDrop(e, 'in_roster')}
             onAdd={uid => onTogglePlayer(uid, 'in_roster')}
             onRemove={uid => onTogglePlayer(uid, null)}
+            onAvatarClick={(player) => setAvatarPreview(player.avatar ? player.avatar : null)}
+            onNameClick={(player) => setArmoryMemberId(player.user_id)}
           />
 
           <div className="relative mx-16">
@@ -140,36 +148,58 @@ export default function RosterField({ roster, available, coaches, stands, isPriv
             onDrop={e => handleDrop(e, 'in_roster')}
             onAdd={uid => onTogglePlayer(uid, 'in_roster')}
             onRemove={uid => onTogglePlayer(uid, null)}
+            onAvatarClick={(player) => setAvatarPreview(player.avatar ? player.avatar : null)}
+            onNameClick={(player) => setArmoryMemberId(player.user_id)}
           />
         </div>
       </div>
 
       {/* ── Buff bar — replaces bench section ───────────────────────────── */}
       <FieldBuffBar players={inRoster} />
+
+      {/* ── Armory modal ─────────────────────────────────────────────────── */}
+      {armoryMemberId && (
+        <ArmoryModal memberId={armoryMemberId} onClose={() => setArmoryMemberId(null)} />
+      )}
+
+      {/* ── Avatar preview overlay ───────────────────────────────────────── */}
+      {avatarPreview && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm"
+          onClick={() => setAvatarPreview(null)}
+        >
+          <img
+            src={avatarPreview}
+            alt="Avatar"
+            className="max-w-xs max-h-[80vh] rounded-2xl shadow-2xl object-contain"
+            onClick={e => e.stopPropagation()}
+          />
+        </div>
+      )}
     </div>
   )
 }
 
 // ── PlayerListPanel (Banquillo) ───────────────────────────────────────────────
-function PlayerListPanel({ banquilloByRole, saving, onDragStart, onClick, onDropToBanquillo }) {
+function PlayerListPanel({ banquilloByRole, saving, readOnly, onDragStart, onClick, onDropToBanquillo, onPlayerProfile }) {
   const [dropOver, setDropOver] = useState(false)
   const total = Object.values(banquilloByRole).flat().length
 
   return (
     <div
       className={`h-full flex flex-col rounded-2xl border transition-all ${
-        dropOver
+        dropOver && !readOnly
           ? 'border-yellow-400/40 bg-[rgba(250,204,21,0.04)]'
           : 'border-[rgba(177,167,208,0.15)] bg-[rgba(9,11,26,0.92)]'
       }`}
       style={{ backdropFilter: 'blur(8px)', overflow: 'visible' }}
-      onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setDropOver(true) }}
-      onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget)) setDropOver(false) }}
-      onDrop={e => { setDropOver(false); onDropToBanquillo(e) }}
+      onDragOver={readOnly ? undefined : e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setDropOver(true) }}
+      onDragLeave={readOnly ? undefined : e => { if (!e.currentTarget.contains(e.relatedTarget)) setDropOver(false) }}
+      onDrop={readOnly ? undefined : e => { setDropOver(false); onDropToBanquillo(e) }}
     >
       <div className="px-3 pt-3 pb-2 border-b border-[rgba(177,167,208,0.10)] flex-shrink-0">
         <span className="text-[9px] font-bold uppercase tracking-[0.15em] text-[#b1a7d0] opacity-60">
-          {dropOver ? '↩ Banquillo' : `🪑 Banquillo${total > 0 ? ` (${total})` : ''}`}
+          {dropOver && !readOnly ? '↩ Banquillo' : `🪑 Banquillo${total > 0 ? ` (${total})` : ''}`}
         </span>
       </div>
 
@@ -188,8 +218,10 @@ function PlayerListPanel({ banquilloByRole, saving, onDragStart, onClick, onDrop
               </div>
               {players.map(p => (
                 <ListPlayer key={p.user_id} player={p} saving={saving}
-                  onDragStart={e => onDragStart(e, p.user_id)}
-                  onClick={() => onClick(p)}
+                  readOnly={readOnly}
+                  onDragStart={readOnly ? undefined : e => onDragStart(e, p.user_id)}
+                  onClick={readOnly ? undefined : () => onClick(p)}
+                  onProfile={() => onPlayerProfile(p.user_id)}
                 />
               ))}
             </div>
@@ -204,7 +236,7 @@ function PlayerListPanel({ banquilloByRole, saving, onDragStart, onClick, onDrop
   )
 }
 
-function ListPlayer({ player, saving, onDragStart, onClick }) {
+function ListPlayer({ player, saving, readOnly, onDragStart, onClick, onProfile }) {
   const [dragging, setDragging]   = useState(false)
   const [bubblePos, setBubblePos] = useState(null)
   const rowRef = useRef(null)
@@ -223,13 +255,13 @@ function ListPlayer({ player, saving, onDragStart, onClick }) {
   return (
     <div
       ref={rowRef}
-      draggable
-      onDragStart={e => { setDragging(true); onDragStart(e) }}
-      onDragEnd={() => setDragging(false)}
-      onClick={onClick}
-      title="Click para asignar · Arrastrar al campo"
+      draggable={!readOnly}
+      onDragStart={readOnly ? undefined : e => { setDragging(true); onDragStart(e) }}
+      onDragEnd={readOnly ? undefined : () => setDragging(false)}
+      onClick={readOnly ? undefined : onClick}
+      title={readOnly ? 'Ver perfil' : 'Click para asignar · Arrastrar al campo'}
       className={`flex items-center gap-1.5 px-2 py-1.5 rounded-lg mb-0.5 transition-all ${
-        dragging ? 'opacity-30 scale-95' : 'hover:bg-[rgba(177,167,208,0.12)] cursor-grab active:cursor-grabbing'
+        dragging ? 'opacity-30 scale-95' : `hover:bg-[rgba(177,167,208,0.12)] ${readOnly ? 'cursor-default' : 'cursor-grab active:cursor-grabbing'}`
       }`}
       style={{ borderLeft: `2px solid ${classColor}70` }}
     >
@@ -270,9 +302,14 @@ function ListPlayer({ player, saving, onDragStart, onClick }) {
       )}
 
       {dot && <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: dot }} />}
-      <span className="text-xs font-semibold truncate" style={{ color: classColor }}>
+      <button
+        onClick={e => { e.stopPropagation(); onProfile() }}
+        className="text-xs font-semibold truncate text-left hover:underline"
+        style={{ color: classColor }}
+        title="Ver perfil"
+      >
         {player.character_name}
-      </span>
+      </button>
       {player.spec && (
         <span className="text-[9px] text-[#b1a7d0] opacity-50 ml-auto flex-shrink-0 truncate max-w-[50px]">
           {player.spec}
@@ -285,7 +322,7 @@ function ListPlayer({ player, saving, onDragStart, onClick }) {
 // ── FieldZone ─────────────────────────────────────────────────────────────────
 // Renders a zone (DPS/Healer/Tank) with dynamic slot count and centered layout.
 // Below MIN: shows empty + slots (clickable). At/above MIN: players only, drop-only.
-function FieldZone({ players, role, max, rowSize, available, isPrivileged, saving, className, onDragStart, onDrop, onAdd, onRemove }) {
+function FieldZone({ players, role, max, rowSize, available, isPrivileged, saving, className, onDragStart, onDrop, onAdd, onRemove, onAvatarClick, onNameClick }) {
   const [dropOver, setDropOver] = useState(false)
   const min = MIN[role]
   const hasMin = players.length >= min
@@ -312,7 +349,6 @@ function FieldZone({ players, role, max, rowSize, available, isPrivileged, savin
             <PlayerSlot key={slotIdx}
               player={players[slotIdx] || null}
               role={role}
-              // Only show picker if below min (otherwise drag-only)
               available={hasMin ? [] : available}
               isPrivileged={isPrivileged}
               saving={saving}
@@ -322,6 +358,8 @@ function FieldZone({ players, role, max, rowSize, available, isPrivileged, savin
               onDrop={onDrop}
               onAdd={onAdd}
               onRemove={onRemove}
+              onAvatarClick={onAvatarClick}
+              onNameClick={onNameClick}
             />
           ))}
         </div>
@@ -331,7 +369,7 @@ function FieldZone({ players, role, max, rowSize, available, isPrivileged, savin
 }
 
 // ── PlayerSlot ────────────────────────────────────────────────────────────────
-function PlayerSlot({ player, role, available, isPrivileged, saving, onDragStart, onDrop, onAdd, onRemove }) {
+function PlayerSlot({ player, role, available, isPrivileged, saving, onDragStart, onDrop, onAdd, onRemove, onAvatarClick, onNameClick }) {
   const [dropOver, setDropOver] = useState(false)
   const [open, setOpen] = useState(false)
   const ref = useRef(null)
@@ -350,9 +388,11 @@ function PlayerSlot({ player, role, available, isPrivileged, saving, onDragStart
     return (
       <div ref={ref} className="relative flex flex-col items-center gap-1 group">
         <div
-          className={`w-14 h-14 rounded-full overflow-hidden relative ${isPrivileged ? 'cursor-grab active:cursor-grabbing' : ''}`}
+          className={`w-14 h-14 rounded-full overflow-hidden relative ${isPrivileged ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer'}`}
           draggable={isPrivileged}
           onDragStart={isPrivileged ? onDragStart : undefined}
+          onClick={player.avatar ? () => onAvatarClick(player) : undefined}
+          title={player.avatar ? 'Ver imagen' : undefined}
           style={{ boxShadow: `0 0 0 2px ${classColor}70, 0 0 12px ${classColor}30` }}
         >
           {/* Avatar or initial */}
@@ -369,10 +409,10 @@ function PlayerSlot({ player, role, available, isPrivileged, saving, onDragStart
             </div>
           )}
 
-          {/* Hover: remove */}
+          {/* Hover: remove (privileged) */}
           {isPrivileged && (
             <div className="absolute inset-0 bg-black/65 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-              <button onClick={() => onRemove(player.user_id)} title="Quitar del campo"
+              <button onClick={e => { e.stopPropagation(); onRemove(player.user_id) }} title="Quitar del campo"
                 className="w-7 h-7 rounded-full bg-red-500/20 hover:bg-red-500/40 flex items-center justify-center transition-all">
                 <X size={12} className="text-red-300" />
               </button>
@@ -381,10 +421,14 @@ function PlayerSlot({ player, role, available, isPrivileged, saving, onDragStart
         </div>
 
         <div className="flex flex-col items-center max-w-[80px]">
-          <span className="text-[11px] font-bold leading-tight text-center truncate w-full"
-            style={{ color: classColor, textShadow: '0 1px 4px rgba(0,0,0,0.8)' }}>
+          <button
+            onClick={() => onNameClick(player)}
+            className="text-[11px] font-bold leading-tight text-center truncate w-full hover:underline"
+            style={{ color: classColor, textShadow: '0 1px 4px rgba(0,0,0,0.8)' }}
+            title="Ver perfil"
+          >
             {player.character_name}
-          </span>
+          </button>
           {player.spec && (
             <span className="text-[9px] text-white/40 leading-tight text-center truncate w-full">{player.spec}</span>
           )}
