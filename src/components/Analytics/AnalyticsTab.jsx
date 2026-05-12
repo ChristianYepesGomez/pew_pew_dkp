@@ -166,6 +166,14 @@ const AnalyticsTab = () => {
       badge: t('analytics_excl_tanks'),
     },
     {
+      key: 'topDamageTakenWeekly',
+      title: t('analytics_most_damage_taken_weekly'),
+      Icon: Shield,
+      color: '#fb923c',
+      format: (v) => fmtWow(v),
+      badge: t('analytics_this_week'),
+    },
+    {
       key: 'topPotions',
       title: t('analytics_health_pots'),
       Icon: Drop,
