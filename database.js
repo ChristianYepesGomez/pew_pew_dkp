@@ -558,6 +558,7 @@ export async function runMigrations(targetDb, connectionUrl = dbUrl) {
     'ALTER TABLE auctions ADD COLUMN item_distributed INTEGER DEFAULT 0',
     'ALTER TABLE raid_rosters ADD COLUMN coach_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL',
     'ALTER TABLE raid_rosters ADD COLUMN boss_id INTEGER REFERENCES wcl_bosses(id) ON DELETE SET NULL',
+    'ALTER TABLE player_fight_performance ADD COLUMN mechanic_hits_json TEXT DEFAULT NULL',
   ];
   for (const sql of columnMigrations) {
     try { await targetDb.exec(sql); } catch (_e) { /* column already exists */ }

@@ -40,7 +40,7 @@ const EXTERNAL_BUFF_PATTERNS = {
  * Process extended fight data from WCL and store per-fight snapshots
  * Called during the import loop for each fight
  */
-export async function processExtendedFightData(db, reportCode, bossInfo, basicStats, extendedStats, participantUserMap, reportDate, rankingsData = { dps: {}, hps: {} }, consumableCasts = null) {
+export async function processExtendedFightData(db, reportCode, bossInfo, basicStats, extendedStats, participantUserMap, reportDate, rankingsData = { dps: {}, hps: {} }, consumableCasts = null, mechanicHits = null) {
   const { bossId, fightId, difficulty: rawDifficulty, startTime, endTime } = bossInfo;
   const difficulty = normalizeDifficulty(rawDifficulty);
   const fightDurationMs = endTime - startTime;
@@ -202,14 +202,21 @@ export async function processExtendedFightData(db, reportCode, bossInfo, basicSt
         ? JSON.stringify(data.externalBuffs)
         : null;
 
+      let mechanicHitsJson = null;
+      if (mechanicHits) {
+        const hammer = mechanicHits.divineHammer?.[playerName] || 0;
+        const shield = mechanicHits.avengerShield?.[playerName] || 0;
+        mechanicHitsJson = JSON.stringify({ divine_hammer: hammer, avenger_shield: shield });
+      }
+
       await db.run(
         `INSERT INTO player_fight_performance
          (user_id, report_code, fight_id, boss_id, difficulty, damage_done, healing_done, damage_taken, deaths,
           fight_duration_ms, dps, hps, dtps, health_potions, healthstones, combat_potions, mana_potions,
           flask_uptime_pct, food_buff_active, augment_rune_active, interrupts, dispels,
           raid_median_dps, raid_median_dtps, fight_date, dps_percentile, hps_percentile, external_buffs_json, is_kill,
-          bracket_percentile, bracket, wcl_class, wcl_spec, character_name)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          bracket_percentile, bracket, wcl_class, wcl_spec, character_name, mechanic_hits_json)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(user_id, report_code, fight_id) DO UPDATE SET
           damage_done=excluded.damage_done, healing_done=excluded.healing_done,
           damage_taken=excluded.damage_taken, deaths=excluded.deaths,
@@ -223,7 +230,8 @@ export async function processExtendedFightData(db, reportCode, bossInfo, basicSt
           external_buffs_json=excluded.external_buffs_json, is_kill=excluded.is_kill,
           bracket_percentile=excluded.bracket_percentile, bracket=excluded.bracket,
           wcl_class=excluded.wcl_class, wcl_spec=excluded.wcl_spec,
-          character_name=excluded.character_name`,
+          character_name=excluded.character_name,
+          mechanic_hits_json=COALESCE(excluded.mechanic_hits_json, mechanic_hits_json)`,
         userId, reportCode, fightId, bossId, difficulty,
         data.damageDone, data.healingDone, data.damageTaken, data.deaths,
         fightDurationMs, dps, hps, dtps,
@@ -233,7 +241,7 @@ export async function processExtendedFightData(db, reportCode, bossInfo, basicSt
         medianDps, medianDtps,
         reportDate || new Date().toISOString().split('T')[0],
         dpsPercentile, hpsPercentile, externalBuffsJson, bossInfo.kill ? 1 : 0,
-        bracketPercentile, bracket, wclClass, wclSpec, playerName
+        bracketPercentile, bracket, wclClass, wclSpec, playerName, mechanicHitsJson
       );
       inserted++;
     } catch (err) {

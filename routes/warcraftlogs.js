@@ -3,7 +3,7 @@ import { authenticateToken, authorizeRole } from '../middleware/auth.js';
 import { adminLimiter, userLimiter } from '../lib/rateLimiters.js';
 import { invalidateConfigCache } from '../lib/helpers.js';
 import { getLootSystem, getLootSystemType } from '../lib/lootSystems/index.js';
-import { processWarcraftLog, isConfigured as isWCLConfigured, getGuildReports, getFightStats, getFightStatsWithDeathEvents, getExtendedFightStats, getFightRankings, getConsumableCasts, getFightDeaths, getGuildRankings, syncPercentilesForReport, syncAllPercentiles } from '../services/warcraftlogs.js';
+import { processWarcraftLog, isConfigured as isWCLConfigured, getGuildReports, getFightStats, getFightStatsWithDeathEvents, getExtendedFightStats, getFightRankings, getConsumableCasts, getFightDeaths, getGuildRankings, syncPercentilesForReport, syncAllPercentiles, getVanguardMechanicHits } from '../services/warcraftlogs.js';
 import { syncGuildReports } from '../services/autoSync.js';
 import { processExtendedFightData } from '../services/performanceAnalysis.js';
 import { seedRaidData, processFightStats, recordPlayerDeaths, recordPlayerPerformance } from '../services/raids.js';
@@ -360,6 +360,7 @@ router.post('/confirm', adminLimiter, authenticateToken, authorizeRole(['admin',
               processedBosses.push({
                 bossId: boss.id || result.bossId,
                 fightId: fight.id,
+                encounterID: fight.encounterID,
                 difficulty: fight.difficulty,
                 kill: fight.kill,
                 startTime: fight.startTime,
@@ -436,19 +437,19 @@ router.post('/confirm', adminLimiter, authenticateToken, authorizeRole(['admin',
               let extendedRecorded = 0;
               for (const bossInfo of processedBosses) {
                 try {
-                  const fetches = [
+                  const isVanguard = bossInfo.encounterID === 3180;
+                  // Fixed positions: [extStats, basicStats, consumableCasts, rankingsData, mechanicHits]
+                  // rankingsData is null for wipes; mechanicHits is null for non-Vanguard bosses
+                  const [extStats, basicStats, consumableCasts, rankingsData, mechanicHits] = await Promise.all([
                     getExtendedFightStats(reportCode, [bossInfo.fightId]),
                     getFightStats(reportCode, [bossInfo.fightId]),
                     getConsumableCasts(reportCode, [bossInfo.fightId]),
-                  ];
-                  // Rankings only exist for kills
-                  if (bossInfo.kill) {
-                    fetches.push(getFightRankings(reportCode, [bossInfo.fightId]));
-                  }
-                  const [extStats, basicStats, consumableCasts, rankingsData] = await Promise.all(fetches);
+                    bossInfo.kill ? getFightRankings(reportCode, [bossInfo.fightId]) : Promise.resolve(null),
+                    isVanguard ? getVanguardMechanicHits(reportCode, [bossInfo.fightId]) : Promise.resolve(null),
+                  ]);
                   const count = await processExtendedFightData(
                     req.db, reportCode, bossInfo, basicStats, extStats, participantUserMap, reportDate,
-                    rankingsData || { dps: {}, hps: {} }, consumableCasts
+                    rankingsData || { dps: {}, hps: {} }, consumableCasts, mechanicHits
                   );
                   extendedRecorded += count;
                 } catch (extErr) {
@@ -759,6 +760,7 @@ router.post('/import-boss-stats', adminLimiter, authenticateToken, authorizeRole
         processedBosses.push({
           bossId,
           fightId: fight.id,
+          encounterID: fight.encounterID,
           name: fight.name,
           difficulty: fight.difficulty,
           kill: result.skipped ? fight.kill : result.kill,
@@ -842,19 +844,18 @@ router.post('/import-boss-stats', adminLimiter, authenticateToken, authorizeRole
           const extResults = await Promise.all(
             processedBosses.map(bossInfo => limit(async () => {
               try {
-                const fetches = [
+                const isVanguard = bossInfo.encounterID === 3180;
+                // Fixed positions: [extStats, fightStats, consumableCasts, rankingsData, mechanicHits]
+                const [extStats, fightStats, consumableCasts, rankingsData, mechanicHits] = await Promise.all([
                   getExtendedFightStats(reportData.code, [bossInfo.fightId]),
                   getFightStats(reportData.code, [bossInfo.fightId]),
                   getConsumableCasts(reportData.code, [bossInfo.fightId]),
-                ];
-                // Rankings (percentiles) only exist for kills
-                if (bossInfo.kill) {
-                  fetches.push(getFightRankings(reportData.code, [bossInfo.fightId]));
-                }
-                const [extStats, fightStats, consumableCasts, rankingsData] = await Promise.all(fetches);
+                  bossInfo.kill ? getFightRankings(reportData.code, [bossInfo.fightId]) : Promise.resolve(null),
+                  isVanguard ? getVanguardMechanicHits(reportData.code, [bossInfo.fightId]) : Promise.resolve(null),
+                ]);
                 const count = await processExtendedFightData(
                   req.db, reportData.code, bossInfo, fightStats, extStats, participantUserMap, reportDate,
-                  rankingsData || { dps: {}, hps: {} }, consumableCasts
+                  rankingsData || { dps: {}, hps: {} }, consumableCasts, mechanicHits
                 );
                 return count;
               } catch (extErr) {

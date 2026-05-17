@@ -896,4 +896,58 @@ router.get('/boss/:bossId/percentiles', authenticateToken, async (req, res) => {
   }
 });
 
+// Boss mechanic hit ranking — currently tracks Lightblinded Vanguard only
+// ?bossId=N&mechanic=divine_hammer|avenger_shield&difficulty=heroic|mythic|normal&weeks=N
+const VALID_MECHANICS = ['divine_hammer', 'avenger_shield'];
+
+router.get('/boss-mechanics', authenticateToken, async (req, res) => {
+  try {
+    const bossId = parseInt(String(req.query.bossId));
+    const mechanic = String(req.query.mechanic || '');
+    const difficulty = req.query.difficulty ? String(req.query.difficulty) : null;
+    let weeks = parseInt(String(req.query.weeks)) || 8;
+
+    if (isNaN(bossId) || bossId <= 0) {
+      return error(res, 'bossId is required', 400, ErrorCodes.VALIDATION_ERROR);
+    }
+    if (!VALID_MECHANICS.includes(mechanic)) {
+      return error(res, `mechanic must be one of: ${VALID_MECHANICS.join(', ')}`, 400, ErrorCodes.VALIDATION_ERROR);
+    }
+    if (weeks < 1 || weeks > 52) weeks = 8;
+
+    const jsonPath = `$.${mechanic}`;
+    const diffClause = difficulty ? ' AND pfp.difficulty = ?' : '';
+    const activeClause = activeFilter(req);
+    const queryParams = [jsonPath, jsonPath, bossId, weeks * 7];
+    if (difficulty) queryParams.push(difficulty);
+
+    const ranking = await req.db.all(`
+      SELECT
+        COALESCE(pfp.character_name, u.character_name) as characterName,
+        COALESCE(pfp.wcl_class, u.character_class) as characterClass,
+        SUM(CAST(JSON_EXTRACT(pfp.mechanic_hits_json, ?) AS INTEGER)) as totalHits,
+        COUNT(*) as fights,
+        ROUND(
+          CAST(SUM(CAST(JSON_EXTRACT(pfp.mechanic_hits_json, ?) AS INTEGER)) AS REAL) / COUNT(*),
+          2
+        ) as avgPerFight
+      FROM player_fight_performance pfp
+      JOIN users u ON pfp.user_id = u.id
+      WHERE pfp.boss_id = ?
+        AND pfp.fight_date >= date('now', '-' || ? || ' days')
+        AND pfp.mechanic_hits_json IS NOT NULL
+        ${diffClause}
+        ${activeClause}
+      GROUP BY pfp.user_id
+      HAVING totalHits > 0
+      ORDER BY totalHits DESC
+    `, ...queryParams);
+
+    return success(res, { mechanic, bossId, weeks, ranking });
+  } catch (err) {
+    log.error('Boss mechanics ranking error', err);
+    return error(res, 'Failed to get boss mechanic ranking', 500, ErrorCodes.INTERNAL_ERROR);
+  }
+});
+
 export default router;

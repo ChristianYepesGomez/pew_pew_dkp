@@ -874,6 +874,97 @@ export async function getConsumableCasts(reportCode, fightIds) {
   }
 }
 
+// ── Lightblinded Vanguard mechanic spell IDs ──
+// Divine Hammer: spinning hammers placed in the environment (source: Environment NPC)
+const DIVINE_HAMMER_SPELL_ID = 1249047;
+// Avenger's Shield: has two variants — targeted DOT (unavoidable) and moving shield (avoidable).
+// The avoidable version is a direct hit WITHOUT a corresponding applydebuff event within 2 seconds.
+const AVENGER_SHIELD_SPELL_ID = 1246502;
+const AVENGER_SHIELD_WINDOW_MS = 2000;
+
+/**
+ * Fetch mechanic hit counts for the Lightblinded Vanguard encounter.
+ * Returns per-player counts for Divine Hammer hits and avoidable Avenger's Shield hits.
+ * Returns { divineHammer: { playerName: count }, avengerShield: { playerName: count } }
+ */
+export async function getVanguardMechanicHits(reportCode, fightIds) {
+  const cacheKey = `vanguardMechanics:${reportCode}:${[...fightIds].sort().join(',')}`;
+  const cached = wclCache.get(cacheKey);
+  if (cached) return cached;
+
+  const hammerFilter = `ability.id = ${DIVINE_HAMMER_SPELL_ID}`;
+  // tick=0 is not a valid WCL filter expression — instead filter out tick events client-side
+  const shieldFilter = `ability.id = ${AVENGER_SHIELD_SPELL_ID}`;
+
+  const query = `
+    query GetVanguardMechanics($reportCode: String!, $fightIDs: [Int!]) {
+      reportData {
+        report(code: $reportCode) {
+          masterData { actors(type: "Player") { id name } }
+          hammerDamage: events(dataType: DamageTaken, fightIDs: $fightIDs,
+                               hostilityType: Friendlies, limit: 1000,
+                               filterExpression: "${hammerFilter}") { data }
+          shieldDamage: events(dataType: DamageTaken, fightIDs: $fightIDs,
+                               hostilityType: Friendlies, limit: 2000,
+                               filterExpression: "${shieldFilter}") { data }
+          shieldDebuffs: events(dataType: Debuffs, fightIDs: $fightIDs,
+                                hostilityType: Friendlies, limit: 2000,
+                                filterExpression: "${shieldFilter}") { data }
+        }
+      }
+    }
+  `;
+
+  try {
+    const data = await executeGraphQL(query, { reportCode, fightIDs: fightIds });
+    const report = data.reportData?.report;
+    if (!report) return { divineHammer: {}, avengerShield: {} };
+
+    const actorMap = {};
+    for (const a of report.masterData?.actors || []) actorMap[a.id] = a.name;
+    const playerIds = new Set(Object.keys(actorMap).map(Number));
+
+    // Count Divine Hammer hits per player (all DamageTaken events from this spell hit players directly)
+    const divineHammer = {};
+    for (const e of report.hammerDamage?.data || []) {
+      if (!playerIds.has(e.targetID)) continue;
+      const name = actorMap[e.targetID];
+      divineHammer[name] = (divineHammer[name] || 0) + 1;
+    }
+
+    // Build debuff apply timeline per player: { targetID: [timestamp, ...] }
+    // Used to distinguish targeted Avenger's Shield (unavoidable) from moving shield (avoidable)
+    const debuffTimeline = {};
+    for (const e of report.shieldDebuffs?.data || []) {
+      if (e.type !== 'applydebuff') continue;
+      if (!playerIds.has(e.targetID)) continue;
+      if (!debuffTimeline[e.targetID]) debuffTimeline[e.targetID] = [];
+      debuffTimeline[e.targetID].push(e.timestamp);
+    }
+
+    // Count only avoidable Avenger's Shield hits: direct hits (not DOT ticks) without a
+    // matching applydebuff within AVENGER_SHIELD_WINDOW_MS of the hit timestamp.
+    const avengerShield = {};
+    for (const e of report.shieldDamage?.data || []) {
+      if (e.tick) continue; // skip DOT ticks (these are from the targeted unavoidable version)
+      if (!playerIds.has(e.targetID)) continue;
+      const debuffTimes = debuffTimeline[e.targetID] || [];
+      const isTargeted = debuffTimes.some(dt => Math.abs(dt - e.timestamp) <= AVENGER_SHIELD_WINDOW_MS);
+      if (!isTargeted) {
+        const name = actorMap[e.targetID];
+        avengerShield[name] = (avengerShield[name] || 0) + 1;
+      }
+    }
+
+    const result = { divineHammer, avengerShield };
+    wclCache.set(cacheKey, result);
+    return result;
+  } catch (err) {
+    log.error('Error fetching Vanguard mechanic hits', err);
+    return { divineHammer: {}, avengerShield: {} };
+  }
+}
+
 /**
  * Get WCL global percentile rankings for each player in a fight.
  * Uses the `rankings` field (not `table`) which includes rankPercent per spec/boss globally.
