@@ -69,10 +69,11 @@ function buildFightOwnershipMap(allReportData) {
 
   for (const reportData of sorted) {
     for (const fight of reportData.fights) {
-      // fight.startTime is ms offset from report start — add report.startTime for absolute epoch ms,
-      // then round to nearest second to absorb minor logging timing differences across reports.
-      const absoluteStartSec = Math.round((reportData.startTime + fight.startTime) / 1000);
-      const key = `${fight.encounterID}:${fight.difficulty ?? 'Unknown'}:${absoluteStartSec}`;
+      // fight.startTime is ms offset from report start — add report.startTime for absolute epoch ms.
+      // Different loggers' clocks can drift by several seconds, so we bucket into 60-second windows.
+      // 60s is safe: real consecutive pulls are always 3+ minutes apart, so no false merges.
+      const bucket60s = Math.floor((reportData.startTime + fight.startTime) / (60 * 1000));
+      const key = `${fight.encounterID}:${fight.difficulty ?? 'Unknown'}:${bucket60s}`;
       if (!map.has(key)) {
         map.set(key, { reportData, fight });
       }
