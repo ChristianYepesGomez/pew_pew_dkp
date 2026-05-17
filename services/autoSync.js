@@ -24,7 +24,10 @@ import {
   getFightRankings,
   getConsumableCasts,
   syncPercentilesForReport,
+  getVanguardMechanicHits,
 } from './warcraftlogs.js';
+
+const VANGUARD_ENCOUNTER_ID = 3180;
 import { seedRaidData, processFightStats, recordPlayerDeaths, recordPlayerPerformance } from './raids.js';
 import { processExtendedFightData } from './performanceAnalysis.js';
 import { processReportPopularity } from './itemPopularity.js';
@@ -216,19 +219,21 @@ async function importReport(db, reportData, allowedFightIds, participantUserMap,
             }
           })));
 
-          // Extended fight data: consumables, interrupts, DPS/HPS rankings
+          // Extended fight data: consumables, interrupts, DPS/HPS rankings, boss mechanics
           await Promise.all(processedBosses.map(bossInfo => extLimit(async () => {
             try {
+              const isVanguard = bossInfo.encounterID === VANGUARD_ENCOUNTER_ID;
               const fetches = [
                 getExtendedFightStats(reportData.code, [bossInfo.fightId]),
                 getFightStats(reportData.code, [bossInfo.fightId]),
                 getConsumableCasts(reportData.code, [bossInfo.fightId]),
+                bossInfo.kill ? getFightRankings(reportData.code, [bossInfo.fightId]) : Promise.resolve(null),
+                isVanguard ? getVanguardMechanicHits(reportData.code, [bossInfo.fightId]) : Promise.resolve(null),
               ];
-              if (bossInfo.kill) fetches.push(getFightRankings(reportData.code, [bossInfo.fightId]));
-              const [extStats, basicStats, consumableCasts, rankingsData] = await Promise.all(fetches);
+              const [extStats, basicStats, consumableCasts, rankingsData, mechanicHits] = await Promise.all(fetches);
               await processExtendedFightData(
                 db, reportData.code, bossInfo, basicStats, extStats, participantUserMap, reportDate,
-                rankingsData || { dps: {}, hps: {} }, consumableCasts
+                rankingsData || { dps: {}, hps: {} }, consumableCasts, mechanicHits
               );
             } catch (err) {
               log.warn(`Sync extended stats failed for fight ${bossInfo.fightId} in ${reportData.code}: ${err.message}`);
