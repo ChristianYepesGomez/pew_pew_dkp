@@ -877,10 +877,12 @@ export async function getConsumableCasts(reportCode, fightIds) {
 // ── Lightblinded Vanguard mechanic spell IDs ──
 // Divine Hammer: spinning hammers placed in the environment (source: Environment NPC)
 const DIVINE_HAMMER_SPELL_ID = 1249047;
-// Avenger's Shield: has two variants — targeted DOT (unavoidable) and moving shield (avoidable).
-// The avoidable version is a direct hit WITHOUT a corresponding applydebuff event within 2 seconds.
-const AVENGER_SHIELD_SPELL_ID = 1246502;
-const AVENGER_SHIELD_WINDOW_MS = 2000;
+// Moving Avenger's Shield: the physical shield objects with a hitbox that roam the arena.
+// Walking into one deals ~400k damage AND applies applydebuff 1248652 (silence) at +0ms.
+// This debuff is the definitive "got hit by the shield" signal — it fires even on fatal hits.
+// The unavoidable variants (targeted DOT on 4 players, Divine Toll AOE on all 20) use
+// different spell IDs (1246502, 1246749, 1258661) and do NOT apply this debuff.
+const AVENGER_SHIELD_SPELL_ID = 1248652;
 
 /**
  * Fetch mechanic hit counts for the Lightblinded Vanguard encounter.
@@ -893,8 +895,7 @@ export async function getVanguardMechanicHits(reportCode, fightIds) {
   if (cached) return cached;
 
   const hammerFilter = `ability.id = ${DIVINE_HAMMER_SPELL_ID}`;
-  // tick=0 is not a valid WCL filter expression — instead filter out tick events client-side
-  const shieldFilter = `ability.id = ${AVENGER_SHIELD_SPELL_ID}`;
+  const shieldFilter = `ability.id = ${AVENGER_SHIELD_SPELL_ID} and type = 'applydebuff'`;
 
   const query = `
     query GetVanguardMechanics($reportCode: String!, $fightIDs: [Int!]) {
@@ -904,11 +905,8 @@ export async function getVanguardMechanicHits(reportCode, fightIds) {
           hammerDamage: events(dataType: DamageTaken, fightIDs: $fightIDs,
                                hostilityType: Friendlies, limit: 1000,
                                filterExpression: "${hammerFilter}") { data }
-          shieldDamage: events(dataType: DamageTaken, fightIDs: $fightIDs,
-                               hostilityType: Friendlies, limit: 2000,
-                               filterExpression: "${shieldFilter}") { data }
           shieldDebuffs: events(dataType: Debuffs, fightIDs: $fightIDs,
-                                hostilityType: Friendlies, limit: 2000,
+                                hostilityType: Friendlies, limit: 1000,
                                 filterExpression: "${shieldFilter}") { data }
         }
       }
@@ -932,28 +930,14 @@ export async function getVanguardMechanicHits(reportCode, fightIds) {
       divineHammer[name] = (divineHammer[name] || 0) + 1;
     }
 
-    // Build debuff apply timeline per player: { targetID: [timestamp, ...] }
-    // Used to distinguish targeted Avenger's Shield (unavoidable) from moving shield (avoidable)
-    const debuffTimeline = {};
-    for (const e of report.shieldDebuffs?.data || []) {
-      if (e.type !== 'applydebuff') continue;
-      if (!playerIds.has(e.targetID)) continue;
-      if (!debuffTimeline[e.targetID]) debuffTimeline[e.targetID] = [];
-      debuffTimeline[e.targetID].push(e.timestamp);
-    }
-
-    // Count only avoidable Avenger's Shield hits: direct hits (not DOT ticks) without a
-    // matching applydebuff within AVENGER_SHIELD_WINDOW_MS of the hit timestamp.
+    // Count avoidable Avenger's Shield hits: each applydebuff 1248652 = one player walked into
+    // a moving shield object. The silence debuff fires at +0ms even on fatal hits, so deaths
+    // are captured correctly without any special handling.
     const avengerShield = {};
-    for (const e of report.shieldDamage?.data || []) {
-      if (e.tick) continue; // skip DOT ticks (these are from the targeted unavoidable version)
+    for (const e of report.shieldDebuffs?.data || []) {
       if (!playerIds.has(e.targetID)) continue;
-      const debuffTimes = debuffTimeline[e.targetID] || [];
-      const isTargeted = debuffTimes.some(dt => Math.abs(dt - e.timestamp) <= AVENGER_SHIELD_WINDOW_MS);
-      if (!isTargeted) {
-        const name = actorMap[e.targetID];
-        avengerShield[name] = (avengerShield[name] || 0) + 1;
-      }
+      const name = actorMap[e.targetID];
+      avengerShield[name] = (avengerShield[name] || 0) + 1;
     }
 
     const result = { divineHammer, avengerShield };
