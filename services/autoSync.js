@@ -496,10 +496,16 @@ export async function syncGuildReports(db, { lookbackDays = 7, raidDate = null, 
   }
   const guildId = parseInt(guildConfig.config_value, 10);
 
-  // Time window: for a specific date use a safe 2-day window then filter;
-  // for lookback mode use the requested range.
   const endTime = Date.now();
-  const lookback = raidDate ? 2 : Math.min(lookbackDays, 90);
+  let lookback;
+  if (raidDate) {
+    // Calculate exact days from the target date to today, plus 1-day buffer so
+    // we always cover the full day even when called for historical dates.
+    const daysDiff = Math.ceil((endTime - new Date(raidDate + 'T00:00:00').getTime()) / (24 * 60 * 60 * 1000));
+    lookback = Math.min(daysDiff + 1, 90);
+  } else {
+    lookback = Math.min(lookbackDays, 90);
+  }
   const startTime = endTime - lookback * 24 * 60 * 60 * 1000;
 
   const rawReports = await getGuildReports(guildId, startTime, endTime);
