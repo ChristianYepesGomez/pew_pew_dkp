@@ -904,7 +904,6 @@ router.get('/boss-mechanics', authenticateToken, async (req, res) => {
   try {
     const bossId = parseInt(String(req.query.bossId));
     const mechanic = String(req.query.mechanic || '');
-    const difficulty = req.query.difficulty ? String(req.query.difficulty) : null;
     let weeks = parseInt(String(req.query.weeks)) || 8;
 
     if (isNaN(bossId) || bossId <= 0) {
@@ -915,11 +914,9 @@ router.get('/boss-mechanics', authenticateToken, async (req, res) => {
     }
     if (weeks < 1 || weeks > 52) weeks = 8;
 
+    // Mechanic stats are Mythic-only — tracked exclusively on Mythic difficulty
     const jsonPath = `$.${mechanic}`;
-    const diffClause = difficulty ? ' AND pfp.difficulty = ?' : '';
     const activeClause = activeFilter(req);
-    const queryParams = [jsonPath, jsonPath, bossId, weeks * 7];
-    if (difficulty) queryParams.push(difficulty);
 
     const ranking = await req.db.all(`
       SELECT
@@ -934,16 +931,16 @@ router.get('/boss-mechanics', authenticateToken, async (req, res) => {
       FROM player_fight_performance pfp
       JOIN users u ON pfp.user_id = u.id
       WHERE pfp.boss_id = ?
+        AND pfp.difficulty = 'Mythic'
         AND pfp.fight_date >= date('now', '-' || ? || ' days')
         AND pfp.mechanic_hits_json IS NOT NULL
-        ${diffClause}
         ${activeClause}
       GROUP BY pfp.user_id
       HAVING totalHits > 0
       ORDER BY totalHits DESC
-    `, ...queryParams);
+    `, jsonPath, jsonPath, bossId, weeks * 7);
 
-    return success(res, { mechanic, bossId, weeks, ranking });
+    return success(res, { mechanic, bossId, weeks, difficulty: 'Mythic', ranking });
   } catch (err) {
     log.error('Boss mechanics ranking error', err);
     return error(res, 'Failed to get boss mechanic ranking', 500, ErrorCodes.INTERNAL_ERROR);

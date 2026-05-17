@@ -6,7 +6,7 @@ import { getLootSystem, getLootSystemType } from '../lib/lootSystems/index.js';
 import { processWarcraftLog, isConfigured as isWCLConfigured, getGuildReports, getFightStats, getFightStatsWithDeathEvents, getExtendedFightStats, getFightRankings, getConsumableCasts, getFightDeaths, getGuildRankings, syncPercentilesForReport, syncAllPercentiles, getVanguardMechanicHits } from '../services/warcraftlogs.js';
 import { syncGuildReports } from '../services/autoSync.js';
 import { processExtendedFightData } from '../services/performanceAnalysis.js';
-import { seedRaidData, processFightStats, recordPlayerDeaths, recordPlayerPerformance } from '../services/raids.js';
+import { seedRaidData, processFightStats, recordPlayerDeaths, recordPlayerPerformance, normalizeDifficulty } from '../services/raids.js';
 import { processReportPopularity } from '../services/itemPopularity.js';
 import { createLogger } from '../lib/logger.js';
 import pLimit from 'p-limit';
@@ -437,7 +437,7 @@ router.post('/confirm', adminLimiter, authenticateToken, authorizeRole(['admin',
               let extendedRecorded = 0;
               for (const bossInfo of processedBosses) {
                 try {
-                  const isVanguard = bossInfo.encounterID === 3180;
+                  const isVanguard = bossInfo.encounterID === 3180 && normalizeDifficulty(bossInfo.difficulty) === 'Mythic';
                   // Fixed positions: [extStats, basicStats, consumableCasts, rankingsData, mechanicHits]
                   // rankingsData is null for wipes; mechanicHits is null for non-Vanguard bosses
                   const [extStats, basicStats, consumableCasts, rankingsData, mechanicHits] = await Promise.all([
