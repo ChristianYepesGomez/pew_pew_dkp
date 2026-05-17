@@ -52,30 +52,43 @@ async function isReportProcessed(db, reportCode) {
   return !!row;
 }
 
+// Maximum clock drift between loggers (in ms). Fights within this window are the same pull.
+// Real consecutive pulls are always 3+ minutes apart, so 60s is safe with no false merges.
+const DEDUP_WINDOW_MS = 60 * 1000;
+
 /**
  * Build fight ownership map across multiple reports for the same raid day.
  *
- * Each physical fight is uniquely identified by (encounterID, difficulty, absolute start time in seconds).
- * The fight is assigned to the report with the most total fights (most complete coverage).
- * If two reports record the same physical boss pull, only the one from the "best" report is kept.
+ * Uses nearest-neighbor matching (not fixed buckets) to handle logger clock drift of several
+ * seconds: for each fight we check whether any already-registered fight of the same boss+
+ * difficulty starts within DEDUP_WINDOW_MS. If yes → duplicate, skip. If no → unique, register.
  *
- * Reports are pre-sorted by fightCount desc so the most complete report wins all tie-breaks.
+ * Reports processed in descending fight-count order so the most complete log wins ownership.
  *
- * Returns Map<fightKey, { reportData, fight }>
+ * Returns Map<internalKey, { reportData, fight, absoluteMs }>
  */
 function buildFightOwnershipMap(allReportData) {
   const sorted = [...allReportData].sort((a, b) => b.fights.length - a.fights.length);
+
+  // registered: groupKey (encounterID:difficulty) → sorted array of registered absoluteMs values
+  const registered = new Map();
+  // ownership map: unique stable key → { reportData, fight }
   const map = new Map();
 
   for (const reportData of sorted) {
     for (const fight of reportData.fights) {
-      // fight.startTime is ms offset from report start — add report.startTime for absolute epoch ms.
-      // Different loggers' clocks can drift by several seconds, so we bucket into 60-second windows.
-      // 60s is safe: real consecutive pulls are always 3+ minutes apart, so no false merges.
-      const bucket60s = Math.floor((reportData.startTime + fight.startTime) / (60 * 1000));
-      const key = `${fight.encounterID}:${fight.difficulty ?? 'Unknown'}:${bucket60s}`;
-      if (!map.has(key)) {
-        map.set(key, { reportData, fight });
+      const absoluteMs = reportData.startTime + fight.startTime;
+      const groupKey = `${fight.encounterID}:${fight.difficulty ?? 'Unknown'}`;
+
+      const existing = registered.get(groupKey) || [];
+      const isDuplicate = existing.some(t => Math.abs(absoluteMs - t) < DEDUP_WINDOW_MS);
+
+      if (!isDuplicate) {
+        // Unique fight — register it and claim ownership
+        existing.push(absoluteMs);
+        registered.set(groupKey, existing);
+        // Key includes ms for uniqueness within the map
+        map.set(`${groupKey}:${absoluteMs}`, { reportData, fight });
       }
     }
   }
