@@ -287,19 +287,24 @@ async function startServer() {
     startBot(io).catch(err => log.error('Discord bot failed to start', err));
   }
 
-  // Auto-sync WCL guild reports at 23:15 Spain time on raid nights (Mon=1, Wed=3, Thu=4)
-  // Runs after all logs are expected to be uploaded to WarcraftLogs.
+  // Auto-sync WCL guild reports at 23:15 Spain time on raid nights (Mon=1, Wed=3, Thu=4).
+  // Fetches all logs uploaded that day, deduplicates at the fight level (split logs supported),
+  // then auto-assigns raid-attendance DKP to raiders + bench players.
   cron.schedule('15 23 * * 1,3,4', async () => {
-    log.info('[AutoSync] Scheduled guild report sync starting...');
+    const today = new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Madrid' });
+    log.info(`[AutoSync] Scheduled guild report sync for ${today}...`);
     try {
-      // Each guild gets its own tenant DB — for now we use the single default DB
-      await syncGuildReports(db, { lookbackDays: 7, io });
-      log.info('[AutoSync] Scheduled guild report sync complete');
+      const result = await syncGuildReports(db, { raidDate: today, autoDkp: true, io });
+      log.info('[AutoSync] Scheduled sync complete', {
+        found: result.found,
+        imported: result.toImport,
+        dkp: result.dkp,
+      });
     } catch (err) {
       log.error('[AutoSync] Scheduled sync failed', err);
     }
   }, { timezone: 'Europe/Madrid' });
-  log.info('Scheduled WCL guild sync: 23:15 Europe/Madrid on Mon/Wed/Thu');
+  log.info('Scheduled WCL guild sync: 23:15 Europe/Madrid on Mon/Wed/Thu (with auto-DKP)');
 
   server.listen(PORT, () => {
     log.info('DKP Backend Server started', { port: PORT, build: 'v4.0 Multi-Tenant' });
