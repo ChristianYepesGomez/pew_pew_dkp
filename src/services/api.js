@@ -246,6 +246,7 @@ export const notificationsAPI = {
 export const armoryAPI = {
   getProfile: (userId) => api.get(`/armory/${userId}/profile`),
   getLoot: (userId) => api.get(`/armory/${userId}/loot`),
+  getDkpHistory: (userId) => api.get(`/dkp/history/${userId}`),
   getEquipment: (realm, character) => api.get(`/armory/equipment/${encodeURIComponent(realm)}/${encodeURIComponent(character)}`),
   getMedia: (realm, character) => api.get(`/armory/media/${encodeURIComponent(realm)}/${encodeURIComponent(character)}`),
 }

@@ -390,6 +390,8 @@ export const translations = {
     equipment_load_error: 'Error al cargar equipamiento',
     no_equipment_data: 'No se pudo obtener el equipamiento',
     retry: 'Reintentar',
+    dkp_history: 'Historial DKP',
+    no_dkp_transactions: 'No hay transacciones de DKP aún',
     // Profile & Characters
     email: 'Email',
     email_placeholder: 'tu@email.com',
@@ -1026,6 +1028,8 @@ export const translations = {
     equipment_load_error: 'Error loading equipment',
     no_equipment_data: 'Could not retrieve equipment data',
     retry: 'Retry',
+    dkp_history: 'DKP History',
+    no_dkp_transactions: 'No DKP transactions yet',
     // Profile & Characters
     email: 'Email',
     email_placeholder: 'you@email.com',

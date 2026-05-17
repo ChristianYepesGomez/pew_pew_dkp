@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
-import { CircleNotch, X, Trophy, ShieldStar, WarningCircle, ArrowCounterClockwise, Question, Diamond, Sword } from '@phosphor-icons/react'
+import { CircleNotch, X, Trophy, ShieldStar, WarningCircle, ArrowCounterClockwise, Question, Diamond, Sword, ClockCounterClockwise, Gavel } from '@phosphor-icons/react'
 import { useLanguage } from '../../hooks/useLanguage'
 import { armoryAPI } from '../../services/api'
 import WowheadTooltip from '../Common/WowheadTooltip'
@@ -64,6 +64,8 @@ const ArmoryModal = ({ memberId, onClose }) => {
   const [equipmentLoading, setEquipmentLoading] = useState(false)
   const [equipmentError, setEquipmentError] = useState(null)
   const [characterMedia, setCharacterMedia] = useState(null)
+  const [dkpHistory, setDkpHistory] = useState(null)
+  const [dkpHistoryLoading, setDkpHistoryLoading] = useState(false)
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState('loot')
 
@@ -117,6 +119,24 @@ const ArmoryModal = ({ memberId, onClose }) => {
   useEffect(() => {
     if (activeTab === 'equipment') loadEquipment()
   }, [activeTab, loadEquipment])
+
+  const loadDkpHistory = useCallback(async () => {
+    if (dkpHistory !== null || dkpHistoryLoading) return
+    setDkpHistoryLoading(true)
+    try {
+      const res = await armoryAPI.getDkpHistory(memberId)
+      setDkpHistory(res.data?.transactions || [])
+    } catch (err) {
+      console.error('Error loading DKP history:', err)
+      setDkpHistory([])
+    } finally {
+      setDkpHistoryLoading(false)
+    }
+  }, [memberId, dkpHistory, dkpHistoryLoading])
+
+  useEffect(() => {
+    if (activeTab === 'dkp') loadDkpHistory()
+  }, [activeTab, loadDkpHistory])
 
   const formatDate = (dateStr) => {
     const date = new Date(dateStr)
@@ -253,6 +273,15 @@ const ArmoryModal = ({ memberId, onClose }) => {
             <ShieldStar size={18} />
             {t('equipment')}
           </button>
+          <button
+            onClick={() => setActiveTab('dkp')}
+            className={`flex-1 py-3 px-4 text-sm font-semibold transition-colors flex items-center justify-center gap-2 ${
+              activeTab === 'dkp' ? 'text-coral border-b-2 border-coral bg-lavender-12' : 'text-lavender hover:text-cream hover:bg-lavender-12'
+            }`}
+          >
+            <ClockCounterClockwise size={18} />
+            {t('dkp_history')}
+          </button>
         </div>
 
         <div className="flex-1 overflow-auto p-4">
@@ -284,6 +313,52 @@ const ArmoryModal = ({ memberId, onClose }) => {
                       <p className="text-xs text-lavender">{formatDate(item.wonAt)}</p>
                     </div>
                     <span className="text-red-400 font-bold shrink-0">-{item.dkpSpent} DKP</span>
+                  </div>
+                ))}
+              </div>
+            )
+          )}
+
+          {activeTab === 'dkp' && (
+            dkpHistoryLoading ? (
+              <div className="text-center py-8">
+                <CircleNotch size={48} className="text-coral animate-spin mx-auto" />
+              </div>
+            ) : !dkpHistory || dkpHistory.length === 0 ? (
+              <p className="text-center text-lavender py-8">{t('no_dkp_transactions')}</p>
+            ) : (
+              <div className="space-y-2">
+                {dkpHistory.map((tx) => (
+                  <div key={tx.id} className="bg-lavender-12 rounded-xl p-3 flex items-center gap-3">
+                    {tx.auctionItem ? (
+                      <WowheadTooltip itemId={tx.auctionItem.itemId}>
+                        <div
+                          className="w-10 h-10 rounded-lg bg-indigo flex items-center justify-center border-2 shrink-0 overflow-hidden cursor-help"
+                          style={{ borderColor: RARITY_COLORS[tx.auctionItem.rarity] || RARITY_COLORS.epic }}
+                        >
+                          {tx.auctionItem.image && tx.auctionItem.image !== '🎁' ? (
+                            <img src={tx.auctionItem.image} alt="" className="w-full h-full object-cover" />
+                          ) : (
+                            <Gavel size={16} style={{ color: RARITY_COLORS[tx.auctionItem.rarity] || RARITY_COLORS.epic }} />
+                          )}
+                        </div>
+                      </WowheadTooltip>
+                    ) : null}
+                    <div className="flex-1 min-w-0">
+                      {tx.auctionItem ? (
+                        <WowheadTooltip itemId={tx.auctionItem.itemId}>
+                          <p className="font-bold truncate cursor-help" style={{ color: RARITY_COLORS[tx.auctionItem.rarity] || '#fff' }}>
+                            {tx.auctionItem.name}
+                          </p>
+                        </WowheadTooltip>
+                      ) : (
+                        <p className="text-cream text-sm truncate">{tx.reason}</p>
+                      )}
+                      <p className="text-xs text-lavender">{formatDate(tx.createdAt || tx.created_at)}</p>
+                    </div>
+                    <span className={`font-bold text-lg shrink-0 ml-2 ${tx.amount >= 0 ? 'text-teal' : 'text-red-400'}`}>
+                      {tx.amount >= 0 ? '+' : ''}{tx.amount}
+                    </span>
                   </div>
                 ))}
               </div>
