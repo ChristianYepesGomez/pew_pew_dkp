@@ -51,9 +51,12 @@ const LeaderboardModal = ({ title, Icon, color, entries, format, valueColorFn, b
         <div className="flex items-center justify-between px-6 py-4 border-b border-lavender-20/20">
           <h3 className="text-base font-semibold text-white inline-flex items-center gap-2">
             <Icon size={18} style={{ color }} />
-            {t('analytics_top10_title')} — {title}
+            {title}
             {badge && (
               <span className="text-xs text-lavender/40 font-normal">({badge})</span>
+            )}
+            {entries?.length > 0 && (
+              <span className="text-xs text-lavender/40 font-normal">· {entries.length}</span>
             )}
           </h3>
           <button
@@ -66,7 +69,7 @@ const LeaderboardModal = ({ title, Icon, color, entries, format, valueColorFn, b
         </div>
 
         {/* List */}
-        <div className="px-6 py-4 space-y-3">
+        <div className="px-6 py-4 space-y-3 max-h-[70vh] overflow-y-auto">
           {entries?.length > 0 ? (
             entries.map((entry, i) => (
               <div key={i} className="flex items-center gap-3">
