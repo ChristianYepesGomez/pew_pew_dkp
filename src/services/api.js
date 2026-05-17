@@ -201,6 +201,7 @@ export const analyticsAPI = {
   getMyPerformance: () => api.get('/analytics/my-performance'),
   getGuildInsights: (includeInactive) => api.get(`/analytics/guild-insights${includeInactive ? '?includeInactive=true' : ''}`),
   getGuildLeaderboards: (includeInactive, mythicOnly = true) => { const params = new URLSearchParams(); if (includeInactive) params.set('includeInactive', 'true'); if (!mythicOnly) params.set('mythicOnly', 'false'); const qs = params.toString(); return api.get(`/analytics/guild-leaderboards${qs ? `?${qs}` : ''}`) },
+  getBossMechanics: (bossId, mechanic, includeInactive) => { const params = new URLSearchParams({ bossId, mechanic }); if (includeInactive) params.set('includeInactive', 'true'); return api.get(`/analytics/boss-mechanics?${params}`) },
   getMyPerformanceDetail: (weeks = 8, bossId, difficulty) => {
     const params = new URLSearchParams({ weeks });
     if (bossId) params.append('bossId', bossId);

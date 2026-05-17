@@ -5,7 +5,7 @@ import { analyticsAPI } from '../../services/api'
 import CLASS_COLORS from '../../utils/classColors'
 import {
   Crosshair, Heart, Skull, Shield, Lightning, Drop, DropHalf,
-  UsersThree, Sparkle, Flask, Calendar, FirstAidKit,
+  UsersThree, Sparkle, Flask, Calendar, FirstAidKit, Hammer, ShieldWarning,
 } from '@phosphor-icons/react'
 import { AnalyticsSkeleton } from '../ui/Skeleton'
 import LeaderboardModal from './LeaderboardModal'
@@ -115,19 +115,39 @@ const AnalyticsTab = () => {
   const { data, isLoading } = useQuery({
     queryKey: ['analytics', 'tab', includeInactive, mythicOnly],
     queryFn: async () => {
-      const [perfRes, lbRes] = await Promise.all([
+      const fetches = [
         analyticsAPI.getMyPerformance().catch(() => ({ data: null })),
         analyticsAPI.getGuildLeaderboards(includeInactive, mythicOnly).catch(() => ({ data: null })),
-      ])
-      return { myPerformance: perfRes.data, leaderboards: lbRes.data }
+      ]
+      if (mythicOnly) {
+        fetches.push(
+          analyticsAPI.getBossMechanics(30, 'divine_hammer', includeInactive).catch(() => ({ data: null })),
+          analyticsAPI.getBossMechanics(30, 'avenger_shield', includeInactive).catch(() => ({ data: null })),
+        )
+      }
+      const [perfRes, lbRes, hammerRes, shieldRes] = await Promise.all(fetches)
+      return {
+        myPerformance: perfRes.data,
+        leaderboards: lbRes.data,
+        divineHammer: hammerRes?.data?.ranking || [],
+        avengerShield: shieldRes?.data?.ranking || [],
+      }
     },
   })
+
+  // Normalize mechanic entries to the shape LeaderboardCard / LeaderboardModal expect
+  const normMechanic = (entries) => (entries || []).map(e => ({
+    character_name: e.characterName,
+    character_class: e.characterClass,
+    value: e.totalHits,
+    extra: `~${e.avgPerFight} ${t('analytics_mechanic_avg')}`,
+  }))
 
   if (isLoading) {
     return <AnalyticsSkeleton />
   }
 
-  const { myPerformance, leaderboards } = data || {}
+  const { myPerformance, leaderboards, divineHammer, avengerShield } = data || {}
 
   const myBosses = myPerformance?.bossBreakdown || []
 
@@ -232,7 +252,14 @@ const AnalyticsTab = () => {
     },
   ]
 
-  const activeLeaderboard = LEADERBOARDS.find((lb) => lb.key === openModal)
+  const MECHANIC_LEADERBOARDS = [
+    { key: 'divineHammer',  title: t('analytics_divine_hammer'),   Icon: Hammer,        color: '#f97316', entries: normMechanic(divineHammer),  format: (v) => String(v), badge: 'Mythic' },
+    { key: 'avengerShield', title: t('analytics_avenger_shield'),  Icon: ShieldWarning, color: '#facc15', entries: normMechanic(avengerShield), format: (v) => String(v), badge: 'Mythic' },
+  ]
+
+  const activeLeaderboard =
+    LEADERBOARDS.find((lb) => lb.key === openModal) ||
+    MECHANIC_LEADERBOARDS.find((lb) => lb.key === openModal)
 
   const fmtWipePct = (pct) => {
     if (pct == null) return '—'
@@ -287,6 +314,38 @@ const AnalyticsTab = () => {
           ))}
         </div>
       </div>
+
+      {/* Vanguard mechanic stats — Mythic only */}
+      {mythicOnly && (
+        <div>
+          <h3 className="text-lg text-white inline-flex items-center gap-2 mb-4">
+            <ShieldWarning size={20} className="text-orange-400" />
+            {t('analytics_vanguard_mechanics')}
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <LeaderboardCard
+              cardKey="divineHammer"
+              title={t('analytics_divine_hammer')}
+              Icon={Hammer}
+              color="#f97316"
+              entries={normMechanic(divineHammer)}
+              format={(v) => String(v)}
+              badge="Mythic"
+              onSeeMore={setOpenModal}
+            />
+            <LeaderboardCard
+              cardKey="avengerShield"
+              title={t('analytics_avenger_shield')}
+              Icon={ShieldWarning}
+              color="#facc15"
+              entries={normMechanic(avengerShield)}
+              format={(v) => String(v)}
+              badge="Mythic"
+              onSeeMore={setOpenModal}
+            />
+          </div>
+        </div>
+      )}
 
       {/* WCL-style Percentile Matrix — players × bosses */}
       <PercentileMatrix includeInactive={includeInactive} />
