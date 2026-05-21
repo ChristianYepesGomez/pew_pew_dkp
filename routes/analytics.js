@@ -920,7 +920,7 @@ router.get('/boss-mechanics', authenticateToken, async (req, res) => {
 
     const ranking = await req.db.all(`
       SELECT
-        COALESCE(pfp.character_name, u.character_name) as characterName,
+        u.character_name as characterName,
         COALESCE(pfp.wcl_class, u.character_class) as characterClass,
         SUM(CAST(JSON_EXTRACT(pfp.mechanic_hits_json, ?) AS INTEGER)) as totalHits,
         COUNT(*) as fights,
