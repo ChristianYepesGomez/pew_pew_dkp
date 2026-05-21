@@ -168,6 +168,7 @@ async function importReport(db, reportData, allowedFightIds, participantUserMap,
       if (bossId) {
         processedBosses.push({
           bossId,
+          encounterID: fight.encounterID,
           fightId: fight.id,
           name: fight.name,
           difficulty: fight.difficulty,
