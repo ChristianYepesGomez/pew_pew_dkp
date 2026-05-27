@@ -75,7 +75,7 @@ router.get('/', authenticateToken, async (req, res) => {
 });
 
 // ── GET /api/roster/available?date=YYYY-MM-DD ────────────────────────────────
-router.get('/available', authenticateToken, authorizeRole(['admin', 'officer']), async (req, res) => {
+router.get('/available', authenticateToken, async (req, res) => {
   const { db } = req;
   const { date } = req.query;
 
