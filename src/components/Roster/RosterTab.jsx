@@ -51,7 +51,7 @@ export default function RosterTab({ initialDate, onGoToCalendar }) {
     try {
       const [rosterRes, availRes, summaryRes] = await Promise.all([
         rosterAPI.getByDate(date),
-        isPrivileged ? rosterAPI.getAvailable(date) : Promise.resolve({ data: [] }),
+        rosterAPI.getAvailable(date),
         calendarAPI.getSummary(date),
       ])
       const list = Array.isArray(rosterRes.data) ? rosterRes.data : []
