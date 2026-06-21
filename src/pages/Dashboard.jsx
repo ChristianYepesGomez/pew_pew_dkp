@@ -16,7 +16,7 @@ import AnalyticsTab from '../components/Analytics/AnalyticsTab'
 import HallOfFameTab from '../components/HallOfFame/HallOfFameTab'
 
 const Dashboard = () => {
-  const [activeTab, setActiveTab]       = useState('members')
+  const [activeTab, setActiveTab]       = useState('hall-of-fame')
   const [calendarBadge, setCalendarBadge] = useState(0)
   const [rosterDate, setRosterDate]     = useState(null)
   const [calendarDate, setCalendarDate] = useState(null)

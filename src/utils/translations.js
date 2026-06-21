@@ -610,6 +610,9 @@ export const translations = {
     install: 'Instalar',
     install_app: 'Instalar DKP Manager',
     install_app_desc: 'Acceso rápido desde tu pantalla de inicio',
+    // Guild Status
+    guild_disbanded_title: '¡Gracias por esta temporada, Kittens!',
+    guild_disbanded_message: 'Hemos hecho disband, pero la web sigue viva — repasad el Hall of Fame y todo lo que conseguimos. ¡Mucha suerte en vuestra próxima raid!',
     // Admin
     bulk_dkp_confirm: '¿Seguro que quieres ajustar el DKP masivamente para TODOS los miembros del guild? Esta acción no se puede deshacer fácilmente.',
     // Hall of Fame
@@ -1252,6 +1255,9 @@ export const translations = {
     install: 'Install',
     install_app: 'Install DKP Manager',
     install_app_desc: 'Quick access from your home screen',
+    // Guild Status
+    guild_disbanded_title: 'Thank you for this season, Kittens!',
+    guild_disbanded_message: "We've disbanded, but the site lives on — check out the Hall of Fame and everything we achieved. Good luck in your next raid!",
     // Admin
     bulk_dkp_confirm: 'Are you sure you want to adjust DKP for ALL guild members? This action cannot be easily undone.',
     // Hall of Fame

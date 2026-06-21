@@ -8,6 +8,7 @@ import ForgotPassword from './pages/ForgotPassword'
 import ResetPassword from './pages/ResetPassword'
 import Dashboard from './pages/Dashboard'
 import OfflineBanner from './components/Common/OfflineBanner'
+import GuildDisbandedBanner from './components/Common/GuildDisbandedBanner'
 
 class ErrorBoundary extends Component {
   constructor(props) {
@@ -57,6 +58,7 @@ function App() {
 
   return (
     <ErrorBoundary>
+      <GuildDisbandedBanner />
       <OfflineBanner />
       <Routes>
         <Route path="/login" element={!isAuthenticated ? <Login /> : <Navigate to="/" />} />
